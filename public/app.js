@@ -191,10 +191,11 @@ function setMode(mode) {
     appEl.dataset.mode = mode;
 
     navBtns.forEach(btn => {
-        btn.setAttribute(
-            'aria-current',
-            btn.dataset.nav === mode ? 'page' : 'false'
-        );
+        if (btn.dataset.nav === mode) {
+            btn.setAttribute('aria-current', 'page');
+        } else {
+            btn.removeAttribute('aria-current');
+        }
     });
 
     renderItems();
