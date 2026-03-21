@@ -13,9 +13,10 @@ const STATIC_ASSETS = [
 // INSTALL: pre-cache static assets
 self.addEventListener('install', event => {
     event.waitUntil(
-        caches.open(CACHE_NAME).then(cache => cache.addAll(STATIC_ASSETS))
+        caches.open(CACHE_NAME)
+            .then(cache => cache.addAll(STATIC_ASSETS))
+            .then(() => self.skipWaiting())
     );
-    self.skipWaiting();
 });
 
 // ACTIVATE: delete stale caches, claim clients immediately
@@ -49,7 +50,7 @@ self.addEventListener('fetch', event => {
 
     // api.php GET (action=list): network-first, fallback to cached list
     if (url.pathname === '/api.php' && event.request.method === 'GET') {
-        event.respondWith(networkFirstWithClone(event.request));
+        event.respondWith(apiGetStrategy(event.request));
         return;
     }
 
@@ -65,31 +66,42 @@ async function cacheFirst(request) {
     const cached = await caches.match(request);
     if (cached) return cached;
 
-    const response = await fetch(request);
-    (await caches.open(CACHE_NAME)).put(request, response.clone());
-    return response;
+    try {
+        const response = await fetch(request);
+        if (response.ok) {
+            (await caches.open(CACHE_NAME)).put(request, response.clone());
+        }
+        return response;
+    } catch {
+        return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
+    }
 }
 
 async function networkFirst(request) {
     try {
         const response = await fetch(request);
-        (await caches.open(CACHE_NAME)).put(request, response.clone());
+        if (response.ok) {
+            (await caches.open(CACHE_NAME)).put(request, response.clone());
+        }
         return response;
     } catch {
         const cached = await caches.match(request);
         if (cached) return cached;
-        return new Response('<html><body>Offline</body></html>', {
-            headers: { 'Content-Type': 'text/html' },
+        return new Response('<!DOCTYPE html><html lang="de"><head><meta charset="UTF-8"><title>Offline</title></head><body>Offline</body></html>', {
+            headers: { 'Content-Type': 'text/html; charset=UTF-8' },
         });
     }
 }
 
-async function networkFirstWithClone(request) {
+// api.php GET: network-first with JSON fallback for offline.
+// (api.php sets Cache-Control: no-store — we clone before caching
+//  so the original response body stream is not consumed by the put() call.)
+async function apiGetStrategy(request) {
     try {
         const response = await fetch(request);
-        // api.php sets Cache-Control: no-store — clone before storing
-        // so the original response body is not consumed by the cache write.
-        (await caches.open(CACHE_NAME)).put(request, response.clone());
+        if (response.ok) {
+            (await caches.open(CACHE_NAME)).put(request, response.clone());
+        }
         return response;
     } catch {
         const cached = await caches.match(request);
