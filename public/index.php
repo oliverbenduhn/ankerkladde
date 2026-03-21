@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 require dirname(__DIR__) . '/security.php';
 
-startAppSession();
 $csrfToken = getCsrfToken();
 ?>
 <!DOCTYPE html>

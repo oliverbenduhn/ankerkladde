@@ -2,14 +2,16 @@
    TOKENS
    =========================================== */
 :root {
-    --bg:             #f5f0eb;
-    --surface:        #fffdf9;
-    --border:         #e8e0d5;
-    --text-primary:   #2c2416;
-    --text-secondary: #7a6350;
-    --text-muted:     #b0a090;
-    --accent:         #c8b89a;
-    --done-bg:        #f0ebe4;
+    --bg:               #f5f0eb;
+    --surface:          #fffdf9;
+    --border:           #e8e0d5;
+    --text-primary:     #2c2416;
+    --text-primary-dark: #3d3024;
+    --text-secondary:   #7a6350;
+    --text-muted:       #b0a090;
+    --accent:           #c8b89a;
+    --done-bg:          #f0ebe4;
+    --error:            #a05030;
 }
 
 /* ===========================================
@@ -44,6 +46,7 @@ button, input { font: inherit; }
     height: 100dvh;
     max-width: 480px;
     margin: 0 auto;
+    padding-top: env(safe-area-inset-top, 0px);
 }
 
 /* ===========================================
@@ -96,7 +99,7 @@ button, input { font: inherit; }
     transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.input-area input:focus {
+.input-area input:focus-visible {
     outline: none;
     border-color: var(--accent);
     box-shadow: 0 0 0 3px rgba(200, 184, 154, 0.2);
@@ -122,7 +125,7 @@ button, input { font: inherit; }
     transition: background 0.15s ease, transform 0.1s ease;
 }
 
-.btn-add:hover  { background: #3d3024; }
+.btn-add:hover  { background: var(--text-primary-dark); }
 .btn-add:active { transform: scale(0.94); }
 
 /* ===========================================
@@ -132,7 +135,6 @@ button, input { font: inherit; }
     flex: 1;
     overflow-y: auto;
     padding: 0 16px 16px;
-    -webkit-overflow-scrolling: touch;
 }
 
 #list {
@@ -271,7 +273,7 @@ button, input { font: inherit; }
     transition: color 0.15s ease, background 0.15s ease;
 }
 
-.btn-delete:hover { color: #a05030; background: rgba(160, 80, 48, 0.08); }
+.btn-delete:hover { color: var(--error); background: rgba(160, 80, 48, 0.08); /* --error at 8% opacity */ }
 
 /* Hidden in shopping mode */
 [data-mode="einkaufen"] .btn-delete { display: none; }
@@ -331,7 +333,7 @@ button, input { font: inherit; }
 }
 
 .message.is-visible { opacity: 1; transform: translateX(-50%) translateY(0); }
-.message.is-error   { background: #a05030; }
+.message.is-error   { background: var(--error); }
 
 /* ===========================================
    BOTTOM NAVIGATION
