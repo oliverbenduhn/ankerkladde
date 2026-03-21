@@ -13,6 +13,7 @@ const itemInput     = document.getElementById('itemInput');
 const clearDoneBtn  = document.getElementById('clearDoneBtn');
 const messageEl     = document.getElementById('message');
 const progressEl    = document.getElementById('progress');
+const quantityInput = document.getElementById('quantityInput');
 const navBtns       = document.querySelectorAll('.nav-btn');
 
 // =========================================
@@ -333,8 +334,54 @@ async function clearDone() {
 // EVENT LISTENERS
 // =========================================
 itemForm.addEventListener('submit', addItem);
+
+// Submit form when Enter is pressed in either input field
+function submitOnEnter(e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        itemForm.requestSubmit();
+    }
+}
+itemInput.addEventListener('keydown', submitOnEnter);
+quantityInput.addEventListener('keydown', submitOnEnter);
+
 clearDoneBtn.addEventListener('click', clearDone);
 navBtns.forEach(btn => btn.addEventListener('click', () => setMode(btn.dataset.nav)));
+
+// =========================================
+// PWA INSTALL PROMPT
+// =========================================
+let deferredInstallPrompt = null;
+const installBanner  = document.getElementById('installBanner');
+const installBtn     = document.getElementById('installBtn');
+const installDismiss = document.getElementById('installDismiss');
+
+window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    if (installBanner) installBanner.removeAttribute('hidden');
+});
+
+if (installBtn) {
+    installBtn.addEventListener('click', async () => {
+        if (!deferredInstallPrompt) return;
+        deferredInstallPrompt.prompt();
+        await deferredInstallPrompt.userChoice;
+        deferredInstallPrompt = null;
+        installBanner.setAttribute('hidden', '');
+    });
+}
+
+if (installDismiss) {
+    installDismiss.addEventListener('click', () => {
+        installBanner.setAttribute('hidden', '');
+    });
+}
+
+window.addEventListener('appinstalled', () => {
+    if (installBanner) installBanner.setAttribute('hidden', '');
+    deferredInstallPrompt = null;
+});
 
 // =========================================
 // INIT

@@ -21,6 +21,12 @@ $csrfToken = getCsrfToken();
 <body>
 <div class="app" id="app" data-mode="liste">
 
+    <div class="install-banner" id="installBanner" hidden>
+        <span class="install-text">App installieren?</span>
+        <button type="button" id="installBtn" class="btn-install">Installieren</button>
+        <button type="button" id="installDismiss" class="btn-install-dismiss" aria-label="Schließen">✕</button>
+    </div>
+
     <header class="app-header liste-only">
         <h1 class="app-title">Einkaufsliste</h1>
     </header>
@@ -34,9 +40,9 @@ $csrfToken = getCsrfToken();
         <form id="itemForm" novalidate>
             <input type="text" id="itemInput" name="name"
                    placeholder="Artikel..." maxlength="120"
-                   autocomplete="off" required>
+                   autocomplete="off" enterkeyhint="done" required>
             <input type="text" id="quantityInput" name="quantity"
-                   placeholder="Menge" maxlength="40" autocomplete="off">
+                   placeholder="Menge" maxlength="40" autocomplete="off" enterkeyhint="done">
             <button type="submit" class="btn-add" aria-label="Artikel hinzufügen">+</button>
         </form>
     </section>
