@@ -1,6 +1,17 @@
 <?php
 declare(strict_types=1);
 
+function getDataDirectory(): string
+{
+    $configuredDir = getenv('EINKAUF_DATA_DIR');
+
+    if (is_string($configuredDir) && trim($configuredDir) !== '') {
+        return rtrim($configuredDir, DIRECTORY_SEPARATOR);
+    }
+
+    return __DIR__ . '/data';
+}
+
 function getDatabase(): PDO
 {
     static $db = null;
@@ -9,8 +20,8 @@ function getDatabase(): PDO
         return $db;
     }
 
-    $dbFile = __DIR__ . '/data/einkaufsliste.db';
-    $dataDir = dirname($dbFile);
+    $dataDir = getDataDirectory();
+    $dbFile = $dataDir . '/einkaufsliste.db';
 
     if (!is_dir($dataDir) && !mkdir($dataDir, 0775, true) && !is_dir($dataDir)) {
         throw new RuntimeException('Datenverzeichnis konnte nicht erstellt werden.');
