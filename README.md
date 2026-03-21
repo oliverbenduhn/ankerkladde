@@ -20,6 +20,7 @@ Kleine PHP-Webanwendung für eine mobile-freundliche Einkaufsliste mit SQLite.
 - Reihenfolge der Einträge per Ziehgriff im Listenmodus verschiebbar.
 - Übersicht mit Zähler für offene und erledigte Artikel.
 - Mobile-First-Oberfläche mit größeren Touch-Zielen.
+- PWA mit gecachter App-Shell, Offline-Fallback-Seite und Update-Hinweis bei neuer Version.
 
 ## Voraussetzungen
 
@@ -55,6 +56,7 @@ Der Webserver-Prozess braucht Schreibrechte auf das Datenverzeichnis, nicht auf 
 
 ```bash
 bash scripts/smoke-test.sh
+bash scripts/test-db-migration.sh
 ```
 
 ## Produktions-Deploy mit Apache

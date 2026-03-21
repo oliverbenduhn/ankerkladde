@@ -16,6 +16,9 @@ const messageEl     = document.getElementById('message');
 const progressEl    = document.getElementById('progress');
 const quantityInput = document.getElementById('quantityInput');
 const navBtns       = document.querySelectorAll('.nav-btn');
+const networkStatusEl = document.getElementById('networkStatus');
+const updateBannerEl  = document.getElementById('updateBanner');
+const updateReloadBtn = document.getElementById('updateReloadBtn');
 
 // =========================================
 // CONSTANTS
@@ -36,6 +39,8 @@ const state = {
 
 let dragState = null;
 let dragScrollFrame = null;
+let swRefreshPending = false;
+let swRegistration = null;
 
 // =========================================
 // UTILITIES
@@ -52,6 +57,29 @@ function setMessage(text, isError = false) {
 
 function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function setNetworkStatus() {
+    if (!networkStatusEl) return;
+
+    if (navigator.onLine) {
+        networkStatusEl.setAttribute('hidden', '');
+        networkStatusEl.textContent = '';
+        return;
+    }
+
+    networkStatusEl.textContent = 'Offline: Die zuletzt geladene Liste bleibt sichtbar.';
+    networkStatusEl.removeAttribute('hidden');
+}
+
+function showUpdateBanner() {
+    if (!updateBannerEl) return;
+    updateBannerEl.removeAttribute('hidden');
+}
+
+function hideUpdateBanner() {
+    if (!updateBannerEl) return;
+    updateBannerEl.setAttribute('hidden', '');
 }
 
 function sortByPosition(items) {
@@ -709,6 +737,60 @@ window.addEventListener('appinstalled', () => {
 });
 
 // =========================================
+// NETWORK + SERVICE WORKER
+// =========================================
+async function registerServiceWorker() {
+    if (!('serviceWorker' in navigator)) return;
+
+    try {
+        swRegistration = await navigator.serviceWorker.register('/sw.js');
+
+        if (swRegistration.waiting) {
+            showUpdateBanner();
+        }
+
+        swRegistration.addEventListener('updatefound', () => {
+            const installingWorker = swRegistration.installing;
+            if (!installingWorker) return;
+
+            installingWorker.addEventListener('statechange', () => {
+                if (
+                    installingWorker.state === 'installed'
+                    && navigator.serviceWorker.controller
+                ) {
+                    showUpdateBanner();
+                }
+            });
+        });
+
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+            if (swRefreshPending) return;
+            swRefreshPending = true;
+            window.location.reload();
+        });
+    } catch (err) {
+        console.error('Service Worker registration failed', err);
+    }
+}
+
+if (updateReloadBtn) {
+    updateReloadBtn.addEventListener('click', () => {
+        if (swRegistration && swRegistration.waiting) {
+            swRegistration.waiting.postMessage({ type: 'SKIP_WAITING' });
+            return;
+        }
+
+        hideUpdateBanner();
+        window.location.reload();
+    });
+}
+
+window.addEventListener('online', setNetworkStatus);
+window.addEventListener('offline', setNetworkStatus);
+
+// =========================================
 // INIT
 // =========================================
+setNetworkStatus();
+registerServiceWorker();
 loadItems();

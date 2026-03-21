@@ -1,115 +1,143 @@
 'use strict';
 
-const CACHE_NAME = 'einkauf-v1';
+const VERSION = 'v2';
+const STATIC_CACHE = `einkauf-static-${VERSION}`;
+const RUNTIME_CACHE = `einkauf-runtime-${VERSION}`;
 
-const STATIC_ASSETS = [
+const APP_SHELL_ASSETS = [
+    '/offline.html',
     '/style.css',
     '/app.js',
     '/manifest.json',
+    '/icons/icon.svg',
     '/icons/icon-192.png',
     '/icons/icon-512.png',
 ];
 
-// INSTALL: pre-cache static assets
 self.addEventListener('install', event => {
     event.waitUntil(
-        caches.open(CACHE_NAME)
-            .then(cache => cache.addAll(STATIC_ASSETS))
+        caches.open(STATIC_CACHE)
+            .then(cache => cache.addAll(APP_SHELL_ASSETS))
             .then(() => self.skipWaiting())
     );
 });
 
-// ACTIVATE: delete stale caches, claim clients immediately
 self.addEventListener('activate', event => {
-    event.waitUntil(
-        caches.keys()
-            .then(keys =>
-                Promise.all(
-                    keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key))
-                )
-            )
-            .then(() => self.clients.claim())
-    );
+    event.waitUntil((async () => {
+        const keys = await caches.keys();
+        await Promise.all(
+            keys
+                .filter(key => key !== STATIC_CACHE && key !== RUNTIME_CACHE)
+                .map(key => caches.delete(key))
+        );
+
+        await self.clients.claim();
+    })());
 });
 
-// FETCH: per-resource strategy
+self.addEventListener('message', event => {
+    if (event.data && event.data.type === 'SKIP_WAITING') {
+        self.skipWaiting();
+    }
+});
+
 self.addEventListener('fetch', event => {
-    const url = new URL(event.request.url);
+    const request = event.request;
+    const url = new URL(request.url);
+
     if (url.origin !== self.location.origin) return;
 
-    // Static assets: cache-first
-    if (STATIC_ASSETS.some(asset => url.pathname === asset)) {
-        event.respondWith(cacheFirst(event.request));
+    if (request.mode === 'navigate') {
+        event.respondWith(handleNavigationRequest(request));
         return;
     }
 
-    // index.php: network-first (CSRF token must always be fresh from session)
-    if (url.pathname === '/' || url.pathname === '/index.php') {
-        event.respondWith(networkFirst(event.request));
+    if (request.method !== 'GET') {
         return;
     }
 
-    // api.php GET (action=list): network-first, fallback to cached list
-    if (url.pathname === '/api.php' && event.request.method === 'GET') {
-        event.respondWith(apiGetStrategy(event.request));
+    if (APP_SHELL_ASSETS.includes(url.pathname)) {
+        event.respondWith(staleWhileRevalidate(request, STATIC_CACHE));
         return;
     }
 
-    // api.php POST (toggle, add, delete, clear):
-    // Pass through unmodified. Fetch failures propagate to app.js,
-    // which reverts the optimistic UI update and shows the offline message.
-    // Never cache POST requests.
+    if (url.pathname === '/api.php') {
+        event.respondWith(apiGetStrategy(request));
+    }
 });
 
-// STRATEGY HELPERS
-
-async function cacheFirst(request) {
-    const cached = await caches.match(request);
-    if (cached) return cached;
-
+async function handleNavigationRequest(request) {
     try {
         const response = await fetch(request);
-        if (response.ok) {
-            (await caches.open(CACHE_NAME)).put(request, response.clone());
-        }
-        return response;
-    } catch {
-        return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
-    }
-}
 
-async function networkFirst(request) {
-    try {
-        const response = await fetch(request);
         if (response.ok) {
-            (await caches.open(CACHE_NAME)).put(request, response.clone());
+            const cache = await caches.open(RUNTIME_CACHE);
+            await cache.put(request, response.clone());
         }
+
         return response;
     } catch {
-        const cached = await caches.match(request);
-        if (cached) return cached;
-        return new Response('<!DOCTYPE html><html lang="de"><head><meta charset="UTF-8"><title>Offline</title></head><body>Offline</body></html>', {
-            headers: { 'Content-Type': 'text/html; charset=UTF-8' },
+        const cachedPage = await caches.match(request);
+        if (cachedPage) return cachedPage;
+
+        const offlinePage = await caches.match('/offline.html');
+        if (offlinePage) return offlinePage;
+
+        return new Response('Offline', {
+            status: 503,
+            statusText: 'Service Unavailable',
+            headers: { 'Content-Type': 'text/plain; charset=UTF-8' },
         });
     }
 }
 
-// api.php GET: network-first with JSON fallback for offline.
-// (api.php sets Cache-Control: no-store — we clone before caching
-//  so the original response body stream is not consumed by the put() call.)
+async function staleWhileRevalidate(request, cacheName) {
+    const cache = await caches.open(cacheName);
+    const cached = await cache.match(request);
+
+    const networkPromise = fetch(request)
+        .then(response => {
+            if (response.ok) {
+                cache.put(request, response.clone());
+            }
+            return response;
+        })
+        .catch(() => null);
+
+    if (cached) {
+        return cached;
+    }
+
+    const networkResponse = await networkPromise;
+    if (networkResponse) {
+        return networkResponse;
+    }
+
+    return new Response('Offline', {
+        status: 503,
+        statusText: 'Service Unavailable',
+    });
+}
+
 async function apiGetStrategy(request) {
     try {
         const response = await fetch(request);
+
         if (response.ok) {
-            (await caches.open(CACHE_NAME)).put(request, response.clone());
+            const cache = await caches.open(RUNTIME_CACHE);
+            await cache.put(request, response.clone());
         }
+
         return response;
     } catch {
         const cached = await caches.match(request);
         if (cached) return cached;
-        // Offline with no cache: return empty list so app renders gracefully
-        return new Response(JSON.stringify({ items: [] }), {
-            headers: { 'Content-Type': 'application/json' },
+
+        return new Response(JSON.stringify({
+            items: [],
+            offline: true,
+        }), {
+            headers: { 'Content-Type': 'application/json; charset=UTF-8' },
         });
     }
 }

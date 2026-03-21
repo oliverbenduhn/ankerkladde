@@ -50,8 +50,12 @@ ADD_BODY="$TMP_DIR/add.json"
 ADD_SECOND_BODY="$TMP_DIR/add-second.json"
 REORDER_BODY="$TMP_DIR/reorder.json"
 REORDERED_LIST_BODY="$TMP_DIR/reordered-list.json"
+INVALID_REORDER_BODY="$TMP_DIR/reorder-invalid.json"
+DUPLICATE_REORDER_BODY="$TMP_DIR/reorder-duplicate.json"
 TOGGLE_BODY="$TMP_DIR/toggle.json"
+POST_TOGGLE_LIST_BODY="$TMP_DIR/post-toggle-list.json"
 CLEAR_BODY="$TMP_DIR/clear.json"
+POST_CLEAR_LIST_BODY="$TMP_DIR/post-clear-list.json"
 FORBIDDEN_BODY="$TMP_DIR/forbidden.json"
 NOT_FOUND_BODY="$TMP_DIR/not-found.txt"
 
@@ -80,6 +84,12 @@ fi
 [[ "$(status_code "$REORDER_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST -d "ids[]=$SECOND_ITEM_ID&ids[]=$ITEM_ID" "http://127.0.0.1:$PORT/api.php?action=reorder")" == "200" ]]
 grep -q 'Reihenfolge aktualisiert' "$REORDER_BODY"
 
+[[ "$(status_code "$INVALID_REORDER_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST -d "ids[]=$SECOND_ITEM_ID" "http://127.0.0.1:$PORT/api.php?action=reorder")" == "422" ]]
+grep -q 'Reihenfolge passt nicht zur aktuellen Liste' "$INVALID_REORDER_BODY"
+
+[[ "$(status_code "$DUPLICATE_REORDER_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST -d "ids[]=$SECOND_ITEM_ID&ids[]=$SECOND_ITEM_ID" "http://127.0.0.1:$PORT/api.php?action=reorder")" == "422" ]]
+grep -q 'Ungültige Reihenfolge' "$DUPLICATE_REORDER_BODY"
+
 [[ "$(status_code "$REORDERED_LIST_BODY" "http://127.0.0.1:$PORT/api.php?action=list")" == "200" ]]
 
 SECOND_POS="$(grep -bo "\"id\":$SECOND_ITEM_ID" "$REORDERED_LIST_BODY" | head -n 1 | cut -d: -f1)"
@@ -93,8 +103,24 @@ fi
 [[ "$(status_code "$TOGGLE_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST -d "id=$ITEM_ID&done=1" "http://127.0.0.1:$PORT/api.php?action=toggle")" == "200" ]]
 grep -q 'Status aktualisiert' "$TOGGLE_BODY"
 
+[[ "$(status_code "$POST_TOGGLE_LIST_BODY" "http://127.0.0.1:$PORT/api.php?action=list")" == "200" ]]
+SECOND_POS="$(grep -bo "\"id\":$SECOND_ITEM_ID" "$POST_TOGGLE_LIST_BODY" | head -n 1 | cut -d: -f1)"
+FIRST_POS="$(grep -bo "\"id\":$ITEM_ID" "$POST_TOGGLE_LIST_BODY" | head -n 1 | cut -d: -f1)"
+
+if [[ -z "$SECOND_POS" || -z "$FIRST_POS" || "$SECOND_POS" -ge "$FIRST_POS" ]]; then
+    echo "Reihenfolge blieb nach dem Toggle nicht stabil." >&2
+    exit 1
+fi
+
 [[ "$(status_code "$CLEAR_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST "http://127.0.0.1:$PORT/api.php?action=clear")" == "200" ]]
 grep -q '"deleted":1' "$CLEAR_BODY"
+
+[[ "$(status_code "$POST_CLEAR_LIST_BODY" "http://127.0.0.1:$PORT/api.php?action=list")" == "200" ]]
+grep -q "\"id\":$SECOND_ITEM_ID" "$POST_CLEAR_LIST_BODY"
+if grep -q "\"id\":$ITEM_ID" "$POST_CLEAR_LIST_BODY"; then
+    echo "Erledigter Artikel wurde durch clear nicht entfernt." >&2
+    exit 1
+fi
 
 [[ "$(status_code "$NOT_FOUND_BODY" "http://127.0.0.1:$PORT/data/einkaufsliste.db")" == "404" ]]
 [[ "$(status_code "$NOT_FOUND_BODY" "http://127.0.0.1:$PORT/.git/config")" == "404" ]]

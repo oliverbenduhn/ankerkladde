@@ -27,6 +27,13 @@ $csrfToken = getCsrfToken();
         <button type="button" id="installDismiss" class="btn-install-dismiss" aria-label="Schließen">✕</button>
     </div>
 
+    <div class="status-banner" id="networkStatus" hidden aria-live="polite"></div>
+
+    <div class="update-banner" id="updateBanner" hidden>
+        <span class="update-text">Neue Version verfügbar.</span>
+        <button type="button" id="updateReloadBtn" class="btn-update-reload">Neu laden</button>
+    </div>
+
     <header class="app-header liste-only">
         <h1 class="app-title">Einkaufsliste</h1>
     </header>
@@ -70,10 +77,5 @@ $csrfToken = getCsrfToken();
 </div>
 
 <script src="/app.js"></script>
-<script>
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/sw.js');
-    }
-</script>
 </body>
 </html>

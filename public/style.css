@@ -472,6 +472,53 @@ button, input { font: inherit; }
 
 .install-banner[hidden] { display: none; }
 
+.status-banner,
+.update-banner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    border-bottom: 1.5px solid var(--border);
+    flex-shrink: 0;
+}
+
+.status-banner {
+    background: #efe7dc;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+}
+
+.status-banner[hidden],
+.update-banner[hidden] {
+    display: none;
+}
+
+.update-banner {
+    background: var(--surface);
+}
+
+.update-text {
+    flex: 1;
+    font-size: 0.875rem;
+    color: var(--text-primary);
+}
+
+.btn-update-reload {
+    padding: 6px 14px;
+    background: var(--text-primary);
+    color: var(--surface);
+    border: none;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: background 0.15s ease;
+}
+
+.btn-update-reload:hover { background: var(--text-primary-dark); }
+
 .install-text {
     flex: 1;
     font-size: 0.875rem;
