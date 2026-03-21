@@ -29,6 +29,11 @@ body {
     -webkit-tap-highlight-color: transparent;
 }
 
+body.is-sorting {
+    user-select: none;
+    cursor: grabbing;
+}
+
 button, input { font: inherit; }
 
 :focus-visible {
@@ -161,6 +166,13 @@ button, input { font: inherit; }
     transition: opacity 0.2s ease, background 0.2s ease;
 }
 
+.item-card.is-dragging {
+    opacity: 0.96;
+    border-color: var(--accent);
+    box-shadow: 0 14px 28px rgba(44, 36, 22, 0.16);
+    animation: none;
+}
+
 .item-card.done {
     background: var(--done-bg);
     border-color: transparent;
@@ -171,6 +183,12 @@ button, input { font: inherit; }
     opacity: 0;
     transform: translateX(12px);
     transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.drag-placeholder {
+    background: rgba(200, 184, 154, 0.12);
+    border: 1.5px dashed var(--accent);
+    animation: none;
 }
 
 /* Shopping mode: larger tap targets */
@@ -203,6 +221,11 @@ button, input { font: inherit; }
     font-size: 13px;
     color: var(--surface);
     line-height: 1;
+}
+
+.toggle:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
 }
 
 [data-mode="einkaufen"] .toggle {
@@ -252,6 +275,58 @@ button, input { font: inherit; }
     white-space: nowrap;
 }
 
+.item-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+.btn-drag-handle {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    padding: 0;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: grab;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    touch-action: none;
+    transition: color 0.15s ease, background 0.15s ease;
+}
+
+.btn-drag-handle::before {
+    content: "";
+    width: 4px;
+    height: 4px;
+    border-radius: 999px;
+    background: currentColor;
+    box-shadow:
+        8px 0 0 currentColor,
+        0 8px 0 currentColor,
+        8px 8px 0 currentColor,
+        0 16px 0 currentColor,
+        8px 16px 0 currentColor;
+}
+
+.btn-drag-handle:hover {
+    color: var(--text-secondary);
+    background: rgba(200, 184, 154, 0.12);
+}
+
+.btn-drag-handle:active { cursor: grabbing; }
+
+.btn-drag-handle:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
 /* ===========================================
    DELETE BUTTON
    =========================================== */
@@ -274,8 +349,10 @@ button, input { font: inherit; }
 }
 
 .btn-delete:hover { color: var(--error); background: rgba(160, 80, 48, 0.08); /* --error at 8% opacity */ }
+.btn-delete:disabled { opacity: 0.35; cursor: not-allowed; }
 
 /* Hidden in shopping mode */
+[data-mode="einkaufen"] .btn-drag-handle { display: none; }
 [data-mode="einkaufen"] .btn-delete { display: none; }
 
 /* ===========================================

@@ -65,6 +65,33 @@ function normalizeQuantity(?string $quantity): string
     return mb_substr($quantity, 0, 40);
 }
 
+function normalizeIdList(mixed $ids): array
+{
+    if (!is_array($ids) || $ids === []) {
+        return [];
+    }
+
+    $normalized = [];
+
+    foreach ($ids as $rawId) {
+        $id = filter_var($rawId, FILTER_VALIDATE_INT, [
+            'options' => ['min_range' => 1],
+        ]);
+
+        if ($id === false || $id === null) {
+            return [];
+        }
+
+        $normalized[] = (int) $id;
+    }
+
+    if (count(array_unique($normalized)) !== count($normalized)) {
+        return [];
+    }
+
+    return $normalized;
+}
+
 $action = $_GET['action'] ?? 'list';
 $db = getDatabase();
 
@@ -74,9 +101,9 @@ try {
             requireMethod('GET');
 
             $stmt = $db->query(
-                'SELECT id, name, quantity, done, created_at, updated_at
+                'SELECT id, name, quantity, done, sort_order, created_at, updated_at
                  FROM items
-                 ORDER BY done ASC, updated_at DESC, id DESC'
+                 ORDER BY sort_order ASC, id ASC'
             );
 
             respond(200, ['items' => $stmt->fetchAll()]);
@@ -94,7 +121,12 @@ try {
             }
 
             $stmt = $db->prepare(
-                'INSERT INTO items (name, quantity) VALUES (:name, :quantity)'
+                'INSERT INTO items (name, quantity, sort_order)
+                 VALUES (
+                    :name,
+                    :quantity,
+                    (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM items)
+                 )'
             );
             $stmt->execute([
                 ':name' => $name,
@@ -164,10 +196,58 @@ try {
                 'deleted' => (int) $deletedCount,
             ]);
 
+        case 'reorder':
+            requireMethod('POST');
+
+            $data = requestData();
+            requireCsrfToken($data);
+            $ids = normalizeIdList($data['ids'] ?? null);
+
+            if ($ids === []) {
+                respond(422, ['error' => 'Ungültige Reihenfolge.']);
+            }
+
+            $existingIds = array_map(
+                static fn(mixed $id): int => (int) $id,
+                $db->query('SELECT id FROM items ORDER BY sort_order ASC, id ASC')->fetchAll(PDO::FETCH_COLUMN)
+            );
+
+            sort($ids);
+            $sortedExistingIds = $existingIds;
+            sort($sortedExistingIds);
+
+            if ($ids !== $sortedExistingIds) {
+                respond(422, ['error' => 'Reihenfolge passt nicht zur aktuellen Liste.']);
+            }
+
+            $orderedIds = normalizeIdList($data['ids'] ?? null);
+            $stmt = $db->prepare(
+                'UPDATE items
+                 SET sort_order = :sort_order, updated_at = CURRENT_TIMESTAMP
+                 WHERE id = :id'
+            );
+
+            $db->beginTransaction();
+
+            foreach ($orderedIds as $index => $id) {
+                $stmt->execute([
+                    ':sort_order' => $index + 1,
+                    ':id' => $id,
+                ]);
+            }
+
+            $db->commit();
+
+            respond(200, ['message' => 'Reihenfolge aktualisiert.']);
+
         default:
             respond(404, ['error' => 'Unbekannte Aktion.']);
     }
 } catch (Throwable $exception) {
+    if ($db instanceof PDO && $db->inTransaction()) {
+        $db->rollBack();
+    }
+
     error_log(sprintf('Einkauf API error [%s]: %s', (string) $action, (string) $exception));
     respond(500, ['error' => 'Serverfehler.']);
 }

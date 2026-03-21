@@ -5,7 +5,7 @@ Kleine PHP-Webanwendung für eine mobile-freundliche Einkaufsliste mit SQLite.
 ## Enthaltene Dateien
 
 - `public/index.php`: Oberfläche zum Verwalten der Einkaufsliste.
-- `public/api.php`: JSON-API für Laden, Anlegen, Umschalten, Löschen und Leeren erledigter Einträge.
+- `public/api.php`: JSON-API für Laden, Anlegen, Umschalten, Löschen, Umsortieren und Leeren erledigter Einträge.
 - `db.php`: Initialisiert die SQLite-Datenbank außerhalb des Webroots im Ordner `data/`.
 - `security.php`: Session- und CSRF-Helfer für die Weboberfläche und API.
 
@@ -17,6 +17,7 @@ Kleine PHP-Webanwendung für eine mobile-freundliche Einkaufsliste mit SQLite.
 - Schreibende API-Aktionen verwenden `POST` statt zustandsverändernder `GET`-Requests.
 - Schreibende API-Aktionen verlangen ein CSRF-Token aus der Session.
 - Optionales Feld für Mengenangaben.
+- Reihenfolge der Einträge per Ziehgriff im Listenmodus verschiebbar.
 - Übersicht mit Zähler für offene und erledigte Artikel.
 - Mobile-First-Oberfläche mit größeren Touch-Zielen.
 

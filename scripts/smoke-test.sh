@@ -47,6 +47,9 @@ status_code() {
 
 LIST_BODY="$TMP_DIR/list.json"
 ADD_BODY="$TMP_DIR/add.json"
+ADD_SECOND_BODY="$TMP_DIR/add-second.json"
+REORDER_BODY="$TMP_DIR/reorder.json"
+REORDERED_LIST_BODY="$TMP_DIR/reordered-list.json"
 TOGGLE_BODY="$TMP_DIR/toggle.json"
 CLEAR_BODY="$TMP_DIR/clear.json"
 FORBIDDEN_BODY="$TMP_DIR/forbidden.json"
@@ -63,6 +66,27 @@ ITEM_ID="$(sed -n 's/.*"id":\([0-9][0-9]*\).*/\1/p' "$ADD_BODY" | head -n 1)"
 
 if [[ -z "$ITEM_ID" ]]; then
     echo "Artikel-ID konnte nicht aus der Add-Antwort gelesen werden." >&2
+    exit 1
+fi
+
+[[ "$(status_code "$ADD_SECOND_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST -d 'name=Brot&quantity=1' "http://127.0.0.1:$PORT/api.php?action=add")" == "201" ]]
+SECOND_ITEM_ID="$(sed -n 's/.*"id":\([0-9][0-9]*\).*/\1/p' "$ADD_SECOND_BODY" | head -n 1)"
+
+if [[ -z "$SECOND_ITEM_ID" ]]; then
+    echo "Zweite Artikel-ID konnte nicht aus der Add-Antwort gelesen werden." >&2
+    exit 1
+fi
+
+[[ "$(status_code "$REORDER_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST -d "ids[]=$SECOND_ITEM_ID&ids[]=$ITEM_ID" "http://127.0.0.1:$PORT/api.php?action=reorder")" == "200" ]]
+grep -q 'Reihenfolge aktualisiert' "$REORDER_BODY"
+
+[[ "$(status_code "$REORDERED_LIST_BODY" "http://127.0.0.1:$PORT/api.php?action=list")" == "200" ]]
+
+SECOND_POS="$(grep -bo "\"id\":$SECOND_ITEM_ID" "$REORDERED_LIST_BODY" | head -n 1 | cut -d: -f1)"
+FIRST_POS="$(grep -bo "\"id\":$ITEM_ID" "$REORDERED_LIST_BODY" | head -n 1 | cut -d: -f1)"
+
+if [[ -z "$SECOND_POS" || -z "$FIRST_POS" || "$SECOND_POS" -ge "$FIRST_POS" ]]; then
+    echo "Neu sortierte Reihenfolge wurde nicht korrekt gespeichert." >&2
     exit 1
 fi
 

@@ -12,6 +12,24 @@ function getDataDirectory(): string
     return __DIR__ . '/data';
 }
 
+function rebuildSortOrder(PDO $db): void
+{
+    $ids = $db->query(
+        'SELECT id
+         FROM items
+         ORDER BY done ASC, updated_at DESC, id DESC'
+    )->fetchAll(PDO::FETCH_COLUMN);
+
+    $stmt = $db->prepare('UPDATE items SET sort_order = :sort_order WHERE id = :id');
+
+    foreach ($ids as $index => $id) {
+        $stmt->execute([
+            ':sort_order' => $index + 1,
+            ':id' => (int) $id,
+        ]);
+    }
+}
+
 function getDatabase(): PDO
 {
     static $db = null;
@@ -47,6 +65,27 @@ function getDatabase(): PDO
 
     if (!in_array('quantity', $columnNames, true)) {
         $db->exec("ALTER TABLE items ADD COLUMN quantity TEXT NOT NULL DEFAULT ''");
+    }
+
+    if (!in_array('sort_order', $columnNames, true)) {
+        $db->exec("ALTER TABLE items ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0");
+        rebuildSortOrder($db);
+    } else {
+        $stats = $db->query(
+            'SELECT
+                COUNT(*) AS total,
+                COUNT(DISTINCT sort_order) AS distinct_count,
+                MIN(sort_order) AS min_sort_order
+             FROM items'
+        )->fetch();
+
+        $total = (int) ($stats['total'] ?? 0);
+        $distinctCount = (int) ($stats['distinct_count'] ?? 0);
+        $minSortOrder = (int) ($stats['min_sort_order'] ?? 0);
+
+        if ($total > 0 && ($distinctCount !== $total || $minSortOrder < 1)) {
+            rebuildSortOrder($db);
+        }
     }
 
     return $db;
