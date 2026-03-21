@@ -107,7 +107,7 @@ button, input { font: inherit; }
 
 .input-area input::placeholder { color: var(--text-muted); }
 
-.input-area input[name="quantity"] { flex: 0 0 72px; }
+.input-area input[name="quantity"] { flex: 0 0 100px; }
 
 .btn-add {
     min-width: 48px;
