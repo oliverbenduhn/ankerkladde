@@ -3,7 +3,9 @@
 // =========================================
 // DOM REFERENCES
 // =========================================
-const csrfToken     = document.querySelector('meta[name="csrf-token"]').content;
+const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+if (!csrfMeta) throw new Error('csrf-token meta tag missing — page may be stale, please reload.');
+const csrfToken     = csrfMeta.content;
 const appEl         = document.getElementById('app');
 const listEl        = document.getElementById('list');
 const itemForm      = document.getElementById('itemForm');
@@ -12,6 +14,11 @@ const clearDoneBtn  = document.getElementById('clearDoneBtn');
 const messageEl     = document.getElementById('message');
 const progressEl    = document.getElementById('progress');
 const navBtns       = document.querySelectorAll('.nav-btn');
+
+// =========================================
+// CONSTANTS
+// =========================================
+const DELETE_ANIM_MS = 180;
 
 // =========================================
 // STATE
@@ -96,7 +103,7 @@ function playFlip(oldMap) {
 // element.setAttribute (aria-label). No string is concatenated into HTML.
 // =========================================
 function buildItemNode(item) {
-    const isDone = Number(item.done) === 1;
+    const isDone = item.done === 1;
 
     const li = document.createElement('li');
     li.className = `item-card ${isDone ? 'done' : 'open'}`;
@@ -108,7 +115,7 @@ function buildItemNode(item) {
     checkbox.className = 'toggle';
     checkbox.checked   = isDone;
     checkbox.setAttribute('aria-label', `${item.name} umschalten`);
-    checkbox.addEventListener('change', () => handleToggle(item.id, isDone ? 1 : 0));
+    checkbox.addEventListener('change', () => handleToggle(item.id));
 
     // Content wrapper
     const content = document.createElement('div');
@@ -146,7 +153,7 @@ function buildItemNode(item) {
 // =========================================
 function renderItems() {
     const items      = state.items;
-    const doneCount  = items.filter(i => Number(i.done) === 1).length;
+    const doneCount  = items.filter(i => i.done === 1).length;
     const totalCount = items.length;
 
     progressEl.textContent  = `${doneCount} / ${totalCount}`;
@@ -167,7 +174,7 @@ function renderItems() {
     }
 
     // Empty state: all done (Einkaufen mode only)
-    if (state.mode === 'einkaufen' && items.every(i => Number(i.done) === 1)) {
+    if (state.mode === 'einkaufen' && items.every(i => i.done === 1)) {
         const li = document.createElement('li');
         li.className   = 'empty-state';
         li.textContent = 'Alles erledigt 🎉';
@@ -176,7 +183,7 @@ function renderItems() {
     }
 
     // Sort: open first, done last (stable)
-    const sorted = [...items].sort((a, b) => Number(a.done) - Number(b.done));
+    const sorted = [...items].sort((a, b) => a.done - b.done);
 
     const fragment = document.createDocumentFragment();
     sorted.forEach(item => fragment.appendChild(buildItemNode(item)));
@@ -231,7 +238,7 @@ async function api(action, options = {}) {
 async function loadItems() {
     try {
         const payload = await api('list');
-        state.items   = payload.items || [];
+        state.items   = (payload.items || []).map(i => ({ ...i, done: Number(i.done) }));
         renderItems();
     } catch (err) {
         setMessage(err.message, true);
@@ -244,7 +251,8 @@ async function loadItems() {
 async function addItem(event) {
     event.preventDefault();
     const formData = new FormData(itemForm);
-
+    const submitBtn = itemForm.querySelector('[type="submit"]');
+    submitBtn.disabled = true;
     try {
         await api('add', { method: 'POST', body: new URLSearchParams(formData) });
         itemForm.reset();
@@ -253,20 +261,22 @@ async function addItem(event) {
         setMessage('Artikel hinzugefügt.');
     } catch (err) {
         setMessage(err.message, true);
+    } finally {
+        submitBtn.disabled = false;
     }
 }
 
-async function handleToggle(id, currentDone) {
-    // currentDone: 1 = currently done, 0 = currently open
-    if (state.pendingIds.has(id)) return;
+async function handleToggle(id) {
+    const item = state.items.find(i => i.id === id);
+    if (!item || state.pendingIds.has(id)) return;
     state.pendingIds.add(id);
 
+    const currentDone = Number(item.done);
     const newDone = currentDone === 1 ? 0 : 1;
-    const item    = state.items.find(i => i.id === id);
 
     // Optimistic update + FLIP
-    if (item) item.done = newDone;
     const oldPositions = capturePositions();
+    item.done = newDone;
     renderItems();
     playFlip(oldPositions);
 
@@ -277,7 +287,7 @@ async function handleToggle(id, currentDone) {
         });
     } catch (err) {
         // Revert: restore original done state and re-render
-        if (item) item.done = currentDone;
+        item.done = currentDone;
         renderItems();
         setMessage('Offline — Änderung konnte nicht gespeichert werden', true);
     } finally {
@@ -292,7 +302,7 @@ async function handleDelete(id) {
     const card = listEl.querySelector(`[data-item-id="${id}"]`);
     if (card) {
         card.classList.add('is-removing');
-        await delay(180);
+        await delay(DELETE_ANIM_MS);
     }
 
     try {
@@ -308,12 +318,14 @@ async function handleDelete(id) {
 }
 
 async function clearDone() {
+    clearDoneBtn.disabled = true;
     try {
         await api('clear', { method: 'POST' });
         await loadItems();
         setMessage('Erledigte Artikel entfernt.');
     } catch (err) {
         setMessage(err.message, true);
+        clearDoneBtn.disabled = false;
     }
 }
 
