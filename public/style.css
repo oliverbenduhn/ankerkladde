@@ -382,6 +382,62 @@ button, input { font: inherit; }
 }
 
 /* ===========================================
+   PWA INSTALL BANNER
+   =========================================== */
+.install-banner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    background: var(--surface);
+    border-bottom: 1.5px solid var(--border);
+    flex-shrink: 0;
+}
+
+.install-banner[hidden] { display: none; }
+
+.install-text {
+    flex: 1;
+    font-size: 0.875rem;
+    color: var(--text-primary);
+}
+
+.btn-install {
+    padding: 6px 14px;
+    background: var(--text-primary);
+    color: var(--surface);
+    border: none;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: background 0.15s ease;
+}
+
+.btn-install:hover { background: var(--text-primary-dark); }
+
+.btn-install-dismiss {
+    min-width: 32px;
+    min-height: 32px;
+    padding: 0;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-radius: 6px;
+    font-size: 1.1rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: color 0.15s ease;
+}
+
+.btn-install-dismiss:hover { color: var(--text-primary); }
+
+/* ===========================================
    REDUCED MOTION
    =========================================== */
 @media (prefers-reduced-motion: reduce) {
