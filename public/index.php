@@ -42,7 +42,7 @@ $csrfToken = getCsrfToken();
     </section>
 
     <main class="list-area">
-        <ul id="list" aria-live="polite" aria-label="Einkaufsliste"></ul>
+        <ul id="list" aria-label="Einkaufsliste"></ul>
         <button type="button" class="btn-clear liste-only"
                 id="clearDoneBtn" disabled>Erledigte löschen</button>
     </main>

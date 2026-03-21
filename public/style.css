@@ -256,8 +256,8 @@ button, input { font: inherit; }
    DELETE BUTTON
    =========================================== */
 .btn-delete {
-    min-width: 36px;
-    min-height: 36px;
+    min-width: 44px;
+    min-height: 44px;
     padding: 0;
     background: none;
     border: none;
