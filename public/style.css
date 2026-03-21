@@ -303,16 +303,15 @@ button, input { font: inherit; }
 
 .btn-drag-handle::before {
     content: "";
-    width: 4px;
-    height: 4px;
-    border-radius: 999px;
-    background: currentColor;
-    box-shadow:
-        8px 0 0 currentColor,
-        0 8px 0 currentColor,
-        8px 8px 0 currentColor,
-        0 16px 0 currentColor,
-        8px 16px 0 currentColor;
+    width: 12px;
+    height: 20px;
+    background:
+        radial-gradient(circle at 2px 2px, currentColor 0 2px, transparent 2.2px),
+        radial-gradient(circle at 10px 2px, currentColor 0 2px, transparent 2.2px),
+        radial-gradient(circle at 2px 10px, currentColor 0 2px, transparent 2.2px),
+        radial-gradient(circle at 10px 10px, currentColor 0 2px, transparent 2.2px),
+        radial-gradient(circle at 2px 18px, currentColor 0 2px, transparent 2.2px),
+        radial-gradient(circle at 10px 18px, currentColor 0 2px, transparent 2.2px);
 }
 
 .btn-drag-handle:hover {
