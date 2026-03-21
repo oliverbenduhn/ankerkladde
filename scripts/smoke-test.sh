@@ -52,6 +52,8 @@ REORDER_BODY="$TMP_DIR/reorder.json"
 REORDERED_LIST_BODY="$TMP_DIR/reordered-list.json"
 INVALID_REORDER_BODY="$TMP_DIR/reorder-invalid.json"
 DUPLICATE_REORDER_BODY="$TMP_DIR/reorder-duplicate.json"
+UPDATE_BODY="$TMP_DIR/update.json"
+INVALID_UPDATE_BODY="$TMP_DIR/update-invalid.json"
 TOGGLE_BODY="$TMP_DIR/toggle.json"
 POST_TOGGLE_LIST_BODY="$TMP_DIR/post-toggle-list.json"
 CLEAR_BODY="$TMP_DIR/clear.json"
@@ -99,6 +101,16 @@ if [[ -z "$SECOND_POS" || -z "$FIRST_POS" || "$SECOND_POS" -ge "$FIRST_POS" ]]; 
     echo "Neu sortierte Reihenfolge wurde nicht korrekt gespeichert." >&2
     exit 1
 fi
+
+[[ "$(status_code "$UPDATE_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST -d "id=$ITEM_ID&name=Hafermilch&quantity=3x" "http://127.0.0.1:$PORT/api.php?action=update")" == "200" ]]
+grep -q 'Artikel aktualisiert' "$UPDATE_BODY"
+
+[[ "$(status_code "$INVALID_UPDATE_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST -d "id=$ITEM_ID&name=   &quantity=1" "http://127.0.0.1:$PORT/api.php?action=update")" == "422" ]]
+grep -q 'Bitte gib einen Artikelnamen ein' "$INVALID_UPDATE_BODY"
+
+[[ "$(status_code "$REORDERED_LIST_BODY" "http://127.0.0.1:$PORT/api.php?action=list")" == "200" ]]
+grep -q "\"name\":\"Hafermilch\"" "$REORDERED_LIST_BODY"
+grep -q "\"quantity\":\"3x\"" "$REORDERED_LIST_BODY"
 
 [[ "$(status_code "$TOGGLE_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST -d "id=$ITEM_ID&done=1" "http://127.0.0.1:$PORT/api.php?action=toggle")" == "200" ]]
 grep -q 'Status aktualisiert' "$TOGGLE_BODY"

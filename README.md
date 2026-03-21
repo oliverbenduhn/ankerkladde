@@ -17,6 +17,7 @@ Kleine PHP-Webanwendung für eine mobile-freundliche Einkaufsliste mit SQLite.
 - Schreibende API-Aktionen verwenden `POST` statt zustandsverändernder `GET`-Requests.
 - Schreibende API-Aktionen verlangen ein CSRF-Token aus der Session.
 - Optionales Feld für Mengenangaben.
+- Artikel lassen sich im Listenmodus direkt bearbeiten.
 - Reihenfolge der Einträge per Ziehgriff im Listenmodus verschiebbar.
 - Übersicht mit Zähler für offene und erledigte Artikel.
 - Mobile-First-Oberfläche mit größeren Touch-Zielen.

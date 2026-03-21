@@ -167,10 +167,19 @@ button, input { font: inherit; }
 }
 
 .item-card.is-dragging {
-    opacity: 0.96;
+    opacity: 0.98;
     border-color: var(--accent);
-    box-shadow: 0 14px 28px rgba(44, 36, 22, 0.16);
+    box-shadow: 0 18px 36px rgba(44, 36, 22, 0.22);
     animation: none;
+    transform: scale(1.01) rotate(-0.4deg);
+}
+
+.item-card.is-editing {
+    align-items: flex-start;
+    background: #fffaf2;
+    border-color: var(--accent);
+    box-shadow: 0 10px 22px rgba(44, 36, 22, 0.08);
+    opacity: 1;
 }
 
 .item-card.done {
@@ -186,9 +195,41 @@ button, input { font: inherit; }
 }
 
 .drag-placeholder {
-    background: rgba(200, 184, 154, 0.12);
-    border: 1.5px dashed var(--accent);
+    position: relative;
+    background: rgba(200, 184, 154, 0.08);
+    border: 1.5px dashed rgba(200, 184, 154, 0.7);
     animation: none;
+}
+
+.drag-placeholder::after {
+    content: "";
+    position: absolute;
+    left: 16px;
+    right: 16px;
+    top: 50%;
+    height: 4px;
+    border-radius: 999px;
+    background: var(--accent);
+    transform: translateY(-50%);
+    box-shadow: 0 0 0 4px rgba(200, 184, 154, 0.16);
+}
+
+.item-card.is-drop-target-before,
+.item-card.is-drop-target-after {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(200, 184, 154, 0.16);
+}
+
+.item-card.is-drop-target-before {
+    box-shadow:
+        0 0 0 3px rgba(200, 184, 154, 0.16),
+        inset 0 4px 0 0 var(--accent);
+}
+
+.item-card.is-drop-target-after {
+    box-shadow:
+        0 0 0 3px rgba(200, 184, 154, 0.16),
+        inset 0 -4px 0 0 var(--accent);
 }
 
 /* Shopping mode: larger tap targets */
@@ -249,6 +290,34 @@ button, input { font: inherit; }
     flex-wrap: wrap;
 }
 
+.item-edit-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+}
+
+.item-edit-quantity-row {
+    display: flex;
+    gap: 8px;
+}
+
+.item-edit-input {
+    min-height: 42px;
+    width: 100%;
+    padding: 0 12px;
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    color: var(--text-primary);
+}
+
+.item-edit-input:focus-visible {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(200, 184, 154, 0.18);
+}
+
 .item-name {
     font-size: 0.95rem;
     font-weight: 600;
@@ -278,9 +347,55 @@ button, input { font: inherit; }
 .item-actions {
     display: inline-flex;
     align-items: center;
-    gap: 2px;
+    gap: 4px;
     margin-left: auto;
     flex-shrink: 0;
+}
+
+.item-card.is-editing .item-actions {
+    align-self: flex-start;
+}
+
+.btn-item-action,
+.btn-delete {
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-radius: 8px;
+    font-size: 1.1rem;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: color 0.15s ease, background 0.15s ease, transform 0.12s ease;
+}
+
+.btn-item-action:hover,
+.btn-delete:hover {
+    transform: translateY(-1px);
+}
+
+.btn-edit:hover {
+    color: var(--text-secondary);
+    background: rgba(200, 184, 154, 0.12);
+}
+
+.btn-save {
+    color: #5d7b4c;
+}
+
+.btn-save:hover {
+    background: rgba(93, 123, 76, 0.1);
+}
+
+.btn-cancel:hover {
+    color: var(--text-secondary);
+    background: rgba(200, 184, 154, 0.12);
 }
 
 .btn-drag-handle {
@@ -329,28 +444,14 @@ button, input { font: inherit; }
 /* ===========================================
    DELETE BUTTON
    =========================================== */
-.btn-delete {
-    min-width: 44px;
-    min-height: 44px;
-    padding: 0;
-    background: none;
-    border: none;
-    color: var(--text-muted);
-    cursor: pointer;
-    border-radius: 8px;
-    font-size: 1.25rem;
-    line-height: 1;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    transition: color 0.15s ease, background 0.15s ease;
-}
+.btn-delete { font-size: 1.25rem; }
 
 .btn-delete:hover { color: var(--error); background: rgba(160, 80, 48, 0.08); /* --error at 8% opacity */ }
+.btn-item-action:disabled,
 .btn-delete:disabled { opacity: 0.35; cursor: not-allowed; }
 
 /* Hidden in shopping mode */
+[data-mode="einkaufen"] .btn-edit { display: none; }
 [data-mode="einkaufen"] .btn-drag-handle { display: none; }
 [data-mode="einkaufen"] .btn-delete { display: none; }
 

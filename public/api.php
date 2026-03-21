@@ -166,6 +166,47 @@ try {
 
             respond(200, ['message' => 'Status aktualisiert.']);
 
+        case 'update':
+            requireMethod('POST');
+
+            $data = requestData();
+            requireCsrfToken($data);
+            $id = filter_var($data['id'] ?? null, FILTER_VALIDATE_INT, [
+                'options' => ['min_range' => 1],
+            ]);
+            $name = normalizeName($data['name'] ?? null);
+            $quantity = normalizeQuantity($data['quantity'] ?? null);
+
+            if (!$id) {
+                respond(422, ['error' => 'Ungültige ID.']);
+            }
+
+            if ($name === '') {
+                respond(422, ['error' => 'Bitte gib einen Artikelnamen ein.']);
+            }
+
+            $stmt = $db->prepare(
+                'UPDATE items
+                 SET name = :name, quantity = :quantity, updated_at = CURRENT_TIMESTAMP
+                 WHERE id = :id'
+            );
+            $stmt->execute([
+                ':id' => $id,
+                ':name' => $name,
+                ':quantity' => $quantity,
+            ]);
+
+            if ($stmt->rowCount() === 0) {
+                $existsStmt = $db->prepare('SELECT 1 FROM items WHERE id = :id');
+                $existsStmt->execute([':id' => $id]);
+
+                if ($existsStmt->fetchColumn() === false) {
+                    respond(404, ['error' => 'Artikel nicht gefunden.']);
+                }
+            }
+
+            respond(200, ['message' => 'Artikel aktualisiert.']);
+
         case 'delete':
             requireMethod('POST');
 

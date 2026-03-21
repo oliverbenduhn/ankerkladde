@@ -5,17 +5,17 @@
 // =========================================
 const csrfMeta = document.querySelector('meta[name="csrf-token"]');
 if (!csrfMeta) throw new Error('csrf-token meta tag missing — page may be stale, please reload.');
-const csrfToken     = csrfMeta.content;
-const appEl         = document.getElementById('app');
-const listEl        = document.getElementById('list');
-const listAreaEl    = document.querySelector('.list-area');
-const itemForm      = document.getElementById('itemForm');
-const itemInput     = document.getElementById('itemInput');
-const clearDoneBtn  = document.getElementById('clearDoneBtn');
-const messageEl     = document.getElementById('message');
-const progressEl    = document.getElementById('progress');
-const quantityInput = document.getElementById('quantityInput');
-const navBtns       = document.querySelectorAll('.nav-btn');
+const csrfToken       = csrfMeta.content;
+const appEl           = document.getElementById('app');
+const listEl          = document.getElementById('list');
+const listAreaEl      = document.querySelector('.list-area');
+const itemForm        = document.getElementById('itemForm');
+const itemInput       = document.getElementById('itemInput');
+const clearDoneBtn    = document.getElementById('clearDoneBtn');
+const messageEl       = document.getElementById('message');
+const progressEl      = document.getElementById('progress');
+const quantityInput   = document.getElementById('quantityInput');
+const navBtns         = document.querySelectorAll('.nav-btn');
 const networkStatusEl = document.getElementById('networkStatus');
 const updateBannerEl  = document.getElementById('updateBanner');
 const updateReloadBtn = document.getElementById('updateReloadBtn');
@@ -26,6 +26,7 @@ const updateReloadBtn = document.getElementById('updateReloadBtn');
 const DELETE_ANIM_MS = 180;
 const DRAG_SCROLL_ZONE_PX = 72;
 const DRAG_SCROLL_STEP_PX = 10;
+const HAPTIC_FEEDBACK_MS = 12;
 
 // =========================================
 // STATE
@@ -35,6 +36,8 @@ const state = {
     mode:           'liste',   // 'liste' | 'einkaufen'
     pendingIds:     new Set(),
     reorderPending: false,
+    editingId:      null,
+    editDraft:      { name: '', quantity: '' },
 };
 
 let dragState = null;
@@ -57,6 +60,38 @@ function setMessage(text, isError = false) {
 
 function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function normalizeNameInput(name) {
+    return String(name).trim().replace(/\s+/gu, ' ').slice(0, 120);
+}
+
+function normalizeQuantityInput(quantity) {
+    return String(quantity).trim().replace(/\s+/gu, ' ').slice(0, 40);
+}
+
+function getItemById(id) {
+    return state.items.find(item => item.id === Number(id)) || null;
+}
+
+function hasActiveEdit() {
+    return state.editingId !== null;
+}
+
+function isEditingItem(id) {
+    return state.editingId === Number(id);
+}
+
+function setEditDraftFromItem(item) {
+    state.editDraft = {
+        name: item.name || '',
+        quantity: item.quantity || '',
+    };
+}
+
+function clearEditState() {
+    state.editingId = null;
+    state.editDraft = { name: '', quantity: '' };
 }
 
 function setNetworkStatus() {
@@ -138,18 +173,88 @@ function buildReorderBody(orderedIds) {
 function isInteractionBlocked(id = null) {
     if (state.reorderPending || dragState) return true;
     if (id !== null && state.pendingIds.has(id)) return true;
+    if (hasActiveEdit() && state.editingId !== Number(id)) return true;
     return false;
+}
+
+function focusEditNameInput(id) {
+    window.requestAnimationFrame(() => {
+        const input = listEl.querySelector(`[data-item-id="${id}"] .edit-name-input`);
+        if (!input) return;
+        input.focus();
+        input.select();
+    });
+}
+
+function setEditField(field, value) {
+    state.editDraft = {
+        ...state.editDraft,
+        [field]: value,
+    };
+}
+
+function triggerHapticFeedback() {
+    if (!('vibrate' in navigator)) return;
+    navigator.vibrate(HAPTIC_FEEDBACK_MS);
+}
+
+function clearDropIndicators() {
+    if (!dragState) return;
+
+    if (dragState.targetCard) {
+        dragState.targetCard.classList.remove('is-drop-target-before', 'is-drop-target-after');
+    }
+
+    dragState.targetCard = null;
+    dragState.targetPosition = null;
+}
+
+function updateDropIndicator(nextSibling, siblings) {
+    if (!dragState) return;
+
+    let targetCard = null;
+    let targetPosition = null;
+
+    if (nextSibling) {
+        targetCard = nextSibling;
+        targetPosition = 'before';
+    } else if (siblings.length > 0) {
+        targetCard = siblings[siblings.length - 1];
+        targetPosition = 'after';
+    }
+
+    if (
+        dragState.targetCard === targetCard
+        && dragState.targetPosition === targetPosition
+    ) {
+        return;
+    }
+
+    clearDropIndicators();
+
+    if (!targetCard || !targetPosition) {
+        return;
+    }
+
+    targetCard.classList.add(
+        targetPosition === 'before' ? 'is-drop-target-before' : 'is-drop-target-after'
+    );
+    dragState.targetCard = targetCard;
+    dragState.targetPosition = targetPosition;
+}
+
+function updatePlaceholderFeedback() {
+    if (!dragState) return;
+
+    const index = Array.from(listEl.children).indexOf(dragState.placeholder);
+    if (index === -1 || index === dragState.lastPlaceholderIndex) return;
+
+    dragState.lastPlaceholderIndex = index;
+    triggerHapticFeedback();
 }
 
 // =========================================
 // FLIP ANIMATION
-//
-// capturePositions() — call BEFORE DOM change
-// playFlip(old)      — call AFTER DOM change
-//
-// Items that already existed animate from their old screen position to
-// their new one using the FLIP technique (First / Last / Invert / Play).
-// New items (no prior position) play the cardIn CSS animation as normal.
 // =========================================
 function capturePositions() {
     const map = new Map();
@@ -189,25 +294,7 @@ function playFlip(oldMap) {
 // =========================================
 // BUILD ITEM NODE
 // =========================================
-function buildItemNode(item, index, totalItems) {
-    const isDone = item.done === 1;
-    const isBlocked = isInteractionBlocked(item.id);
-
-    const li = document.createElement('li');
-    li.className = `item-card ${isDone ? 'done' : 'open'}`;
-    li.dataset.itemId = String(item.id);
-
-    const checkbox = document.createElement('input');
-    checkbox.type      = 'checkbox';
-    checkbox.className = 'toggle';
-    checkbox.checked   = isDone;
-    checkbox.disabled  = isBlocked;
-    checkbox.setAttribute('aria-label', `${item.name} umschalten`);
-    checkbox.addEventListener('change', () => handleToggle(item.id));
-
-    const content = document.createElement('div');
-    content.className = 'item-content';
-
+function buildReadOnlyContent(item, content) {
     const nameEl = document.createElement('span');
     nameEl.className   = 'item-name';
     nameEl.textContent = item.name;
@@ -219,34 +306,139 @@ function buildItemNode(item, index, totalItems) {
         badge.textContent = item.quantity;
         content.appendChild(badge);
     }
+}
+
+function buildEditContent(content) {
+    const isSaving = state.pendingIds.has(state.editingId);
+    const fields = document.createElement('div');
+    fields.className = 'item-edit-fields';
+
+    const nameInput = document.createElement('input');
+    nameInput.type = 'text';
+    nameInput.className = 'item-edit-input edit-name-input';
+    nameInput.value = state.editDraft.name;
+    nameInput.placeholder = 'Artikel';
+    nameInput.maxLength = 120;
+    nameInput.autocomplete = 'off';
+    nameInput.disabled = isSaving;
+    nameInput.addEventListener('input', event => setEditField('name', event.target.value));
+    fields.appendChild(nameInput);
+
+    const quantityField = document.createElement('div');
+    quantityField.className = 'item-edit-quantity-row';
+
+    const quantityInputEl = document.createElement('input');
+    quantityInputEl.type = 'text';
+    quantityInputEl.className = 'item-edit-input';
+    quantityInputEl.value = state.editDraft.quantity;
+    quantityInputEl.placeholder = 'Menge';
+    quantityInputEl.maxLength = 40;
+    quantityInputEl.autocomplete = 'off';
+    quantityInputEl.disabled = isSaving;
+    quantityInputEl.addEventListener('input', event => setEditField('quantity', event.target.value));
+    quantityField.appendChild(quantityInputEl);
+
+    fields.appendChild(quantityField);
+    content.appendChild(fields);
+}
+
+function buildIconButton(className, label, text, onClick) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = className;
+    button.setAttribute('aria-label', label);
+    button.textContent = text;
+    button.addEventListener('click', onClick);
+    return button;
+}
+
+function buildItemNode(item, index, totalItems) {
+    const isDone = item.done === 1;
+    const isBlocked = isInteractionBlocked(item.id);
+    const isEditing = isEditingItem(item.id);
+
+    const li = document.createElement('li');
+    li.className = `item-card ${isDone ? 'done' : 'open'}`;
+    if (isEditing) {
+        li.classList.add('is-editing');
+    }
+    li.dataset.itemId = String(item.id);
+
+    const checkbox = document.createElement('input');
+    checkbox.type      = 'checkbox';
+    checkbox.className = 'toggle';
+    checkbox.checked   = isDone;
+    checkbox.disabled  = isBlocked || isEditing;
+    checkbox.setAttribute('aria-label', `${item.name} umschalten`);
+    checkbox.addEventListener('change', () => handleToggle(item.id));
+
+    const content = document.createElement('div');
+    content.className = 'item-content';
+
+    if (isEditing) {
+        buildEditContent(content);
+    } else {
+        buildReadOnlyContent(item, content);
+    }
 
     const actions = document.createElement('div');
     actions.className = 'item-actions';
 
-    const dragHandle = document.createElement('button');
-    dragHandle.type      = 'button';
-    dragHandle.className = 'btn-drag-handle';
-    dragHandle.disabled  = state.mode !== 'liste' || totalItems < 2 || isBlocked;
-    dragHandle.setAttribute('aria-label', `${item.name} verschieben`);
-    dragHandle.setAttribute('title', 'Per Ziehen umsortieren');
-    dragHandle.addEventListener('pointerdown', event => startDrag(event, item.id));
-    dragHandle.addEventListener('keydown', event => handleReorderKeydown(event, item.id));
-    actions.appendChild(dragHandle);
+    if (state.mode === 'liste' && isEditing) {
+        const saveBtn = buildIconButton(
+            'btn-item-action btn-save',
+            `${item.name} speichern`,
+            '✓',
+            () => { void handleEditSave(item.id); }
+        );
+        saveBtn.disabled = state.pendingIds.has(item.id);
+        actions.appendChild(saveBtn);
 
-    const delBtn = document.createElement('button');
-    delBtn.type      = 'button';
-    delBtn.className = 'btn-delete';
-    delBtn.disabled  = isBlocked;
-    delBtn.setAttribute('aria-label', `${item.name} löschen`);
-    delBtn.textContent = '×';
-    delBtn.addEventListener('click', () => handleDelete(item.id));
-    actions.appendChild(delBtn);
+        const cancelBtn = buildIconButton(
+            'btn-item-action btn-cancel',
+            `${item.name} Bearbeiten abbrechen`,
+            '↺',
+            () => handleEditCancel()
+        );
+        cancelBtn.disabled = state.pendingIds.has(item.id);
+        actions.appendChild(cancelBtn);
+    } else {
+        if (state.mode === 'liste') {
+            const editBtn = buildIconButton(
+                'btn-item-action btn-edit',
+                `${item.name} bearbeiten`,
+                '✎',
+                () => handleEditStart(item.id)
+            );
+            editBtn.disabled = isBlocked;
+            actions.appendChild(editBtn);
+        }
 
-    if (index === 0) {
-        dragHandle.dataset.atTop = 'true';
-    }
-    if (index === totalItems - 1) {
-        dragHandle.dataset.atBottom = 'true';
+        const dragHandle = document.createElement('button');
+        dragHandle.type      = 'button';
+        dragHandle.className = 'btn-drag-handle';
+        dragHandle.disabled  = state.mode !== 'liste' || totalItems < 2 || isBlocked;
+        dragHandle.setAttribute('aria-label', `${item.name} verschieben`);
+        dragHandle.setAttribute('title', 'Per Ziehen umsortieren');
+        dragHandle.addEventListener('pointerdown', event => startDrag(event, item.id));
+        dragHandle.addEventListener('keydown', event => handleReorderKeydown(event, item.id));
+        actions.appendChild(dragHandle);
+
+        const delBtn = buildIconButton(
+            'btn-delete',
+            `${item.name} löschen`,
+            '×',
+            () => { void handleDelete(item.id); }
+        );
+        delBtn.disabled = isBlocked;
+        actions.appendChild(delBtn);
+
+        if (index === 0) {
+            dragHandle.dataset.atTop = 'true';
+        }
+        if (index === totalItems - 1) {
+            dragHandle.dataset.atBottom = 'true';
+        }
     }
 
     li.appendChild(checkbox);
@@ -265,7 +457,7 @@ function renderItems() {
     const totalCount = items.length;
 
     progressEl.textContent = `${doneCount} / ${totalCount}`;
-    clearDoneBtn.disabled  = doneCount === 0 || state.reorderPending || Boolean(dragState);
+    clearDoneBtn.disabled  = doneCount === 0 || state.reorderPending || Boolean(dragState) || hasActiveEdit();
 
     listEl.replaceChildren();
 
@@ -303,6 +495,10 @@ function renderItems() {
 function setMode(mode) {
     if (dragState && mode !== state.mode) {
         finishDrag(true);
+    }
+
+    if (hasActiveEdit() && mode !== state.mode) {
+        clearEditState();
     }
 
     state.mode         = mode;
@@ -355,6 +551,11 @@ async function loadItems() {
             done: Number(item.done),
             sort_order: Number(item.sort_order),
         }));
+
+        if (hasActiveEdit() && !getItemById(state.editingId)) {
+            clearEditState();
+        }
+
         renderItems();
     } catch (err) {
         setMessage(err.message, true);
@@ -400,6 +601,7 @@ async function moveItemByKeyboard(id, direction) {
     updateStateOrder(orderedIds);
     renderItems();
     playFlip(oldPositions);
+    triggerHapticFeedback();
 
     void persistOrder(orderedIds);
 }
@@ -473,6 +675,9 @@ function movePlaceholder(clientY) {
     } else {
         listEl.appendChild(dragState.placeholder);
     }
+
+    updateDropIndicator(nextSibling, siblings);
+    updatePlaceholderFeedback();
 }
 
 function cleanupDragPresentation() {
@@ -485,6 +690,8 @@ function cleanupDragPresentation() {
     } catch (err) {
         // Pointer capture may already be released.
     }
+
+    clearDropIndicators();
 
     card.classList.remove('is-dragging');
     card.style.position = '';
@@ -541,7 +748,7 @@ function onDragPointerEnd(event) {
 }
 
 function startDrag(event, id) {
-    if (state.mode !== 'liste' || isInteractionBlocked(id)) return;
+    if (state.mode !== 'liste' || isInteractionBlocked(id) || hasActiveEdit()) return;
     if (event.button !== undefined && event.button !== 0) return;
 
     const handle = event.currentTarget;
@@ -584,6 +791,9 @@ function startDrag(event, id) {
         pointerY: event.clientY,
         offsetY: event.clientY - rect.top,
         initialOrder: getVisibleIds(),
+        lastPlaceholderIndex: Array.from(listEl.children).indexOf(placeholder),
+        targetCard: null,
+        targetPosition: null,
     };
 
     moveDraggedCard(event.clientY);
@@ -594,11 +804,89 @@ function startDrag(event, id) {
 }
 
 // =========================================
+// EDITING
+// =========================================
+function handleEditStart(id) {
+    if (state.mode !== 'liste' || dragState || state.reorderPending || isInteractionBlocked(id)) return;
+
+    const item = getItemById(id);
+    if (!item) return;
+
+    state.editingId = item.id;
+    setEditDraftFromItem(item);
+    renderItems();
+    focusEditNameInput(item.id);
+}
+
+function handleEditCancel() {
+    if (!hasActiveEdit()) return;
+    clearEditState();
+    renderItems();
+}
+
+async function handleEditSave(id) {
+    if (!isEditingItem(id)) return;
+
+    const item = getItemById(id);
+    if (!item) return;
+
+    const name = normalizeNameInput(state.editDraft.name);
+    const quantity = normalizeQuantityInput(state.editDraft.quantity);
+
+    if (name === '') {
+        setMessage('Bitte gib einen Artikelnamen ein.', true);
+        focusEditNameInput(id);
+        return;
+    }
+
+    state.pendingIds.add(id);
+    renderItems();
+
+    try {
+        await api('update', {
+            method: 'POST',
+            body: new URLSearchParams({
+                id: String(id),
+                name,
+                quantity,
+            }),
+        });
+
+        item.name = name;
+        item.quantity = quantity;
+        clearEditState();
+        renderItems();
+        setMessage('Artikel gespeichert.');
+    } catch (err) {
+        setMessage(err.message, true);
+    } finally {
+        state.pendingIds.delete(id);
+        renderItems();
+        if (isEditingItem(id)) {
+            focusEditNameInput(id);
+        }
+    }
+}
+
+function handleEditKeydown(event, id) {
+    if (event.key === 'Escape') {
+        event.preventDefault();
+        handleEditCancel();
+        return;
+    }
+
+    if (event.key === 'Enter') {
+        event.preventDefault();
+        void handleEditSave(id);
+    }
+}
+
+// =========================================
 // ACTIONS
 // =========================================
 async function addItem(event) {
     event.preventDefault();
-    if (state.reorderPending || dragState) return;
+    if (state.reorderPending || dragState || hasActiveEdit()) return;
 
     const formData = new FormData(itemForm);
     const submitBtn = itemForm.querySelector('[type="submit"]');
@@ -618,8 +906,8 @@ async function addItem(event) {
 }
 
 async function handleToggle(id) {
-    const item = state.items.find(entry => entry.id === id);
-    if (!item || isInteractionBlocked(id)) return;
+    const item = getItemById(id);
+    if (!item || isInteractionBlocked(id) || isEditingItem(id)) return;
     state.pendingIds.add(id);
 
     const currentDone = Number(item.done);
@@ -646,7 +934,7 @@ async function handleToggle(id) {
 }
 
 async function handleDelete(id) {
-    if (isInteractionBlocked(id)) return;
+    if (isInteractionBlocked(id) || isEditingItem(id)) return;
     state.pendingIds.add(id);
     renderItems();
 
@@ -658,6 +946,9 @@ async function handleDelete(id) {
 
     try {
         await api('delete', { method: 'POST', body: new URLSearchParams({ id: String(id) }) });
+        if (isEditingItem(id)) {
+            clearEditState();
+        }
         await loadItems();
         setMessage('Artikel gelöscht.');
     } catch (err) {
@@ -670,7 +961,7 @@ async function handleDelete(id) {
 }
 
 async function clearDone() {
-    if (state.reorderPending || dragState) return;
+    if (state.reorderPending || dragState || hasActiveEdit()) return;
 
     clearDoneBtn.disabled = true;
     try {
@@ -695,8 +986,16 @@ function submitOnEnter(event) {
     }
 }
 
+function handleListKeydown(event) {
+    if (!event.target.matches('.item-edit-input')) return;
+    const itemId = event.target.closest('[data-item-id]')?.dataset.itemId;
+    if (!itemId || !isEditingItem(Number(itemId))) return;
+    handleEditKeydown(event, Number(itemId));
+}
+
 itemInput.addEventListener('keydown', submitOnEnter);
 quantityInput.addEventListener('keydown', submitOnEnter);
+listEl.addEventListener('keydown', handleListKeydown);
 
 clearDoneBtn.addEventListener('click', clearDone);
 navBtns.forEach(btn => btn.addEventListener('click', () => setMode(btn.dataset.nav)));
