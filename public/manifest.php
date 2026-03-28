@@ -30,25 +30,25 @@ $manifest = [
     'theme_color' => '#f5f0eb',
     'icons' => [
         [
-            'src' => $appBasePath . 'icons/icon-192.png',
+            'src' => $appBasePath . 'icon.php?size=192',
             'sizes' => '192x192',
             'type' => 'image/png',
             'purpose' => 'any',
         ],
         [
-            'src' => $appBasePath . 'icons/icon-192.png',
+            'src' => $appBasePath . 'icon.php?size=192',
             'sizes' => '192x192',
             'type' => 'image/png',
             'purpose' => 'maskable',
         ],
         [
-            'src' => $appBasePath . 'icons/icon-512.png',
+            'src' => $appBasePath . 'icon.php?size=512',
             'sizes' => '512x512',
             'type' => 'image/png',
             'purpose' => 'any',
         ],
         [
-            'src' => $appBasePath . 'icons/icon-512.png',
+            'src' => $appBasePath . 'icon.php?size=512',
             'sizes' => '512x512',
             'type' => 'image/png',
             'purpose' => 'maskable',

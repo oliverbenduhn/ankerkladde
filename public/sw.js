@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION = 'v4';
+const VERSION = 'v5';
 const STATIC_CACHE = `einkauf-static-${VERSION}`;
 const RUNTIME_CACHE = `einkauf-runtime-${VERSION}`;
 const APP_SCOPE_URL = new URL(self.registration.scope);
@@ -12,6 +12,8 @@ const APP_SHELL_ASSET_URLS = [
     'style.css',
     'app.js',
     'manifest.php',
+    'icon.php?size=192',
+    'icon.php?size=512',
     'icons/icon.svg',
     'icons/icon-192.png',
     'icons/icon-512.png',
