@@ -8,6 +8,7 @@ COOKIE_JAR="$TMP_DIR/cookies.txt"
 INDEX_HTML="$TMP_DIR/index.html"
 SERVER_LOG="$TMP_DIR/server.log"
 TEST_DATA_DIR="$TMP_DIR/data"
+MANIFEST_HEADERS="$TMP_DIR/manifest-headers.txt"
 
 cleanup() {
     if [[ -n "${SERVER_PID:-}" ]]; then
@@ -42,6 +43,10 @@ if [[ -z "$CSRF_TOKEN" ]]; then
     echo "CSRF-Token konnte nicht aus der HTML-Antwort gelesen werden." >&2
     exit 1
 fi
+
+grep -q '<link rel="manifest" href="manifest.php">' "$INDEX_HTML"
+curl -fsS -D "$MANIFEST_HEADERS" -o /dev/null "http://127.0.0.1:$PORT/manifest.php"
+grep -qi '^Content-Type: application/manifest+json' "$MANIFEST_HEADERS"
 
 status_code() {
     local output_file=$1
@@ -175,14 +180,14 @@ done
 
 curl -fsS "http://127.0.0.1:$SUBPATH_PORT/sub/index.php" >"$SUBPATH_HTML"
 grep -q '<meta name="app-base-path" content="/sub/">' "$SUBPATH_HTML"
-grep -q '<link rel="manifest" href="manifest.json">' "$SUBPATH_HTML"
+grep -q '<link rel="manifest" href="manifest.php">' "$SUBPATH_HTML"
 grep -q '<link rel="stylesheet" href="style.css">' "$SUBPATH_HTML"
 grep -q '<script src="app.js"></script>' "$SUBPATH_HTML"
 
-curl -fsS "http://127.0.0.1:$SUBPATH_PORT/sub/manifest.json" >"$SUBPATH_MANIFEST"
-grep -q '"id": "\./"' "$SUBPATH_MANIFEST"
-grep -q '"start_url": "\./"' "$SUBPATH_MANIFEST"
-grep -q '"scope": "\./"' "$SUBPATH_MANIFEST"
-grep -q '"src": "icons/icon-192.png"' "$SUBPATH_MANIFEST"
+curl -fsS "http://127.0.0.1:$SUBPATH_PORT/sub/manifest.php" >"$SUBPATH_MANIFEST"
+grep -q '"id": "/sub/"' "$SUBPATH_MANIFEST"
+grep -q '"start_url": "/sub/"' "$SUBPATH_MANIFEST"
+grep -q '"scope": "/sub/"' "$SUBPATH_MANIFEST"
+grep -q '"src": "/sub/icons/icon-192.png"' "$SUBPATH_MANIFEST"
 
 echo "Smoke-Test erfolgreich."
