@@ -1075,6 +1075,11 @@ function isIosSafari() {
     return isIosDevice && isSafariBrowser;
 }
 
+function isAndroidChromium() {
+    const ua = window.navigator.userAgent || '';
+    return /Android/u.test(ua) && /(Chrome|CriOS|EdgA|SamsungBrowser)\//u.test(ua);
+}
+
 function getInstallBannerConfig() {
     if (!installBanner || installBannerDismissed || isStandaloneApp()) {
         return { visible: false };
@@ -1105,6 +1110,10 @@ function getInstallBannerConfig() {
             text: 'Auf iPhone/iPad über Teilen und "Zum Home-Bildschirm" installieren.',
             buttonLabel: 'Anleitung',
         };
+    }
+
+    if (isAndroidChromium()) {
+        return { visible: false };
     }
 
     return {
