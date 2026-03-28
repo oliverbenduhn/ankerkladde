@@ -1,23 +1,26 @@
 'use strict';
 
-const VERSION = 'v2';
+const VERSION = 'v3';
 const STATIC_CACHE = `einkauf-static-${VERSION}`;
 const RUNTIME_CACHE = `einkauf-runtime-${VERSION}`;
+const APP_SCOPE_URL = new URL(self.registration.scope);
+const OFFLINE_PAGE_URL = new URL('offline.html', APP_SCOPE_URL);
+const API_URL = new URL('api.php', APP_SCOPE_URL);
 
-const APP_SHELL_ASSETS = [
-    '/offline.html',
-    '/style.css',
-    '/app.js',
-    '/manifest.json',
-    '/icons/icon.svg',
-    '/icons/icon-192.png',
-    '/icons/icon-512.png',
-];
+const APP_SHELL_ASSET_URLS = [
+    'offline.html',
+    'style.css',
+    'app.js',
+    'manifest.json',
+    'icons/icon.svg',
+    'icons/icon-192.png',
+    'icons/icon-512.png',
+].map(path => new URL(path, APP_SCOPE_URL).toString());
 
 self.addEventListener('install', event => {
     event.waitUntil(
         caches.open(STATIC_CACHE)
-            .then(cache => cache.addAll(APP_SHELL_ASSETS))
+            .then(cache => cache.addAll(APP_SHELL_ASSET_URLS))
             .then(() => self.skipWaiting())
     );
 });
@@ -56,12 +59,12 @@ self.addEventListener('fetch', event => {
         return;
     }
 
-    if (APP_SHELL_ASSETS.includes(url.pathname)) {
+    if (APP_SHELL_ASSET_URLS.includes(request.url)) {
         event.respondWith(staleWhileRevalidate(request, STATIC_CACHE));
         return;
     }
 
-    if (url.pathname === '/api.php') {
+    if (url.pathname === API_URL.pathname) {
         event.respondWith(apiGetStrategy(request));
     }
 });
@@ -80,7 +83,7 @@ async function handleNavigationRequest(request) {
         const cachedPage = await caches.match(request);
         if (cachedPage) return cachedPage;
 
-        const offlinePage = await caches.match('/offline.html');
+        const offlinePage = await caches.match(OFFLINE_PAGE_URL.toString());
         if (offlinePage) return offlinePage;
 
         return new Response('Offline', {
@@ -134,9 +137,11 @@ async function apiGetStrategy(request) {
         if (cached) return cached;
 
         return new Response(JSON.stringify({
-            items: [],
+            error: 'Offline: Die Liste konnte nicht geladen werden.',
             offline: true,
         }), {
+            status: 503,
+            statusText: 'Service Unavailable',
             headers: { 'Content-Type': 'application/json; charset=UTF-8' },
         });
     }

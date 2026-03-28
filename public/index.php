@@ -3,7 +3,20 @@ declare(strict_types=1);
 
 require dirname(__DIR__) . '/security.php';
 
+enforceCanonicalRequest();
+
 $csrfToken = getCsrfToken();
+$scriptName = $_SERVER['SCRIPT_NAME'] ?? '/index.php';
+if (!is_string($scriptName) || $scriptName === '') {
+    $scriptName = '/index.php';
+}
+
+$appBasePath = dirname(str_replace('\\', '/', $scriptName));
+if ($appBasePath === '' || $appBasePath === '.') {
+    $appBasePath = '/';
+} else {
+    $appBasePath = rtrim($appBasePath, '/') . '/';
+}
 ?>
 <!DOCTYPE html>
 <html lang="de">
@@ -13,9 +26,10 @@ $csrfToken = getCsrfToken();
     <meta name="theme-color" content="#f5f0eb">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="app-base-path" content="<?= htmlspecialchars($appBasePath, ENT_QUOTES, 'UTF-8') ?>">
     <meta name="csrf-token" content="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
-    <link rel="manifest" href="/manifest.json">
-    <link rel="stylesheet" href="/style.css">
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="style.css">
     <title>Einkaufsliste</title>
 </head>
 <body>
@@ -76,6 +90,6 @@ $csrfToken = getCsrfToken();
     </nav>
 </div>
 
-<script src="/app.js"></script>
+<script src="app.js"></script>
 </body>
 </html>

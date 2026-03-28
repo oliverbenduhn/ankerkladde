@@ -14,6 +14,10 @@ cleanup() {
         kill "$SERVER_PID" >/dev/null 2>&1 || true
         wait "$SERVER_PID" >/dev/null 2>&1 || true
     fi
+    if [[ -n "${SUBPATH_SERVER_PID:-}" ]]; then
+        kill "$SUBPATH_SERVER_PID" >/dev/null 2>&1 || true
+        wait "$SUBPATH_SERVER_PID" >/dev/null 2>&1 || true
+    fi
     rm -rf "$TMP_DIR"
 }
 
@@ -21,7 +25,7 @@ trap cleanup EXIT
 
 mkdir -p "$TEST_DATA_DIR"
 
-EINKAUF_DATA_DIR="$TEST_DATA_DIR" php -S "127.0.0.1:$PORT" -t "$ROOT_DIR/public" >"$SERVER_LOG" 2>&1 &
+EINKAUF_DATA_DIR="$TEST_DATA_DIR" EINKAUF_TRUST_PROXY_HEADERS=0 php -S "127.0.0.1:$PORT" -t "$ROOT_DIR/public" >"$SERVER_LOG" 2>&1 &
 SERVER_PID=$!
 
 for _ in $(seq 1 40); do
@@ -60,9 +64,28 @@ CLEAR_BODY="$TMP_DIR/clear.json"
 POST_CLEAR_LIST_BODY="$TMP_DIR/post-clear-list.json"
 FORBIDDEN_BODY="$TMP_DIR/forbidden.json"
 NOT_FOUND_BODY="$TMP_DIR/not-found.txt"
+REDIRECT_HEADERS="$TMP_DIR/redirect-headers.txt"
+SPOOF_REDIRECT_HEADERS="$TMP_DIR/spoof-redirect-headers.txt"
+COOKIE_HEADERS="$TMP_DIR/cookie-headers.txt"
+SUBPATH_ROOT="$TMP_DIR/subpath-root"
+SUBPATH_PORT=$((PORT + 1))
+SUBPATH_HTML="$TMP_DIR/subpath-index.html"
+SUBPATH_MANIFEST="$TMP_DIR/subpath-manifest.json"
 
 [[ "$(status_code "$LIST_BODY" "http://127.0.0.1:$PORT/api.php?action=list")" == "200" ]]
 grep -q '"items"' "$LIST_BODY"
+
+[[ "$(curl -sS -o /dev/null -D "$REDIRECT_HEADERS" -w '%{http_code}' -H 'Host: beispiel.invalid' "http://127.0.0.1:$PORT/")" == "308" ]]
+grep -q '^Location: https://einkauf\.benduhn\.de/' "$REDIRECT_HEADERS"
+
+[[ "$(curl -sS -o /dev/null -D "$SPOOF_REDIRECT_HEADERS" -w '%{http_code}' -H 'Host: beispiel.invalid' -H 'X-Forwarded-Host: einkauf.benduhn.de' "http://127.0.0.1:$PORT/")" == "308" ]]
+grep -q '^Location: https://einkauf\.benduhn\.de/' "$SPOOF_REDIRECT_HEADERS"
+
+curl -sS -D "$COOKIE_HEADERS" -o /dev/null -H 'X-Forwarded-Proto: https' "http://127.0.0.1:$PORT/"
+if grep -Eqi '^Set-Cookie: .*;[[:space:]]*Secure([;]|$)' "$COOKIE_HEADERS"; then
+    echo "Unvertrauenswürdiger X-Forwarded-Proto Header darf kein Secure-Cookie erzwingen." >&2
+    exit 1
+fi
 
 [[ "$(status_code "$FORBIDDEN_BODY" -X POST -d 'name=Milch' "http://127.0.0.1:$PORT/api.php?action=add")" == "403" ]]
 grep -q 'Sicherheits-Token' "$FORBIDDEN_BODY"
@@ -136,5 +159,30 @@ fi
 
 [[ "$(status_code "$NOT_FOUND_BODY" "http://127.0.0.1:$PORT/data/einkaufsliste.db")" == "404" ]]
 [[ "$(status_code "$NOT_FOUND_BODY" "http://127.0.0.1:$PORT/.git/config")" == "404" ]]
+
+mkdir -p "$SUBPATH_ROOT"
+ln -s "$ROOT_DIR/public" "$SUBPATH_ROOT/sub"
+
+EINKAUF_DATA_DIR="$TEST_DATA_DIR" EINKAUF_TRUST_PROXY_HEADERS=0 php -S "127.0.0.1:$SUBPATH_PORT" -t "$SUBPATH_ROOT" >"$SERVER_LOG.subpath" 2>&1 &
+SUBPATH_SERVER_PID=$!
+
+for _ in $(seq 1 40); do
+    if curl -fsS "http://127.0.0.1:$SUBPATH_PORT/sub/index.php" >/dev/null 2>&1; then
+        break
+    fi
+    sleep 0.25
+done
+
+curl -fsS "http://127.0.0.1:$SUBPATH_PORT/sub/index.php" >"$SUBPATH_HTML"
+grep -q '<meta name="app-base-path" content="/sub/">' "$SUBPATH_HTML"
+grep -q '<link rel="manifest" href="manifest.json">' "$SUBPATH_HTML"
+grep -q '<link rel="stylesheet" href="style.css">' "$SUBPATH_HTML"
+grep -q '<script src="app.js"></script>' "$SUBPATH_HTML"
+
+curl -fsS "http://127.0.0.1:$SUBPATH_PORT/sub/manifest.json" >"$SUBPATH_MANIFEST"
+grep -q '"id": "\./"' "$SUBPATH_MANIFEST"
+grep -q '"start_url": "\./"' "$SUBPATH_MANIFEST"
+grep -q '"scope": "\./"' "$SUBPATH_MANIFEST"
+grep -q '"src": "icons/icon-192.png"' "$SUBPATH_MANIFEST"
 
 echo "Smoke-Test erfolgreich."

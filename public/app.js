@@ -5,7 +5,9 @@
 // =========================================
 const csrfMeta = document.querySelector('meta[name="csrf-token"]');
 if (!csrfMeta) throw new Error('csrf-token meta tag missing — page may be stale, please reload.');
+const appBasePathMeta = document.querySelector('meta[name="app-base-path"]');
 const csrfToken       = csrfMeta.content;
+const appBasePath     = appBasePathMeta?.content || '/';
 const appEl           = document.getElementById('app');
 const listEl          = document.getElementById('list');
 const listAreaEl      = document.querySelector('.list-area');
@@ -27,6 +29,7 @@ const DELETE_ANIM_MS = 180;
 const DRAG_SCROLL_ZONE_PX = 72;
 const DRAG_SCROLL_STEP_PX = 10;
 const HAPTIC_FEEDBACK_MS = 12;
+const INSTALL_BANNER_DISMISSED_KEY = 'einkauf-install-banner-dismissed-v1';
 
 // =========================================
 // STATE
@@ -60,6 +63,21 @@ function setMessage(text, isError = false) {
 
 function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function appUrl(path) {
+    return new URL(path, `${window.location.origin}${appBasePath}`).toString();
+}
+
+function getUserFacingError(error, fallbackMessage) {
+    if (error instanceof Error) {
+        const message = error.message.trim();
+        if (message !== '' && message !== 'Failed to fetch' && message !== 'Load failed') {
+            return message;
+        }
+    }
+
+    return fallbackMessage;
 }
 
 function normalizeNameInput(name) {
@@ -115,6 +133,27 @@ function showUpdateBanner() {
 function hideUpdateBanner() {
     if (!updateBannerEl) return;
     updateBannerEl.setAttribute('hidden', '');
+}
+
+function readInstallBannerDismissed() {
+    try {
+        return window.localStorage.getItem(INSTALL_BANNER_DISMISSED_KEY) === '1';
+    } catch {
+        return false;
+    }
+}
+
+function writeInstallBannerDismissed(isDismissed) {
+    try {
+        if (isDismissed) {
+            window.localStorage.setItem(INSTALL_BANNER_DISMISSED_KEY, '1');
+            return;
+        }
+
+        window.localStorage.removeItem(INSTALL_BANNER_DISMISSED_KEY);
+    } catch {
+        // Ignore storage errors in private browsing or restricted contexts.
+    }
 }
 
 function sortByPosition(items) {
@@ -558,7 +597,7 @@ async function loadItems() {
 
         renderItems();
     } catch (err) {
-        setMessage(err.message, true);
+        setMessage(getUserFacingError(err, 'Die Liste konnte nicht geladen werden.'), true);
     }
 }
 
@@ -577,7 +616,7 @@ async function persistOrder(orderedIds) {
         setMessage('Reihenfolge gespeichert.');
     } catch (err) {
         await loadItems();
-        setMessage(err.message || 'Reihenfolge konnte nicht gespeichert werden.', true);
+        setMessage(getUserFacingError(err, 'Reihenfolge konnte nicht gespeichert werden.'), true);
     } finally {
         state.reorderPending = false;
         renderItems();
@@ -858,7 +897,7 @@ async function handleEditSave(id) {
         renderItems();
         setMessage('Artikel gespeichert.');
     } catch (err) {
-        setMessage(err.message, true);
+        setMessage(getUserFacingError(err, 'Artikel konnte nicht gespeichert werden.'), true);
     } finally {
         state.pendingIds.delete(id);
         renderItems();
@@ -899,7 +938,7 @@ async function addItem(event) {
         await loadItems();
         setMessage('Artikel hinzugefügt.');
     } catch (err) {
-        setMessage(err.message, true);
+        setMessage(getUserFacingError(err, 'Artikel konnte nicht hinzugefügt werden.'), true);
     } finally {
         submitBtn.disabled = false;
     }
@@ -926,7 +965,7 @@ async function handleToggle(id) {
     } catch (err) {
         item.done = currentDone;
         renderItems();
-        setMessage('Offline — Änderung konnte nicht gespeichert werden', true);
+        setMessage(getUserFacingError(err, 'Offline: Änderung konnte nicht gespeichert werden.'), true);
     } finally {
         state.pendingIds.delete(id);
         renderItems();
@@ -952,7 +991,7 @@ async function handleDelete(id) {
         await loadItems();
         setMessage('Artikel gelöscht.');
     } catch (err) {
-        setMessage(err.message, true);
+        setMessage(getUserFacingError(err, 'Artikel konnte nicht gelöscht werden.'), true);
         await loadItems();
     } finally {
         state.pendingIds.delete(id);
@@ -969,7 +1008,7 @@ async function clearDone() {
         await loadItems();
         setMessage('Erledigte Artikel entfernt.');
     } catch (err) {
-        setMessage(err.message, true);
+        setMessage(getUserFacingError(err, 'Erledigte Artikel konnten nicht entfernt werden.'), true);
         clearDoneBtn.disabled = false;
     }
 }
@@ -1005,34 +1044,160 @@ navBtns.forEach(btn => btn.addEventListener('click', () => setMode(btn.dataset.n
 // =========================================
 let deferredInstallPrompt = null;
 const installBanner  = document.getElementById('installBanner');
+const installText    = installBanner ? installBanner.querySelector('.install-text') : null;
 const installBtn     = document.getElementById('installBtn');
 const installDismiss = document.getElementById('installDismiss');
+let installBannerDismissed = readInstallBannerDismissed();
+let installBannerMode = 'hidden';
+
+function isStandaloneApp() {
+    return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+}
+
+function isInstallSecureContext() {
+    const { hostname } = window.location;
+    return (
+        window.isSecureContext
+        || hostname === 'localhost'
+        || hostname === '127.0.0.1'
+        || hostname === '[::1]'
+        || hostname.endsWith('.localhost')
+    );
+}
+
+function isIosSafari() {
+    const ua = window.navigator.userAgent || '';
+    const isIosDevice = /iPad|iPhone|iPod/u.test(ua)
+        || (window.navigator.platform === 'MacIntel' && window.navigator.maxTouchPoints > 1);
+    const isSafariBrowser = /Safari\//u.test(ua)
+        && !/(Chrome|CriOS|Edg|OPR|Firefox|FxiOS|SamsungBrowser)\//u.test(ua);
+
+    return isIosDevice && isSafariBrowser;
+}
+
+function getInstallBannerConfig() {
+    if (!installBanner || installBannerDismissed || isStandaloneApp()) {
+        return { visible: false };
+    }
+
+    if (deferredInstallPrompt) {
+        return {
+            visible: true,
+            mode: 'prompt',
+            text: 'App installieren?',
+            buttonLabel: 'Installieren',
+        };
+    }
+
+    if (!isInstallSecureContext()) {
+        return {
+            visible: true,
+            mode: 'insecure',
+            text: 'Installation nur über HTTPS oder localhost möglich.',
+            buttonLabel: 'Warum?',
+        };
+    }
+
+    if (isIosSafari()) {
+        return {
+            visible: true,
+            mode: 'ios',
+            text: 'Auf iPhone/iPad über Teilen und "Zum Home-Bildschirm" installieren.',
+            buttonLabel: 'Anleitung',
+        };
+    }
+
+    return {
+        visible: true,
+        mode: 'manual',
+        text: 'Installation im Browser-Menü unter "Installieren" oder "Zum Startbildschirm hinzufügen".',
+        buttonLabel: 'Anleitung',
+    };
+}
+
+function renderInstallBanner() {
+    if (!installBanner) return;
+
+    const config = getInstallBannerConfig();
+
+    if (!config.visible) {
+        installBannerMode = 'hidden';
+        installBanner.setAttribute('hidden', '');
+        return;
+    }
+
+    installBannerMode = config.mode;
+
+    if (installText) {
+        installText.textContent = config.text;
+    }
+
+    if (installBtn) {
+        installBtn.textContent = config.buttonLabel;
+        installBtn.hidden = false;
+    }
+
+    installBanner.removeAttribute('hidden');
+}
+
+function dismissInstallBanner({ persist = true } = {}) {
+    if (persist) {
+        installBannerDismissed = true;
+        writeInstallBannerDismissed(true);
+    }
+
+    if (installBanner) {
+        installBanner.setAttribute('hidden', '');
+    }
+}
 
 window.addEventListener('beforeinstallprompt', event => {
     event.preventDefault();
     deferredInstallPrompt = event;
-    if (installBanner) installBanner.removeAttribute('hidden');
+    installBannerDismissed = false;
+    writeInstallBannerDismissed(false);
+    renderInstallBanner();
 });
 
 if (installBtn) {
     installBtn.addEventListener('click', async () => {
-        if (!deferredInstallPrompt) return;
-        deferredInstallPrompt.prompt();
-        await deferredInstallPrompt.userChoice;
-        deferredInstallPrompt = null;
-        installBanner.setAttribute('hidden', '');
+        if (installBannerMode === 'prompt' && deferredInstallPrompt) {
+            deferredInstallPrompt.prompt();
+            const choice = await deferredInstallPrompt.userChoice;
+            deferredInstallPrompt = null;
+
+            if (choice?.outcome === 'accepted') {
+                dismissInstallBanner({ persist: true });
+                return;
+            }
+
+            renderInstallBanner();
+            return;
+        }
+
+        if (installBannerMode === 'ios') {
+            setMessage('In Safari auf "Teilen" tippen und dann "Zum Home-Bildschirm".');
+            return;
+        }
+
+        if (installBannerMode === 'insecure') {
+            setMessage('PWA-Installation funktioniert nur über HTTPS oder auf localhost.', true);
+            return;
+        }
+
+        setMessage('Im Browser-Menü "Installieren" oder "Zum Startbildschirm hinzufügen" wählen.');
     });
 }
 
 if (installDismiss) {
     installDismiss.addEventListener('click', () => {
-        installBanner.setAttribute('hidden', '');
+        dismissInstallBanner({ persist: true });
     });
 }
 
 window.addEventListener('appinstalled', () => {
-    if (installBanner) installBanner.setAttribute('hidden', '');
     deferredInstallPrompt = null;
+    dismissInstallBanner({ persist: true });
 });
 
 // =========================================
@@ -1042,7 +1207,9 @@ async function registerServiceWorker() {
     if (!('serviceWorker' in navigator)) return;
 
     try {
-        swRegistration = await navigator.serviceWorker.register('/sw.js');
+        swRegistration = await navigator.serviceWorker.register(appUrl('sw.js'), {
+            scope: appBasePath,
+        });
 
         if (swRegistration.waiting) {
             showUpdateBanner();
@@ -1091,5 +1258,6 @@ window.addEventListener('offline', setNetworkStatus);
 // INIT
 // =========================================
 setNetworkStatus();
+renderInstallBanner();
 registerServiceWorker();
 loadItems();
