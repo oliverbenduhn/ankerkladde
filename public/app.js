@@ -125,6 +125,10 @@ function setNetworkStatus() {
     networkStatusEl.removeAttribute('hidden');
 }
 
+function syncViewportHeight() {
+    document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`);
+}
+
 function showUpdateBanner() {
     if (!updateBannerEl) return;
     updateBannerEl.removeAttribute('hidden');
@@ -1262,10 +1266,12 @@ if (updateReloadBtn) {
 
 window.addEventListener('online', setNetworkStatus);
 window.addEventListener('offline', setNetworkStatus);
+window.addEventListener('resize', syncViewportHeight);
 
 // =========================================
 // INIT
 // =========================================
+syncViewportHeight();
 setNetworkStatus();
 renderInstallBanner();
 registerServiceWorker();
