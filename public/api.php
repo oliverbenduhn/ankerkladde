@@ -4,6 +4,7 @@ declare(strict_types=1);
 require dirname(__DIR__) . '/db.php';
 require dirname(__DIR__) . '/security.php';
 
+enforceCanonicalRequest();
 startAppSession();
 
 header('Content-Type: application/json; charset=utf-8');

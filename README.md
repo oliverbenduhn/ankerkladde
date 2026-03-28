@@ -38,6 +38,8 @@ Anschließend im Browser öffnen:
 
 - <http://127.0.0.1:8000/>
 
+`localhost` gilt im Browser als sicherer Kontext. Deshalb funktionieren Service Worker und PWA-Installation lokal auch ohne TLS-Zertifikat.
+
 ## Installation auf Linux
 
 Beispiel für Debian/Ubuntu:
@@ -67,6 +69,8 @@ Die App ist für einen dauerhaften Apache-Betrieb vorbereitet:
 - Webroot: `/var/www/einkauf/public`
 - Datenverzeichnis: `/var/lib/einkauf`
 - Apache-Site: `deploy/apache/einkauf.conf`
+
+Wichtig: Eine installierbare PWA funktioniert in Produktion nur über `HTTPS`. Ein reines `http://`-Deployment auf Port `80` reicht für Service Worker und Installationsdialoge im Browser nicht aus.
 
 Deployment aus dem Repo:
 
