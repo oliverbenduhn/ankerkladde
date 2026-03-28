@@ -63,15 +63,15 @@ $csrfToken = getCsrfToken();
     <div class="message" id="message" role="status" aria-live="polite"></div>
 
     <nav class="bottom-nav" aria-label="Hauptnavigation">
-        <button class="nav-btn" data-nav="liste"
-                aria-label="Listen-Modus">
-            <span class="nav-icon" aria-hidden="true">✏️</span>
-            <span class="nav-label">Liste</span>
-        </button>
         <button class="nav-btn" data-nav="einkaufen"
                 aria-current="page" aria-label="Einkaufs-Modus">
             <span class="nav-icon" aria-hidden="true">🛒</span>
             <span class="nav-label">Einkaufen</span>
+        </button>
+        <button class="nav-btn" data-nav="liste"
+                aria-label="Listen-Modus">
+            <span class="nav-icon" aria-hidden="true">✏️</span>
+            <span class="nav-label">Liste</span>
         </button>
     </nav>
 </div>
