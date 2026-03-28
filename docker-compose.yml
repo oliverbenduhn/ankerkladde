@@ -1,5 +1,6 @@
 services:
   einkauf:
+    container_name: einkauf
     build: .
     ports:
       - "8083:80"
