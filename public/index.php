@@ -19,7 +19,7 @@ $csrfToken = getCsrfToken();
     <title>Einkaufsliste</title>
 </head>
 <body>
-<div class="app" id="app" data-mode="liste">
+<div class="app" id="app" data-mode="einkaufen">
 
     <div class="install-banner" id="installBanner" hidden>
         <span class="install-text">App installieren?</span>
@@ -64,12 +64,12 @@ $csrfToken = getCsrfToken();
 
     <nav class="bottom-nav" aria-label="Hauptnavigation">
         <button class="nav-btn" data-nav="liste"
-                aria-current="page" aria-label="Listen-Modus">
+                aria-label="Listen-Modus">
             <span class="nav-icon" aria-hidden="true">✏️</span>
             <span class="nav-label">Liste</span>
         </button>
         <button class="nav-btn" data-nav="einkaufen"
-                aria-label="Einkaufs-Modus">
+                aria-current="page" aria-label="Einkaufs-Modus">
             <span class="nav-icon" aria-hidden="true">🛒</span>
             <span class="nav-label">Einkaufen</span>
         </button>
