@@ -14,6 +14,8 @@ COPY deploy/docker/einkauf.conf /etc/apache2/sites-available/000-default.conf
 
 # Datenpfad für SQLite (wird als Volume gemountet)
 ENV EINKAUF_DATA_DIR=/data
+RUN mkdir -p /data && chown www-data:www-data /data
+VOLUME /data
 
 # App-Code kopieren
 COPY . /var/www/html/
