@@ -185,9 +185,9 @@ grep -q '<link rel="stylesheet" href="style.css">' "$SUBPATH_HTML"
 grep -q '<script src="app.js"></script>' "$SUBPATH_HTML"
 
 curl -fsS "http://127.0.0.1:$SUBPATH_PORT/sub/manifest.php" >"$SUBPATH_MANIFEST"
-grep -q '"id": "/sub/"' "$SUBPATH_MANIFEST"
-grep -q '"start_url": "/sub/"' "$SUBPATH_MANIFEST"
-grep -q '"scope": "/sub/"' "$SUBPATH_MANIFEST"
-grep -q '"src": "/sub/icons/icon-192.png"' "$SUBPATH_MANIFEST"
+grep -q '"id":"/sub/"' "$SUBPATH_MANIFEST"
+grep -q '"start_url":"/sub/"' "$SUBPATH_MANIFEST"
+grep -q '"scope":"/sub/"' "$SUBPATH_MANIFEST"
+grep -q '"src":"/sub/icons/icon-192.png"' "$SUBPATH_MANIFEST"
 
 echo "Smoke-Test erfolgreich."
