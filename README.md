@@ -62,15 +62,29 @@ bash scripts/smoke-test.sh
 bash scripts/test-db-migration.sh
 ```
 
-## Produktions-Deploy mit Apache
+## Produktion mit Komodo
 
-Die App ist für einen dauerhaften Apache-Betrieb vorbereitet:
+Der produktive Deploy läuft über einen Komodo-Stack, nicht über GitHub Actions.
+
+- GitHub Actions in diesem Repo führen nur Tests aus.
+- Das eigentliche Redeploy muss in Komodo per Stack-Deploy oder per Komodo-Webhook auf den Stack erfolgen.
+- Wenn GitHub einen Webhook erfolgreich ausliefert, aber der Stack nicht neu deployt, liegt das Problem in der Komodo-Webhook-/Stack-Konfiguration, nicht in der Action dieses Repos.
+
+Für einen Komodo-Deploy bleibt die Container-Konfiguration im Repo:
+
+- `Dockerfile`
+- `docker-compose.yml`
+- `deploy/docker/einkauf.conf`
+
+Wichtig: Eine installierbare PWA funktioniert in Produktion nur über `HTTPS`. Ein reines `http://`-Deployment auf Port `80` reicht für Service Worker und Installationsdialoge im Browser nicht aus.
+
+## Legacy: Apache-Deploy
+
+Die App enthält weiterhin einen vorbereiteten Apache-Deploypfad:
 
 - Webroot: `/var/www/einkauf/public`
 - Datenverzeichnis: `/var/lib/einkauf`
 - Apache-Site: `deploy/apache/einkauf.conf`
-
-Wichtig: Eine installierbare PWA funktioniert in Produktion nur über `HTTPS`. Ein reines `http://`-Deployment auf Port `80` reicht für Service Worker und Installationsdialoge im Browser nicht aus.
 
 Deployment aus dem Repo:
 
