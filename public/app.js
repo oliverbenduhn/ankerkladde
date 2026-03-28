@@ -30,6 +30,8 @@ const DRAG_SCROLL_ZONE_PX = 72;
 const DRAG_SCROLL_STEP_PX = 10;
 const HAPTIC_FEEDBACK_MS = 12;
 const INSTALL_BANNER_DISMISSED_KEY = 'einkauf-install-banner-dismissed-v2';
+const ITEMS_CACHE_KEY = 'einkauf-items-cache-v1';
+const TOGGLE_QUEUE_KEY = 'einkauf-toggle-queue-v1';
 
 // =========================================
 // STATE
@@ -47,6 +49,7 @@ let dragState = null;
 let dragScrollFrame = null;
 let swRefreshPending = false;
 let swRegistration = null;
+let offlineSyncInFlight = false;
 
 // =========================================
 // UTILITIES
@@ -78,6 +81,12 @@ function getUserFacingError(error, fallbackMessage) {
     }
 
     return fallbackMessage;
+}
+
+function isConnectivityError(error) {
+    if (!(error instanceof Error)) return false;
+    const message = error.message.trim();
+    return message === 'Failed to fetch' || message === 'Load failed';
 }
 
 function normalizeNameInput(name) {
@@ -115,18 +124,172 @@ function clearEditState() {
 function setNetworkStatus() {
     if (!networkStatusEl) return;
 
+    const pendingToggleCount = readQueuedToggles().length;
+
     if (navigator.onLine) {
+        if (offlineSyncInFlight || pendingToggleCount > 0) {
+            networkStatusEl.textContent = 'Verbindung wieder da: Offline-Änderungen werden synchronisiert.';
+            networkStatusEl.removeAttribute('hidden');
+            return;
+        }
+
         networkStatusEl.setAttribute('hidden', '');
         networkStatusEl.textContent = '';
         return;
     }
 
-    networkStatusEl.textContent = 'Offline: Die zuletzt geladene Liste bleibt sichtbar.';
+    networkStatusEl.textContent = pendingToggleCount > 0
+        ? 'Offline: Die Liste bleibt sichtbar, Änderungen werden später synchronisiert.'
+        : 'Offline: Die zuletzt geladene Liste bleibt sichtbar.';
     networkStatusEl.removeAttribute('hidden');
 }
 
 function syncViewportHeight() {
     document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`);
+}
+
+function normalizeItem(item) {
+    return {
+        ...item,
+        id: Number(item.id),
+        done: Number(item.done),
+        sort_order: Number(item.sort_order),
+    };
+}
+
+function readJsonStorage(key, fallbackValue) {
+    try {
+        const raw = window.localStorage.getItem(key);
+        if (!raw) return fallbackValue;
+        const parsed = JSON.parse(raw);
+        return parsed ?? fallbackValue;
+    } catch {
+        return fallbackValue;
+    }
+}
+
+function writeJsonStorage(key, value) {
+    try {
+        window.localStorage.setItem(key, JSON.stringify(value));
+    } catch {
+        // Ignore storage quota / private mode errors.
+    }
+}
+
+function readCachedItems() {
+    const items = readJsonStorage(ITEMS_CACHE_KEY, []);
+    if (!Array.isArray(items)) return [];
+    return items.map(normalizeItem);
+}
+
+function writeCachedItems(items) {
+    writeJsonStorage(ITEMS_CACHE_KEY, items.map(normalizeItem));
+}
+
+function readQueuedToggles() {
+    const queue = readJsonStorage(TOGGLE_QUEUE_KEY, []);
+    if (!Array.isArray(queue)) return [];
+
+    return queue
+        .map(entry => ({
+            id: Number(entry?.id),
+            done: Number(entry?.done),
+        }))
+        .filter(entry => Number.isInteger(entry.id) && entry.id > 0 && (entry.done === 0 || entry.done === 1));
+}
+
+function writeQueuedToggles(queue) {
+    writeJsonStorage(TOGGLE_QUEUE_KEY, queue);
+}
+
+function queueToggle(id, done) {
+    const filteredQueue = readQueuedToggles().filter(entry => entry.id !== Number(id));
+    filteredQueue.push({ id: Number(id), done: Number(done) });
+    writeQueuedToggles(filteredQueue);
+    setNetworkStatus();
+}
+
+function clearQueuedToggleIfUnchanged(id, done) {
+    const queue = readQueuedToggles();
+    const nextQueue = queue.filter(entry => !(entry.id === Number(id) && entry.done === Number(done)));
+    if (nextQueue.length !== queue.length) {
+        writeQueuedToggles(nextQueue);
+    }
+}
+
+function persistItemsLocally() {
+    writeCachedItems(state.items);
+}
+
+function applyQueuedToggles(items) {
+    const queuedToggles = new Map(readQueuedToggles().map(entry => [entry.id, entry.done]));
+
+    return items.map(item => {
+        if (!queuedToggles.has(item.id)) {
+            return item;
+        }
+
+        return {
+            ...item,
+            done: queuedToggles.get(item.id),
+        };
+    });
+}
+
+function updateItemsState(items) {
+    state.items = applyQueuedToggles(items.map(normalizeItem));
+
+    if (hasActiveEdit() && !getItemById(state.editingId)) {
+        clearEditState();
+    }
+
+    persistItemsLocally();
+    renderItems();
+}
+
+async function flushQueuedToggles() {
+    if (offlineSyncInFlight || !navigator.onLine) return;
+
+    const initialQueue = readQueuedToggles();
+    if (initialQueue.length === 0) {
+        setNetworkStatus();
+        return;
+    }
+
+    offlineSyncInFlight = true;
+    setNetworkStatus();
+
+    let syncedCount = 0;
+
+    try {
+        while (navigator.onLine) {
+            const [nextEntry] = readQueuedToggles();
+            if (!nextEntry) break;
+
+            await api('toggle', {
+                method: 'POST',
+                body: new URLSearchParams({
+                    id: String(nextEntry.id),
+                    done: String(nextEntry.done),
+                }),
+            });
+
+            clearQueuedToggleIfUnchanged(nextEntry.id, nextEntry.done);
+            syncedCount += 1;
+        }
+
+        if (syncedCount > 0) {
+            await loadItems({ skipOfflineSync: true, silent: true });
+            setMessage('Offline-Änderungen synchronisiert.');
+        }
+    } catch (error) {
+        if (!isConnectivityError(error)) {
+            setMessage(getUserFacingError(error, 'Offline-Änderungen konnten nicht synchronisiert werden.'), true);
+        }
+    } finally {
+        offlineSyncInFlight = false;
+        setNetworkStatus();
+    }
 }
 
 function showUpdateBanner() {
@@ -585,23 +748,31 @@ async function api(action, options = {}) {
 // =========================================
 // LOAD
 // =========================================
-async function loadItems() {
+async function loadItems(options = {}) {
+    const { skipOfflineSync = false, silent = false } = options;
+
     try {
         const payload = await api('list');
-        state.items   = (payload.items || []).map(item => ({
-            ...item,
-            id: Number(item.id),
-            done: Number(item.done),
-            sort_order: Number(item.sort_order),
-        }));
+        updateItemsState(payload.items || []);
 
-        if (hasActiveEdit() && !getItemById(state.editingId)) {
-            clearEditState();
+        if (!skipOfflineSync && readQueuedToggles().length > 0) {
+            void flushQueuedToggles();
+        }
+    } catch (err) {
+        const cachedItems = readCachedItems();
+
+        if (cachedItems.length > 0) {
+            updateItemsState(cachedItems);
+
+            if (!silent) {
+                setMessage('Offline: Lokale Liste geladen.');
+            }
+            return;
         }
 
-        renderItems();
-    } catch (err) {
-        setMessage(getUserFacingError(err, 'Die Liste konnte nicht geladen werden.'), true);
+        if (!silent) {
+            setMessage(getUserFacingError(err, 'Die Liste konnte nicht geladen werden.'), true);
+        }
     }
 }
 
@@ -958,6 +1129,7 @@ async function handleToggle(id) {
 
     const oldPositions = capturePositions();
     item.done = newDone;
+    persistItemsLocally();
     renderItems();
     playFlip(oldPositions);
 
@@ -966,10 +1138,20 @@ async function handleToggle(id) {
             method: 'POST',
             body:   new URLSearchParams({ id: String(id), done: String(newDone) }),
         });
+        clearQueuedToggleIfUnchanged(id, newDone);
+        persistItemsLocally();
+        setNetworkStatus();
     } catch (err) {
-        item.done = currentDone;
-        renderItems();
-        setMessage(getUserFacingError(err, 'Offline: Änderung konnte nicht gespeichert werden.'), true);
+        if (isConnectivityError(err)) {
+            queueToggle(id, newDone);
+            persistItemsLocally();
+            setMessage('Offline: Änderung lokal gespeichert und wird später synchronisiert.');
+        } else {
+            item.done = currentDone;
+            persistItemsLocally();
+            renderItems();
+            setMessage(getUserFacingError(err, 'Änderung konnte nicht gespeichert werden.'), true);
+        }
     } finally {
         state.pendingIds.delete(id);
         renderItems();
@@ -1264,7 +1446,10 @@ if (updateReloadBtn) {
     });
 }
 
-window.addEventListener('online', setNetworkStatus);
+window.addEventListener('online', () => {
+    setNetworkStatus();
+    void flushQueuedToggles();
+});
 window.addEventListener('offline', setNetworkStatus);
 window.addEventListener('resize', syncViewportHeight);
 

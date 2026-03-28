@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION = 'v5';
+const VERSION = 'v6';
 const STATIC_CACHE = `einkauf-static-${VERSION}`;
 const RUNTIME_CACHE = `einkauf-runtime-${VERSION}`;
 const APP_SCOPE_URL = new URL(self.registration.scope);
