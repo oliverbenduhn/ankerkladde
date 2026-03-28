@@ -29,7 +29,7 @@ const DELETE_ANIM_MS = 180;
 const DRAG_SCROLL_ZONE_PX = 72;
 const DRAG_SCROLL_STEP_PX = 10;
 const HAPTIC_FEEDBACK_MS = 12;
-const INSTALL_BANNER_DISMISSED_KEY = 'einkauf-install-banner-dismissed-v1';
+const INSTALL_BANNER_DISMISSED_KEY = 'einkauf-install-banner-dismissed-v2';
 
 // =========================================
 // STATE
