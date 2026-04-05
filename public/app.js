@@ -145,7 +145,8 @@ function setNetworkStatus() {
 }
 
 function syncViewportHeight() {
-    document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`);
+    const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+    document.documentElement.style.setProperty('--app-height', `${h}px`);
 }
 
 function normalizeItem(item) {
@@ -1452,6 +1453,9 @@ window.addEventListener('online', () => {
 });
 window.addEventListener('offline', setNetworkStatus);
 window.addEventListener('resize', syncViewportHeight);
+if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', syncViewportHeight);
+}
 
 // =========================================
 // INIT

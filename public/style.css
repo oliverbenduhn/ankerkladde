@@ -50,10 +50,7 @@ button, input { font: inherit; }
     height: 100vh;
     height: 100dvh;
     height: var(--app-height, 100dvh);
-    min-height: 100vh;
-    min-height: 100dvh;
-    min-height: var(--app-height, 100dvh);
-    max-width: 480px;
+    max-width: 640px;
     margin: 0 auto;
     padding-top: env(safe-area-inset-top, 0px);
     overflow: hidden;
