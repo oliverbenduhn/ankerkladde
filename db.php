@@ -14,19 +14,28 @@ function getDataDirectory(): string
 
 function rebuildSortOrder(PDO $db): void
 {
-    $ids = $db->query(
-        'SELECT id
-         FROM items
-         ORDER BY done ASC, updated_at DESC, id DESC'
-    )->fetchAll(PDO::FETCH_COLUMN);
+    $db->beginTransaction();
 
-    $stmt = $db->prepare('UPDATE items SET sort_order = :sort_order WHERE id = :id');
+    try {
+        $ids = $db->query(
+            'SELECT id
+             FROM items
+             ORDER BY done ASC, updated_at DESC, id DESC'
+        )->fetchAll(PDO::FETCH_COLUMN);
 
-    foreach ($ids as $index => $id) {
-        $stmt->execute([
-            ':sort_order' => $index + 1,
-            ':id' => (int) $id,
-        ]);
+        $stmt = $db->prepare('UPDATE items SET sort_order = :sort_order WHERE id = :id');
+
+        foreach ($ids as $index => $id) {
+            $stmt->execute([
+                ':sort_order' => $index + 1,
+                ':id' => (int) $id,
+            ]);
+        }
+
+        $db->commit();
+    } catch (Throwable $e) {
+        $db->rollBack();
+        throw $e;
     }
 }
 
