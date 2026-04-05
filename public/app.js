@@ -261,21 +261,23 @@ async function flushQueuedToggles() {
     setNetworkStatus();
 
     let syncedCount = 0;
+    let currentEntry = null;
 
     try {
         while (navigator.onLine) {
-            const [nextEntry] = readQueuedToggles();
-            if (!nextEntry) break;
+            [currentEntry] = readQueuedToggles();
+            if (!currentEntry) break;
 
             await api('toggle', {
                 method: 'POST',
                 body: new URLSearchParams({
-                    id: String(nextEntry.id),
-                    done: String(nextEntry.done),
+                    id: String(currentEntry.id),
+                    done: String(currentEntry.done),
                 }),
             });
 
-            clearQueuedToggleIfUnchanged(nextEntry.id, nextEntry.done);
+            clearQueuedToggleIfUnchanged(currentEntry.id, currentEntry.done);
+            currentEntry = null;
             syncedCount += 1;
         }
 
@@ -285,6 +287,7 @@ async function flushQueuedToggles() {
         }
     } catch (error) {
         if (!isConnectivityError(error)) {
+            if (currentEntry) clearQueuedToggleIfUnchanged(currentEntry.id, currentEntry.done);
             setMessage(getUserFacingError(error, 'Offline-Änderungen konnten nicht synchronisiert werden.'), true);
         }
     } finally {
