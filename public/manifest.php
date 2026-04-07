@@ -19,9 +19,9 @@ if ($appBasePath === '' || $appBasePath === '.') {
 
 $manifest = [
     'id' => $appBasePath,
-    'name' => 'Einkaufsliste',
-    'short_name' => 'Einkauf',
-    'description' => 'Schnelle mobile Einkaufsliste mit Offline-Unterstützung.',
+    'name' => 'Zettel',
+    'short_name' => 'Zettel',
+    'description' => 'Schnelle mobile Zettel – Listen, Notizen, ToDos.',
     'lang' => 'de',
     'start_url' => $appBasePath,
     'scope' => $appBasePath,

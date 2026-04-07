@@ -495,7 +495,7 @@ button, input { font: inherit; }
    =========================================== */
 .message {
     position: fixed;
-    bottom: calc(64px + env(safe-area-inset-bottom, 8px) + 12px);
+    bottom: calc(env(safe-area-inset-bottom, 8px) + 16px);
     left: 50%;
     transform: translateX(-50%) translateY(10px);
     background: var(--text-primary);
@@ -516,36 +516,26 @@ button, input { font: inherit; }
 .message.is-error   { background: var(--error); }
 
 /* ===========================================
-   BOTTOM NAVIGATION
+   MODE TOGGLE BUTTON (oben rechts im Header)
    =========================================== */
-.bottom-nav {
-    display: flex;
-    border-top: 1.5px solid var(--border);
-    background: var(--surface);
-    padding-bottom: env(safe-area-inset-bottom, 8px);
+.btn-mode-toggle {
+    min-width: 40px;
+    min-height: 40px;
+    padding: 0 10px;
+    background: var(--border);
+    border: none;
+    border-radius: 10px;
+    font-size: 1.1rem;
+    cursor: pointer;
     flex-shrink: 0;
-}
-
-.nav-btn {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
+    transition: background 0.15s ease, transform 0.1s ease;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 2px;
-    padding: 10px 8px;
-    background: none;
-    border: none;
-    cursor: pointer;
-    color: var(--text-muted);
-    min-height: 56px;
-    transition: color 0.15s ease;
 }
 
-.nav-btn[aria-current="page"] { color: var(--text-primary); font-weight: 700; }
-
-.nav-icon  { font-size: 1.2rem; line-height: 1; }
-.nav-label { font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+.btn-mode-toggle:hover  { background: var(--accent); }
+.btn-mode-toggle:active { transform: scale(0.92); }
 
 /* ===========================================
    MODE VISIBILITY (CSS-driven)
@@ -673,3 +663,51 @@ button, input { font: inherit; }
         transition-duration: 0.01ms !important;
     }
 }
+
+/* ===========================================
+   SECTION TABS (Bereichs-Navigation oben)
+   =========================================== */
+.section-tabs {
+    display: flex;
+    overflow-x: auto;
+    overflow-y: hidden;
+    border-bottom: 1.5px solid var(--border);
+    background: var(--surface);
+    flex-shrink: 0;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+}
+
+.section-tabs::-webkit-scrollbar { display: none; }
+
+.section-tab {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 8px 14px;
+    background: none;
+    border: none;
+    border-bottom: 2.5px solid transparent;
+    cursor: pointer;
+    color: var(--text-muted);
+    white-space: nowrap;
+    flex-shrink: 0;
+    min-height: 52px;
+    transition: color 0.15s ease, border-color 0.15s ease;
+    margin-bottom: -1.5px; /* overlap border-bottom */
+}
+
+.section-tab[aria-current="page"] {
+    color: var(--text-primary);
+    border-bottom-color: var(--text-primary);
+    font-weight: 700;
+}
+
+.section-tab:hover:not([aria-current="page"]) {
+    color: var(--text-secondary);
+}
+
+.section-icon { font-size: 1.1rem; line-height: 1; }
+.section-label { font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }

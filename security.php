@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-const EINKAUF_CANONICAL_HOST = 'einkauf.benduhn.de';
+const EINKAUF_CANONICAL_HOST = 'zettel.benduhn.de';
 
 function getEnvBool(string $name): ?bool
 {

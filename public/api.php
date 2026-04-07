@@ -11,6 +11,8 @@ header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 header('X-Content-Type-Options: nosniff');
 
+const VALID_SECTIONS = ['shopping', 'meds', 'todo_private', 'todo_work', 'notes', 'images', 'files'];
+
 function respond(int $status, array $payload): never
 {
     http_response_code($status);
@@ -50,6 +52,15 @@ function requireCsrfToken(array $data): void
     if (!hasValidCsrfToken(is_string($providedToken) ? $providedToken : null)) {
         respond(403, ['error' => 'Ungültiges Sicherheits-Token.']);
     }
+}
+
+function getSection(array $data = []): string
+{
+    $section = $_GET['section'] ?? ($data['section'] ?? 'shopping');
+    if (!in_array($section, VALID_SECTIONS, true)) {
+        respond(422, ['error' => 'Ungültige Sektion.']);
+    }
+    return (string) $section;
 }
 
 function normalizeName(?string $name): string
@@ -100,43 +111,49 @@ try {
     switch ($action) {
         case 'list':
             requireMethod('GET');
+            $section = getSection();
 
-            $stmt = $db->query(
+            $stmt = $db->prepare(
                 'SELECT id, name, quantity, done, sort_order, created_at, updated_at
                  FROM items
+                 WHERE section = :section
                  ORDER BY sort_order ASC, id ASC'
             );
+            $stmt->execute([':section' => $section]);
 
             respond(200, ['items' => $stmt->fetchAll()]);
 
         case 'add':
             requireMethod('POST');
 
-            $data = requestData();
+            $data     = requestData();
             requireCsrfToken($data);
-            $name = normalizeName($data['name'] ?? null);
+            $section  = getSection($data);
+            $name     = normalizeName($data['name'] ?? null);
             $quantity = normalizeQuantity($data['quantity'] ?? null);
 
             if ($name == '') {
                 respond(422, ['error' => 'Bitte gib einen Artikelnamen ein.']);
             }
 
+            // Global MAX ensures sort_order is unique across all sections (prevents db integrity check failure)
+            $maxStmt = $db->query('SELECT COALESCE(MAX(sort_order), 0) FROM items');
+            $nextOrder = (int) $maxStmt->fetchColumn() + 1;
+
             $stmt = $db->prepare(
-                'INSERT INTO items (name, quantity, sort_order)
-                 VALUES (
-                    :name,
-                    :quantity,
-                    (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM items)
-                 )'
+                'INSERT INTO items (name, quantity, section, sort_order)
+                 VALUES (:name, :quantity, :section, :sort_order)'
             );
             $stmt->execute([
-                ':name' => $name,
-                ':quantity' => $quantity,
+                ':name'       => $name,
+                ':quantity'   => $quantity,
+                ':section'    => $section,
+                ':sort_order' => $nextOrder,
             ]);
 
             respond(201, [
                 'message' => 'Artikel hinzugefügt.',
-                'id' => (int) $db->lastInsertId(),
+                'id'      => (int) $db->lastInsertId(),
             ]);
 
         case 'toggle':
@@ -144,7 +161,7 @@ try {
 
             $data = requestData();
             requireCsrfToken($data);
-            $id = filter_var($data['id'] ?? null, FILTER_VALIDATE_INT);
+            $id   = filter_var($data['id'] ?? null, FILTER_VALIDATE_INT);
             $done = filter_var($data['done'] ?? null, FILTER_VALIDATE_INT, [
                 'options' => ['min_range' => 0, 'max_range' => 1],
             ]);
@@ -156,10 +173,7 @@ try {
             $stmt = $db->prepare(
                 'UPDATE items SET done = :done, updated_at = CURRENT_TIMESTAMP WHERE id = :id'
             );
-            $stmt->execute([
-                ':done' => $done,
-                ':id' => $id,
-            ]);
+            $stmt->execute([':done' => $done, ':id' => $id]);
 
             if ($stmt->rowCount() === 0) {
                 respond(404, ['error' => 'Artikel nicht gefunden.']);
@@ -170,12 +184,12 @@ try {
         case 'update':
             requireMethod('POST');
 
-            $data = requestData();
+            $data     = requestData();
             requireCsrfToken($data);
-            $id = filter_var($data['id'] ?? null, FILTER_VALIDATE_INT, [
+            $id       = filter_var($data['id'] ?? null, FILTER_VALIDATE_INT, [
                 'options' => ['min_range' => 1],
             ]);
-            $name = normalizeName($data['name'] ?? null);
+            $name     = normalizeName($data['name'] ?? null);
             $quantity = normalizeQuantity($data['quantity'] ?? null);
 
             if (!$id) {
@@ -191,11 +205,7 @@ try {
                  SET name = :name, quantity = :quantity, updated_at = CURRENT_TIMESTAMP
                  WHERE id = :id'
             );
-            $stmt->execute([
-                ':id' => $id,
-                ':name' => $name,
-                ':quantity' => $quantity,
-            ]);
+            $stmt->execute([':id' => $id, ':name' => $name, ':quantity' => $quantity]);
 
             if ($stmt->rowCount() === 0) {
                 $existsStmt = $db->prepare('SELECT 1 FROM items WHERE id = :id');
@@ -213,7 +223,7 @@ try {
 
             $data = requestData();
             requireCsrfToken($data);
-            $id = filter_var($data['id'] ?? null, FILTER_VALIDATE_INT);
+            $id   = filter_var($data['id'] ?? null, FILTER_VALIDATE_INT);
             if (!$id) {
                 respond(422, ['error' => 'Ungültige ID.']);
             }
@@ -230,28 +240,37 @@ try {
         case 'clear':
             requireMethod('POST');
 
-            $data = requestData();
+            $data    = requestData();
             requireCsrfToken($data);
-            $deletedCount = $db->exec('DELETE FROM items WHERE done = 1');
+            $section = getSection($data);
+
+            $stmt = $db->prepare('DELETE FROM items WHERE done = 1 AND section = :section');
+            $stmt->execute([':section' => $section]);
+
             respond(200, [
                 'message' => 'Erledigte Artikel gelöscht.',
-                'deleted' => (int) $deletedCount,
+                'deleted' => (int) $stmt->rowCount(),
             ]);
 
         case 'reorder':
             requireMethod('POST');
 
-            $data = requestData();
+            $data    = requestData();
             requireCsrfToken($data);
-            $ids = normalizeIdList($data['ids'] ?? null);
+            $section = getSection($data);
+            $ids     = normalizeIdList($data['ids'] ?? null);
 
             if ($ids === []) {
                 respond(422, ['error' => 'Ungültige Reihenfolge.']);
             }
 
+            $existingStmt = $db->prepare(
+                'SELECT id FROM items WHERE section = :section ORDER BY sort_order ASC, id ASC'
+            );
+            $existingStmt->execute([':section' => $section]);
             $existingIds = array_map(
                 static fn(mixed $id): int => (int) $id,
-                $db->query('SELECT id FROM items ORDER BY sort_order ASC, id ASC')->fetchAll(PDO::FETCH_COLUMN)
+                $existingStmt->fetchAll(PDO::FETCH_COLUMN)
             );
 
             sort($ids);
@@ -274,7 +293,7 @@ try {
             foreach ($orderedIds as $index => $id) {
                 $stmt->execute([
                     ':sort_order' => $index + 1,
-                    ':id' => $id,
+                    ':id'         => $id,
                 ]);
             }
 

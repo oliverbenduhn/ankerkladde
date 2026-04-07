@@ -1,6 +1,6 @@
 {
-  "name": "Einkaufsliste",
-  "short_name": "Einkauf",
+  "name": "Zettel",
+  "short_name": "Zettel",
   "lang": "de",
   "id": "./",
   "start_url": "./",

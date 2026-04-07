@@ -30,7 +30,7 @@ if ($appBasePath === '' || $appBasePath === '.') {
     <meta name="csrf-token" content="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
     <link rel="manifest" href="manifest.php">
     <link rel="stylesheet" href="style.css">
-    <title>Einkaufsliste</title>
+    <title>Zettel</title>
 </head>
 <body>
 <div class="app" id="app" data-mode="einkaufen">
@@ -48,13 +48,46 @@ if ($appBasePath === '' || $appBasePath === '.') {
         <button type="button" id="updateReloadBtn" class="btn-update-reload">Neu laden</button>
     </div>
 
+    <nav class="section-tabs" id="sectionTabs" aria-label="Bereich wählen">
+        <button class="section-tab" data-section="shopping" aria-current="page">
+            <span class="section-icon" aria-hidden="true">🛒</span>
+            <span class="section-label">Einkauf</span>
+        </button>
+        <button class="section-tab" data-section="meds">
+            <span class="section-icon" aria-hidden="true">💊</span>
+            <span class="section-label">Medizin</span>
+        </button>
+        <button class="section-tab" data-section="todo_private">
+            <span class="section-icon" aria-hidden="true">✅</span>
+            <span class="section-label">Privat</span>
+        </button>
+        <button class="section-tab" data-section="todo_work">
+            <span class="section-icon" aria-hidden="true">💼</span>
+            <span class="section-label">Arbeit</span>
+        </button>
+        <button class="section-tab" data-section="notes">
+            <span class="section-icon" aria-hidden="true">📝</span>
+            <span class="section-label">Notizen</span>
+        </button>
+        <button class="section-tab" data-section="images">
+            <span class="section-icon" aria-hidden="true">🖼️</span>
+            <span class="section-label">Bilder</span>
+        </button>
+        <button class="section-tab" data-section="files">
+            <span class="section-icon" aria-hidden="true">📁</span>
+            <span class="section-label">Dateien</span>
+        </button>
+    </nav>
+
     <header class="app-header liste-only">
-        <h1 class="app-title">Einkaufsliste</h1>
+        <h1 class="app-title" id="titleListe">Einkaufsliste</h1>
+        <button type="button" class="btn-mode-toggle" data-nav="einkaufen" aria-label="Einkaufs-Modus starten">🛒</button>
     </header>
 
     <header class="app-header shopping-only">
-        <h1 class="app-title">Einkaufen</h1>
+        <h1 class="app-title" id="titleShopping">Einkaufen</h1>
         <span class="progress" id="progress" aria-live="polite">0 / 0</span>
+        <button type="button" class="btn-mode-toggle" data-nav="liste" aria-label="Liste bearbeiten">✏️</button>
     </header>
 
     <section class="input-area liste-only" id="inputArea">
@@ -76,18 +109,6 @@ if ($appBasePath === '' || $appBasePath === '.') {
 
     <div class="message" id="message" role="status" aria-live="polite"></div>
 
-    <nav class="bottom-nav" aria-label="Hauptnavigation">
-        <button class="nav-btn" data-nav="einkaufen"
-                aria-current="page" aria-label="Einkaufs-Modus">
-            <span class="nav-icon" aria-hidden="true">🛒</span>
-            <span class="nav-label">Einkaufen</span>
-        </button>
-        <button class="nav-btn" data-nav="liste"
-                aria-label="Listen-Modus">
-            <span class="nav-icon" aria-hidden="true">✏️</span>
-            <span class="nav-label">Liste</span>
-        </button>
-    </nav>
 </div>
 
 <script src="app.js"></script>

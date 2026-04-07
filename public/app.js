@@ -17,7 +17,8 @@ const clearDoneBtn    = document.getElementById('clearDoneBtn');
 const messageEl       = document.getElementById('message');
 const progressEl      = document.getElementById('progress');
 const quantityInput   = document.getElementById('quantityInput');
-const navBtns         = document.querySelectorAll('.nav-btn');
+const modeToggleBtns  = document.querySelectorAll('.btn-mode-toggle');
+const sectionTabEls   = document.querySelectorAll('.section-tab');
 const networkStatusEl = document.getElementById('networkStatus');
 const updateBannerEl  = document.getElementById('updateBanner');
 const updateReloadBtn = document.getElementById('updateReloadBtn');
@@ -30,8 +31,19 @@ const DRAG_SCROLL_ZONE_PX = 72;
 const DRAG_SCROLL_STEP_PX = 10;
 const HAPTIC_FEEDBACK_MS = 12;
 const INSTALL_BANNER_DISMISSED_KEY = 'einkauf-install-banner-dismissed-v2';
-const ITEMS_CACHE_KEY = 'einkauf-items-cache-v1';
+const ITEMS_CACHE_KEY_PREFIX = 'einkauf-items-cache-v1-';
 const TOGGLE_QUEUE_KEY = 'einkauf-toggle-queue-v1';
+const SECTION_KEY = 'einkauf-section-v1';
+
+const SECTIONS = {
+    shopping:     { label: 'Einkauf',    title: 'Einkaufsliste',     shoppingTitle: 'Einkaufen'       },
+    meds:         { label: 'Medizin',    title: 'Medikamentenliste', shoppingTitle: 'Einkaufen'       },
+    todo_private: { label: 'Privat',     title: 'ToDo Privat',       shoppingTitle: 'Abhaken'         },
+    todo_work:    { label: 'Arbeit',     title: 'ToDo Arbeit',       shoppingTitle: 'Abhaken'         },
+    notes:        { label: 'Notizen',    title: 'Notizen',           shoppingTitle: 'Notizen'         },
+    images:       { label: 'Bilder',     title: 'Bilder',            shoppingTitle: 'Bilder'          },
+    files:        { label: 'Dateien',    title: 'Dateien',           shoppingTitle: 'Dateien'         },
+};
 
 // =========================================
 // STATE
@@ -39,6 +51,7 @@ const TOGGLE_QUEUE_KEY = 'einkauf-toggle-queue-v1';
 const state = {
     items:          [],
     mode:           'liste',   // 'liste' | 'einkaufen'
+    section:        'shopping',
     pendingIds:     new Set(),
     reorderPending: false,
     editingId:      null,
@@ -177,14 +190,18 @@ function writeJsonStorage(key, value) {
     }
 }
 
+function sectionCacheKey() {
+    return ITEMS_CACHE_KEY_PREFIX + state.section;
+}
+
 function readCachedItems() {
-    const items = readJsonStorage(ITEMS_CACHE_KEY, []);
+    const items = readJsonStorage(sectionCacheKey(), []);
     if (!Array.isArray(items)) return [];
     return items.map(normalizeItem);
 }
 
 function writeCachedItems(items) {
-    writeJsonStorage(ITEMS_CACHE_KEY, items.map(normalizeItem));
+    writeJsonStorage(sectionCacheKey(), items.map(normalizeItem));
 }
 
 function readQueuedToggles() {
@@ -714,15 +731,40 @@ function setMode(mode) {
     state.mode         = mode;
     appEl.dataset.mode = mode;
 
-    navBtns.forEach(btn => {
-        if (btn.dataset.nav === mode) {
-            btn.setAttribute('aria-current', 'page');
+    renderItems();
+}
+
+// =========================================
+// SECTION SWITCHING
+// =========================================
+function updateSectionHeaders() {
+    const cfg = SECTIONS[state.section] || SECTIONS.shopping;
+    const titleListe    = document.getElementById('titleListe');
+    const titleShopping = document.getElementById('titleShopping');
+    if (titleListe)    titleListe.textContent    = cfg.title;
+    if (titleShopping) titleShopping.textContent = cfg.shoppingTitle;
+    document.title = cfg.title;
+}
+
+function setSection(section) {
+    if (!SECTIONS[section]) return;
+
+    if (dragState) finishDrag(true);
+    if (hasActiveEdit()) clearEditState();
+
+    state.section = section;
+    writeJsonStorage(SECTION_KEY, section);
+
+    sectionTabEls.forEach(tab => {
+        if (tab.dataset.section === section) {
+            tab.setAttribute('aria-current', 'page');
         } else {
-            btn.removeAttribute('aria-current');
+            tab.removeAttribute('aria-current');
         }
     });
 
-    renderItems();
+    updateSectionHeaders();
+    void loadItems();
 }
 
 // =========================================
@@ -739,10 +781,12 @@ async function api(action, options = {}) {
         };
     }
 
-    const response = await fetch(
-        `api.php?action=${encodeURIComponent(action)}`,
-        fetchOptions
-    );
+    const sectionParam = `&section=${encodeURIComponent(state.section)}`;
+    const url = method === 'GET'
+        ? `api.php?action=${encodeURIComponent(action)}${sectionParam}`
+        : `api.php?action=${encodeURIComponent(action)}`;
+
+    const response = await fetch(url, fetchOptions);
     const payload = await response.json().catch(() => ({}));
 
     if (!response.ok) throw new Error(payload.error || 'Unbekannter Fehler');
@@ -788,9 +832,11 @@ async function persistOrder(orderedIds) {
     renderItems();
 
     try {
+        const reorderBody = buildReorderBody(orderedIds);
+        reorderBody.append('section', state.section);
         await api('reorder', {
             method: 'POST',
-            body: buildReorderBody(orderedIds),
+            body: reorderBody,
         });
         setMessage('Reihenfolge gespeichert.');
     } catch (err) {
@@ -1111,7 +1157,9 @@ async function addItem(event) {
     submitBtn.disabled = true;
 
     try {
-        await api('add', { method: 'POST', body: new URLSearchParams(formData) });
+        const addParams = new URLSearchParams(formData);
+        addParams.append('section', state.section);
+        await api('add', { method: 'POST', body: addParams });
         itemForm.reset();
         itemInput.focus();
         await loadItems();
@@ -1194,7 +1242,7 @@ async function clearDone() {
 
     clearDoneBtn.disabled = true;
     try {
-        await api('clear', { method: 'POST' });
+        await api('clear', { method: 'POST', body: new URLSearchParams({ section: state.section }) });
         await loadItems();
         setMessage('Erledigte Artikel entfernt.');
     } catch (err) {
@@ -1227,7 +1275,8 @@ quantityInput.addEventListener('keydown', submitOnEnter);
 listEl.addEventListener('keydown', handleListKeydown);
 
 clearDoneBtn.addEventListener('click', clearDone);
-navBtns.forEach(btn => btn.addEventListener('click', () => setMode(btn.dataset.nav)));
+modeToggleBtns.forEach(btn => btn.addEventListener('click', () => setMode(btn.dataset.nav)));
+sectionTabEls.forEach(tab => tab.addEventListener('click', () => setSection(tab.dataset.section)));
 
 // =========================================
 // PWA INSTALL PROMPT
@@ -1467,4 +1516,21 @@ syncViewportHeight();
 setNetworkStatus();
 renderInstallBanner();
 registerServiceWorker();
+
+// Restore last active section
+(function initSection() {
+    const saved = readJsonStorage(SECTION_KEY, 'shopping');
+    if (saved && SECTIONS[saved] && saved !== 'shopping') {
+        state.section = saved;
+        sectionTabEls.forEach(tab => {
+            if (tab.dataset.section === saved) {
+                tab.setAttribute('aria-current', 'page');
+            } else {
+                tab.removeAttribute('aria-current');
+            }
+        });
+        updateSectionHeaders();
+    }
+})();
+
 loadItems();
