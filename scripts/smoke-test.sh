@@ -81,10 +81,10 @@ SUBPATH_MANIFEST="$TMP_DIR/subpath-manifest.json"
 grep -q '"items"' "$LIST_BODY"
 
 [[ "$(curl -sS -o /dev/null -D "$REDIRECT_HEADERS" -w '%{http_code}' -H 'Host: beispiel.invalid' "http://127.0.0.1:$PORT/")" == "308" ]]
-grep -q '^Location: https://einkauf\.benduhn\.de/' "$REDIRECT_HEADERS"
+grep -q '^Location: https://zettel\.benduhn\.de/' "$REDIRECT_HEADERS"
 
-[[ "$(curl -sS -o /dev/null -D "$SPOOF_REDIRECT_HEADERS" -w '%{http_code}' -H 'Host: beispiel.invalid' -H 'X-Forwarded-Host: einkauf.benduhn.de' "http://127.0.0.1:$PORT/")" == "308" ]]
-grep -q '^Location: https://einkauf\.benduhn\.de/' "$SPOOF_REDIRECT_HEADERS"
+[[ "$(curl -sS -o /dev/null -D "$SPOOF_REDIRECT_HEADERS" -w '%{http_code}' -H 'Host: beispiel.invalid' -H 'X-Forwarded-Host: zettel.benduhn.de' "http://127.0.0.1:$PORT/")" == "308" ]]
+grep -q '^Location: https://zettel\.benduhn\.de/' "$SPOOF_REDIRECT_HEADERS"
 
 curl -sS -D "$COOKIE_HEADERS" -o /dev/null -H 'X-Forwarded-Proto: https' "http://127.0.0.1:$PORT/"
 if grep -Eqi '^Set-Cookie: .*;[[:space:]]*Secure([;]|$)' "$COOKIE_HEADERS"; then
