@@ -20,9 +20,12 @@ const filePickerName  = document.getElementById('filePickerName');
 const cameraBtn       = document.getElementById('cameraBtn');
 const cameraInput     = document.getElementById('cameraInput');
 const dropZoneEl      = document.getElementById('dropZone');
+const diskFreeEl      = document.getElementById('diskFreeDisplay');
 const inputHintEl     = document.getElementById('inputHint');
 const clearDoneBtn    = document.getElementById('clearDoneBtn');
-const messageEl       = document.getElementById('message');
+const messageEl           = document.getElementById('message');
+const uploadProgressEl    = document.getElementById('uploadProgress');
+const uploadProgressBarEl = document.getElementById('uploadProgressBar');
 const progressEl      = document.getElementById('progress');
 const quantityInput   = document.getElementById('quantityInput');
 const searchBtn       = document.getElementById('searchBtn');
@@ -84,6 +87,7 @@ const state = {
     editDraft:      { name: '', quantity: '', due_date: '' },
     noteEditorId:   null,
     search:         { open: false, query: '', results: [] },
+    diskFreeBytes:  null,
 };
 
 let dragState = null;
@@ -95,7 +99,8 @@ let offlineSyncInFlight = false;
 // =========================================
 // UTILITIES
 // =========================================
-let messageTimer = null;
+let messageTimer        = null;
+let uploadProgressTimer = null;
 
 function isAttachmentSection(section = state.section) {
     return ATTACHMENT_SECTIONS.has(section);
@@ -107,6 +112,35 @@ function setMessage(text, isError = false) {
     messageEl.classList.toggle('is-error', isError);
     messageEl.classList.add('is-visible');
     messageTimer = setTimeout(() => messageEl.classList.remove('is-visible'), 2500);
+}
+
+function setUploadProgress(fraction) {
+    clearTimeout(uploadProgressTimer);
+    if (fraction <= 0) {
+        if (uploadProgressEl) uploadProgressEl.hidden = true;
+        if (uploadProgressBarEl) uploadProgressBarEl.style.width = '0%';
+        return;
+    }
+    if (uploadProgressEl) uploadProgressEl.hidden = false;
+    if (uploadProgressBarEl) uploadProgressBarEl.style.width = Math.round(fraction * 100) + '%';
+    if (fraction >= 1) {
+        uploadProgressTimer = setTimeout(() => {
+            if (uploadProgressEl) uploadProgressEl.hidden = true;
+            if (uploadProgressBarEl) uploadProgressBarEl.style.width = '0%';
+        }, 600);
+    }
+}
+
+function makeUploadProgressCallback() {
+    return function onProgress(fraction) {
+        setUploadProgress(fraction);
+        clearTimeout(messageTimer);
+        messageEl.classList.remove('is-error');
+        messageEl.classList.add('is-visible');
+        messageEl.textContent = fraction < 1
+            ? `Hochladen\u00a0${Math.round(fraction * 100)}\u00a0%`
+            : 'Wird gespeichert\u2026';
+    };
 }
 
 function delay(ms) {
@@ -278,7 +312,9 @@ function setUploadUiState() {
 
     fileInputGroup.hidden = !isUploadSection;
     fileInputGroup.classList.toggle('is-disabled', isUploadSection && isOffline);
-    inputHintEl.hidden = !isUploadSection;
+    inputHintEl.hidden = !isUploadSection || !isOffline;
+    const submitBtn = itemForm?.querySelector('[type="submit"]');
+    if (submitBtn) submitBtn.hidden = isUploadSection;
     filePickerButton.textContent = isImageSection ? 'Bild wählen' : 'Datei wählen';
     fileInput.accept = isImageSection ? 'image/*' : '';
     fileInput.disabled = !isUploadSection || isOffline;
@@ -304,9 +340,13 @@ function setUploadUiState() {
 
     inputHintEl.textContent = isOffline
         ? 'Uploads sind offline nicht verfügbar. Vorhandene Einträge bleiben sichtbar.'
-        : isImageSection
-            ? 'Ein einzelnes Bild auswählen oder Foto aufnehmen. Titel optional.'
-            : 'Eine einzelne Datei auswählen. Titel optional.';
+        : '';
+
+    if (diskFreeEl) {
+        const showDisk = !isOffline && state.diskFreeBytes !== null;
+        diskFreeEl.hidden = !showDisk;
+        if (showDisk) diskFreeEl.textContent = formatBytes(state.diskFreeBytes) + ' frei';
+    }
 }
 
 function focusPrimaryInput() {
@@ -1265,6 +1305,11 @@ async function loadItems(options = {}) {
         const payload = await api('list');
         updateItemsState(payload.items || []);
 
+        if (typeof payload.disk_free_bytes === 'number') {
+            state.diskFreeBytes = payload.disk_free_bytes;
+            setUploadUiState();
+        }
+
         if (!skipOfflineSync && readQueuedToggles().length > 0) {
             void flushQueuedToggles();
         }
@@ -1286,16 +1331,46 @@ async function loadItems(options = {}) {
     }
 }
 
-async function uploadAttachment(uploadFormData) {
+function apiUpload(action, formData, onProgress) {
+    return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', `api.php?action=${encodeURIComponent(action)}`);
+        xhr.setRequestHeader('X-CSRF-Token', csrfToken);
+
+        if (typeof onProgress === 'function') {
+            xhr.upload.addEventListener('progress', (e) => {
+                if (e.lengthComputable) onProgress(e.loaded / e.total);
+            });
+            xhr.upload.addEventListener('load', () => onProgress(1));
+        }
+
+        xhr.addEventListener('load', () => {
+            let payload = {};
+            try { payload = JSON.parse(xhr.responseText); } catch {}
+            if (xhr.status >= 200 && xhr.status < 300) {
+                resolve(payload);
+            } else {
+                reject(new Error(payload.error || 'Unbekannter Fehler'));
+            }
+        });
+
+        xhr.addEventListener('error', () => reject(new Error('Failed to fetch')));
+        xhr.addEventListener('abort', () => reject(new Error('Failed to fetch')));
+
+        xhr.send(formData);
+    });
+}
+
+async function uploadAttachment(uploadFormData, onProgress = null) {
     try {
-        return await api('upload', { method: 'POST', body: uploadFormData });
+        return await apiUpload('upload', uploadFormData, onProgress);
     } catch (error) {
         const message = error instanceof Error ? error.message : '';
         if (message !== 'Unbekannte Aktion.') {
             throw error;
         }
 
-        return api('add', { method: 'POST', body: uploadFormData });
+        return apiUpload('add', uploadFormData, onProgress);
     }
 }
 
@@ -1594,7 +1669,7 @@ async function handleEditSave(id) {
             uploadFormData.append('item_id', String(id));
             uploadFormData.append('name', name);
             uploadFormData.append('attachment', replacementFile);
-            await uploadAttachment(uploadFormData);
+            await uploadAttachment(uploadFormData, makeUploadProgressCallback());
             await loadItems({ silent: true });
             clearEditState();
             renderItems();
@@ -1618,6 +1693,7 @@ async function handleEditSave(id) {
             setMessage('Artikel gespeichert.');
         }
     } catch (err) {
+        setUploadProgress(0);
         setMessage(getUserFacingError(err, 'Artikel konnte nicht gespeichert werden.'), true);
     } finally {
         state.pendingIds.delete(id);
@@ -1692,13 +1768,14 @@ async function addItem(event) {
         uploadFormData.append('attachment', attachment);
 
         try {
-            await uploadAttachment(uploadFormData);
+            await uploadAttachment(uploadFormData, makeUploadProgressCallback());
             itemForm.reset();
             clearAttachmentInput();
             focusPrimaryInput();
             await loadItems();
             setMessage(state.section === 'images' ? 'Bild hochgeladen.' : 'Datei hochgeladen.');
         } catch (err) {
+            setUploadProgress(0);
             setMessage(getUserFacingError(err, 'Upload konnte nicht abgeschlossen werden.'), true);
         } finally {
             submitBtn.disabled = false;
@@ -1835,7 +1912,12 @@ function handleListKeydown(event) {
 itemInput.addEventListener('keydown', submitOnEnter);
 quantityInput.addEventListener('keydown', submitOnEnter);
 if (fileInput) {
-    fileInput.addEventListener('change', updateFilePickerLabel);
+    fileInput.addEventListener('change', async () => {
+        const file = fileInput.files?.[0];
+        if (!file) return;
+        await uploadFileDirectly(file);
+        fileInput.value = '';
+    });
 }
 if (cameraBtn && cameraInput) {
     cameraBtn.addEventListener('click', () => cameraInput.click());
@@ -1867,11 +1949,12 @@ async function uploadFileDirectly(file) {
     uploadFormData.append('attachment', file);
 
     try {
-        await uploadAttachment(uploadFormData);
+        await uploadAttachment(uploadFormData, makeUploadProgressCallback());
         itemInput.value = '';
         await loadItems();
         setMessage(section === 'images' ? 'Bild hochgeladen.' : 'Datei hochgeladen.');
     } catch (err) {
+        setUploadProgress(0);
         setMessage(getUserFacingError(err, 'Upload konnte nicht abgeschlossen werden.'), true);
     }
 }
@@ -2292,8 +2375,8 @@ function buildNoteCard(item) {
 
     if (item.content) {
         const tmp = document.createElement('div');
-        tmp.innerHTML = item.content;
-        const text = (tmp.textContent || '').trim();
+        tmp.innerHTML = item.content.replace(/<\/(p|h[1-6]|li|div)>|<br\s*\/?>/gi, ' ');
+        const text = (tmp.textContent || '').trim().replace(/\s+/g, ' ');
         if (text) {
             const preview     = document.createElement('span');
             preview.className = 'note-card-preview';
@@ -2652,8 +2735,8 @@ function buildSearchResultNode(item) {
 
     if (item.content) {
         const tmp  = document.createElement('div');
-        tmp.innerHTML = item.content;
-        const text = (tmp.textContent || '').trim();
+        tmp.innerHTML = item.content.replace(/<\/(p|h[1-6]|li|div)>|<br\s*\/?>/gi, ' ');
+        const text = (tmp.textContent || '').trim().replace(/\s+/g, ' ');
         if (text) {
             const preview = document.createElement('span');
             preview.className   = 'search-result-preview';
@@ -2736,14 +2819,67 @@ document.addEventListener('keydown', event => {
 // =========================================
 (function handleShareTarget() {
     const params = new URLSearchParams(location.search);
-    const title  = params.get('title') || '';
-    const text   = params.get('text')  || '';
-    const url    = params.get('url')   || '';
-    const value  = [title, text, url].filter(Boolean).join(' ').trim();
-    if (!value || !itemInput) return;
-    itemInput.value = value;
     history.replaceState(null, '', location.pathname);
-    itemInput.focus();
+
+    if (params.get('share') === 'file') {
+        void (async () => {
+            const cache    = await caches.open('einkauf-share-target');
+            const response = await cache.match('pending-file');
+            if (!response) return;
+            await cache.delete('pending-file');
+            const blob = await response.blob();
+            const name = decodeURIComponent(response.headers.get('X-Share-Filename') || 'shared');
+            const file = new File([blob], name, { type: blob.type });
+            const targetSection = file.type.startsWith('image/') ? 'images' : 'files';
+            if (state.section !== targetSection) setSection(targetSection);
+            await uploadFileDirectly(file);
+        })();
+        return;
+    }
+
+    const title = params.get('title') || '';
+    const text  = params.get('text')  || '';
+    const url   = params.get('url')   || '';
+
+    if (!title && !text && !url) return;
+
+    // Chrome often puts the URL only inside `text`, not in `url`
+    const urlMatch = url || /https?:\/\/\S+/.exec(text)?.[0] || '';
+    const hasUrl   = Boolean(urlMatch);
+
+    const targetSection = hasUrl ? 'links' : 'notes';
+    if (state.section !== targetSection) setSection(targetSection);
+
+    if (hasUrl) {
+        if (!itemInput) return;
+        itemInput.value = urlMatch;
+        itemInput.focus();
+        return;
+    }
+
+    // Notes: create note with title + body directly, then open editor
+    void (async () => {
+        const noteName = title || text.slice(0, 80).trim() || 'Geteilte Notiz';
+        const noteBody = text
+            ? text.split('\n')
+                .map(l => l.trim())
+                .filter(l => l.length > 0)
+                .map(l => `<p>${l.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>`)
+                .join('')
+            : '';
+
+        try {
+            const payload = await api('add', {
+                method: 'POST',
+                body: new URLSearchParams({ name: noteName, content: noteBody, section: 'notes' }),
+            });
+            await loadItems({ silent: true });
+            const newItem = state.items.find(i => i.id === payload.id);
+            if (newItem) void openNoteEditor(newItem);
+        } catch (err) {
+            setMessage(getUserFacingError(err, 'Notiz konnte nicht erstellt werden.'), true);
+        }
+    })();
 })();
 
 // =========================================

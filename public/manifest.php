@@ -30,12 +30,18 @@ $manifest = [
     'theme_color' => '#f5f0eb',
     'share_target' => [
         'action'  => $appBasePath,
-        'method'  => 'GET',
-        'enctype' => 'application/x-www-form-urlencoded',
+        'method'  => 'POST',
+        'enctype' => 'multipart/form-data',
         'params'  => [
             'title' => 'title',
             'text'  => 'text',
             'url'   => 'url',
+            'files' => [
+                [
+                    'name'   => 'file',
+                    'accept' => ['image/*', 'video/*', 'audio/*', 'application/pdf'],
+                ],
+            ],
         ],
     ],
     'icons' => [

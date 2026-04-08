@@ -116,6 +116,7 @@ if ($appBasePath === '' || $appBasePath === '.') {
                 <button type="button" id="cameraBtn" class="file-picker-button btn-camera" hidden aria-label="Foto aufnehmen">📷</button>
                 <input type="file" id="cameraInput" accept="image/*" capture="environment" hidden>
                 <span class="file-picker-name" id="filePickerName">Keine Datei ausgewählt</span>
+                <span class="disk-free-display" id="diskFreeDisplay" hidden></span>
             </div>
             <input type="text" id="quantityInput" name="quantity"
                    placeholder="Menge" maxlength="40" autocomplete="off" enterkeyhint="done">
@@ -134,6 +135,10 @@ if ($appBasePath === '' || $appBasePath === '.') {
     </main>
 
     <div class="message" id="message" role="status" aria-live="polite"></div>
+
+    <div class="upload-progress" id="uploadProgress" hidden>
+        <div class="upload-progress-bar" id="uploadProgressBar"></div>
+    </div>
 
     <div class="note-editor" id="noteEditor" hidden>
         <div class="note-editor-top">

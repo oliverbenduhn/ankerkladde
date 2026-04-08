@@ -160,6 +160,13 @@ button, input { font: inherit; }
     white-space: nowrap;
 }
 
+.disk-free-display {
+    flex-shrink: 0;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    white-space: nowrap;
+}
+
 .file-input-group.is-disabled {
     opacity: 0.65;
 }
@@ -797,6 +804,26 @@ button, input { font: inherit; }
 
 .message.is-visible { opacity: 1; transform: translateX(-50%) translateY(0); }
 .message.is-error   { background: var(--error); }
+
+/* ===========================================
+   UPLOAD PROGRESS BAR
+   =========================================== */
+.upload-progress {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    z-index: 200;
+    background: var(--border);
+}
+
+.upload-progress-bar {
+    height: 100%;
+    background: var(--text-secondary);
+    width: 0%;
+    transition: width 0.25s ease-out;
+}
 
 /* ===========================================
    MODE TOGGLE BUTTON (oben rechts im Header)

@@ -279,13 +279,46 @@ function validateImageUpload(array $uploadedFile): array
     ];
 }
 
+const MIME_TYPE_EXTENSIONS = [
+    'application/pdf'                                                          => 'pdf',
+    'application/zip'                                                          => 'zip',
+    'application/x-zip-compressed'                                             => 'zip',
+    'application/gzip'                                                         => 'gz',
+    'application/x-tar'                                                        => 'tar',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document'  => 'docx',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'        => 'xlsx',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation'=> 'pptx',
+    'application/msword'                                                        => 'doc',
+    'application/vnd.ms-excel'                                                  => 'xls',
+    'application/vnd.ms-powerpoint'                                             => 'ppt',
+    'text/plain'                                                                => 'txt',
+    'text/csv'                                                                  => 'csv',
+    'text/html'                                                                 => 'html',
+    'audio/mpeg'                                                                => 'mp3',
+    'audio/ogg'                                                                 => 'ogg',
+    'audio/wav'                                                                 => 'wav',
+    'audio/flac'                                                                => 'flac',
+    'audio/mp4'                                                                 => 'm4a',
+    'video/mp4'                                                                 => 'mp4',
+    'video/webm'                                                                => 'webm',
+    'video/quicktime'                                                           => 'mov',
+    'video/x-matroska'                                                          => 'mkv',
+    'video/x-msvideo'                                                           => 'avi',
+];
+
 function validateFileUpload(array $uploadedFile): array
 {
     $pathInfoExtension = pathinfo((string) $uploadedFile['original_name'], PATHINFO_EXTENSION);
     $extension = normalizeStoredExtension(is_string($pathInfoExtension) ? $pathInfoExtension : '');
 
+    $mediaType = detectMimeType((string) $uploadedFile['tmp_name']);
+
+    if ($extension === '') {
+        $extension = normalizeStoredExtension(MIME_TYPE_EXTENSIONS[$mediaType] ?? '');
+    }
+
     return [
-        'media_type' => detectMimeType((string) $uploadedFile['tmp_name']),
+        'media_type'       => $mediaType,
         'stored_extension' => $extension,
     ];
 }
@@ -415,7 +448,16 @@ try {
                 $stmt->fetchAll()
             );
 
-            respond(200, ['items' => $items]);
+            $response = ['items' => $items];
+
+            if (in_array($section, UPLOADABLE_SECTIONS, true)) {
+                $freeBytes = disk_free_space(getDataDirectory());
+                if ($freeBytes !== false) {
+                    $response['disk_free_bytes'] = (int) $freeBytes;
+                }
+            }
+
+            respond(200, $response);
 
         case 'add':
             requireMethod('POST');

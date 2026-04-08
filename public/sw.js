@@ -1,8 +1,9 @@
 'use strict';
 
-const VERSION = 'v8';
+const VERSION = 'v9';
 const STATIC_CACHE = `einkauf-static-${VERSION}`;
 const RUNTIME_CACHE = `einkauf-runtime-${VERSION}`;
+const SHARE_CACHE = 'einkauf-share-target';
 const APP_SCOPE_URL = new URL(self.registration.scope);
 const OFFLINE_PAGE_URL = new URL('offline.html', APP_SCOPE_URL);
 const API_URL = new URL('api.php', APP_SCOPE_URL);
@@ -32,7 +33,7 @@ self.addEventListener('activate', event => {
         const keys = await caches.keys();
         await Promise.all(
             keys
-                .filter(key => key !== STATIC_CACHE && key !== RUNTIME_CACHE)
+                .filter(key => key !== STATIC_CACHE && key !== RUNTIME_CACHE && key !== SHARE_CACHE)
                 .map(key => caches.delete(key))
         );
 
@@ -52,6 +53,11 @@ self.addEventListener('fetch', event => {
 
     if (url.origin !== self.location.origin) return;
 
+    if (request.method === 'POST' && url.pathname === APP_SCOPE_URL.pathname) {
+        event.respondWith(handleShareTargetPost(request));
+        return;
+    }
+
     if (request.mode === 'navigate') {
         event.respondWith(handleNavigationRequest(request));
         return;
@@ -70,6 +76,33 @@ self.addEventListener('fetch', event => {
         event.respondWith(apiGetStrategy(request));
     }
 });
+
+async function handleShareTargetPost(request) {
+    const formData   = await request.formData();
+    const file       = formData.get('file');
+    const title      = formData.get('title') || '';
+    const text       = formData.get('text')  || '';
+    const sharedUrl  = formData.get('url')   || '';
+
+    const redirectUrl = new URL(APP_SCOPE_URL);
+
+    if (file instanceof File && file.size > 0) {
+        const cache = await caches.open(SHARE_CACHE);
+        await cache.put('pending-file', new Response(file, {
+            headers: {
+                'Content-Type':     file.type || 'application/octet-stream',
+                'X-Share-Filename': encodeURIComponent(file.name || 'shared'),
+            },
+        }));
+        redirectUrl.searchParams.set('share', 'file');
+    } else {
+        if (title)     redirectUrl.searchParams.set('title', title);
+        if (text)      redirectUrl.searchParams.set('text', text);
+        if (sharedUrl) redirectUrl.searchParams.set('url', sharedUrl);
+    }
+
+    return Response.redirect(redirectUrl.toString(), 303);
+}
 
 async function handleNavigationRequest(request) {
     try {
