@@ -106,6 +106,32 @@ function normalizeQuantity(?string $quantity): string
     return truncateText($quantity, 40);
 }
 
+function normalizeDueDate(?string $date): string
+{
+    $date = trim((string) $date);
+    return preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) ? $date : '';
+}
+
+function sanitizeFtsQuery(string $q): string
+{
+    $q = trim($q);
+    if ($q === '') {
+        return '';
+    }
+
+    $words = array_values(array_filter(preg_split('/\s+/u', $q) ?: []));
+    if ($words === []) {
+        return '';
+    }
+
+    $parts = array_map(
+        static fn(string $w): string => '"' . str_replace('"', '""', $w) . '"*',
+        $words
+    );
+
+    return implode(' ', $parts);
+}
+
 function normalizeContent(?string $content): string
 {
     return truncateText(trim((string) $content), 102400);
@@ -300,7 +326,10 @@ function formatListItem(array $item): array
         'id' => (int) $item['id'],
         'name' => (string) ($item['name'] ?? ''),
         'quantity' => (string) ($item['quantity'] ?? ''),
+        'due_date' => (string) ($item['due_date'] ?? ''),
+        'is_pinned' => (int) ($item['is_pinned'] ?? 0),
         'content' => (string) ($item['content'] ?? ''),
+        'section' => (string) ($item['section'] ?? ''),
         'done' => (int) ($item['done'] ?? 0),
         'sort_order' => (int) ($item['sort_order'] ?? 0),
         'created_at' => (string) ($item['created_at'] ?? ''),
@@ -358,7 +387,10 @@ try {
                     items.id,
                     items.name,
                     items.quantity,
+                    items.due_date,
+                    items.is_pinned,
                     items.content,
+                    items.section,
                     items.done,
                     items.sort_order,
                     items.created_at,
@@ -374,7 +406,7 @@ try {
                     ON attachments.item_id = items.id
                    AND attachments.storage_section = items.section
                  WHERE items.section = :section
-                 ORDER BY items.sort_order ASC, items.id ASC'
+                 ORDER BY items.is_pinned DESC, items.sort_order ASC, items.id ASC'
             );
             $stmt->execute([':section' => $section]);
 
@@ -393,6 +425,7 @@ try {
             $section  = getSection($data);
             $name     = normalizeName($data['name'] ?? null);
             $quantity = normalizeQuantity($data['quantity'] ?? null);
+            $due_date = normalizeDueDate($data['due_date'] ?? null);
             $content  = normalizeContent($data['content'] ?? null);
 
             if ($name == '') {
@@ -400,12 +433,13 @@ try {
             }
 
             $stmt = $db->prepare(
-                'INSERT INTO items (name, quantity, content, section, sort_order)
-                 VALUES (:name, :quantity, :content, :section, :sort_order)'
+                'INSERT INTO items (name, quantity, due_date, content, section, sort_order)
+                 VALUES (:name, :quantity, :due_date, :content, :section, :sort_order)'
             );
             $stmt->execute([
                 ':name'       => $name,
                 ':quantity'   => $quantity,
+                ':due_date'   => $due_date,
                 ':content'    => $content,
                 ':section'    => $section,
                 ':sort_order' => nextSortOrder($db),
@@ -529,14 +563,15 @@ try {
 
             try {
                 $stmt = $db->prepare(
-                    'INSERT INTO items (name, quantity, content, section, sort_order)
-                     VALUES (:name, :quantity, :content, :section, :sort_order)'
+                    'INSERT INTO items (name, quantity, due_date, content, section, sort_order)
+                     VALUES (:name, :quantity, :due_date, :content, :section, :sort_order)'
                 );
                 $stmt->execute([
-                    ':name' => $name,
+                    ':name'     => $name,
                     ':quantity' => $quantity,
-                    ':content' => $content,
-                    ':section' => $section,
+                    ':due_date' => normalizeDueDate($data['due_date'] ?? null),
+                    ':content'  => $content,
+                    ':section'  => $section,
                     ':sort_order' => nextSortOrder($db),
                 ]);
                 $itemId = (int) $db->lastInsertId();
@@ -613,6 +648,7 @@ try {
             ]);
             $name     = normalizeName($data['name'] ?? null);
             $quantity = normalizeQuantity($data['quantity'] ?? null);
+            $due_date = normalizeDueDate($data['due_date'] ?? null);
             $content  = normalizeContent($data['content'] ?? null);
 
             if (!$id) {
@@ -625,10 +661,17 @@ try {
 
             $stmt = $db->prepare(
                 'UPDATE items
-                 SET name = :name, quantity = :quantity, content = :content, updated_at = CURRENT_TIMESTAMP
+                 SET name = :name, quantity = :quantity, due_date = :due_date,
+                     content = :content, updated_at = CURRENT_TIMESTAMP
                  WHERE id = :id'
             );
-            $stmt->execute([':id' => $id, ':name' => $name, ':quantity' => $quantity, ':content' => $content]);
+            $stmt->execute([
+                ':id'       => $id,
+                ':name'     => $name,
+                ':quantity' => $quantity,
+                ':due_date' => $due_date,
+                ':content'  => $content,
+            ]);
 
             if ($stmt->rowCount() === 0) {
                 $existsStmt = $db->prepare('SELECT 1 FROM items WHERE id = :id');
@@ -751,6 +794,83 @@ try {
             $db->commit();
 
             respond(200, ['message' => 'Reihenfolge aktualisiert.']);
+
+        case 'pin':
+            requireMethod('POST');
+
+            $data      = requestData();
+            requireCsrfToken($data);
+            $id        = filter_var($data['id'] ?? null, FILTER_VALIDATE_INT);
+            $is_pinned = filter_var($data['is_pinned'] ?? null, FILTER_VALIDATE_INT, [
+                'options' => ['min_range' => 0, 'max_range' => 1],
+            ]);
+
+            if (!$id || $is_pinned === false || $is_pinned === null) {
+                respond(422, ['error' => 'Ungültige Parameter.']);
+            }
+
+            $stmt = $db->prepare(
+                'UPDATE items SET is_pinned = :is_pinned, updated_at = CURRENT_TIMESTAMP WHERE id = :id'
+            );
+            $stmt->execute([':is_pinned' => $is_pinned, ':id' => $id]);
+
+            if ($stmt->rowCount() === 0) {
+                respond(404, ['error' => 'Artikel nicht gefunden.']);
+            }
+
+            respond(200, ['message' => 'Pinned-Status aktualisiert.']);
+
+        case 'search':
+            requireMethod('GET');
+
+            $q = trim((string) ($_GET['q'] ?? ''));
+
+            if (strlen($q) < 2) {
+                respond(200, ['items' => []]);
+            }
+
+            $ftsQuery = sanitizeFtsQuery($q);
+
+            if ($ftsQuery === '') {
+                respond(200, ['items' => []]);
+            }
+
+            $stmt = $db->prepare(
+                'SELECT
+                    items.id,
+                    items.name,
+                    items.quantity,
+                    items.due_date,
+                    items.is_pinned,
+                    items.content,
+                    items.section,
+                    items.done,
+                    items.sort_order,
+                    items.created_at,
+                    items.updated_at,
+                    attachments.storage_section AS attachment_storage_section,
+                    attachments.original_name AS attachment_original_name,
+                    attachments.media_type AS attachment_media_type,
+                    attachments.size_bytes AS attachment_size_bytes,
+                    CASE WHEN attachments.id IS NULL THEN NULL ELSE "media.php?item_id=" || items.id END AS attachment_url,
+                    CASE WHEN attachments.id IS NULL THEN 0 ELSE 1 END AS has_attachment
+                 FROM items_fts
+                 INNER JOIN items ON items.id = items_fts.rowid
+                 LEFT JOIN attachments
+                    ON attachments.item_id = items.id
+                   AND attachments.storage_section = items.section
+                 WHERE items_fts MATCH :q
+                 ORDER BY rank
+                 LIMIT 50'
+            );
+            $stmt->execute([':q' => $ftsQuery]);
+
+            $items = array_map(
+                static fn(array $item): array => formatListItem($item),
+                $stmt->fetchAll()
+            );
+
+            respond(200, ['items' => $items]);
 
         default:
             respond(404, ['error' => 'Unbekannte Aktion.']);

@@ -1280,3 +1280,128 @@ button, input { font: inherit; }
         aspect-ratio: 4 / 3;
     }
 }
+
+/* ===========================================
+   SEARCH BUTTON
+   =========================================== */
+.btn-search {
+    min-width: 40px;
+    min-height: 40px;
+    padding: 0 10px;
+    background: var(--border);
+    border: none;
+    border-radius: 10px;
+    font-size: 1.3rem;
+    font-weight: 400;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.15s ease, transform 0.1s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+}
+
+.btn-search:hover  { background: var(--accent); color: var(--text-primary); }
+.btn-search:active { transform: scale(0.92); }
+.btn-search.is-active { background: var(--accent); color: var(--text-primary); }
+
+/* ===========================================
+   SEARCH BAR
+   =========================================== */
+.search-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 16px 10px;
+    flex-shrink: 0;
+}
+
+.search-bar[hidden] { display: none; }
+
+.search-input {
+    flex: 1;
+    min-height: 44px;
+    padding: 0 12px;
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    font-size: 1rem;
+    color: var(--text-primary);
+    outline: none;
+    transition: border-color 0.15s ease;
+}
+
+.search-input:focus { border-color: var(--accent); }
+
+.btn-search-close {
+    min-width: 40px;
+    min-height: 40px;
+    padding: 0;
+    background: none;
+    border: none;
+    border-radius: 8px;
+    font-size: 1.1rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: color 0.15s ease, background 0.15s ease;
+}
+
+.btn-search-close:hover {
+    color: var(--text-primary);
+    background: rgba(200, 184, 154, 0.12);
+}
+
+/* Hide input area and clear button while searching */
+.app.is-searching .input-area  { display: none !important; }
+.app.is-searching .btn-clear   { display: none !important; }
+
+/* ===========================================
+   SEARCH RESULTS
+   =========================================== */
+.search-result { cursor: pointer; }
+.search-result:hover { background: var(--done-bg); }
+
+.search-result-section {
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 1px 6px;
+    background: var(--border);
+    color: var(--text-secondary);
+    border-radius: 4px;
+    flex-shrink: 0;
+    white-space: nowrap;
+    letter-spacing: 0.02em;
+}
+
+.search-result-preview {
+    display: block;
+    width: 100%;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-top: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ===========================================
+   PINNED ITEMS
+   =========================================== */
+.item-card.is-pinned {
+    border-left: 3px solid var(--accent);
+    padding-left: calc(16px - 3px);
+}
+
+.btn-pin {
+    opacity: 0.22;
+    transition: opacity 0.15s ease, transform 0.12s ease;
+}
+
+.btn-pin.is-pinned { opacity: 1; }
+.btn-pin:hover     { opacity: 0.7; }
+.btn-pin:disabled  { opacity: 0.12; }

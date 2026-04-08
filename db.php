@@ -234,6 +234,63 @@ function getDatabase(): PDO
         $db->exec("ALTER TABLE items ADD COLUMN content TEXT NOT NULL DEFAULT ''");
     }
 
+    // Re-fetch so we see all columns added so far
+    $columns     = $db->query('PRAGMA table_info(items)')->fetchAll();
+    $columnNames = array_map(static fn(array $column): string => $column['name'], $columns);
+
+    if (!in_array('due_date', $columnNames, true)) {
+        $db->exec("ALTER TABLE items ADD COLUMN due_date TEXT NOT NULL DEFAULT ''");
+        // Migrate ISO dates that were stored in quantity for todo sections
+        $db->exec(
+            "UPDATE items
+             SET due_date = quantity, quantity = ''
+             WHERE section IN ('todo_private', 'todo_work')
+               AND length(quantity) = 10
+               AND quantity GLOB '????-??-??'"
+        );
+    }
+
+    if (!in_array('is_pinned', $columnNames, true)) {
+        $db->exec("ALTER TABLE items ADD COLUMN is_pinned INTEGER NOT NULL DEFAULT 0 CHECK(is_pinned IN (0, 1))");
+    }
+
+    // FTS5 full-text search index
+    $hasFts = (bool) $db->query(
+        "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = 'items_fts'"
+    )->fetchColumn();
+
+    if (!$hasFts) {
+        $db->exec(
+            "CREATE VIRTUAL TABLE items_fts USING fts5(
+                name,
+                content,
+                content = 'items',
+                content_rowid = 'id'
+            )"
+        );
+        // Populate from existing data
+        $db->exec("INSERT INTO items_fts(items_fts) VALUES('rebuild')");
+
+        $db->exec(
+            "CREATE TRIGGER items_ai AFTER INSERT ON items BEGIN
+                INSERT INTO items_fts(rowid, name, content) VALUES (new.id, new.name, new.content);
+            END"
+        );
+        $db->exec(
+            "CREATE TRIGGER items_ad AFTER DELETE ON items BEGIN
+                INSERT INTO items_fts(items_fts, rowid, name, content)
+                VALUES ('delete', old.id, old.name, old.content);
+            END"
+        );
+        $db->exec(
+            "CREATE TRIGGER items_au AFTER UPDATE ON items BEGIN
+                INSERT INTO items_fts(items_fts, rowid, name, content)
+                VALUES ('delete', old.id, old.name, old.content);
+                INSERT INTO items_fts(rowid, name, content) VALUES (new.id, new.name, new.content);
+            END"
+        );
+    }
+
     $db->exec(
         "CREATE TABLE IF NOT EXISTS attachments (
             id INTEGER PRIMARY KEY AUTOINCREMENT,

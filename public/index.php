@@ -87,8 +87,16 @@ if ($appBasePath === '' || $appBasePath === '.') {
     <header class="app-header liste-only">
         <button type="button" id="tabsToggleBtn" class="btn-tabs-toggle" aria-label="Symbolleiste ein-/ausblenden">☰</button>
         <h1 class="app-title" id="titleListe">Einkaufsliste</h1>
+        <button type="button" id="searchBtn" class="btn-search" aria-label="Suchen">⌕</button>
         <button type="button" class="btn-mode-toggle" data-nav="einkaufen" aria-label="Einkaufs-Modus starten">👁️</button>
     </header>
+
+    <div class="search-bar liste-only" id="searchBar" hidden>
+        <input type="search" id="searchInput" class="search-input"
+               placeholder="In allen Bereichen suchen…"
+               autocomplete="off" enterkeyhint="search" maxlength="120">
+        <button type="button" id="searchClose" class="btn-search-close" aria-label="Suche schließen">✕</button>
+    </div>
 
     <header class="app-header shopping-only">
         <button type="button" class="btn-tabs-toggle" aria-label="Symbolleiste ein-/ausblenden">☰</button>

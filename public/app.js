@@ -25,6 +25,11 @@ const clearDoneBtn    = document.getElementById('clearDoneBtn');
 const messageEl       = document.getElementById('message');
 const progressEl      = document.getElementById('progress');
 const quantityInput   = document.getElementById('quantityInput');
+const searchBtn       = document.getElementById('searchBtn');
+const searchBar       = document.getElementById('searchBar');
+const searchInput     = document.getElementById('searchInput');
+const searchClose     = document.getElementById('searchClose');
+const inputArea       = document.getElementById('inputArea');
 const modeToggleBtns  = document.querySelectorAll('.btn-mode-toggle');
 const sectionTabEls   = document.querySelectorAll('.section-tab');
 const networkStatusEl = document.getElementById('networkStatus');
@@ -76,8 +81,9 @@ const state = {
     pendingIds:     new Set(),
     reorderPending: false,
     editingId:      null,
-    editDraft:      { name: '', quantity: '' },
+    editDraft:      { name: '', quantity: '', due_date: '' },
     noteEditorId:   null,
+    search:         { open: false, query: '', results: [] },
 };
 
 let dragState = null;
@@ -186,13 +192,14 @@ function setEditDraftFromItem(item) {
     state.editDraft = {
         name: item.name || '',
         quantity: item.quantity || '',
+        due_date: item.due_date || '',
         replacementFile: null,
     };
 }
 
 function clearEditState() {
     state.editingId = null;
-    state.editDraft = { name: '', quantity: '', replacementFile: null };
+    state.editDraft = { name: '', quantity: '', due_date: '', replacementFile: null };
 }
 
 function setNetworkStatus() {
@@ -229,6 +236,9 @@ function normalizeItem(item) {
         id: Number(item.id),
         done: Number(item.done),
         sort_order: Number(item.sort_order),
+        due_date: item.due_date || '',
+        is_pinned: Number(item.is_pinned || 0),
+        section: item.section || '',
         content: item.content || '',
         has_attachment: Number(item.has_attachment || 0),
         attachment_size_bytes: Number(item.attachment_size_bytes || 0),
@@ -484,12 +494,16 @@ function writeInstallBannerDismissed(isDismissed) {
 function sortByPosition(items) {
     if (state.section === 'images' || state.section === 'files') {
         return [...items].sort((a, b) => {
+            const pinnedDiff = Number(b.is_pinned) - Number(a.is_pinned);
+            if (pinnedDiff !== 0) return pinnedDiff;
             const sortDiff = Number(b.sort_order) - Number(a.sort_order);
             if (sortDiff !== 0) return sortDiff;
             return Number(b.id) - Number(a.id);
         });
     }
     return [...items].sort((a, b) => {
+        const pinnedDiff = Number(b.is_pinned) - Number(a.is_pinned);
+        if (pinnedDiff !== 0) return pinnedDiff;
         const sortDiff = Number(a.sort_order) - Number(b.sort_order);
         if (sortDiff !== 0) return sortDiff;
         return Number(a.id) - Number(b.id);
@@ -843,11 +857,15 @@ function buildReadOnlyContent(item, content) {
     nameEl.textContent = item.name;
     content.appendChild(nameEl);
 
-    if (item.quantity) {
-        const isTodo = state.section === 'todo_private' || state.section === 'todo_work';
-        const badge  = document.createElement('span');
-        badge.className   = isTodo ? 'quantity-badge date-badge' : 'quantity-badge';
-        badge.textContent = isTodo ? formatDateBadge(item.quantity) : item.quantity;
+    if (item.due_date) {
+        const badge = document.createElement('span');
+        badge.className = 'quantity-badge date-badge';
+        badge.textContent = formatDateBadge(item.due_date);
+        content.appendChild(badge);
+    } else if (item.quantity) {
+        const badge = document.createElement('span');
+        badge.className = 'quantity-badge';
+        badge.textContent = item.quantity;
         content.appendChild(badge);
     }
 }
@@ -871,23 +889,31 @@ function buildEditContent(content) {
     const isTodoSection = state.section === 'todo_private' || state.section === 'todo_work';
     const hasQtySection = state.section === 'shopping' || state.section === 'meds';
 
-    if (hasQtySection || isTodoSection) {
+    if (isTodoSection) {
+        const dateField = document.createElement('div');
+        dateField.className = 'item-edit-quantity-row';
+        const dateInputEl = document.createElement('input');
+        dateInputEl.type         = 'date';
+        dateInputEl.className    = 'item-edit-input';
+        dateInputEl.value        = state.editDraft.due_date;
+        dateInputEl.autocomplete = 'off';
+        dateInputEl.disabled     = isSaving;
+        dateInputEl.addEventListener('input', event => setEditField('due_date', event.target.value));
+        dateField.appendChild(dateInputEl);
+        fields.appendChild(dateField);
+    } else if (hasQtySection) {
         const quantityField = document.createElement('div');
         quantityField.className = 'item-edit-quantity-row';
-
         const quantityInputEl = document.createElement('input');
-        quantityInputEl.type      = isTodoSection ? 'date' : 'text';
-        quantityInputEl.className = 'item-edit-input';
-        quantityInputEl.value     = state.editDraft.quantity;
-        if (!isTodoSection) {
-            quantityInputEl.placeholder = 'Menge';
-            quantityInputEl.maxLength   = 40;
-        }
+        quantityInputEl.type        = 'text';
+        quantityInputEl.className   = 'item-edit-input';
+        quantityInputEl.value       = state.editDraft.quantity;
+        quantityInputEl.placeholder = 'Menge';
+        quantityInputEl.maxLength   = 40;
         quantityInputEl.autocomplete = 'off';
-        quantityInputEl.disabled     = isSaving;
+        quantityInputEl.disabled    = isSaving;
         quantityInputEl.addEventListener('input', event => setEditField('quantity', event.target.value));
         quantityField.appendChild(quantityInputEl);
-
         fields.appendChild(quantityField);
     }
 
@@ -943,9 +969,8 @@ function buildItemNode(item, index, totalItems) {
 
     const li = document.createElement('li');
     li.className = `item-card ${isDone ? 'done' : 'open'}`;
-    if (isEditing) {
-        li.classList.add('is-editing');
-    }
+    if (isEditing) li.classList.add('is-editing');
+    if (item.is_pinned) li.classList.add('is-pinned');
     li.dataset.itemId = String(item.id);
 
     const checkbox = document.createElement('input');
@@ -999,6 +1024,18 @@ function buildItemNode(item, index, totalItems) {
             );
             editBtn.disabled = isBlocked;
             actions.appendChild(editBtn);
+
+            if (!isAttachmentSection()) {
+                const pinBtn = document.createElement('button');
+                pinBtn.type = 'button';
+                pinBtn.className = `btn-item-action btn-pin${item.is_pinned ? ' is-pinned' : ''}`;
+                pinBtn.setAttribute('aria-label', item.is_pinned ? `${item.name} lösen` : `${item.name} anheften`);
+                pinBtn.setAttribute('aria-pressed', String(item.is_pinned === 1));
+                pinBtn.textContent = '📌';
+                pinBtn.disabled = isBlocked;
+                pinBtn.addEventListener('click', () => { void handlePin(item.id, item.is_pinned === 1 ? 0 : 1); });
+                actions.appendChild(pinBtn);
+            }
         }
 
         const dragHandle = document.createElement('button');
@@ -1039,6 +1076,11 @@ function buildItemNode(item, index, totalItems) {
 // RENDER
 // =========================================
 function renderItems() {
+    if (state.search.open) {
+        renderSearchResults();
+        return;
+    }
+
     const items      = state.items;
     const doneCount  = items.filter(i => i.done === 1).length;
     const totalCount = items.length;
@@ -1098,6 +1140,8 @@ function renderItems() {
 // MODE SWITCHING
 // =========================================
 function setMode(mode) {
+    if (state.search.open) closeSearch();
+
     if (dragState && mode !== state.mode) {
         finishDrag(true);
     }
@@ -1164,6 +1208,7 @@ function updateSectionHeaders() {
 
 function setSection(section) {
     if (!SECTIONS[section]) return;
+    if (state.search.open) closeSearch();
 
     if (dragState) finishDrag(true);
     if (hasActiveEdit()) clearEditState();
@@ -1529,6 +1574,7 @@ async function handleEditSave(id) {
         ? (rawName || item.attachmentOriginalName || item.name || 'Ohne Titel')
         : rawName;
     const quantity = normalizeQuantityInput(state.editDraft.quantity);
+    const dueDate  = state.editDraft.due_date || '';
 
     if (name === '') {
         setMessage('Bitte gib einen Artikelnamen ein.', true);
@@ -1560,11 +1606,13 @@ async function handleEditSave(id) {
                     id: String(id),
                     name,
                     quantity,
+                    due_date: dueDate,
                 }),
             });
 
             item.name = name;
             item.quantity = quantity;
+            item.due_date = dueDate;
             clearEditState();
             renderItems();
             setMessage('Artikel gespeichert.');
@@ -1663,6 +1711,14 @@ async function addItem(event) {
     try {
         const addParams = new URLSearchParams(formData);
         addParams.append('section', state.section);
+
+        const isTodoAdd = state.section === 'todo_private' || state.section === 'todo_work';
+        if (isTodoAdd) {
+            const dateVal = addParams.get('quantity') || '';
+            addParams.delete('quantity');
+            if (dateVal) addParams.set('due_date', dateVal);
+        }
+
         await api('add', { method: 'POST', body: addParams });
         itemForm.reset();
         clearAttachmentInput();
@@ -2307,7 +2363,7 @@ if (noteToolbar) {
 }
 
 document.addEventListener('keydown', event => {
-    if (event.key === 'Escape' && state.noteEditorId !== null) {
+    if (event.key === 'Escape' && state.noteEditorId !== null && !state.search.open) {
         void closeNoteEditor();
     }
 });
@@ -2481,3 +2537,195 @@ updateSectionHeaders();
 setUploadUiState();
 updateFilePickerLabel();
 loadItems();
+
+// =========================================
+// PIN
+// =========================================
+async function handlePin(id, isPinned) {
+    const item = getItemById(id);
+    if (!item || isInteractionBlocked(id)) return;
+
+    const prev = item.is_pinned;
+    item.is_pinned = isPinned;
+    state.pendingIds.add(id);
+    renderItems();
+
+    try {
+        await api('pin', {
+            method: 'POST',
+            body: new URLSearchParams({ id: String(id), is_pinned: String(isPinned) }),
+        });
+    } catch (err) {
+        item.is_pinned = prev;
+        setMessage(getUserFacingError(err, 'Pinned-Status konnte nicht gespeichert werden.'), true);
+    } finally {
+        state.pendingIds.delete(id);
+        renderItems();
+    }
+}
+
+// =========================================
+// SEARCH
+// =========================================
+let searchDebounceTimer = null;
+const SEARCH_DEBOUNCE_MS = 320;
+
+function openSearch() {
+    if (state.search.open) return;
+    state.search.open = true;
+    appEl.classList.add('is-searching');
+    if (searchBar) searchBar.removeAttribute('hidden');
+    if (searchBtn) searchBtn.classList.add('is-active');
+    if (searchInput) {
+        searchInput.value = state.search.query;
+        searchInput.focus();
+    }
+    renderItems();
+}
+
+function closeSearch() {
+    clearTimeout(searchDebounceTimer);
+    state.search = { open: false, query: '', results: [] };
+    appEl.classList.remove('is-searching');
+    if (searchBar) searchBar.setAttribute('hidden', '');
+    if (searchBtn) searchBtn.classList.remove('is-active');
+    renderItems();
+}
+
+async function doSearch(query) {
+    state.search.query = query;
+    const trimmed = query.trim();
+
+    if (trimmed.length < 2) {
+        state.search.results = [];
+        renderItems();
+        return;
+    }
+
+    try {
+        const url = appUrl('api.php') + `?action=search&q=${encodeURIComponent(trimmed)}`;
+        const response = await fetch(url);
+        const payload  = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.error || 'Unbekannter Fehler');
+        state.search.results = (payload.items || []).map(normalizeItem);
+    } catch (err) {
+        state.search.results = [];
+        if (!isConnectivityError(err)) {
+            setMessage(getUserFacingError(err, 'Suche fehlgeschlagen.'), true);
+        }
+    }
+
+    renderItems();
+}
+
+function buildSearchResultNode(item) {
+    const li = document.createElement('li');
+    li.className = 'item-card search-result';
+    if (item.is_pinned) li.classList.add('is-pinned');
+
+    const content = document.createElement('div');
+    content.className = 'item-content';
+
+    const nameEl = document.createElement('span');
+    nameEl.className   = 'item-name';
+    nameEl.textContent = item.name;
+    content.appendChild(nameEl);
+
+    if (item.due_date) {
+        const badge = document.createElement('span');
+        badge.className = 'quantity-badge date-badge';
+        badge.textContent = formatDateBadge(item.due_date);
+        content.appendChild(badge);
+    } else if (item.quantity) {
+        const badge = document.createElement('span');
+        badge.className = 'quantity-badge';
+        badge.textContent = item.quantity;
+        content.appendChild(badge);
+    }
+
+    const sectionLabel = SECTIONS[item.section]?.label || item.section;
+    const sectionBadge = document.createElement('span');
+    sectionBadge.className   = 'search-result-section';
+    sectionBadge.textContent = sectionLabel;
+    content.appendChild(sectionBadge);
+
+    if (item.content) {
+        const tmp  = document.createElement('div');
+        tmp.innerHTML = item.content;
+        const text = (tmp.textContent || '').trim();
+        if (text) {
+            const preview = document.createElement('span');
+            preview.className   = 'search-result-preview';
+            preview.textContent = text.slice(0, 100);
+            content.appendChild(preview);
+        }
+    }
+
+    li.appendChild(content);
+    li.addEventListener('click', () => {
+        closeSearch();
+        setSection(item.section);
+    });
+
+    return li;
+}
+
+function renderSearchResults() {
+    listEl.replaceChildren();
+    clearDoneBtn.disabled = true;
+
+    const trimmed = state.search.query.trim();
+
+    if (trimmed.length < 2) {
+        const li = document.createElement('li');
+        li.className   = 'empty-state';
+        li.textContent = 'Mindestens 2 Zeichen eingeben…';
+        listEl.appendChild(li);
+        return;
+    }
+
+    if (state.search.results.length === 0) {
+        const li = document.createElement('li');
+        li.className   = 'empty-state';
+        li.textContent = 'Keine Ergebnisse gefunden.';
+        listEl.appendChild(li);
+        return;
+    }
+
+    const fragment = document.createDocumentFragment();
+    state.search.results.forEach(item => fragment.appendChild(buildSearchResultNode(item)));
+    listEl.appendChild(fragment);
+}
+
+if (searchBtn) {
+    searchBtn.addEventListener('click', openSearch);
+}
+
+if (searchClose) {
+    searchClose.addEventListener('click', closeSearch);
+}
+
+if (searchInput) {
+    searchInput.addEventListener('input', () => {
+        clearTimeout(searchDebounceTimer);
+        searchDebounceTimer = setTimeout(() => void doSearch(searchInput.value), SEARCH_DEBOUNCE_MS);
+    });
+
+    searchInput.addEventListener('keydown', event => {
+        if (event.key === 'Escape') {
+            event.preventDefault();
+            closeSearch();
+        }
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            clearTimeout(searchDebounceTimer);
+            void doSearch(searchInput.value);
+        }
+    });
+}
+
+document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && state.search.open) {
+        closeSearch();
+    }
+});
