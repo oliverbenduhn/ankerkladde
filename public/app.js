@@ -1131,8 +1131,6 @@ function renderItems() {
     listEl.replaceChildren();
 
     if (state.section === 'notes') {
-        progressEl.textContent = '';
-        clearDoneBtn.disabled  = true;
 
         if (items.length === 0) {
             const li = document.createElement('li');
@@ -1233,6 +1231,9 @@ function updateSectionHeaders() {
             quantityInput.type        = 'date';
             quantityInput.placeholder = '';
             quantityInput.style.display = '';
+            if (!quantityInput.value) {
+                quantityInput.value = new Date().toISOString().slice(0, 10);
+            }
         } else {
             quantityInput.style.display = 'none';
         }
@@ -2361,9 +2362,20 @@ async function closeNoteEditor() {
 }
 
 function buildNoteCard(item) {
+    const isBlocked = isInteractionBlocked(item.id);
+    const isDone    = item.done === 1;
+
     const li = document.createElement('li');
-    li.className   = 'item-card note-card';
+    li.className   = `item-card note-card ${isDone ? 'done' : 'open'}`;
     li.dataset.itemId = String(item.id);
+
+    const checkbox = document.createElement('input');
+    checkbox.type      = 'checkbox';
+    checkbox.className = 'toggle';
+    checkbox.checked   = isDone;
+    checkbox.disabled  = isBlocked;
+    checkbox.setAttribute('aria-label', `${item.name || 'Notiz'} umschalten`);
+    checkbox.addEventListener('change', () => handleToggle(item.id));
 
     const body    = document.createElement('div');
     body.className = 'note-card-body';
@@ -2393,11 +2405,12 @@ function buildNoteCard(item) {
     });
     actions.appendChild(delBtn);
 
+    li.appendChild(checkbox);
     li.appendChild(body);
     li.appendChild(actions);
 
     li.addEventListener('click', event => {
-        if (event.target.closest('.btn-delete')) return;
+        if (event.target.closest('.btn-delete') || event.target.closest('.toggle')) return;
         void openNoteEditor(item);
     });
 
