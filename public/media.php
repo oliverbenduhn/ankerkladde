@@ -28,6 +28,17 @@ function mediaDispositionFilename(string $filename): string
     return $filename;
 }
 
+function mediaShouldForceDownload(): bool
+{
+    $download = $_GET['download'] ?? null;
+
+    if (is_array($download) || $download === null) {
+        return false;
+    }
+
+    return in_array(strtolower(trim((string) $download)), ['1', 'true', 'yes', 'on'], true);
+}
+
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
 if ($method !== 'GET' && $method !== 'HEAD') {
@@ -82,7 +93,9 @@ try {
     }
 
     $filename = mediaDispositionFilename((string) ($attachment['original_name'] ?? ''));
-    $dispositionType = ($attachment['storage_section'] ?? '') === 'images' ? 'inline' : 'attachment';
+    $dispositionType = (($attachment['storage_section'] ?? '') === 'images' && !mediaShouldForceDownload())
+        ? 'inline'
+        : 'attachment';
     $fileSize = filesize($absolutePath);
 
     header('Content-Type: ' . $mediaType);

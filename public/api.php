@@ -12,6 +12,14 @@ header('Cache-Control: no-store');
 header('X-Content-Type-Options: nosniff');
 
 const VALID_SECTIONS = ['shopping', 'meds', 'todo_private', 'todo_work', 'notes', 'images', 'files', 'links'];
+const UPLOADABLE_SECTIONS = ['images', 'files'];
+const IMAGE_UPLOAD_MIME_TYPES = [
+    'image/jpeg' => 'jpg',
+    'image/png' => 'png',
+    'image/webp' => 'webp',
+    'image/gif' => 'gif',
+];
+const IMAGE_UPLOAD_MAX_BYTES = 20971520;
 
 function respond(int $status, array $payload): never
 {
@@ -45,6 +53,27 @@ function requestData(): array
     return is_array($decoded) ? $decoded : [];
 }
 
+function requestPath(string $path): string
+{
+    $scriptName = $_SERVER['SCRIPT_NAME'] ?? '';
+    $directory = str_replace('\\', '/', dirname(is_string($scriptName) ? $scriptName : ''));
+
+    if ($directory === '/' || $directory === '.') {
+        $directory = '';
+    }
+
+    return $directory . '/' . ltrim($path, '/');
+}
+
+function truncateText(string $value, int $length): string
+{
+    if (function_exists('mb_substr')) {
+        return mb_substr($value, 0, $length);
+    }
+
+    return substr($value, 0, $length);
+}
+
 function requireCsrfToken(array $data): void
 {
     $providedToken = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? ($data['csrf_token'] ?? null);
@@ -67,19 +96,218 @@ function normalizeName(?string $name): string
 {
     $name = trim((string) $name);
     $name = preg_replace('/\s+/u', ' ', $name) ?? '';
-    return mb_substr($name, 0, 120);
+    return truncateText($name, 120);
 }
 
 function normalizeQuantity(?string $quantity): string
 {
     $quantity = trim((string) $quantity);
     $quantity = preg_replace('/\s+/u', ' ', $quantity) ?? '';
-    return mb_substr($quantity, 0, 40);
+    return truncateText($quantity, 40);
 }
 
 function normalizeContent(?string $content): string
 {
-    return mb_substr(trim((string) $content), 0, 102400);
+    return truncateText(trim((string) $content), 102400);
+}
+
+function normalizeOriginalFilename(?string $filename): string
+{
+    $filename = trim((string) $filename);
+    $filename = str_replace(["\r", "\n", "\0"], '', $filename);
+    $filename = preg_replace('/[\/\\\\]+/', ' ', $filename) ?? '';
+    $filename = preg_replace('/\s+/u', ' ', $filename) ?? '';
+    $filename = trim($filename, " .\t");
+
+    if ($filename === '') {
+        return 'upload';
+    }
+
+    return truncateText($filename, 255);
+}
+
+function normalizeStoredExtension(string $extension): string
+{
+    $extension = strtolower(trim($extension));
+    $extension = preg_replace('/[^a-z0-9]+/', '', $extension) ?? '';
+
+    return truncateText($extension, 16);
+}
+
+function nextSortOrder(PDO $db): int
+{
+    $maxStmt = $db->query('SELECT COALESCE(MAX(sort_order), 0) FROM items');
+    return (int) $maxStmt->fetchColumn() + 1;
+}
+
+function detectMimeType(string $path): string
+{
+    $mediaType = '';
+
+    if (class_exists('finfo')) {
+        $finfo = new finfo(FILEINFO_MIME_TYPE);
+        $detected = $finfo->file($path);
+        if (is_string($detected) && trim($detected) !== '') {
+            $mediaType = trim($detected);
+        }
+    }
+
+    if ($mediaType === '' && function_exists('mime_content_type')) {
+        $detected = mime_content_type($path);
+        if (is_string($detected) && trim($detected) !== '') {
+            $mediaType = trim($detected);
+        }
+    }
+
+    return $mediaType !== '' ? $mediaType : 'application/octet-stream';
+}
+
+function uploadedFileErrorMessage(int $errorCode): array
+{
+    return match ($errorCode) {
+        UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE => [413, 'Datei ist zu groß.'],
+        UPLOAD_ERR_PARTIAL => [422, 'Datei wurde unvollständig hochgeladen.'],
+        UPLOAD_ERR_NO_FILE => [422, 'Bitte wähle eine Datei aus.'],
+        UPLOAD_ERR_NO_TMP_DIR, UPLOAD_ERR_CANT_WRITE, UPLOAD_ERR_EXTENSION => [500, 'Upload konnte nicht gespeichert werden.'],
+        default => [422, 'Ungültiger Upload.'],
+    };
+}
+
+function getSingleUploadedFile(): array
+{
+    if ($_FILES === []) {
+        respond(422, ['error' => 'Bitte wähle eine Datei aus.']);
+    }
+
+    $candidate = $_FILES['file'] ?? $_FILES['attachment'] ?? $_FILES['upload'] ?? reset($_FILES);
+
+    if (!is_array($candidate)) {
+        respond(422, ['error' => 'Bitte wähle eine Datei aus.']);
+    }
+
+    if (is_array($candidate['error'] ?? null)) {
+        respond(422, ['error' => 'Mehrere Dateien pro Request werden nicht unterstützt.']);
+    }
+
+    $errorCode = (int) ($candidate['error'] ?? UPLOAD_ERR_NO_FILE);
+    if ($errorCode !== UPLOAD_ERR_OK) {
+        [$status, $message] = uploadedFileErrorMessage($errorCode);
+        respond($status, ['error' => $message]);
+    }
+
+    $tmpName = (string) ($candidate['tmp_name'] ?? '');
+    if ($tmpName === '' || !is_uploaded_file($tmpName)) {
+        respond(422, ['error' => 'Ungültiger Upload.']);
+    }
+
+    $sizeBytes = filter_var($candidate['size'] ?? null, FILTER_VALIDATE_INT, [
+        'options' => ['min_range' => 0],
+    ]);
+
+    if (!is_int($sizeBytes)) {
+        $actualSize = filesize($tmpName);
+        $sizeBytes = $actualSize !== false ? $actualSize : 0;
+    }
+
+    return [
+        'tmp_name' => $tmpName,
+        'size_bytes' => $sizeBytes,
+        'original_name' => normalizeOriginalFilename((string) ($candidate['name'] ?? '')),
+    ];
+}
+
+function validateUploadSection(string $section): void
+{
+    if (!in_array($section, UPLOADABLE_SECTIONS, true)) {
+        respond(422, ['error' => 'Uploads sind nur in den Sektionen Bilder und Dateien erlaubt.']);
+    }
+}
+
+function validateImageUpload(array $uploadedFile): array
+{
+    if ((int) $uploadedFile['size_bytes'] > IMAGE_UPLOAD_MAX_BYTES) {
+        respond(413, ['error' => 'Bilder dürfen maximal 20 MB groß sein.']);
+    }
+
+    $mediaType = detectMimeType((string) $uploadedFile['tmp_name']);
+    $extension = IMAGE_UPLOAD_MIME_TYPES[$mediaType] ?? null;
+
+    if (!is_string($extension)) {
+        respond(422, ['error' => 'Nur JPG, PNG, WebP und GIF sind als Bilder erlaubt.']);
+    }
+
+    if (function_exists('getimagesize') && @getimagesize((string) $uploadedFile['tmp_name']) === false) {
+        respond(422, ['error' => 'Die hochgeladene Datei ist kein gültiges Bild.']);
+    }
+
+    return [
+        'media_type' => $mediaType,
+        'stored_extension' => $extension,
+    ];
+}
+
+function validateFileUpload(array $uploadedFile): array
+{
+    $pathInfoExtension = pathinfo((string) $uploadedFile['original_name'], PATHINFO_EXTENSION);
+    $extension = normalizeStoredExtension(is_string($pathInfoExtension) ? $pathInfoExtension : '');
+
+    return [
+        'media_type' => detectMimeType((string) $uploadedFile['tmp_name']),
+        'stored_extension' => $extension,
+    ];
+}
+
+function buildStoredFilename(string $section, string $extension): string
+{
+    $randomName = bin2hex(random_bytes(16));
+    $suffix = $extension !== '' ? '.' . $extension : '';
+
+    return $section . '-' . $randomName . $suffix;
+}
+
+function buildAttachmentPayload(array $item): ?array
+{
+    $section = (string) ($item['attachment_storage_section'] ?? '');
+    $hasAttachment = (int) ($item['has_attachment'] ?? 0) === 1;
+
+    if (!$hasAttachment || !isAttachmentSection($section)) {
+        return null;
+    }
+
+    $baseUrl = requestPath('media.php?item_id=' . (int) $item['id']);
+
+    return [
+        'preview_url' => $section === 'images' ? $baseUrl : null,
+        'download_url' => $baseUrl . '&download=1',
+        'original_name' => (string) ($item['attachment_original_name'] ?? ''),
+        'mime_type' => (string) ($item['attachment_media_type'] ?? 'application/octet-stream'),
+        'size_bytes' => (int) ($item['attachment_size_bytes'] ?? 0),
+    ];
+}
+
+function formatListItem(array $item): array
+{
+    $attachment = buildAttachmentPayload($item);
+
+    return [
+        'id' => (int) $item['id'],
+        'name' => (string) ($item['name'] ?? ''),
+        'quantity' => (string) ($item['quantity'] ?? ''),
+        'content' => (string) ($item['content'] ?? ''),
+        'done' => (int) ($item['done'] ?? 0),
+        'sort_order' => (int) ($item['sort_order'] ?? 0),
+        'created_at' => (string) ($item['created_at'] ?? ''),
+        'updated_at' => (string) ($item['updated_at'] ?? ''),
+        'has_attachment' => $attachment !== null ? 1 : 0,
+        'attachment' => $attachment,
+        'attachment_storage_section' => $attachment !== null ? (string) ($item['attachment_storage_section'] ?? '') : null,
+        'attachment_original_name' => $attachment['original_name'] ?? null,
+        'attachment_media_type' => $attachment['mime_type'] ?? null,
+        'attachment_size_bytes' => $attachment['size_bytes'] ?? null,
+        'attachment_url' => $attachment['preview_url'] ?? $attachment['download_url'] ?? null,
+        'attachment_preview_url' => $attachment['preview_url'] ?? null,
+        'attachment_download_url' => $attachment['download_url'] ?? null,
+    ];
 }
 
 function normalizeIdList(mixed $ids): array
@@ -143,7 +371,12 @@ try {
             );
             $stmt->execute([':section' => $section]);
 
-            respond(200, ['items' => $stmt->fetchAll()]);
+            $items = array_map(
+                static fn(array $item): array => formatListItem($item),
+                $stmt->fetchAll()
+            );
+
+            respond(200, ['items' => $items]);
 
         case 'add':
             requireMethod('POST');
@@ -159,10 +392,6 @@ try {
                 respond(422, ['error' => 'Bitte gib einen Artikelnamen ein.']);
             }
 
-            // Global MAX ensures sort_order is unique across all sections (prevents db integrity check failure)
-            $maxStmt = $db->query('SELECT COALESCE(MAX(sort_order), 0) FROM items');
-            $nextOrder = (int) $maxStmt->fetchColumn() + 1;
-
             $stmt = $db->prepare(
                 'INSERT INTO items (name, quantity, content, section, sort_order)
                  VALUES (:name, :quantity, :content, :section, :sort_order)'
@@ -172,12 +401,94 @@ try {
                 ':quantity'   => $quantity,
                 ':content'    => $content,
                 ':section'    => $section,
-                ':sort_order' => $nextOrder,
+                ':sort_order' => nextSortOrder($db),
             ]);
 
             respond(201, [
                 'message' => 'Artikel hinzugefügt.',
                 'id'      => (int) $db->lastInsertId(),
+            ]);
+
+        case 'upload':
+            requireMethod('POST');
+
+            $data = requestData();
+            requireCsrfToken($data);
+            $section = getSection($data);
+            validateUploadSection($section);
+
+            $uploadedFile = getSingleUploadedFile();
+            $uploadMeta = $section === 'images'
+                ? validateImageUpload($uploadedFile)
+                : validateFileUpload($uploadedFile);
+
+            $name = normalizeName($data['name'] ?? null);
+            if ($name === '') {
+                $name = normalizeName((string) $uploadedFile['original_name']);
+            }
+            $quantity = normalizeQuantity($data['quantity'] ?? null);
+            $content = normalizeContent($data['content'] ?? null);
+
+            if ($name === '') {
+                respond(422, ['error' => 'Bitte gib einen Artikelnamen ein.']);
+            }
+
+            $storedName = buildStoredFilename($section, (string) $uploadMeta['stored_extension']);
+            $targetPath = getAttachmentStorageDirectory($section) . '/' . $storedName;
+            $itemId = null;
+            $storedFileMoved = false;
+
+            $db->beginTransaction();
+
+            try {
+                $stmt = $db->prepare(
+                    'INSERT INTO items (name, quantity, content, section, sort_order)
+                     VALUES (:name, :quantity, :content, :section, :sort_order)'
+                );
+                $stmt->execute([
+                    ':name' => $name,
+                    ':quantity' => $quantity,
+                    ':content' => $content,
+                    ':section' => $section,
+                    ':sort_order' => nextSortOrder($db),
+                ]);
+                $itemId = (int) $db->lastInsertId();
+
+                if (!move_uploaded_file((string) $uploadedFile['tmp_name'], $targetPath)) {
+                    throw new RuntimeException('Upload-Datei konnte nicht verschoben werden.');
+                }
+
+                $storedFileMoved = true;
+
+                $attachmentStmt = $db->prepare(
+                    'INSERT INTO attachments (item_id, storage_section, stored_name, original_name, media_type, size_bytes)
+                     VALUES (:item_id, :storage_section, :stored_name, :original_name, :media_type, :size_bytes)'
+                );
+                $attachmentStmt->execute([
+                    ':item_id' => $itemId,
+                    ':storage_section' => $section,
+                    ':stored_name' => $storedName,
+                    ':original_name' => (string) $uploadedFile['original_name'],
+                    ':media_type' => (string) $uploadMeta['media_type'],
+                    ':size_bytes' => (int) $uploadedFile['size_bytes'],
+                ]);
+
+                $db->commit();
+            } catch (Throwable $exception) {
+                if ($db->inTransaction()) {
+                    $db->rollBack();
+                }
+
+                if ($storedFileMoved && is_file($targetPath) && !unlink($targetPath)) {
+                    error_log(sprintf('Einkauf upload cleanup error [%s]: %s', $section, $targetPath));
+                }
+
+                throw $exception;
+            }
+
+            respond(201, [
+                'message' => 'Upload gespeichert.',
+                'id' => $itemId,
             ]);
 
         case 'toggle':

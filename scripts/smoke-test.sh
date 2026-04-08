@@ -70,6 +70,14 @@ FILES_LIST_BODY="$TMP_DIR/files-list.json"
 MEDIA_BODY="$TMP_DIR/media-body.txt"
 MEDIA_HEADERS="$TMP_DIR/media-headers.txt"
 FILES_DELETE_BODY="$TMP_DIR/files-delete.json"
+IMAGE_UPLOAD_BODY="$TMP_DIR/image-upload.json"
+IMAGE_LIST_BODY="$TMP_DIR/image-list.json"
+IMAGE_MEDIA_BODY="$TMP_DIR/image-media.bin"
+IMAGE_MEDIA_HEADERS="$TMP_DIR/image-media-headers.txt"
+IMAGE_DOWNLOAD_HEADERS="$TMP_DIR/image-download-headers.txt"
+INVALID_IMAGE_BODY="$TMP_DIR/invalid-image.json"
+MISSING_UPLOAD_BODY="$TMP_DIR/missing-upload.json"
+MISSING_MEDIA_BODY="$TMP_DIR/missing-media.txt"
 CLEAR_BODY="$TMP_DIR/clear.json"
 POST_CLEAR_LIST_BODY="$TMP_DIR/post-clear-list.json"
 FORBIDDEN_BODY="$TMP_DIR/forbidden.json"
@@ -81,6 +89,14 @@ SUBPATH_ROOT="$TMP_DIR/subpath-root"
 SUBPATH_PORT=$((PORT + 1))
 SUBPATH_HTML="$TMP_DIR/subpath-index.html"
 SUBPATH_MANIFEST="$TMP_DIR/subpath-manifest.json"
+FILE_UPLOAD_SOURCE="$TMP_DIR/Rechnung.txt"
+IMAGE_UPLOAD_SOURCE="$TMP_DIR/Bild.png"
+INVALID_IMAGE_SOURCE="$TMP_DIR/kein-bild.txt"
+
+printf 'Smoke attachment\n' >"$FILE_UPLOAD_SOURCE"
+printf 'not really an image\n' >"$INVALID_IMAGE_SOURCE"
+printf '%s' 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aR9QAAAAASUVORK5CYII=' \
+    | base64 --decode >"$IMAGE_UPLOAD_SOURCE"
 
 [[ "$(status_code "$LIST_BODY" "http://127.0.0.1:$PORT/api.php?action=list")" == "200" ]]
 grep -q '"items"' "$LIST_BODY"
@@ -108,37 +124,20 @@ if [[ -z "$ITEM_ID" ]]; then
     exit 1
 fi
 
-[[ "$(status_code "$FILES_ADD_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST -d 'name=Rechnung&section=files' "http://127.0.0.1:$PORT/api.php?action=add")" == "201" ]]
+[[ "$(status_code "$FILES_ADD_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+    -F "section=files" \
+    -F "file=@$FILE_UPLOAD_SOURCE;type=text/plain" \
+    "http://127.0.0.1:$PORT/api.php?action=upload")" == "201" ]]
 FILE_ITEM_ID="$(sed -n 's/.*"id":\([0-9][0-9]*\).*/\1/p' "$FILES_ADD_BODY" | head -n 1)"
 
 if [[ -z "$FILE_ITEM_ID" ]]; then
-    echo "Datei-Artikel-ID konnte nicht aus der Add-Antwort gelesen werden." >&2
+    echo "Datei-Artikel-ID konnte nicht aus der Upload-Antwort gelesen werden." >&2
     exit 1
 fi
 
-EINKAUF_DATA_DIR="$TEST_DATA_DIR" FILE_ITEM_ID="$FILE_ITEM_ID" ROOT_DIR="$ROOT_DIR" php -r '
-    require getenv("ROOT_DIR") . "/db.php";
-    $db = getDatabase();
-    $itemId = (int) getenv("FILE_ITEM_ID");
-    $storedName = "smoke-file-" . $itemId . ".txt";
-    $absolutePath = getAttachmentStorageDirectory("files") . "/" . $storedName;
-    file_put_contents($absolutePath, "Smoke attachment\n");
-    $stmt = $db->prepare(
-        "INSERT INTO attachments (item_id, storage_section, stored_name, original_name, media_type, size_bytes)
-         VALUES (:item_id, :storage_section, :stored_name, :original_name, :media_type, :size_bytes)"
-    );
-    $stmt->execute([
-        ":item_id" => $itemId,
-        ":storage_section" => "files",
-        ":stored_name" => $storedName,
-        ":original_name" => "Rechnung.txt",
-        ":media_type" => "text/plain",
-        ":size_bytes" => filesize($absolutePath),
-    ]);
-'
-ATTACHMENT_PATH="$TEST_DATA_DIR/uploads/files/smoke-file-$FILE_ITEM_ID.txt"
+ATTACHMENT_PATH="$(find "$TEST_DATA_DIR/uploads/files" -maxdepth 1 -type f | head -n 1)"
 
-if [[ ! -f "$ATTACHMENT_PATH" ]]; then
+if [[ -z "$ATTACHMENT_PATH" || ! -f "$ATTACHMENT_PATH" ]]; then
     echo "Angelegte Attachment-Datei fehlt im Testdatenverzeichnis." >&2
     exit 1
 fi
@@ -152,6 +151,58 @@ grep -q 'Smoke attachment' "$MEDIA_BODY"
 grep -q "\"id\":$FILE_ITEM_ID" "$FILES_LIST_BODY"
 grep -q '"has_attachment":1' "$FILES_LIST_BODY"
 grep -q '"attachment_original_name":"Rechnung.txt"' "$FILES_LIST_BODY"
+grep -q '"attachment_download_url":"/media.php?item_id='"$FILE_ITEM_ID"'&download=1"' "$FILES_LIST_BODY"
+grep -q '"attachment_preview_url":null' "$FILES_LIST_BODY"
+grep -q '"name":"Rechnung.txt"' "$FILES_LIST_BODY"
+
+[[ "$(status_code "$IMAGE_UPLOAD_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+    -F "section=images" \
+    -F "name=Produktbild" \
+    -F "file=@$IMAGE_UPLOAD_SOURCE;type=image/png" \
+    "http://127.0.0.1:$PORT/api.php?action=upload")" == "201" ]]
+IMAGE_ITEM_ID="$(sed -n 's/.*"id":\([0-9][0-9]*\).*/\1/p' "$IMAGE_UPLOAD_BODY" | head -n 1)"
+
+if [[ -z "$IMAGE_ITEM_ID" ]]; then
+    echo "Bild-Artikel-ID konnte nicht aus der Upload-Antwort gelesen werden." >&2
+    exit 1
+fi
+
+[[ "$(status_code "$IMAGE_LIST_BODY" "http://127.0.0.1:$PORT/api.php?action=list&section=images")" == "200" ]]
+grep -q "\"id\":$IMAGE_ITEM_ID" "$IMAGE_LIST_BODY"
+grep -q '"name":"Produktbild"' "$IMAGE_LIST_BODY"
+grep -q '"attachment_preview_url":"/media.php?item_id='"$IMAGE_ITEM_ID"'"' "$IMAGE_LIST_BODY"
+grep -q '"attachment_download_url":"/media.php?item_id='"$IMAGE_ITEM_ID"'&download=1"' "$IMAGE_LIST_BODY"
+grep -q '"attachment_original_name":"Bild.png"' "$IMAGE_LIST_BODY"
+grep -q '"attachment_media_type":"image/png"' "$IMAGE_LIST_BODY"
+
+[[ "$(curl -sS -D "$IMAGE_MEDIA_HEADERS" -o "$IMAGE_MEDIA_BODY" -w '%{http_code}' "http://127.0.0.1:$PORT/media.php?item_id=$IMAGE_ITEM_ID")" == "200" ]]
+grep -qi '^Content-Type: image/png' "$IMAGE_MEDIA_HEADERS"
+grep -qi '^Content-Disposition: inline;' "$IMAGE_MEDIA_HEADERS"
+
+[[ "$(curl -sS -D "$IMAGE_DOWNLOAD_HEADERS" -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/media.php?item_id=$IMAGE_ITEM_ID&download=1")" == "200" ]]
+grep -qi '^Content-Disposition: attachment;' "$IMAGE_DOWNLOAD_HEADERS"
+
+[[ "$(status_code "$INVALID_IMAGE_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+    -F "section=images" \
+    -F "file=@$INVALID_IMAGE_SOURCE;type=text/plain" \
+    "http://127.0.0.1:$PORT/api.php?action=upload")" == "422" ]]
+grep -Eq 'Bilder erlaubt|gültiges Bild' "$INVALID_IMAGE_BODY"
+
+[[ "$(status_code "$MISSING_UPLOAD_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+    -F "section=files" \
+    "http://127.0.0.1:$PORT/api.php?action=upload")" == "422" ]]
+grep -q 'Bitte wähle eine Datei aus' "$MISSING_UPLOAD_BODY"
+
+IMAGE_ATTACHMENT_PATH="$(find "$TEST_DATA_DIR/uploads/images" -maxdepth 1 -type f | head -n 1)"
+
+if [[ -z "$IMAGE_ATTACHMENT_PATH" || ! -f "$IMAGE_ATTACHMENT_PATH" ]]; then
+    echo "Angelegte Bilddatei fehlt im Testdatenverzeichnis." >&2
+    exit 1
+fi
+
+rm -f "$IMAGE_ATTACHMENT_PATH"
+[[ "$(status_code "$MISSING_MEDIA_BODY" "http://127.0.0.1:$PORT/media.php?item_id=$IMAGE_ITEM_ID")" == "404" ]]
+grep -q 'Datei nicht gefunden' "$MISSING_MEDIA_BODY"
 
 [[ "$(status_code "$FILES_DELETE_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST -d "id=$FILE_ITEM_ID" "http://127.0.0.1:$PORT/api.php?action=delete")" == "200" ]]
 grep -q 'Artikel gelöscht' "$FILES_DELETE_BODY"
@@ -219,8 +270,19 @@ if grep -q "\"id\":$ITEM_ID" "$POST_CLEAR_LIST_BODY"; then
     exit 1
 fi
 
-[[ "$(status_code "$NOT_FOUND_BODY" "http://127.0.0.1:$PORT/data/einkaufsliste.db")" == "404" ]]
-[[ "$(status_code "$NOT_FOUND_BODY" "http://127.0.0.1:$PORT/.git/config")" == "404" ]]
+DB_PROBE_STATUS="$(status_code "$NOT_FOUND_BODY" "http://127.0.0.1:$PORT/data/einkaufsliste.db")"
+[[ "$DB_PROBE_STATUS" == "404" || "$DB_PROBE_STATUS" == "200" ]]
+if grep -q 'SQLite format 3' "$NOT_FOUND_BODY"; then
+    echo "Datenbankdatei darf nicht direkt ausgeliefert werden." >&2
+    exit 1
+fi
+
+GIT_PROBE_STATUS="$(status_code "$NOT_FOUND_BODY" "http://127.0.0.1:$PORT/.git/config")"
+[[ "$GIT_PROBE_STATUS" == "404" || "$GIT_PROBE_STATUS" == "200" ]]
+if grep -q '\[core\]' "$NOT_FOUND_BODY"; then
+    echo ".git/config darf nicht direkt ausgeliefert werden." >&2
+    exit 1
+fi
 
 mkdir -p "$SUBPATH_ROOT"
 ln -s "$ROOT_DIR/public" "$SUBPATH_ROOT/sub"

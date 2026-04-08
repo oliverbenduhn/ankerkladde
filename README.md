@@ -26,7 +26,7 @@ Mobile-freundliche PHP-Webanwendung für Listen, Todos, Notizen und Links – ge
 - **Offline-fähig** (PWA): gecachte App-Shell, Update-Banner bei neuer Version
 - CSRF-Schutz für alle schreibenden Aktionen
 - Automatische DB-Migration bei neuen Spalten
-- Vorbereitung für persistente Attachments in `images` und `files`
+- Persistente Uploads für Bilder und Dateien mit Storage außerhalb des Webroots
 
 ## Notizen-Editor
 
@@ -79,14 +79,14 @@ CREATE TABLE attachments (
 );
 ```
 
-Dateisystempfade werden nicht aus Request-Daten abgeleitet. Die App speichert nur validierte Metadaten in SQLite und berechnet daraus serverseitig feste Pfade. Vorhandene Dateien können über `public/media.php?item_id=<id>` anhand der Item-ID gestreamt werden.
+Dateisystempfade werden nicht aus Request-Daten abgeleitet. Die App speichert nur validierte Metadaten in SQLite und berechnet daraus serverseitig feste Pfade. Vorhandene Dateien können über `public/media.php?item_id=<id>` anhand der Item-ID gestreamt werden. Bilder werden standardmäßig inline ausgeliefert, mit `download=1` aber als Download.
 
 ## Dateien
 
 | Pfad | Zweck |
 |---|---|
 | `public/index.php` | HTML-Oberfläche |
-| `public/api.php` | JSON-API (list, add, update, toggle, delete, clear, reorder) |
+| `public/api.php` | JSON-API (list, add, upload, update, toggle, delete, clear, reorder) |
 | `public/media.php` | Sicheres Streamen vorhandener Attachments anhand der Item-ID |
 | `public/app.js` | Vanilla-JS-Frontend (kein Build-Tool) |
 | `public/style.css` | CSS (Design-Tokens, Layout, Komponenten) |
@@ -112,6 +112,8 @@ php -S 127.0.0.1:8000 -t public
 bash scripts/smoke-test.sh
 bash scripts/test-db-migration.sh
 ```
+
+`scripts/smoke-test.sh` startet weiterhin nur einen lokalen `php -S`-Server, prüft jetzt aber zusätzlich echte Multipart-Uploads für `images` und `files`, den Abruf über `media.php`, Fehlerfälle für ungültige Bilder und fehlende Uploads/Dateien sowie das Entfernen der gespeicherten Datei beim Löschen eines Items.
 
 ## Deployment (Produktion)
 
