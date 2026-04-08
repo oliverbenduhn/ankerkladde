@@ -1,6 +1,6 @@
 # Zettel (Einkaufsliste)
 
-Mobile-freundliche PHP-Webanwendung für Listen, Todos, Notizen und Links – gespeichert in SQLite.
+Mobile-freundliche PHP-Webanwendung für Listen, Todos, Notizen, Bilder, Dateien und Links – gespeichert in SQLite.
 
 **Produktion:** [zettel.benduhn.de](https://zettel.benduhn.de)
 
@@ -13,20 +13,35 @@ Mobile-freundliche PHP-Webanwendung für Listen, Todos, Notizen und Links – ge
 | ✅ Privat | Name + Datum (date-picker) |
 | 💼 Arbeit | Name + Datum (date-picker) |
 | 📝 Notizen | Rich-Text-Editor (TipTap) mit Überschriften, Listen, Code, Links |
-| 🖼️ Bilder | Name |
-| 📁 Dateien | Name |
+| 🖼️ Bilder | Upload per Datei-Picker, Kamera (📷), Drag & Drop oder Zwischenablage; Lightbox-Vorschau, Download |
+| 📁 Dateien | Upload per Datei-Picker, Drag & Drop oder Zwischenablage; Download |
 | 🔗 Links | URL – direkt anklickbar, öffnet neuen Tab |
 
 ## Funktionen
 
-- **Zwei Modi** pro Bereich: Bearbeiten (✏️) und Ansicht (👁️)
+- **Zwei Modi** pro Bereich: Bearbeiten (✏️) und Ansicht (👁️) – Modus bleibt nach Reload erhalten
 - **Symbolleiste** ein-/ausblendbar über ☰ (Zustand wird gespeichert)
+- Letzter Bereich und letzter Modus werden in `localStorage` gespeichert
 - Artikel per **Drag & Drop** umsortieren
 - Inline-Bearbeitung direkt in der Liste
+- **Attachment-Ersetzung**: vorhandenes Bild oder Datei über den ✎-Button im Edit-Modus ersetzen
+- Neueste Einträge in Bilder und Dateien erscheinen zuerst
 - **Offline-fähig** (PWA): gecachte App-Shell, Update-Banner bei neuer Version
 - CSRF-Schutz für alle schreibenden Aktionen
 - Automatische DB-Migration bei neuen Spalten
-- Persistente Uploads für Bilder und Dateien mit Storage außerhalb des Webroots
+
+## Bild-Upload (Bilder-Bereich)
+
+Vier Upload-Wege stehen nebeneinander:
+
+| Weg | Beschreibung |
+|---|---|
+| Datei-Picker | Klassischer Datei-Dialog |
+| 📷 Kamera | Öffnet direkt die Gerätekamera (Smartphone); Foto wird sofort hochgeladen |
+| Drag & Drop | Bild auf die gestrichelte Zone ziehen |
+| Zwischenablage | `Strg+V` / `Cmd+V` – fügt ein kopiertes Bild ein |
+
+Klick auf ein Vorschaubild öffnet eine Lightbox innerhalb der App (kein Tab-Wechsel, PWA-freundlich).
 
 ## Notizen-Editor
 
@@ -35,7 +50,6 @@ Der Notizen-Tab öffnet für jede Notiz einen vollwertigen Rich-Text-Editor:
 - **TipTap** (ProseMirror-basiert), geladen via CDN (esm.sh)
 - Toolbar: H1, H2, H3, Fett, Kursiv, Durchgestrichen, Listen, Zitat, Code, Link, Undo/Redo
 - Auto-Speichern mit 800 ms Debounce
-- Kein Bild-Upload
 - Inhalt gespeichert als HTML im `content`-Feld der `items`-Tabelle
 
 ## Datenbankschema
@@ -60,10 +74,10 @@ Migrationen werden beim ersten Request automatisch angewendet (`db.php`).
 
 Uploads werden außerhalb des Webroots unter `data/uploads/` gespeichert:
 
-- `data/uploads/images` für Bild-Anhänge von Items aus der Sektion `images`
-- `data/uploads/files` für Datei-Anhänge von Items aus der Sektion `files`
+- `data/uploads/images` – Bild-Anhänge (Sektion `images`)
+- `data/uploads/files` – Datei-Anhänge (Sektion `files`)
 
-Die Metadaten liegen in einer separaten Tabelle mit genau einem Anhang pro Item:
+Genau ein Anhang pro Item (DB-Constraint `UNIQUE` auf `item_id`). Beim Ersetzen wird die alte Datei gelöscht, beim Item-Delete ebenso.
 
 ```sql
 CREATE TABLE attachments (
@@ -79,18 +93,32 @@ CREATE TABLE attachments (
 );
 ```
 
-Dateisystempfade werden nicht aus Request-Daten abgeleitet. Die App speichert nur validierte Metadaten in SQLite und berechnet daraus serverseitig feste Pfade. Vorhandene Dateien können über `public/media.php?item_id=<id>` anhand der Item-ID gestreamt werden. Bilder werden standardmäßig inline ausgeliefert, mit `download=1` aber als Download.
+Dateisystempfade werden nicht aus Request-Daten abgeleitet. Vorhandene Dateien können über `public/media.php?item_id=<id>` gestreamt werden. Bilder werden standardmäßig inline ausgeliefert, mit `?download=1` als Datei-Download.
+
+## API-Endpunkte
+
+| Action | Methode | Beschreibung |
+|---|---|---|
+| `list` | GET | Items einer Section inkl. Attachment-Metadaten |
+| `add` | POST | Neues Item (ohne Datei) |
+| `upload` | POST | Neues Item mit Attachment; mit `item_id` → Attachment ersetzen |
+| `update` | POST | Name/Menge eines Items ändern |
+| `toggle` | POST | Erledigt-Status umschalten |
+| `delete` | POST | Item und zugehörigen Anhang löschen |
+| `clear` | POST | Alle erledigten Items einer Section löschen |
+| `reorder` | POST | Reihenfolge per ID-Array festlegen |
 
 ## Dateien
 
 | Pfad | Zweck |
 |---|---|
 | `public/index.php` | HTML-Oberfläche |
-| `public/api.php` | JSON-API (list, add, upload, update, toggle, delete, clear, reorder) |
-| `public/media.php` | Sicheres Streamen vorhandener Attachments anhand der Item-ID |
+| `public/api.php` | JSON-API |
+| `public/media.php` | Sicheres Streamen von Attachments |
 | `public/app.js` | Vanilla-JS-Frontend (kein Build-Tool) |
 | `public/style.css` | CSS (Design-Tokens, Layout, Komponenten) |
 | `public/sw.js` | Service Worker (Offline-Cache) |
+| `public/.user.ini` | PHP-Upload-Limits (20 MB Bild, 5 GB Datei) |
 | `db.php` | Datenbankinitialisierung + automatische Migrationen |
 | `security.php` | Session- und CSRF-Helfer |
 
@@ -113,7 +141,7 @@ bash scripts/smoke-test.sh
 bash scripts/test-db-migration.sh
 ```
 
-`scripts/smoke-test.sh` startet weiterhin nur einen lokalen `php -S`-Server, prüft jetzt aber zusätzlich echte Multipart-Uploads für `images` und `files`, den Abruf über `media.php`, Fehlerfälle für ungültige Bilder und fehlende Uploads/Dateien sowie das Entfernen der gespeicherten Datei beim Löschen eines Items.
+Der Smoke-Test prüft u. a.: Multipart-Uploads für `images` und `files`, Abruf über `media.php`, Attachment-Ersetzung (Ein-Attachment-Regel), Fehlerfälle für ungültige Bilder und fehlende Uploads, Datei-Entfernung beim Item-Delete.
 
 ## Deployment (Produktion)
 
@@ -124,8 +152,6 @@ Git Push auf main → Webhook → deploy.sh → git pull + php-fpm reload
 ```
 
 **Webhook-Endpunkt:** `https://hook-copy.benduhn.de/hooks/einkauf-deploy`
-
-Das `deploy.sh` im Repo-Root führt den Deploy durch:
 
 ```bash
 # Manuell auslösen
@@ -139,25 +165,25 @@ Die App ist unter `zettel.benduhn.de` erreichbar (intern: Port 8083, Caddy leite
 
 PWA-Features (Service Worker, Installationsdialog) erfordern **HTTPS**.
 
+### Infrastruktur-Limits
+
+Upload-Limits werden auf zwei Ebenen gesetzt:
+
+| Ebene | Konfiguration | Wert |
+|---|---|---|
+| nginx | `client_max_body_size` in `/etc/nginx/http.d/einkauf.conf` | 5200m |
+| PHP | `upload_max_filesize` / `post_max_size` in `public/.user.ini` | 5G / 5200M |
+
 ### Berechtigungen
 
-Der Webserver-Prozess (`einkauf`-User) benötigt Schreibrechte auf `data/`, nicht auf den Webroot.
-Die SQLite-Datei liegt standardmäßig in `data/einkaufsliste.db`, Uploads in `data/uploads/`. Optional kann das Datenverzeichnis über `EINKAUF_DATA_DIR` überschrieben werden, z. B. für Tests.
+Der Webserver-Prozess benötigt Schreibrechte auf `data/`, nicht auf den Webroot.
+Die SQLite-Datei liegt standardmäßig in `data/einkaufsliste.db`, Uploads in `data/uploads/`.
+Optional kann das Datenverzeichnis über `EINKAUF_DATA_DIR` überschrieben werden (z. B. für Tests).
 
 ## Docker (lokale Entwicklung)
-
-Für lokale Tests steht Docker Compose bereit:
 
 ```bash
 docker compose up
 ```
 
-Die Konfiguration befindet sich in `Dockerfile`, `docker-compose.yml` und `deploy/docker/einkauf.conf`.
-
-## Legacy: Apache
-
-```bash
-sudo bash scripts/deploy-production.sh
-```
-
-Webroot: `/var/www/einkauf/public`, Datenverzeichnis: `/var/lib/einkauf`.
+Konfiguration: `Dockerfile`, `docker-compose.yml`, `deploy/docker/einkauf.conf`.
