@@ -1197,7 +1197,7 @@ async function api(action, options = {}) {
     const response = await fetch(url, fetchOptions);
     const payload = await response.json().catch(() => ({}));
 
-    if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+    if (!response.ok) throw new Error(payload.error || 'Unbekannter Fehler');
     return payload;
 }
 
@@ -1789,7 +1789,7 @@ async function uploadFileDirectly(file) {
 
     const section = state.section;
     if (section === 'images' && !file.type.startsWith('image/')) {
-        setMessage(`Nur Bilddateien unterstützt (erkannt: "${file.type || 'unbekannt'}")`, true);
+        setMessage('Nur Bilddateien werden in dieser Section unterstützt.', true);
         return;
     }
 
