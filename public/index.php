@@ -105,6 +105,8 @@ if ($appBasePath === '' || $appBasePath === '.') {
             <div class="file-input-group" id="fileInputGroup" hidden>
                 <label for="fileInput" class="file-picker-button" id="filePickerButton">Datei wählen</label>
                 <input type="file" id="fileInput" name="attachment" hidden>
+                <button type="button" id="cameraBtn" class="file-picker-button btn-camera" hidden aria-label="Foto aufnehmen">📷</button>
+                <input type="file" id="cameraInput" accept="image/*" capture="environment" hidden>
                 <span class="file-picker-name" id="filePickerName">Keine Datei ausgewählt</span>
             </div>
             <input type="text" id="quantityInput" name="quantity"

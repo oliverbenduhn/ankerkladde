@@ -17,6 +17,8 @@ const fileInput       = document.getElementById('fileInput');
 const fileInputGroup  = document.getElementById('fileInputGroup');
 const filePickerButton = document.getElementById('filePickerButton');
 const filePickerName  = document.getElementById('filePickerName');
+const cameraBtn       = document.getElementById('cameraBtn');
+const cameraInput     = document.getElementById('cameraInput');
 const inputHintEl     = document.getElementById('inputHint');
 const clearDoneBtn    = document.getElementById('clearDoneBtn');
 const messageEl       = document.getElementById('message');
@@ -259,14 +261,20 @@ function setUploadUiState() {
     if (!fileInputGroup || !fileInput || !inputHintEl || !filePickerButton) return;
 
     const isUploadSection = isAttachmentSection();
+    const isImageSection = state.section === 'images';
     const isOffline = !navigator.onLine;
 
     fileInputGroup.hidden = !isUploadSection;
     fileInputGroup.classList.toggle('is-disabled', isUploadSection && isOffline);
     inputHintEl.hidden = !isUploadSection;
-    filePickerButton.textContent = state.section === 'images' ? 'Bild wählen' : 'Datei wählen';
-    fileInput.accept = state.section === 'images' ? 'image/*' : '';
+    filePickerButton.textContent = isImageSection ? 'Bild wählen' : 'Datei wählen';
+    fileInput.accept = isImageSection ? 'image/*' : '';
     fileInput.disabled = !isUploadSection || isOffline;
+
+    if (cameraBtn) {
+        cameraBtn.hidden = !isImageSection || isOffline;
+        cameraBtn.disabled = !isImageSection || isOffline;
+    }
 
     if (!isUploadSection) {
         inputHintEl.textContent = '';
@@ -275,8 +283,8 @@ function setUploadUiState() {
 
     inputHintEl.textContent = isOffline
         ? 'Uploads sind offline nicht verfügbar. Vorhandene Einträge bleiben sichtbar.'
-        : state.section === 'images'
-            ? 'Ein einzelnes Bild auswählen. Titel optional.'
+        : isImageSection
+            ? 'Ein einzelnes Bild auswählen oder Foto aufnehmen. Titel optional.'
             : 'Eine einzelne Datei auswählen. Titel optional.';
 }
 
@@ -1752,6 +1760,45 @@ itemInput.addEventListener('keydown', submitOnEnter);
 quantityInput.addEventListener('keydown', submitOnEnter);
 if (fileInput) {
     fileInput.addEventListener('change', updateFilePickerLabel);
+}
+if (cameraBtn && cameraInput) {
+    cameraBtn.addEventListener('click', () => cameraInput.click());
+    cameraInput.addEventListener('change', async () => {
+        const photo = cameraInput.files?.[0];
+        if (!photo) return;
+
+        if (!navigator.onLine) {
+            setMessage('Uploads sind offline nicht möglich.', true);
+            cameraInput.value = '';
+            return;
+        }
+
+        const submitBtn = itemForm.querySelector('[type="submit"]');
+        if (submitBtn) submitBtn.disabled = true;
+        cameraBtn.disabled = true;
+
+        const title = normalizeNameInput(itemInput.value)
+            || photo.name
+            || `Foto ${new Date().toLocaleDateString('de-DE')}`;
+
+        const uploadFormData = new FormData();
+        uploadFormData.append('section', 'images');
+        uploadFormData.append('name', title);
+        uploadFormData.append('attachment', photo);
+
+        try {
+            await uploadAttachment(uploadFormData);
+            itemInput.value = '';
+            cameraInput.value = '';
+            await loadItems();
+            setMessage('Foto hochgeladen.');
+        } catch (err) {
+            setMessage(getUserFacingError(err, 'Foto konnte nicht hochgeladen werden.'), true);
+        } finally {
+            if (submitBtn) submitBtn.disabled = false;
+            cameraBtn.disabled = false;
+        }
+    });
 }
 listEl.addEventListener('keydown', handleListKeydown);
 
