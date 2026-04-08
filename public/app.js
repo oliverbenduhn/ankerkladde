@@ -2457,10 +2457,8 @@ initTabDrag();
 // Restore last active mode
 (function initMode() {
     const saved = readJsonStorage(MODE_KEY, 'liste');
-    if (saved === 'einkaufen') {
-        state.mode         = 'einkaufen';
-        appEl.dataset.mode = 'einkaufen';
-    }
+    state.mode         = saved;
+    appEl.dataset.mode = saved;
 })();
 
 // Restore last active section
