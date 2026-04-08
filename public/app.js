@@ -1776,8 +1776,8 @@ if (cameraBtn && cameraInput) {
     cameraInput.addEventListener('change', async () => {
         const photo = cameraInput.files?.[0];
         if (!photo) return;
-        cameraInput.value = '';
         await uploadFileDirectly(photo);
+        cameraInput.value = '';
     });
 }
 async function uploadFileDirectly(file) {
