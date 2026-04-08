@@ -13,6 +13,11 @@ const listEl          = document.getElementById('list');
 const listAreaEl      = document.querySelector('.list-area');
 const itemForm        = document.getElementById('itemForm');
 const itemInput       = document.getElementById('itemInput');
+const fileInput       = document.getElementById('fileInput');
+const fileInputGroup  = document.getElementById('fileInputGroup');
+const filePickerButton = document.getElementById('filePickerButton');
+const filePickerName  = document.getElementById('filePickerName');
+const inputHintEl     = document.getElementById('inputHint');
 const clearDoneBtn    = document.getElementById('clearDoneBtn');
 const messageEl       = document.getElementById('message');
 const progressEl      = document.getElementById('progress');
@@ -43,6 +48,7 @@ const ITEMS_CACHE_KEY_PREFIX = 'einkauf-items-cache-v1-';
 const TOGGLE_QUEUE_KEY = 'einkauf-toggle-queue-v1';
 const SECTION_KEY   = 'einkauf-section-v1';
 const TABS_HIDDEN_KEY = 'einkauf-tabs-hidden-v1';
+const ATTACHMENT_SECTIONS = new Set(['images', 'files']);
 
 const SECTIONS = {
     shopping:     { label: 'Einkauf',    title: 'Einkaufsliste',     shoppingTitle: 'Einkaufen'       },
@@ -79,6 +85,10 @@ let offlineSyncInFlight = false;
 // UTILITIES
 // =========================================
 let messageTimer = null;
+
+function isAttachmentSection(section = state.section) {
+    return ATTACHMENT_SECTIONS.has(section);
+}
 
 function setMessage(text, isError = false) {
     clearTimeout(messageTimer);
@@ -119,6 +129,40 @@ function normalizeNameInput(name) {
 
 function normalizeQuantityInput(quantity) {
     return String(quantity).trim().replace(/\s+/gu, ' ').slice(0, 40);
+}
+
+function resolveAttachmentUrl(url) {
+    if (!url) return '';
+
+    try {
+        return new URL(url, appUrl('')).toString();
+    } catch {
+        return String(url);
+    }
+}
+
+function getAttachmentTitle(item) {
+    return normalizeNameInput(item.name || '') || item.attachmentOriginalName || 'Ohne Titel';
+}
+
+function formatBytes(sizeBytes) {
+    const size = Number(sizeBytes);
+    if (!Number.isFinite(size) || size < 0) return 'Unbekannt';
+    if (size < 1024) return `${size} B`;
+
+    const units = ['KB', 'MB', 'GB', 'TB'];
+    let value = size / 1024;
+    let unitIndex = 0;
+
+    while (value >= 1024 && unitIndex < units.length - 1) {
+        value /= 1024;
+        unitIndex += 1;
+    }
+
+    return `${value.toLocaleString('de-DE', {
+        minimumFractionDigits: value < 10 ? 1 : 0,
+        maximumFractionDigits: 1,
+    })} ${units[unitIndex]}`;
 }
 
 function getItemById(id) {
@@ -180,7 +224,67 @@ function normalizeItem(item) {
         done: Number(item.done),
         sort_order: Number(item.sort_order),
         content: item.content || '',
+        has_attachment: Number(item.has_attachment || 0),
+        attachment_size_bytes: Number(item.attachment_size_bytes || 0),
+        attachment_url: resolveAttachmentUrl(item.attachment_url || ''),
+        attachment_original_name: item.attachment_original_name || '',
+        attachment_media_type: item.attachment_media_type || '',
+        attachment_storage_section: item.attachment_storage_section || '',
+        attachmentOriginalName: item.attachment_original_name || '',
+        attachmentMediaType: item.attachment_media_type || '',
+        attachmentSizeBytes: Number(item.attachment_size_bytes || 0),
+        attachmentUrl: resolveAttachmentUrl(item.attachment_url || ''),
+        hasAttachment: Number(item.has_attachment || 0) === 1,
     };
+}
+
+function getSelectedAttachment() {
+    return fileInput?.files?.[0] || null;
+}
+
+function updateFilePickerLabel() {
+    if (!filePickerName) return;
+    const attachment = getSelectedAttachment();
+    filePickerName.textContent = attachment ? attachment.name : 'Keine Datei ausgewählt';
+}
+
+function clearAttachmentInput() {
+    if (fileInput) fileInput.value = '';
+    updateFilePickerLabel();
+}
+
+function setUploadUiState() {
+    if (!fileInputGroup || !fileInput || !inputHintEl || !filePickerButton) return;
+
+    const isUploadSection = isAttachmentSection();
+    const isOffline = !navigator.onLine;
+
+    fileInputGroup.hidden = !isUploadSection;
+    fileInputGroup.classList.toggle('is-disabled', isUploadSection && isOffline);
+    inputHintEl.hidden = !isUploadSection;
+    filePickerButton.textContent = state.section === 'images' ? 'Bild wählen' : 'Datei wählen';
+    fileInput.accept = state.section === 'images' ? 'image/*' : '';
+    fileInput.disabled = !isUploadSection || isOffline;
+
+    if (!isUploadSection) {
+        inputHintEl.textContent = '';
+        return;
+    }
+
+    inputHintEl.textContent = isOffline
+        ? 'Uploads sind offline nicht verfügbar. Vorhandene Einträge bleiben sichtbar.'
+        : state.section === 'images'
+            ? 'Ein einzelnes Bild auswählen. Titel optional.'
+            : 'Eine einzelne Datei auswählen. Titel optional.';
+}
+
+function focusPrimaryInput() {
+    if (isAttachmentSection() && navigator.onLine && fileInput && !fileInput.disabled) {
+        fileInput.focus();
+        return;
+    }
+
+    itemInput.focus();
 }
 
 function readJsonStorage(key, fallbackValue) {
@@ -545,6 +649,117 @@ function formatDateBadge(dateStr) {
 }
 
 function buildReadOnlyContent(item, content) {
+    if (isAttachmentSection() && !item.hasAttachment) {
+        const titleEl = document.createElement('span');
+        titleEl.className = 'item-name attachment-title';
+        titleEl.textContent = getAttachmentTitle(item);
+
+        const missingEl = document.createElement('span');
+        missingEl.className = 'attachment-subline';
+        missingEl.textContent = 'Anhang nicht verfügbar';
+
+        const meta = document.createElement('div');
+        meta.className = 'attachment-meta';
+        meta.append(titleEl, missingEl);
+        content.appendChild(meta);
+        return;
+    }
+
+    if (state.section === 'images') {
+        content.classList.add('item-content-attachment', 'item-content-image');
+
+        const previewLink = document.createElement('a');
+        previewLink.className = 'attachment-preview-link';
+        previewLink.href = item.attachmentUrl;
+        previewLink.target = '_blank';
+        previewLink.rel = 'noopener noreferrer';
+        previewLink.download = item.attachmentOriginalName || getAttachmentTitle(item);
+        previewLink.setAttribute('aria-label', `${getAttachmentTitle(item)} herunterladen`);
+        previewLink.addEventListener('click', event => event.stopPropagation());
+
+        const preview = document.createElement('img');
+        preview.className = 'attachment-image-preview';
+        preview.src = item.attachmentUrl;
+        preview.alt = getAttachmentTitle(item);
+        preview.loading = 'lazy';
+        preview.decoding = 'async';
+        previewLink.appendChild(preview);
+
+        const meta = document.createElement('div');
+        meta.className = 'attachment-meta';
+
+        const titleEl = document.createElement('span');
+        titleEl.className = 'item-name attachment-title';
+        titleEl.textContent = getAttachmentTitle(item);
+        meta.appendChild(titleEl);
+
+        if (item.attachmentOriginalName) {
+            const originalEl = document.createElement('span');
+            originalEl.className = 'attachment-subline';
+            originalEl.textContent = item.attachmentOriginalName;
+            meta.appendChild(originalEl);
+        }
+
+        const actions = document.createElement('div');
+        actions.className = 'attachment-inline-actions';
+
+        const downloadLink = document.createElement('a');
+        downloadLink.className = 'attachment-download-link';
+        downloadLink.href = item.attachmentUrl;
+        downloadLink.target = '_blank';
+        downloadLink.rel = 'noopener noreferrer';
+        downloadLink.download = item.attachmentOriginalName || getAttachmentTitle(item);
+        downloadLink.textContent = 'Download';
+        downloadLink.addEventListener('click', event => event.stopPropagation());
+        actions.appendChild(downloadLink);
+
+        meta.appendChild(actions);
+        content.append(previewLink, meta);
+        return;
+    }
+
+    if (state.section === 'files') {
+        content.classList.add('item-content-attachment', 'item-content-file');
+
+        const meta = document.createElement('div');
+        meta.className = 'attachment-meta';
+
+        const titleEl = document.createElement('span');
+        titleEl.className = 'item-name attachment-title';
+        titleEl.textContent = getAttachmentTitle(item);
+        meta.appendChild(titleEl);
+
+        const detailValues = [
+            item.attachmentOriginalName || null,
+            item.attachmentMediaType || null,
+            item.attachmentSizeBytes > 0 ? formatBytes(item.attachmentSizeBytes) : null,
+        ].filter(Boolean);
+
+        if (detailValues.length > 0) {
+            const detailsEl = document.createElement('span');
+            detailsEl.className = 'attachment-subline';
+            detailsEl.textContent = detailValues.join(' · ');
+            meta.appendChild(detailsEl);
+        }
+
+        const actions = document.createElement('div');
+        actions.className = 'attachment-inline-actions';
+
+        const downloadLink = document.createElement('a');
+        downloadLink.className = 'attachment-download-link';
+        downloadLink.href = item.attachmentUrl;
+        downloadLink.target = '_blank';
+        downloadLink.rel = 'noopener noreferrer';
+        downloadLink.download = item.attachmentOriginalName || getAttachmentTitle(item);
+        downloadLink.textContent = 'Download';
+        downloadLink.addEventListener('click', event => event.stopPropagation());
+        actions.appendChild(downloadLink);
+
+        meta.appendChild(actions);
+        content.appendChild(meta);
+        return;
+    }
+
     if (state.section === 'links') {
         const link = document.createElement('a');
         link.className  = 'item-name item-link';
@@ -580,7 +795,7 @@ function buildEditContent(content) {
     nameInput.type = 'text';
     nameInput.className = 'item-edit-input edit-name-input';
     nameInput.value = state.editDraft.name;
-    nameInput.placeholder = 'Artikel';
+    nameInput.placeholder = isAttachmentSection() ? 'Titel (optional)' : 'Artikel';
     nameInput.maxLength = 120;
     nameInput.autocomplete = 'off';
     nameInput.disabled = isSaving;
@@ -645,6 +860,9 @@ function buildItemNode(item, index, totalItems) {
 
     const content = document.createElement('div');
     content.className = 'item-content';
+    if (isAttachmentSection() && !item.hasAttachment) {
+        content.classList.add('item-content-missing-attachment');
+    }
 
     if (isEditing) {
         buildEditContent(content);
@@ -809,11 +1027,18 @@ function updateSectionHeaders() {
 
     const isNotes    = state.section === 'notes';
     const isLinks    = state.section === 'links';
+    const isUploadSection = isAttachmentSection();
     const isTodo     = state.section === 'todo_private' || state.section === 'todo_work';
     const hasQty     = state.section === 'shopping' || state.section === 'meds';
 
     if (itemInput) {
-        itemInput.placeholder = isNotes ? 'Titel...' : isLinks ? 'https://...' : 'Artikel...';
+        itemInput.placeholder = isNotes
+            ? 'Titel...'
+            : isLinks
+                ? 'https://...'
+                : isUploadSection
+                    ? 'Titel optional...'
+                    : 'Artikel...';
     }
 
     if (quantityInput) {
@@ -829,6 +1054,13 @@ function updateSectionHeaders() {
             quantityInput.style.display = 'none';
         }
     }
+
+    if (itemInput) {
+        itemInput.required = !isUploadSection;
+    }
+
+    setUploadUiState();
+    updateFilePickerLabel();
 }
 
 function setSection(section) {
@@ -907,6 +1139,19 @@ async function loadItems(options = {}) {
         if (!silent) {
             setMessage(getUserFacingError(err, 'Die Liste konnte nicht geladen werden.'), true);
         }
+    }
+}
+
+async function uploadAttachment(uploadFormData) {
+    try {
+        return await api('upload', { method: 'POST', body: uploadFormData });
+    } catch (error) {
+        const message = error instanceof Error ? error.message : '';
+        if (message !== 'Unbekannte Aktion.') {
+            throw error;
+        }
+
+        return api('add', { method: 'POST', body: uploadFormData });
     }
 }
 
@@ -1180,7 +1425,10 @@ async function handleEditSave(id) {
     const item = getItemById(id);
     if (!item) return;
 
-    const name = normalizeNameInput(state.editDraft.name);
+    const rawName = normalizeNameInput(state.editDraft.name);
+    const name = isAttachmentSection()
+        ? (rawName || item.attachmentOriginalName || item.name || 'Ohne Titel')
+        : rawName;
     const quantity = normalizeQuantityInput(state.editDraft.quantity);
 
     if (name === '') {
@@ -1260,6 +1508,42 @@ async function addItem(event) {
         return;
     }
 
+    if (isAttachmentSection()) {
+        const attachment = getSelectedAttachment();
+        const title = normalizeNameInput(itemInput.value);
+
+        if (!navigator.onLine) {
+            setMessage('Uploads sind offline nicht möglich.', true);
+            submitBtn.disabled = false;
+            return;
+        }
+
+        if (!attachment) {
+            setMessage(state.section === 'images' ? 'Bitte wähle ein Bild aus.' : 'Bitte wähle eine Datei aus.', true);
+            submitBtn.disabled = false;
+            return;
+        }
+
+        const uploadFormData = new FormData();
+        uploadFormData.append('section', state.section);
+        uploadFormData.append('name', title || attachment.name);
+        uploadFormData.append('attachment', attachment);
+
+        try {
+            await uploadAttachment(uploadFormData);
+            itemForm.reset();
+            clearAttachmentInput();
+            focusPrimaryInput();
+            await loadItems();
+            setMessage(state.section === 'images' ? 'Bild hochgeladen.' : 'Datei hochgeladen.');
+        } catch (err) {
+            setMessage(getUserFacingError(err, 'Upload konnte nicht abgeschlossen werden.'), true);
+        } finally {
+            submitBtn.disabled = false;
+        }
+        return;
+    }
+
     const formData = new FormData(itemForm);
 
     try {
@@ -1267,7 +1551,8 @@ async function addItem(event) {
         addParams.append('section', state.section);
         await api('add', { method: 'POST', body: addParams });
         itemForm.reset();
-        itemInput.focus();
+        clearAttachmentInput();
+        focusPrimaryInput();
         await loadItems();
         setMessage('Artikel hinzugefügt.');
     } catch (err) {
@@ -1378,6 +1663,9 @@ function handleListKeydown(event) {
 
 itemInput.addEventListener('keydown', submitOnEnter);
 quantityInput.addEventListener('keydown', submitOnEnter);
+if (fileInput) {
+    fileInput.addEventListener('change', updateFilePickerLabel);
+}
 listEl.addEventListener('keydown', handleListKeydown);
 
 clearDoneBtn.addEventListener('click', clearDone);
@@ -1607,9 +1895,13 @@ if (updateReloadBtn) {
 
 window.addEventListener('online', () => {
     setNetworkStatus();
+    setUploadUiState();
     void flushQueuedToggles();
 });
-window.addEventListener('offline', setNetworkStatus);
+window.addEventListener('offline', () => {
+    setNetworkStatus();
+    setUploadUiState();
+});
 window.addEventListener('resize', syncViewportHeight);
 if (window.visualViewport) {
     window.visualViewport.addEventListener('resize', syncViewportHeight);
@@ -1873,4 +2165,6 @@ initTabsToggle();
     }
 })();
 
+updateSectionHeaders();
+updateFilePickerLabel();
 loadItems();

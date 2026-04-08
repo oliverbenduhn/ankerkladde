@@ -102,10 +102,16 @@ if ($appBasePath === '' || $appBasePath === '.') {
             <input type="text" id="itemInput" name="name"
                    placeholder="Artikel..." maxlength="120"
                    autocomplete="off" enterkeyhint="done" required>
+            <div class="file-input-group" id="fileInputGroup" hidden>
+                <label for="fileInput" class="file-picker-button" id="filePickerButton">Datei wählen</label>
+                <input type="file" id="fileInput" name="attachment" hidden>
+                <span class="file-picker-name" id="filePickerName">Keine Datei ausgewählt</span>
+            </div>
             <input type="text" id="quantityInput" name="quantity"
                    placeholder="Menge" maxlength="40" autocomplete="off" enterkeyhint="done">
             <button type="submit" class="btn-add" aria-label="Artikel hinzufügen">+</button>
         </form>
+        <p class="input-hint" id="inputHint" hidden></p>
     </section>
 
     <main class="list-area">

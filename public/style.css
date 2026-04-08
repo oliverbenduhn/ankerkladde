@@ -92,6 +92,7 @@ button, input { font: inherit; }
     display: flex;
     gap: 8px;
     align-items: stretch;
+    flex-wrap: wrap;
 }
 
 .input-area input {
@@ -115,6 +116,62 @@ button, input { font: inherit; }
 .input-area input::placeholder { color: var(--text-muted); }
 
 .input-area input[name="quantity"] { flex: 0 0 100px; }
+
+.file-input-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-height: 48px;
+    padding: 8px 12px;
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+}
+
+.file-picker-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 32px;
+    padding: 0 12px;
+    background: var(--border);
+    border-radius: 9px;
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s ease;
+}
+
+.file-picker-button:hover {
+    background: var(--accent);
+}
+
+.file-picker-name {
+    min-width: 0;
+    flex: 1;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.file-input-group.is-disabled {
+    opacity: 0.65;
+}
+
+.file-input-group.is-disabled .file-picker-button {
+    cursor: not-allowed;
+}
+
+.input-hint {
+    margin: 8px 2px 0;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+}
 
 .btn-add {
     min-width: 48px;
@@ -291,6 +348,78 @@ button, input { font: inherit; }
     align-items: center;
     gap: 8px;
     flex-wrap: wrap;
+}
+
+.item-content-attachment {
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.item-content-image {
+    flex-wrap: nowrap;
+}
+
+.attachment-preview-link {
+    display: block;
+    flex-shrink: 0;
+    width: 92px;
+    height: 92px;
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--done-bg);
+    border: 1px solid var(--border);
+}
+
+.attachment-image-preview {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.attachment-meta {
+    min-width: 0;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.attachment-title {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+}
+
+.attachment-subline {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+}
+
+.attachment-inline-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 2px;
+}
+
+.attachment-download-link {
+    color: var(--text-primary);
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    text-decoration-color: var(--accent);
+}
+
+.item-content-file .attachment-meta {
+    padding-top: 2px;
+}
+
+.item-content-missing-attachment .attachment-subline {
+    color: var(--error);
 }
 
 .item-edit-fields {
@@ -1008,4 +1137,16 @@ button, input { font: inherit; }
     float: left;
     height: 0;
     pointer-events: none;
+}
+
+@media (max-width: 480px) {
+    .item-content-image {
+        flex-direction: column;
+    }
+
+    .attachment-preview-link {
+        width: 100%;
+        height: auto;
+        aspect-ratio: 4 / 3;
+    }
 }
