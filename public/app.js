@@ -277,7 +277,13 @@ function setUploadUiState() {
         cameraBtn.disabled = !isImageSection || isOffline;
     }
     if (dropZoneEl) {
-        dropZoneEl.hidden = !isImageSection || isOffline;
+        dropZoneEl.hidden = !isUploadSection || isOffline;
+        const dropLabel = dropZoneEl.querySelector('.drop-zone-label');
+        if (dropLabel) {
+            dropLabel.textContent = isImageSection
+                ? 'Bild hierher ziehen oder aus Zwischenablage einfügen'
+                : 'Datei hierher ziehen oder aus Zwischenablage einfügen';
+        }
     }
 
     if (!isUploadSection) {
@@ -1771,25 +1777,26 @@ if (cameraBtn && cameraInput) {
         const photo = cameraInput.files?.[0];
         if (!photo) return;
         cameraInput.value = '';
-        await uploadImageFileDirectly(photo);
+        await uploadFileDirectly(photo);
     });
 }
-async function uploadImageFileDirectly(file) {
-    if (!file || !file.type.startsWith('image/')) {
-        setMessage('Nur Bilddateien werden unterstützt.', true);
-        return;
-    }
+async function uploadFileDirectly(file) {
+    if (!file) return;
     if (!navigator.onLine) {
         setMessage('Uploads sind offline nicht möglich.', true);
         return;
     }
 
-    const title = normalizeNameInput(itemInput.value)
-        || file.name
-        || `Foto ${new Date().toLocaleDateString('de-DE')}`;
+    const section = state.section;
+    if (section === 'images' && !file.type.startsWith('image/')) {
+        setMessage('Nur Bilddateien werden in dieser Section unterstützt.', true);
+        return;
+    }
+
+    const title = normalizeNameInput(itemInput.value) || file.name;
 
     const uploadFormData = new FormData();
-    uploadFormData.append('section', 'images');
+    uploadFormData.append('section', section);
     uploadFormData.append('name', title);
     uploadFormData.append('attachment', file);
 
@@ -1797,9 +1804,9 @@ async function uploadImageFileDirectly(file) {
         await uploadAttachment(uploadFormData);
         itemInput.value = '';
         await loadItems();
-        setMessage('Bild hochgeladen.');
+        setMessage(section === 'images' ? 'Bild hochgeladen.' : 'Datei hochgeladen.');
     } catch (err) {
-        setMessage(getUserFacingError(err, 'Bild konnte nicht hochgeladen werden.'), true);
+        setMessage(getUserFacingError(err, 'Upload konnte nicht abgeschlossen werden.'), true);
     }
 }
 
@@ -1819,22 +1826,22 @@ if (dropZoneEl) {
         event.preventDefault();
         dropZoneEl.classList.remove('drop-active');
         const file = event.dataTransfer?.files?.[0] || null;
-        if (file) await uploadImageFileDirectly(file);
+        if (file) await uploadFileDirectly(file);
     });
 }
 
 document.addEventListener('paste', async event => {
-    if (state.section !== 'images') return;
+    if (!isAttachmentSection()) return;
     if (!navigator.onLine) return;
 
     const items = event.clipboardData?.items;
     if (!items) return;
 
     for (const item of items) {
-        if (item.kind === 'file' && item.type.startsWith('image/')) {
+        if (item.kind === 'file') {
             event.preventDefault();
             const file = item.getAsFile();
-            if (file) await uploadImageFileDirectly(file);
+            if (file) await uploadFileDirectly(file);
             break;
         }
     }
