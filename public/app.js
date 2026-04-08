@@ -675,8 +675,7 @@ function buildReadOnlyContent(item, content) {
         previewLink.href = item.attachmentUrl;
         previewLink.target = '_blank';
         previewLink.rel = 'noopener noreferrer';
-        previewLink.download = item.attachmentOriginalName || getAttachmentTitle(item);
-        previewLink.setAttribute('aria-label', `${getAttachmentTitle(item)} herunterladen`);
+        previewLink.setAttribute('aria-label', `${getAttachmentTitle(item)} öffnen`);
         previewLink.addEventListener('click', event => event.stopPropagation());
 
         const preview = document.createElement('img');
