@@ -50,6 +50,7 @@ const INSTALL_BANNER_DISMISSED_KEY = 'einkauf-install-banner-dismissed-v2';
 const ITEMS_CACHE_KEY_PREFIX = 'einkauf-items-cache-v1-';
 const TOGGLE_QUEUE_KEY = 'einkauf-toggle-queue-v1';
 const SECTION_KEY     = 'einkauf-section-v1';
+const MODE_KEY        = 'einkauf-mode-v1';
 const TABS_HIDDEN_KEY = 'einkauf-tabs-hidden-v1';
 const ATTACHMENT_SECTIONS = new Set(['images', 'files']);
 const TABS_ORDER_KEY  = 'einkauf-tabs-order-v1';
@@ -481,6 +482,13 @@ function writeInstallBannerDismissed(isDismissed) {
 }
 
 function sortByPosition(items) {
+    if (state.section === 'images') {
+        return [...items].sort((a, b) => {
+            const sortDiff = Number(b.sort_order) - Number(a.sort_order);
+            if (sortDiff !== 0) return sortDiff;
+            return Number(b.id) - Number(a.id);
+        });
+    }
     return [...items].sort((a, b) => {
         const sortDiff = Number(a.sort_order) - Number(b.sort_order);
         if (sortDiff !== 0) return sortDiff;
@@ -1100,6 +1108,7 @@ function setMode(mode) {
 
     state.mode         = mode;
     appEl.dataset.mode = mode;
+    writeJsonStorage(MODE_KEY, mode);
 
     renderItems();
 }
@@ -2444,6 +2453,15 @@ renderInstallBanner();
 registerServiceWorker();
 initTabsToggle();
 initTabDrag();
+
+// Restore last active mode
+(function initMode() {
+    const saved = readJsonStorage(MODE_KEY, 'liste');
+    if (saved === 'einkaufen') {
+        state.mode         = 'einkaufen';
+        appEl.dataset.mode = 'einkaufen';
+    }
+})();
 
 // Restore last active section
 (function initSection() {
