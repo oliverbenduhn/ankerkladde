@@ -119,10 +119,27 @@ try {
             $section = getSection();
 
             $stmt = $db->prepare(
-                'SELECT id, name, quantity, content, done, sort_order, created_at, updated_at
+                'SELECT
+                    items.id,
+                    items.name,
+                    items.quantity,
+                    items.content,
+                    items.done,
+                    items.sort_order,
+                    items.created_at,
+                    items.updated_at,
+                    attachments.storage_section AS attachment_storage_section,
+                    attachments.original_name AS attachment_original_name,
+                    attachments.media_type AS attachment_media_type,
+                    attachments.size_bytes AS attachment_size_bytes,
+                    CASE WHEN attachments.id IS NULL THEN NULL ELSE "media.php?item_id=" || items.id END AS attachment_url,
+                    CASE WHEN attachments.id IS NULL THEN 0 ELSE 1 END AS has_attachment
                  FROM items
-                 WHERE section = :section
-                 ORDER BY sort_order ASC, id ASC'
+                 LEFT JOIN attachments
+                    ON attachments.item_id = items.id
+                   AND attachments.storage_section = items.section
+                 WHERE items.section = :section
+                 ORDER BY items.sort_order ASC, items.id ASC'
             );
             $stmt->execute([':section' => $section]);
 
@@ -236,12 +253,22 @@ try {
                 respond(422, ['error' => 'Ungültige ID.']);
             }
 
+            $attachment = findAttachmentByItemId($db, (int) $id);
+
+            $db->beginTransaction();
             $stmt = $db->prepare('DELETE FROM items WHERE id = :id');
             $stmt->execute([':id' => $id]);
 
             if ($stmt->rowCount() === 0) {
+                $db->rollBack();
                 respond(404, ['error' => 'Artikel nicht gefunden.']);
             }
+
+            if ($attachment !== null) {
+                deleteAttachmentStorageFile($attachment);
+            }
+
+            $db->commit();
 
             respond(200, ['message' => 'Artikel gelöscht.']);
 
@@ -252,8 +279,26 @@ try {
             requireCsrfToken($data);
             $section = getSection($data);
 
+            $attachmentStmt = $db->prepare(
+                'SELECT attachments.id, attachments.item_id, attachments.storage_section, attachments.stored_name
+                 FROM attachments
+                 INNER JOIN items
+                    ON items.id = attachments.item_id
+                 WHERE items.done = 1
+                   AND items.section = :section'
+            );
+            $attachmentStmt->execute([':section' => $section]);
+            $attachments = $attachmentStmt->fetchAll();
+
+            $db->beginTransaction();
             $stmt = $db->prepare('DELETE FROM items WHERE done = 1 AND section = :section');
             $stmt->execute([':section' => $section]);
+
+            foreach ($attachments as $attachment) {
+                deleteAttachmentStorageFile($attachment);
+            }
+
+            $db->commit();
 
             respond(200, [
                 'message' => 'Erledigte Artikel gelöscht.',

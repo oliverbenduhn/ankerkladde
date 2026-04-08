@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+const ATTACHMENT_SECTIONS = ['images', 'files'];
+
 function getDataDirectory(): string
 {
     $configuredDir = getenv('EINKAUF_DATA_DIR');
@@ -10,6 +12,99 @@ function getDataDirectory(): string
     }
 
     return __DIR__ . '/data';
+}
+
+function ensureDirectoryExists(string $path): void
+{
+    if (is_dir($path)) {
+        return;
+    }
+
+    if (!mkdir($path, 0775, true) && !is_dir($path)) {
+        throw new RuntimeException(sprintf('Verzeichnis konnte nicht erstellt werden: %s', $path));
+    }
+}
+
+function getUploadsDirectory(): string
+{
+    return getDataDirectory() . '/uploads';
+}
+
+function isAttachmentSection(string $section): bool
+{
+    return in_array($section, ATTACHMENT_SECTIONS, true);
+}
+
+function getAttachmentStorageDirectory(string $section): string
+{
+    if (!isAttachmentSection($section)) {
+        throw new InvalidArgumentException('Ungültige Attachment-Sektion.');
+    }
+
+    return getUploadsDirectory() . '/' . $section;
+}
+
+function ensureUploadDirectories(): void
+{
+    ensureDirectoryExists(getDataDirectory());
+    ensureDirectoryExists(getUploadsDirectory());
+
+    foreach (ATTACHMENT_SECTIONS as $section) {
+        ensureDirectoryExists(getAttachmentStorageDirectory($section));
+    }
+}
+
+function normalizeAttachmentStoredName(string $storedName): string
+{
+    $storedName = trim($storedName);
+
+    if ($storedName === '' || !preg_match('/\A[a-zA-Z0-9][a-zA-Z0-9._-]{0,255}\z/', $storedName)) {
+        throw new RuntimeException('Ungültiger gespeicherter Dateiname.');
+    }
+
+    return $storedName;
+}
+
+function getAttachmentStorageRelativePath(array $attachment): string
+{
+    $section = (string) ($attachment['storage_section'] ?? '');
+    $storedName = normalizeAttachmentStoredName((string) ($attachment['stored_name'] ?? ''));
+
+    if (!isAttachmentSection($section)) {
+        throw new RuntimeException('Ungültige Attachment-Sektion.');
+    }
+
+    return $section . '/' . $storedName;
+}
+
+function getAttachmentAbsolutePath(array $attachment): string
+{
+    $section = (string) ($attachment['storage_section'] ?? '');
+    $storedName = normalizeAttachmentStoredName((string) ($attachment['stored_name'] ?? ''));
+
+    return getAttachmentStorageDirectory($section) . '/' . $storedName;
+}
+
+function findAttachmentByItemId(PDO $db, int $itemId): ?array
+{
+    $stmt = $db->prepare(
+        'SELECT id, item_id, storage_section, stored_name, original_name, media_type, size_bytes, created_at, updated_at
+         FROM attachments
+         WHERE item_id = :item_id'
+    );
+    $stmt->execute([':item_id' => $itemId]);
+    $attachment = $stmt->fetch();
+
+    return is_array($attachment) ? $attachment : null;
+}
+
+function deleteAttachmentStorageFile(array $attachment): void
+{
+    $absolutePath = getAttachmentAbsolutePath($attachment);
+
+    if (is_file($absolutePath) && !unlink($absolutePath)) {
+        throw new RuntimeException(sprintf('Attachment-Datei konnte nicht gelöscht werden: %s', $absolutePath));
+    }
 }
 
 function rebuildSortOrder(PDO $db): void
@@ -64,9 +159,7 @@ function getDatabase(): PDO
     $dataDir = getDataDirectory();
     $dbFile = $dataDir . '/einkaufsliste.db';
 
-    if (!is_dir($dataDir) && !mkdir($dataDir, 0775, true) && !is_dir($dataDir)) {
-        throw new RuntimeException('Datenverzeichnis konnte nicht erstellt werden.');
-    }
+    ensureUploadDirectories();
 
     $db = new PDO('sqlite:' . $dbFile);
     $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -139,6 +232,45 @@ function getDatabase(): PDO
 
     if (!in_array('content', $columnNames, true)) {
         $db->exec("ALTER TABLE items ADD COLUMN content TEXT NOT NULL DEFAULT ''");
+    }
+
+    $db->exec(
+        "CREATE TABLE IF NOT EXISTS attachments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            item_id INTEGER NOT NULL UNIQUE,
+            storage_section TEXT NOT NULL CHECK(storage_section IN ('images', 'files')),
+            stored_name TEXT NOT NULL,
+            original_name TEXT NOT NULL DEFAULT '',
+            media_type TEXT NOT NULL DEFAULT 'application/octet-stream',
+            size_bytes INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (item_id) REFERENCES items(id) ON DELETE CASCADE
+        )"
+    );
+    $db->exec('CREATE INDEX IF NOT EXISTS idx_attachments_item_id ON attachments(item_id)');
+
+    $attachmentColumns = $db->query('PRAGMA table_info(attachments)')->fetchAll();
+    $attachmentColumnNames = array_map(static fn(array $column): string => $column['name'], $attachmentColumns);
+
+    if (!in_array('original_name', $attachmentColumnNames, true)) {
+        $db->exec("ALTER TABLE attachments ADD COLUMN original_name TEXT NOT NULL DEFAULT ''");
+    }
+
+    if (!in_array('media_type', $attachmentColumnNames, true)) {
+        $db->exec("ALTER TABLE attachments ADD COLUMN media_type TEXT NOT NULL DEFAULT 'application/octet-stream'");
+    }
+
+    if (!in_array('size_bytes', $attachmentColumnNames, true)) {
+        $db->exec("ALTER TABLE attachments ADD COLUMN size_bytes INTEGER NOT NULL DEFAULT 0");
+    }
+
+    if (!in_array('created_at', $attachmentColumnNames, true)) {
+        $db->exec("ALTER TABLE attachments ADD COLUMN created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP");
+    }
+
+    if (!in_array('updated_at', $attachmentColumnNames, true)) {
+        $db->exec("ALTER TABLE attachments ADD COLUMN updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP");
     }
 
     return $db;

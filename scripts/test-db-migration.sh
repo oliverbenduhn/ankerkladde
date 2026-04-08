@@ -45,6 +45,22 @@ run_php "$LEGACY_DIR" '
         exit(1);
     }
 
+    $attachmentColumns = array_column($db->query("PRAGMA table_info(attachments)")->fetchAll(PDO::FETCH_ASSOC), "name");
+    foreach (["item_id", "storage_section", "stored_name", "original_name", "media_type", "size_bytes"] as $column) {
+        if (!in_array($column, $attachmentColumns, true)) {
+            fwrite(STDERR, "Attachment-Migration hat Spalten nicht ergänzt.\n");
+            exit(1);
+        }
+    }
+
+    foreach (["uploads", "uploads/images", "uploads/files"] as $path) {
+        $fullPath = getenv("EINKAUF_DATA_DIR") . "/" . $path;
+        if (!is_dir($fullPath)) {
+            fwrite(STDERR, "Upload-Verzeichnis fehlt: " . $path . "\n");
+            exit(1);
+        }
+    }
+
     $rows = $db->query("SELECT id, sort_order FROM items ORDER BY sort_order ASC")->fetchAll(PDO::FETCH_ASSOC);
     $expected = [3, 1, 2];
 

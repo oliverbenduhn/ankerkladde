@@ -26,6 +26,7 @@ Mobile-freundliche PHP-Webanwendung für Listen, Todos, Notizen und Links – ge
 - **Offline-fähig** (PWA): gecachte App-Shell, Update-Banner bei neuer Version
 - CSRF-Schutz für alle schreibenden Aktionen
 - Automatische DB-Migration bei neuen Spalten
+- Vorbereitung für persistente Attachments in `images` und `files`
 
 ## Notizen-Editor
 
@@ -55,12 +56,38 @@ CREATE TABLE items (
 
 Migrationen werden beim ersten Request automatisch angewendet (`db.php`).
 
+### Attachments und Storage
+
+Uploads werden außerhalb des Webroots unter `data/uploads/` gespeichert:
+
+- `data/uploads/images` für Bild-Anhänge von Items aus der Sektion `images`
+- `data/uploads/files` für Datei-Anhänge von Items aus der Sektion `files`
+
+Die Metadaten liegen in einer separaten Tabelle mit genau einem Anhang pro Item:
+
+```sql
+CREATE TABLE attachments (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    item_id         INTEGER NOT NULL UNIQUE REFERENCES items(id) ON DELETE CASCADE,
+    storage_section TEXT    NOT NULL CHECK(storage_section IN ('images', 'files')),
+    stored_name     TEXT    NOT NULL,
+    original_name   TEXT    NOT NULL DEFAULT '',
+    media_type      TEXT    NOT NULL DEFAULT 'application/octet-stream',
+    size_bytes      INTEGER NOT NULL DEFAULT 0,
+    created_at      TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+Dateisystempfade werden nicht aus Request-Daten abgeleitet. Die App speichert nur validierte Metadaten in SQLite und berechnet daraus serverseitig feste Pfade. Vorhandene Dateien können über `public/media.php?item_id=<id>` anhand der Item-ID gestreamt werden.
+
 ## Dateien
 
 | Pfad | Zweck |
 |---|---|
 | `public/index.php` | HTML-Oberfläche |
 | `public/api.php` | JSON-API (list, add, update, toggle, delete, clear, reorder) |
+| `public/media.php` | Sicheres Streamen vorhandener Attachments anhand der Item-ID |
 | `public/app.js` | Vanilla-JS-Frontend (kein Build-Tool) |
 | `public/style.css` | CSS (Design-Tokens, Layout, Komponenten) |
 | `public/sw.js` | Service Worker (Offline-Cache) |
@@ -113,7 +140,7 @@ PWA-Features (Service Worker, Installationsdialog) erfordern **HTTPS**.
 ### Berechtigungen
 
 Der Webserver-Prozess (`einkauf`-User) benötigt Schreibrechte auf `data/`, nicht auf den Webroot.
-Die SQLite-Datei liegt standardmäßig in `data/einkaufsliste.db`. Optional kann das Datenverzeichnis über `EINKAUF_DATA_DIR` überschrieben werden, z. B. für Tests.
+Die SQLite-Datei liegt standardmäßig in `data/einkaufsliste.db`, Uploads in `data/uploads/`. Optional kann das Datenverzeichnis über `EINKAUF_DATA_DIR` überschrieben werden, z. B. für Tests.
 
 ## Docker (lokale Entwicklung)
 

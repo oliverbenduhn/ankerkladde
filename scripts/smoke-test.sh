@@ -65,6 +65,11 @@ UPDATE_BODY="$TMP_DIR/update.json"
 INVALID_UPDATE_BODY="$TMP_DIR/update-invalid.json"
 TOGGLE_BODY="$TMP_DIR/toggle.json"
 POST_TOGGLE_LIST_BODY="$TMP_DIR/post-toggle-list.json"
+FILES_ADD_BODY="$TMP_DIR/files-add.json"
+FILES_LIST_BODY="$TMP_DIR/files-list.json"
+MEDIA_BODY="$TMP_DIR/media-body.txt"
+MEDIA_HEADERS="$TMP_DIR/media-headers.txt"
+FILES_DELETE_BODY="$TMP_DIR/files-delete.json"
 CLEAR_BODY="$TMP_DIR/clear.json"
 POST_CLEAR_LIST_BODY="$TMP_DIR/post-clear-list.json"
 FORBIDDEN_BODY="$TMP_DIR/forbidden.json"
@@ -100,6 +105,58 @@ ITEM_ID="$(sed -n 's/.*"id":\([0-9][0-9]*\).*/\1/p' "$ADD_BODY" | head -n 1)"
 
 if [[ -z "$ITEM_ID" ]]; then
     echo "Artikel-ID konnte nicht aus der Add-Antwort gelesen werden." >&2
+    exit 1
+fi
+
+[[ "$(status_code "$FILES_ADD_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST -d 'name=Rechnung&section=files' "http://127.0.0.1:$PORT/api.php?action=add")" == "201" ]]
+FILE_ITEM_ID="$(sed -n 's/.*"id":\([0-9][0-9]*\).*/\1/p' "$FILES_ADD_BODY" | head -n 1)"
+
+if [[ -z "$FILE_ITEM_ID" ]]; then
+    echo "Datei-Artikel-ID konnte nicht aus der Add-Antwort gelesen werden." >&2
+    exit 1
+fi
+
+EINKAUF_DATA_DIR="$TEST_DATA_DIR" FILE_ITEM_ID="$FILE_ITEM_ID" ROOT_DIR="$ROOT_DIR" php -r '
+    require getenv("ROOT_DIR") . "/db.php";
+    $db = getDatabase();
+    $itemId = (int) getenv("FILE_ITEM_ID");
+    $storedName = "smoke-file-" . $itemId . ".txt";
+    $absolutePath = getAttachmentStorageDirectory("files") . "/" . $storedName;
+    file_put_contents($absolutePath, "Smoke attachment\n");
+    $stmt = $db->prepare(
+        "INSERT INTO attachments (item_id, storage_section, stored_name, original_name, media_type, size_bytes)
+         VALUES (:item_id, :storage_section, :stored_name, :original_name, :media_type, :size_bytes)"
+    );
+    $stmt->execute([
+        ":item_id" => $itemId,
+        ":storage_section" => "files",
+        ":stored_name" => $storedName,
+        ":original_name" => "Rechnung.txt",
+        ":media_type" => "text/plain",
+        ":size_bytes" => filesize($absolutePath),
+    ]);
+'
+ATTACHMENT_PATH="$TEST_DATA_DIR/uploads/files/smoke-file-$FILE_ITEM_ID.txt"
+
+if [[ ! -f "$ATTACHMENT_PATH" ]]; then
+    echo "Angelegte Attachment-Datei fehlt im Testdatenverzeichnis." >&2
+    exit 1
+fi
+
+[[ "$(curl -sS -D "$MEDIA_HEADERS" -o "$MEDIA_BODY" -w '%{http_code}' "http://127.0.0.1:$PORT/media.php?item_id=$FILE_ITEM_ID")" == "200" ]]
+grep -qi '^Content-Type: text/plain' "$MEDIA_HEADERS"
+grep -qi '^Content-Disposition: attachment;' "$MEDIA_HEADERS"
+grep -q 'Smoke attachment' "$MEDIA_BODY"
+
+[[ "$(status_code "$FILES_LIST_BODY" "http://127.0.0.1:$PORT/api.php?action=list&section=files")" == "200" ]]
+grep -q "\"id\":$FILE_ITEM_ID" "$FILES_LIST_BODY"
+grep -q '"has_attachment":1' "$FILES_LIST_BODY"
+grep -q '"attachment_original_name":"Rechnung.txt"' "$FILES_LIST_BODY"
+
+[[ "$(status_code "$FILES_DELETE_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST -d "id=$FILE_ITEM_ID" "http://127.0.0.1:$PORT/api.php?action=delete")" == "200" ]]
+grep -q 'Artikel gelöscht' "$FILES_DELETE_BODY"
+if [[ -e "$ATTACHMENT_PATH" ]]; then
+    echo "Attachment-Datei wurde beim Delete nicht entfernt." >&2
     exit 1
 fi
 
