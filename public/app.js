@@ -2478,5 +2478,6 @@ initTabDrag();
 })();
 
 updateSectionHeaders();
+setUploadUiState();
 updateFilePickerLabel();
 loadItems();
