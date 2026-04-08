@@ -650,6 +650,44 @@ function formatDateBadge(dateStr) {
     }
 }
 
+function openLightbox(src, alt) {
+    const overlay = document.createElement('div');
+    overlay.className = 'lightbox-overlay';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-label', alt);
+
+    const img = document.createElement('img');
+    img.className = 'lightbox-img';
+    img.src = src;
+    img.alt = alt;
+
+    const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'lightbox-close';
+    closeBtn.setAttribute('aria-label', 'Schließen');
+    closeBtn.textContent = '×';
+
+    function close() {
+        overlay.remove();
+        document.removeEventListener('keydown', onKey);
+    }
+
+    function onKey(event) {
+        if (event.key === 'Escape') close();
+    }
+
+    closeBtn.addEventListener('click', close);
+    overlay.addEventListener('click', event => {
+        if (event.target === overlay) close();
+    });
+    document.addEventListener('keydown', onKey);
+
+    overlay.append(img, closeBtn);
+    document.body.appendChild(overlay);
+    closeBtn.focus();
+}
+
 function buildReadOnlyContent(item, content) {
     if (isAttachmentSection() && !item.hasAttachment) {
         const titleEl = document.createElement('span');
@@ -670,13 +708,14 @@ function buildReadOnlyContent(item, content) {
     if (state.section === 'images') {
         content.classList.add('item-content-attachment', 'item-content-image');
 
-        const previewLink = document.createElement('a');
+        const previewLink = document.createElement('button');
+        previewLink.type = 'button';
         previewLink.className = 'attachment-preview-link';
-        previewLink.href = item.attachmentUrl;
-        previewLink.target = '_blank';
-        previewLink.rel = 'noopener noreferrer';
         previewLink.setAttribute('aria-label', `${getAttachmentTitle(item)} öffnen`);
-        previewLink.addEventListener('click', event => event.stopPropagation());
+        previewLink.addEventListener('click', event => {
+            event.stopPropagation();
+            openLightbox(item.attachmentUrl, getAttachmentTitle(item));
+        });
 
         const preview = document.createElement('img');
         preview.className = 'attachment-image-preview';
