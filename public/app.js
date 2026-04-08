@@ -1683,6 +1683,10 @@ function updateNoteToolbar() {
 
 function flushNoteEditorAndClose() {
     clearTimeout(noteSaveTimer);
+    if (tiptapEditor && state.noteEditorId !== null) {
+        const title = noteTitleInput ? noteTitleInput.value : '';
+        void saveNoteContent(state.noteEditorId, title, tiptapEditor.getHTML());
+    }
     destroyTipTap();
     state.noteEditorId = null;
     if (noteEditorEl) noteEditorEl.setAttribute('hidden', '');
@@ -1828,7 +1832,7 @@ document.addEventListener('keydown', event => {
 function applyTabsVisibility(hidden) {
     if (!sectionTabsEl) return;
     sectionTabsEl.classList.toggle('tabs-hidden', hidden);
-    if (tabsToggleBtn) tabsToggleBtn.classList.toggle('is-active', hidden);
+    document.querySelectorAll('.btn-tabs-toggle').forEach(btn => btn.classList.toggle('is-active', hidden));
 }
 
 function initTabsToggle() {

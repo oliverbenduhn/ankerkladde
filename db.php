@@ -133,6 +133,10 @@ function getDatabase(): PDO
         }
     }
 
+    // Re-fetch column list to avoid stale cache after previous migrations
+    $columns     = $db->query('PRAGMA table_info(items)')->fetchAll();
+    $columnNames = array_map(static fn(array $column): string => $column['name'], $columns);
+
     if (!in_array('content', $columnNames, true)) {
         $db->exec("ALTER TABLE items ADD COLUMN content TEXT NOT NULL DEFAULT ''");
     }
