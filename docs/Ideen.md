@@ -7,7 +7,6 @@ Vorschlag: Eine Spalte due_date (DATETIME) und evtl. eine Spalte is_pinned (BOOL
 
 Volltextsuche (FTS5): SQLite hat ein großartiges Modul namens FTS5. Damit könntest du eine blitzschnelle Suche über alle Sektionen (Namen + Rich-Text-Inhalte) implementieren.
 
-Automatisches Backup: Da du SQLite nutzt, wäre ein kleiner Cronjob Gold wert, der die .db Datei einmal am Tag versioniert (z.B. db_backup_2026-04-08.sqlite) oder in einen Cloud-Speicher schiebt.
 
 2. Der "Mobile-First" Feinschliff
 Da es eine PWA ist, kannst du Funktionen nutzen, die sie wie eine native App wirken lassen:
