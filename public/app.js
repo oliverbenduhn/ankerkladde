@@ -482,7 +482,7 @@ function writeInstallBannerDismissed(isDismissed) {
 }
 
 function sortByPosition(items) {
-    if (state.section === 'images') {
+    if (state.section === 'images' || state.section === 'files') {
         return [...items].sort((a, b) => {
             const sortDiff = Number(b.sort_order) - Number(a.sort_order);
             if (sortDiff !== 0) return sortDiff;
