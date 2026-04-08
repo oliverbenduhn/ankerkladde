@@ -1057,6 +1057,13 @@ try {
         $db->rollBack();
     }
 
-    error_log(sprintf('Einkauf API error [%s]: %s', (string) $action, (string) $exception));
+    error_log(sprintf(
+        'Einkauf API error [action=%s section=%s method=%s ip=%s]: %s',
+        (string) $action,
+        (string) ($section ?? ''),
+        (string) ($_SERVER['REQUEST_METHOD'] ?? ''),
+        (string) ($_SERVER['REMOTE_ADDR'] ?? ''),
+        (string) $exception
+    ));
     respond(500, ['error' => 'Serverfehler.']);
 }

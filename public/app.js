@@ -288,26 +288,25 @@ function syncViewportHeight() {
 }
 
 function normalizeItem(item) {
+    const attachmentUrl = resolveAttachmentUrl(item.attachment_url || '');
+    const attachmentSizeBytes = Number(item.attachment_size_bytes || 0);
+    const attachmentOriginalName = item.attachment_original_name || '';
+    const attachmentMediaType = item.attachment_media_type || '';
+    const hasAttachment = Number(item.has_attachment || 0) === 1;
     return {
         ...item,
         id: Number(item.id),
         done: Number(item.done),
         sort_order: Number(item.sort_order),
-        due_date: item.due_date || '',
         is_pinned: Number(item.is_pinned || 0),
+        due_date: item.due_date || '',
         section: item.section || '',
         content: item.content || '',
-        has_attachment: Number(item.has_attachment || 0),
-        attachment_size_bytes: Number(item.attachment_size_bytes || 0),
-        attachment_url: resolveAttachmentUrl(item.attachment_url || ''),
-        attachment_original_name: item.attachment_original_name || '',
-        attachment_media_type: item.attachment_media_type || '',
-        attachment_storage_section: item.attachment_storage_section || '',
-        attachmentOriginalName: item.attachment_original_name || '',
-        attachmentMediaType: item.attachment_media_type || '',
-        attachmentSizeBytes: Number(item.attachment_size_bytes || 0),
-        attachmentUrl: resolveAttachmentUrl(item.attachment_url || ''),
-        hasAttachment: Number(item.has_attachment || 0) === 1,
+        attachmentOriginalName,
+        attachmentMediaType,
+        attachmentSizeBytes,
+        attachmentUrl,
+        hasAttachment,
     };
 }
 
@@ -1281,13 +1280,13 @@ function updateSectionHeaders() {
     updateFilePickerLabel();
 }
 
-function setSection(section) {
+async function setSection(section) {
     if (!SECTIONS[section]) return;
     if (state.search.open) closeSearch();
 
     if (dragState) finishDrag(true);
     if (hasActiveEdit()) clearEditState();
-    if (state.noteEditorId !== null) flushNoteEditorAndClose();
+    if (state.noteEditorId !== null) await flushNoteEditorAndClose();
 
     state.section = section;
     writeJsonStorage(SECTION_KEY, section);
@@ -2045,7 +2044,7 @@ modeToggleBtns.forEach(btn => btn.addEventListener('click', () => setMode(btn.da
 let tabDragJustFinished = false;
 sectionTabEls.forEach(tab => tab.addEventListener('click', () => {
     if (tabDragJustFinished) return;
-    setSection(tab.dataset.section);
+    void setSection(tab.dataset.section);
 }));
 
 // =========================================
@@ -2349,11 +2348,11 @@ function updateNoteToolbar() {
     });
 }
 
-function flushNoteEditorAndClose() {
+async function flushNoteEditorAndClose() {
     clearTimeout(noteSaveTimer);
     if (tiptapEditor && state.noteEditorId !== null) {
         const title = noteTitleInput ? noteTitleInput.value : '';
-        void saveNoteContent(state.noteEditorId, title, tiptapEditor.getHTML());
+        await saveNoteContent(state.noteEditorId, title, tiptapEditor.getHTML());
     }
     destroyTipTap();
     state.noteEditorId = null;
@@ -2805,7 +2804,7 @@ function buildSearchResultNode(item) {
 
         if (dragState) finishDrag(true);
         if (hasActiveEdit()) clearEditState();
-        if (state.noteEditorId !== null) flushNoteEditorAndClose();
+        if (state.noteEditorId !== null) await flushNoteEditorAndClose();
 
         state.section = item.section;
         writeJsonStorage(SECTION_KEY, item.section);
@@ -2903,7 +2902,7 @@ document.addEventListener('keydown', event => {
             const name = decodeURIComponent(response.headers.get('X-Share-Filename') || 'shared');
             const file = new File([blob], name, { type: blob.type });
             const targetSection = file.type.startsWith('image/') ? 'images' : 'files';
-            if (state.section !== targetSection) setSection(targetSection);
+            if (state.section !== targetSection) await setSection(targetSection);
             await uploadFileDirectly(file);
         })();
         return;
@@ -2920,7 +2919,7 @@ document.addEventListener('keydown', event => {
     const hasUrl   = Boolean(urlMatch);
 
     const targetSection = hasUrl ? 'links' : 'notes';
-    if (state.section !== targetSection) setSection(targetSection);
+    if (state.section !== targetSection) await setSection(targetSection);
 
     if (hasUrl) {
         if (!itemInput) return;
