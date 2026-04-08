@@ -24,6 +24,7 @@ if ($appBasePath === '' || $appBasePath === '.') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#f5f0eb">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="app-base-path" content="<?= htmlspecialchars($appBasePath, ENT_QUOTES, 'UTF-8') ?>">
@@ -77,14 +78,20 @@ if ($appBasePath === '' || $appBasePath === '.') {
             <span class="section-icon" aria-hidden="true">📁</span>
             <span class="section-label">Dateien</span>
         </button>
+        <button class="section-tab" data-section="links">
+            <span class="section-icon" aria-hidden="true">🔗</span>
+            <span class="section-label">Links</span>
+        </button>
     </nav>
 
     <header class="app-header liste-only">
+        <button type="button" id="tabsToggleBtn" class="btn-tabs-toggle" aria-label="Symbolleiste ein-/ausblenden">☰</button>
         <h1 class="app-title" id="titleListe">Einkaufsliste</h1>
-        <button type="button" class="btn-mode-toggle" data-nav="einkaufen" aria-label="Einkaufs-Modus starten">🛒</button>
+        <button type="button" class="btn-mode-toggle" data-nav="einkaufen" aria-label="Einkaufs-Modus starten">👁️</button>
     </header>
 
     <header class="app-header shopping-only">
+        <button type="button" class="btn-tabs-toggle" aria-label="Symbolleiste ein-/ausblenden">☰</button>
         <h1 class="app-title" id="titleShopping">Einkaufen</h1>
         <span class="progress" id="progress" aria-live="polite">0 / 0</span>
         <button type="button" class="btn-mode-toggle" data-nav="liste" aria-label="Liste bearbeiten">✏️</button>
@@ -109,8 +116,45 @@ if ($appBasePath === '' || $appBasePath === '.') {
 
     <div class="message" id="message" role="status" aria-live="polite"></div>
 
+    <div class="note-editor" id="noteEditor" hidden>
+        <div class="note-editor-top">
+            <button type="button" id="noteEditorBack" class="btn-note-back" aria-label="Zurück">←</button>
+            <input type="text" id="noteTitleInput" class="note-title-input"
+                   placeholder="Titel..." maxlength="120" autocomplete="off">
+            <span class="note-save-status" id="noteSaveStatus" aria-live="polite"></span>
+        </div>
+        <div class="note-toolbar" id="noteToolbar" role="toolbar" aria-label="Formatierung">
+            <button type="button" data-cmd="heading" data-level="1" title="Überschrift 1">H1</button>
+            <button type="button" data-cmd="heading" data-level="2" title="Überschrift 2">H2</button>
+            <button type="button" data-cmd="heading" data-level="3" title="Überschrift 3">H3</button>
+            <span class="toolbar-sep"></span>
+            <button type="button" data-cmd="bold" title="Fett"><b>B</b></button>
+            <button type="button" data-cmd="italic" title="Kursiv"><i>I</i></button>
+            <button type="button" data-cmd="strike" title="Durchgestrichen"><s>S</s></button>
+            <span class="toolbar-sep"></span>
+            <button type="button" data-cmd="bulletList" title="Liste">≡</button>
+            <button type="button" data-cmd="orderedList" title="Nummerierte Liste">1.</button>
+            <span class="toolbar-sep"></span>
+            <button type="button" data-cmd="blockquote" title="Zitat">❝</button>
+            <button type="button" data-cmd="codeBlock" title="Code">&lt;/&gt;</button>
+            <span class="toolbar-sep"></span>
+            <button type="button" data-cmd="link" title="Link">🔗</button>
+            <span class="toolbar-sep"></span>
+            <button type="button" data-cmd="undo" title="Rückgängig">↩</button>
+            <button type="button" data-cmd="redo" title="Wiederholen">↪</button>
+        </div>
+        <div class="note-editor-body" id="noteEditorEl"></div>
+    </div>
+
 </div>
 
 <script src="app.js"></script>
+<script type="module">
+import { Editor } from 'https://esm.sh/@tiptap/core@2';
+import StarterKit from 'https://esm.sh/@tiptap/starter-kit@2';
+import Link from 'https://esm.sh/@tiptap/extension-link@2';
+window.TipTap = { Editor, StarterKit, Link };
+window.dispatchEvent(new Event('tiptap-ready'));
+</script>
 </body>
 </html>

@@ -133,5 +133,9 @@ function getDatabase(): PDO
         }
     }
 
+    if (!in_array('content', $columnNames, true)) {
+        $db->exec("ALTER TABLE items ADD COLUMN content TEXT NOT NULL DEFAULT ''");
+    }
+
     return $db;
 }

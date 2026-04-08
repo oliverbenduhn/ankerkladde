@@ -11,7 +11,7 @@ header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 header('X-Content-Type-Options: nosniff');
 
-const VALID_SECTIONS = ['shopping', 'meds', 'todo_private', 'todo_work', 'notes', 'images', 'files'];
+const VALID_SECTIONS = ['shopping', 'meds', 'todo_private', 'todo_work', 'notes', 'images', 'files', 'links'];
 
 function respond(int $status, array $payload): never
 {
@@ -77,6 +77,11 @@ function normalizeQuantity(?string $quantity): string
     return mb_substr($quantity, 0, 40);
 }
 
+function normalizeContent(?string $content): string
+{
+    return mb_substr(trim((string) $content), 0, 102400);
+}
+
 function normalizeIdList(mixed $ids): array
 {
     if (!is_array($ids) || $ids === []) {
@@ -114,7 +119,7 @@ try {
             $section = getSection();
 
             $stmt = $db->prepare(
-                'SELECT id, name, quantity, done, sort_order, created_at, updated_at
+                'SELECT id, name, quantity, content, done, sort_order, created_at, updated_at
                  FROM items
                  WHERE section = :section
                  ORDER BY sort_order ASC, id ASC'
@@ -131,6 +136,7 @@ try {
             $section  = getSection($data);
             $name     = normalizeName($data['name'] ?? null);
             $quantity = normalizeQuantity($data['quantity'] ?? null);
+            $content  = normalizeContent($data['content'] ?? null);
 
             if ($name == '') {
                 respond(422, ['error' => 'Bitte gib einen Artikelnamen ein.']);
@@ -141,12 +147,13 @@ try {
             $nextOrder = (int) $maxStmt->fetchColumn() + 1;
 
             $stmt = $db->prepare(
-                'INSERT INTO items (name, quantity, section, sort_order)
-                 VALUES (:name, :quantity, :section, :sort_order)'
+                'INSERT INTO items (name, quantity, content, section, sort_order)
+                 VALUES (:name, :quantity, :content, :section, :sort_order)'
             );
             $stmt->execute([
                 ':name'       => $name,
                 ':quantity'   => $quantity,
+                ':content'    => $content,
                 ':section'    => $section,
                 ':sort_order' => $nextOrder,
             ]);
@@ -191,6 +198,7 @@ try {
             ]);
             $name     = normalizeName($data['name'] ?? null);
             $quantity = normalizeQuantity($data['quantity'] ?? null);
+            $content  = normalizeContent($data['content'] ?? null);
 
             if (!$id) {
                 respond(422, ['error' => 'Ungültige ID.']);
@@ -202,10 +210,10 @@ try {
 
             $stmt = $db->prepare(
                 'UPDATE items
-                 SET name = :name, quantity = :quantity, updated_at = CURRENT_TIMESTAMP
+                 SET name = :name, quantity = :quantity, content = :content, updated_at = CURRENT_TIMESTAMP
                  WHERE id = :id'
             );
-            $stmt->execute([':id' => $id, ':name' => $name, ':quantity' => $quantity]);
+            $stmt->execute([':id' => $id, ':name' => $name, ':quantity' => $quantity, ':content' => $content]);
 
             if ($stmt->rowCount() === 0) {
                 $existsStmt = $db->prepare('SELECT 1 FROM items WHERE id = :id');

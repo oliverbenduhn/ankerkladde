@@ -22,6 +22,14 @@ const sectionTabEls   = document.querySelectorAll('.section-tab');
 const networkStatusEl = document.getElementById('networkStatus');
 const updateBannerEl  = document.getElementById('updateBanner');
 const updateReloadBtn = document.getElementById('updateReloadBtn');
+const tabsToggleBtn   = document.getElementById('tabsToggleBtn');
+const sectionTabsEl   = document.getElementById('sectionTabs');
+const noteEditorEl    = document.getElementById('noteEditor');
+const noteEditorBack  = document.getElementById('noteEditorBack');
+const noteTitleInput  = document.getElementById('noteTitleInput');
+const noteSaveStatus  = document.getElementById('noteSaveStatus');
+const noteEditorBody  = document.getElementById('noteEditorEl');
+const noteToolbar     = document.getElementById('noteToolbar');
 
 // =========================================
 // CONSTANTS
@@ -33,16 +41,18 @@ const HAPTIC_FEEDBACK_MS = 12;
 const INSTALL_BANNER_DISMISSED_KEY = 'einkauf-install-banner-dismissed-v2';
 const ITEMS_CACHE_KEY_PREFIX = 'einkauf-items-cache-v1-';
 const TOGGLE_QUEUE_KEY = 'einkauf-toggle-queue-v1';
-const SECTION_KEY = 'einkauf-section-v1';
+const SECTION_KEY   = 'einkauf-section-v1';
+const TABS_HIDDEN_KEY = 'einkauf-tabs-hidden-v1';
 
 const SECTIONS = {
     shopping:     { label: 'Einkauf',    title: 'Einkaufsliste',     shoppingTitle: 'Einkaufen'       },
     meds:         { label: 'Medizin',    title: 'Medikamentenliste', shoppingTitle: 'Einkaufen'       },
-    todo_private: { label: 'Privat',     title: 'ToDo Privat',       shoppingTitle: 'Abhaken'         },
-    todo_work:    { label: 'Arbeit',     title: 'ToDo Arbeit',       shoppingTitle: 'Abhaken'         },
+    todo_private: { label: 'Privat',     title: 'ToDo Privat',       shoppingTitle: 'ToDo Privat'     },
+    todo_work:    { label: 'Arbeit',     title: 'ToDo Arbeit',       shoppingTitle: 'ToDo Arbeit'     },
     notes:        { label: 'Notizen',    title: 'Notizen',           shoppingTitle: 'Notizen'         },
     images:       { label: 'Bilder',     title: 'Bilder',            shoppingTitle: 'Bilder'          },
     files:        { label: 'Dateien',    title: 'Dateien',           shoppingTitle: 'Dateien'         },
+    links:        { label: 'Links',      title: 'Links',             shoppingTitle: 'Links'           },
 };
 
 // =========================================
@@ -56,6 +66,7 @@ const state = {
     reorderPending: false,
     editingId:      null,
     editDraft:      { name: '', quantity: '' },
+    noteEditorId:   null,
 };
 
 let dragState = null;
@@ -168,6 +179,7 @@ function normalizeItem(item) {
         id: Number(item.id),
         done: Number(item.done),
         sort_order: Number(item.sort_order),
+        content: item.content || '',
     };
 }
 
@@ -521,16 +533,40 @@ function playFlip(oldMap) {
 // =========================================
 // BUILD ITEM NODE
 // =========================================
+function formatDateBadge(dateStr) {
+    if (!dateStr) return '';
+    try {
+        const d = new Date(dateStr + 'T00:00:00');
+        if (isNaN(d)) return dateStr;
+        return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    } catch {
+        return dateStr;
+    }
+}
+
 function buildReadOnlyContent(item, content) {
+    if (state.section === 'links') {
+        const link = document.createElement('a');
+        link.className  = 'item-name item-link';
+        link.textContent = item.name;
+        link.href       = item.name;
+        link.target     = '_blank';
+        link.rel        = 'noopener noreferrer';
+        link.addEventListener('click', event => event.stopPropagation());
+        content.appendChild(link);
+        return;
+    }
+
     const nameEl = document.createElement('span');
     nameEl.className   = 'item-name';
     nameEl.textContent = item.name;
     content.appendChild(nameEl);
 
     if (item.quantity) {
-        const badge = document.createElement('span');
-        badge.className   = 'quantity-badge';
-        badge.textContent = item.quantity;
+        const isTodo = state.section === 'todo_private' || state.section === 'todo_work';
+        const badge  = document.createElement('span');
+        badge.className   = isTodo ? 'quantity-badge date-badge' : 'quantity-badge';
+        badge.textContent = isTodo ? formatDateBadge(item.quantity) : item.quantity;
         content.appendChild(badge);
     }
 }
@@ -551,21 +587,29 @@ function buildEditContent(content) {
     nameInput.addEventListener('input', event => setEditField('name', event.target.value));
     fields.appendChild(nameInput);
 
-    const quantityField = document.createElement('div');
-    quantityField.className = 'item-edit-quantity-row';
+    const isTodoSection = state.section === 'todo_private' || state.section === 'todo_work';
+    const hasQtySection = state.section === 'shopping' || state.section === 'meds';
 
-    const quantityInputEl = document.createElement('input');
-    quantityInputEl.type = 'text';
-    quantityInputEl.className = 'item-edit-input';
-    quantityInputEl.value = state.editDraft.quantity;
-    quantityInputEl.placeholder = 'Menge';
-    quantityInputEl.maxLength = 40;
-    quantityInputEl.autocomplete = 'off';
-    quantityInputEl.disabled = isSaving;
-    quantityInputEl.addEventListener('input', event => setEditField('quantity', event.target.value));
-    quantityField.appendChild(quantityInputEl);
+    if (hasQtySection || isTodoSection) {
+        const quantityField = document.createElement('div');
+        quantityField.className = 'item-edit-quantity-row';
 
-    fields.appendChild(quantityField);
+        const quantityInputEl = document.createElement('input');
+        quantityInputEl.type      = isTodoSection ? 'date' : 'text';
+        quantityInputEl.className = 'item-edit-input';
+        quantityInputEl.value     = state.editDraft.quantity;
+        if (!isTodoSection) {
+            quantityInputEl.placeholder = 'Menge';
+            quantityInputEl.maxLength   = 40;
+        }
+        quantityInputEl.autocomplete = 'off';
+        quantityInputEl.disabled     = isSaving;
+        quantityInputEl.addEventListener('input', event => setEditField('quantity', event.target.value));
+        quantityField.appendChild(quantityInputEl);
+
+        fields.appendChild(quantityField);
+    }
+
     content.appendChild(fields);
 }
 
@@ -688,6 +732,24 @@ function renderItems() {
 
     listEl.replaceChildren();
 
+    if (state.section === 'notes') {
+        progressEl.textContent = '';
+        clearDoneBtn.disabled  = true;
+
+        if (items.length === 0) {
+            const li = document.createElement('li');
+            li.className   = 'empty-state';
+            li.textContent = 'Noch keine Notizen. Titel eingeben und + drücken.';
+            listEl.appendChild(li);
+            return;
+        }
+
+        const fragment = document.createDocumentFragment();
+        sortByPosition(items).forEach(item => fragment.appendChild(buildNoteCard(item)));
+        listEl.appendChild(fragment);
+        return;
+    }
+
     if (items.length === 0) {
         const li = document.createElement('li');
         li.className   = 'empty-state';
@@ -744,6 +806,29 @@ function updateSectionHeaders() {
     if (titleListe)    titleListe.textContent    = cfg.title;
     if (titleShopping) titleShopping.textContent = cfg.shoppingTitle;
     document.title = cfg.title;
+
+    const isNotes    = state.section === 'notes';
+    const isLinks    = state.section === 'links';
+    const isTodo     = state.section === 'todo_private' || state.section === 'todo_work';
+    const hasQty     = state.section === 'shopping' || state.section === 'meds';
+
+    if (itemInput) {
+        itemInput.placeholder = isNotes ? 'Titel...' : isLinks ? 'https://...' : 'Artikel...';
+    }
+
+    if (quantityInput) {
+        if (hasQty) {
+            quantityInput.type        = 'text';
+            quantityInput.placeholder = 'Menge';
+            quantityInput.style.display = '';
+        } else if (isTodo) {
+            quantityInput.type        = 'date';
+            quantityInput.placeholder = '';
+            quantityInput.style.display = '';
+        } else {
+            quantityInput.style.display = 'none';
+        }
+    }
 }
 
 function setSection(section) {
@@ -751,6 +836,7 @@ function setSection(section) {
 
     if (dragState) finishDrag(true);
     if (hasActiveEdit()) clearEditState();
+    if (state.noteEditorId !== null) flushNoteEditorAndClose();
 
     state.section = section;
     writeJsonStorage(SECTION_KEY, section);
@@ -1152,9 +1238,29 @@ async function addItem(event) {
     event.preventDefault();
     if (state.reorderPending || dragState || hasActiveEdit()) return;
 
-    const formData = new FormData(itemForm);
     const submitBtn = itemForm.querySelector('[type="submit"]');
     submitBtn.disabled = true;
+
+    if (state.section === 'notes') {
+        const name = normalizeNameInput(itemInput.value) || 'Neue Notiz';
+        try {
+            const payload = await api('add', {
+                method: 'POST',
+                body: new URLSearchParams({ name, section: 'notes' }),
+            });
+            itemForm.reset();
+            await loadItems({ silent: true });
+            const newItem = state.items.find(i => i.id === payload.id);
+            if (newItem) void openNoteEditor(newItem);
+        } catch (err) {
+            setMessage(getUserFacingError(err, 'Notiz konnte nicht erstellt werden.'), true);
+        } finally {
+            submitBtn.disabled = false;
+        }
+        return;
+    }
+
+    const formData = new FormData(itemForm);
 
     try {
         const addParams = new URLSearchParams(formData);
@@ -1510,12 +1616,242 @@ if (window.visualViewport) {
 }
 
 // =========================================
+// NOTE EDITOR
+// =========================================
+let tiptapEditor = null;
+let noteSaveTimer = null;
+const NOTE_SAVE_DEBOUNCE_MS = 800;
+
+function waitForTipTap() {
+    return new Promise(resolve => {
+        if (window.TipTap) { resolve(window.TipTap); return; }
+        window.addEventListener('tiptap-ready', () => resolve(window.TipTap), { once: true });
+    });
+}
+
+function destroyTipTap() {
+    if (tiptapEditor) {
+        tiptapEditor.destroy();
+        tiptapEditor = null;
+    }
+}
+
+function setNoteSaveStatus(text) {
+    if (noteSaveStatus) noteSaveStatus.textContent = text;
+}
+
+async function saveNoteContent(id, title, htmlContent) {
+    try {
+        await api('update', {
+            method: 'POST',
+            body: new URLSearchParams({ id: String(id), name: title || 'Ohne Titel', content: htmlContent }),
+        });
+        const item = getItemById(id);
+        if (item) { item.name = title || 'Ohne Titel'; item.content = htmlContent; }
+        setNoteSaveStatus('Gespeichert');
+    } catch {
+        setNoteSaveStatus('Fehler');
+    }
+}
+
+function scheduleNoteSave() {
+    clearTimeout(noteSaveTimer);
+    setNoteSaveStatus('…');
+    noteSaveTimer = setTimeout(() => {
+        if (state.noteEditorId === null || !tiptapEditor) return;
+        const title = noteTitleInput ? noteTitleInput.value : '';
+        void saveNoteContent(state.noteEditorId, title, tiptapEditor.getHTML());
+    }, NOTE_SAVE_DEBOUNCE_MS);
+}
+
+function updateNoteToolbar() {
+    if (!tiptapEditor || !noteToolbar) return;
+    noteToolbar.querySelectorAll('button[data-cmd]').forEach(btn => {
+        const cmd   = btn.dataset.cmd;
+        const level = btn.dataset.level ? Number(btn.dataset.level) : undefined;
+        let active  = false;
+        if (cmd === 'heading' && level) {
+            active = tiptapEditor.isActive('heading', { level });
+        } else if (cmd === 'link') {
+            active = tiptapEditor.isActive('link');
+        } else if (cmd !== 'undo' && cmd !== 'redo') {
+            active = tiptapEditor.isActive(cmd);
+        }
+        btn.classList.toggle('is-active', active);
+    });
+}
+
+function flushNoteEditorAndClose() {
+    clearTimeout(noteSaveTimer);
+    destroyTipTap();
+    state.noteEditorId = null;
+    if (noteEditorEl) noteEditorEl.setAttribute('hidden', '');
+    appEl.classList.remove('note-editor-open');
+}
+
+async function openNoteEditor(item) {
+    flushNoteEditorAndClose();
+
+    state.noteEditorId = item.id;
+    if (noteTitleInput) noteTitleInput.value = item.name || '';
+    setNoteSaveStatus('');
+
+    if (noteEditorEl) noteEditorEl.removeAttribute('hidden');
+    appEl.classList.add('note-editor-open');
+
+    const { Editor, StarterKit, Link } = await waitForTipTap();
+
+    if (noteEditorBody) noteEditorBody.innerHTML = '';
+
+    tiptapEditor = new Editor({
+        element: noteEditorBody,
+        extensions: [StarterKit, Link.configure({ openOnClick: false })],
+        content: item.content || '',
+        onUpdate: () => { updateNoteToolbar(); scheduleNoteSave(); },
+        onSelectionUpdate: updateNoteToolbar,
+    });
+
+    updateNoteToolbar();
+}
+
+async function closeNoteEditor() {
+    if (state.noteEditorId === null) return;
+
+    clearTimeout(noteSaveTimer);
+    if (tiptapEditor) {
+        const title = noteTitleInput ? noteTitleInput.value : '';
+        await saveNoteContent(state.noteEditorId, title, tiptapEditor.getHTML());
+    }
+
+    destroyTipTap();
+    state.noteEditorId = null;
+    if (noteEditorEl) noteEditorEl.setAttribute('hidden', '');
+    appEl.classList.remove('note-editor-open');
+    void loadItems({ silent: true });
+}
+
+function buildNoteCard(item) {
+    const li = document.createElement('li');
+    li.className   = 'item-card note-card';
+    li.dataset.itemId = String(item.id);
+
+    const body    = document.createElement('div');
+    body.className = 'note-card-body';
+
+    const title   = document.createElement('span');
+    title.className   = 'note-card-title';
+    title.textContent = item.name || 'Ohne Titel';
+    body.appendChild(title);
+
+    if (item.content) {
+        const tmp = document.createElement('div');
+        tmp.innerHTML = item.content;
+        const text = (tmp.textContent || '').trim();
+        if (text) {
+            const preview     = document.createElement('span');
+            preview.className = 'note-card-preview';
+            preview.textContent = text.slice(0, 100);
+            body.appendChild(preview);
+        }
+    }
+
+    const actions    = document.createElement('div');
+    actions.className = 'item-actions';
+    const delBtn = buildIconButton('btn-item-action btn-delete', 'Notiz löschen', '🗑', async event => {
+        event.stopPropagation();
+        await handleDelete(item.id);
+    });
+    actions.appendChild(delBtn);
+
+    li.appendChild(body);
+    li.appendChild(actions);
+
+    li.addEventListener('click', event => {
+        if (event.target.closest('.btn-delete')) return;
+        void openNoteEditor(item);
+    });
+
+    return li;
+}
+
+if (noteEditorBack) {
+    noteEditorBack.addEventListener('click', () => void closeNoteEditor());
+}
+
+if (noteTitleInput) {
+    noteTitleInput.addEventListener('input', scheduleNoteSave);
+}
+
+if (noteToolbar) {
+    noteToolbar.addEventListener('click', event => {
+        const btn = event.target.closest('button[data-cmd]');
+        if (!btn || !tiptapEditor) return;
+
+        const cmd   = btn.dataset.cmd;
+        const level = btn.dataset.level ? Number(btn.dataset.level) : undefined;
+        const chain = tiptapEditor.chain().focus();
+
+        switch (cmd) {
+            case 'heading':     chain.toggleHeading({ level }).run(); break;
+            case 'bold':        chain.toggleBold().run(); break;
+            case 'italic':      chain.toggleItalic().run(); break;
+            case 'strike':      chain.toggleStrike().run(); break;
+            case 'bulletList':  chain.toggleBulletList().run(); break;
+            case 'orderedList': chain.toggleOrderedList().run(); break;
+            case 'blockquote':  chain.toggleBlockquote().run(); break;
+            case 'codeBlock':   chain.toggleCodeBlock().run(); break;
+            case 'link': {
+                const prev = tiptapEditor.isActive('link') ? tiptapEditor.getAttributes('link').href : '';
+                const url  = prompt('URL:', prev);
+                if (url === null) break;
+                if (url === '') { chain.unsetLink().run(); break; }
+                chain.setLink({ href: url }).run();
+                break;
+            }
+            case 'undo':  chain.undo().run(); break;
+            case 'redo':  chain.redo().run(); break;
+        }
+
+        updateNoteToolbar();
+    });
+}
+
+document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && state.noteEditorId !== null) {
+        void closeNoteEditor();
+    }
+});
+
+// =========================================
+// TABS TOGGLE
+// =========================================
+function applyTabsVisibility(hidden) {
+    if (!sectionTabsEl) return;
+    sectionTabsEl.classList.toggle('tabs-hidden', hidden);
+    if (tabsToggleBtn) tabsToggleBtn.classList.toggle('is-active', hidden);
+}
+
+function initTabsToggle() {
+    const hidden = readJsonStorage(TABS_HIDDEN_KEY, false);
+    applyTabsVisibility(hidden);
+}
+
+document.querySelectorAll('.btn-tabs-toggle').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const nowHidden = !sectionTabsEl.classList.contains('tabs-hidden');
+        writeJsonStorage(TABS_HIDDEN_KEY, nowHidden);
+        applyTabsVisibility(nowHidden);
+    });
+});
+
+// =========================================
 // INIT
 // =========================================
 syncViewportHeight();
 setNetworkStatus();
 renderInstallBanner();
 registerServiceWorker();
+initTabsToggle();
 
 // Restore last active section
 (function initSection() {
