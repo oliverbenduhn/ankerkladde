@@ -88,6 +88,7 @@ const state = {
     noteEditorId:   null,
     search:         { open: false, query: '', results: [] },
     diskFreeBytes:  null,
+    pendingRevealItemId: null,
 };
 
 let dragState = null;
@@ -257,6 +258,28 @@ function setNetworkStatus() {
         ? 'Offline: Die Liste bleibt sichtbar, Änderungen werden später synchronisiert.'
         : 'Offline: Die zuletzt geladene Liste bleibt sichtbar.';
     networkStatusEl.removeAttribute('hidden');
+}
+
+function revealItem(id, options = {}) {
+    const itemId = Number(id);
+    if (!Number.isInteger(itemId) || itemId <= 0) return;
+
+    const { openNote = false } = options;
+    const item = getItemById(itemId);
+    if (!item) return;
+
+    if (openNote && item.section === 'notes') {
+        void openNoteEditor(item);
+        return;
+    }
+
+    window.requestAnimationFrame(() => {
+        const card = listEl.querySelector(`[data-item-id="${itemId}"]`);
+        if (!card) return;
+        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        card.classList.add('is-search-hit');
+        window.setTimeout(() => card.classList.remove('is-search-hit'), 1600);
+    });
 }
 
 function syncViewportHeight() {
@@ -450,6 +473,12 @@ function updateItemsState(items) {
 
     persistItemsLocally();
     renderItems();
+
+    if (state.pendingRevealItemId !== null) {
+        const revealId = state.pendingRevealItemId;
+        state.pendingRevealItemId = null;
+        revealItem(revealId);
+    }
 }
 
 async function flushQueuedToggles() {
@@ -532,15 +561,6 @@ function writeInstallBannerDismissed(isDismissed) {
 }
 
 function sortByPosition(items) {
-    if (state.section === 'images' || state.section === 'files') {
-        return [...items].sort((a, b) => {
-            const pinnedDiff = Number(b.is_pinned) - Number(a.is_pinned);
-            if (pinnedDiff !== 0) return pinnedDiff;
-            const sortDiff = Number(b.sort_order) - Number(a.sort_order);
-            if (sortDiff !== 0) return sortDiff;
-            return Number(b.id) - Number(a.id);
-        });
-    }
     return [...items].sort((a, b) => {
         const pinnedDiff = Number(b.is_pinned) - Number(a.is_pinned);
         if (pinnedDiff !== 0) return pinnedDiff;
@@ -593,6 +613,20 @@ function buildReorderBody(orderedIds) {
     const params = new URLSearchParams();
     orderedIds.forEach(id => params.append('ids[]', String(id)));
     return params;
+}
+
+function extractPlainTextFromHtml(html) {
+    return String(html || '')
+        .replace(/<\/(p|h[1-6]|li|div)>|<br\s*\/?>/gi, ' ')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/&nbsp;/gi, ' ')
+        .replace(/&amp;/gi, '&')
+        .replace(/&lt;/gi, '<')
+        .replace(/&gt;/gi, '>')
+        .replace(/&quot;/gi, '"')
+        .replace(/&#39;/gi, "'")
+        .replace(/\s+/g, ' ')
+        .trim();
 }
 
 function isInteractionBlocked(id = null) {
@@ -1300,7 +1334,11 @@ async function api(action, options = {}) {
 // LOAD
 // =========================================
 async function loadItems(options = {}) {
-    const { skipOfflineSync = false, silent = false } = options;
+    const { skipOfflineSync = false, silent = false, revealItemId = null } = options;
+
+    if (revealItemId !== null) {
+        state.pendingRevealItemId = Number(revealItemId);
+    }
 
     try {
         const payload = await api('list');
@@ -1308,6 +1346,9 @@ async function loadItems(options = {}) {
 
         if (typeof payload.disk_free_bytes === 'number') {
             state.diskFreeBytes = payload.disk_free_bytes;
+            setUploadUiState();
+        } else if (isAttachmentSection()) {
+            state.diskFreeBytes = null;
             setUploadUiState();
         }
 
@@ -2386,9 +2427,7 @@ function buildNoteCard(item) {
     body.appendChild(title);
 
     if (item.content) {
-        const tmp = document.createElement('div');
-        tmp.innerHTML = item.content.replace(/<\/(p|h[1-6]|li|div)>|<br\s*\/?>/gi, ' ');
-        const text = (tmp.textContent || '').trim().replace(/\s+/g, ' ');
+        const text = extractPlainTextFromHtml(item.content);
         if (text) {
             const preview     = document.createElement('span');
             preview.className = 'note-card-preview';
@@ -2747,9 +2786,7 @@ function buildSearchResultNode(item) {
     content.appendChild(sectionBadge);
 
     if (item.content) {
-        const tmp  = document.createElement('div');
-        tmp.innerHTML = item.content.replace(/<\/(p|h[1-6]|li|div)>|<br\s*\/?>/gi, ' ');
-        const text = (tmp.textContent || '').trim().replace(/\s+/g, ' ');
+        const text = extractPlainTextFromHtml(item.content);
         if (text) {
             const preview = document.createElement('span');
             preview.className   = 'search-result-preview';
@@ -2759,9 +2796,31 @@ function buildSearchResultNode(item) {
     }
 
     li.appendChild(content);
-    li.addEventListener('click', () => {
+    li.addEventListener('click', async () => {
         closeSearch();
-        setSection(item.section);
+        if (item.section === state.section) {
+            revealItem(item.id, { openNote: item.section === 'notes' });
+            return;
+        }
+
+        if (dragState) finishDrag(true);
+        if (hasActiveEdit()) clearEditState();
+        if (state.noteEditorId !== null) flushNoteEditorAndClose();
+
+        state.section = item.section;
+        writeJsonStorage(SECTION_KEY, item.section);
+        sectionTabEls.forEach(tab => {
+            if (tab.dataset.section === item.section) {
+                tab.setAttribute('aria-current', 'page');
+            } else {
+                tab.removeAttribute('aria-current');
+            }
+        });
+        updateSectionHeaders();
+        await loadItems({ revealItemId: item.id, silent: true });
+        if (item.section === 'notes') {
+            revealItem(item.id, { openNote: true });
+        }
     });
 
     return li;

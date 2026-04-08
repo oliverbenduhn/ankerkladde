@@ -134,7 +134,133 @@ function sanitizeFtsQuery(string $q): string
 
 function normalizeContent(?string $content): string
 {
-    return truncateText(trim((string) $content), 102400);
+    return sanitizeRichTextHtml(truncateText(trim((string) $content), 102400));
+}
+
+function sanitizeRichTextHref(string $href): ?string
+{
+    $href = trim($href);
+    if ($href === '') {
+        return null;
+    }
+
+    if (preg_match('/^(https?:|mailto:|tel:)/i', $href) !== 1) {
+        return null;
+    }
+
+    return $href;
+}
+
+function sanitizeRichTextHtmlFallback(string $html): string
+{
+    $html = preg_replace('#<(script|style)\b[^>]*>.*?</\1>#is', '', $html) ?? '';
+    $html = preg_replace('/\son[a-z]+\s*=\s*(".*?"|\'.*?\'|[^\s>]+)/is', '', $html) ?? '';
+    $html = preg_replace('/\sstyle\s*=\s*(".*?"|\'.*?\')/is', '', $html) ?? '';
+
+    return strip_tags($html, '<p><br><strong><b><em><i><s><ul><ol><li><blockquote><pre><code><h1><h2><h3><a>');
+}
+
+function sanitizeRichTextNode(DOMNode $node, DOMDocument $document): void
+{
+    if ($node instanceof DOMComment) {
+        $node->parentNode?->removeChild($node);
+        return;
+    }
+
+    if (!($node instanceof DOMElement)) {
+        foreach (iterator_to_array($node->childNodes) as $childNode) {
+            sanitizeRichTextNode($childNode, $document);
+        }
+        return;
+    }
+
+    $allowedTags = ['p', 'br', 'strong', 'b', 'em', 'i', 's', 'ul', 'ol', 'li', 'blockquote', 'pre', 'code', 'h1', 'h2', 'h3', 'a'];
+    $tagName = strtolower($node->tagName);
+
+    if (!in_array($tagName, $allowedTags, true)) {
+        $parentNode = $node->parentNode;
+        if ($parentNode !== null) {
+            while ($node->firstChild !== null) {
+                $parentNode->insertBefore($node->firstChild, $node);
+            }
+            $parentNode->removeChild($node);
+        }
+        return;
+    }
+
+    foreach (iterator_to_array($node->attributes) as $attribute) {
+        $attributeName = strtolower($attribute->nodeName);
+
+        if ($tagName !== 'a' || !in_array($attributeName, ['href', 'target', 'rel'], true)) {
+            $node->removeAttributeNode($attribute);
+            continue;
+        }
+
+        if ($attributeName === 'href') {
+            $sanitizedHref = sanitizeRichTextHref($attribute->nodeValue);
+            if ($sanitizedHref === null) {
+                $node->removeAttribute('href');
+            } else {
+                $node->setAttribute('href', $sanitizedHref);
+            }
+        }
+
+        if ($attributeName === 'target' && strtolower($attribute->nodeValue) !== '_blank') {
+            $node->removeAttribute('target');
+        }
+    }
+
+    if ($tagName === 'a') {
+        if ($node->hasAttribute('target')) {
+            $node->setAttribute('rel', 'noopener noreferrer');
+        } else {
+            $node->removeAttribute('rel');
+        }
+    }
+
+    foreach (iterator_to_array($node->childNodes) as $childNode) {
+        sanitizeRichTextNode($childNode, $document);
+    }
+}
+
+function sanitizeRichTextHtml(string $html): string
+{
+    if ($html === '') {
+        return '';
+    }
+
+    if (!class_exists(DOMDocument::class)) {
+        return sanitizeRichTextHtmlFallback($html);
+    }
+
+    $document = new DOMDocument('1.0', 'UTF-8');
+    $previousUseInternalErrors = libxml_use_internal_errors(true);
+    $loaded = $document->loadHTML(
+        '<!DOCTYPE html><html><body>' . $html . '</body></html>',
+        LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD
+    );
+    libxml_clear_errors();
+    libxml_use_internal_errors($previousUseInternalErrors);
+
+    if (!$loaded) {
+        return sanitizeRichTextHtmlFallback($html);
+    }
+
+    $body = $document->getElementsByTagName('body')->item(0);
+    if (!$body instanceof DOMElement) {
+        return sanitizeRichTextHtmlFallback($html);
+    }
+
+    foreach (iterator_to_array($body->childNodes) as $childNode) {
+        sanitizeRichTextNode($childNode, $document);
+    }
+
+    $sanitized = '';
+    foreach ($body->childNodes as $childNode) {
+        $sanitized .= $document->saveHTML($childNode);
+    }
+
+    return trim($sanitized);
 }
 
 function normalizeOriginalFilename(?string $filename): string
@@ -160,9 +286,10 @@ function normalizeStoredExtension(string $extension): string
     return truncateText($extension, 16);
 }
 
-function nextSortOrder(PDO $db): int
+function nextSortOrder(PDO $db, string $section): int
 {
-    $maxStmt = $db->query('SELECT COALESCE(MAX(sort_order), 0) FROM items');
+    $maxStmt = $db->prepare('SELECT COALESCE(MAX(sort_order), 0) FROM items WHERE section = :section');
+    $maxStmt->execute([':section' => $section]);
     return (int) $maxStmt->fetchColumn() + 1;
 }
 
@@ -484,7 +611,7 @@ try {
                 ':due_date'   => $due_date,
                 ':content'    => $content,
                 ':section'    => $section,
-                ':sort_order' => nextSortOrder($db),
+                ':sort_order' => nextSortOrder($db, $section),
             ]);
 
             respond(201, [
@@ -614,7 +741,7 @@ try {
                     ':due_date' => normalizeDueDate($data['due_date'] ?? null),
                     ':content'  => $content,
                     ':section'  => $section,
-                    ':sort_order' => nextSortOrder($db),
+                    ':sort_order' => nextSortOrder($db, $section),
                 ]);
                 $itemId = (int) $db->lastInsertId();
 
@@ -747,11 +874,15 @@ try {
                 respond(404, ['error' => 'Artikel nicht gefunden.']);
             }
 
-            if ($attachment !== null) {
-                deleteAttachmentStorageFile($attachment);
-            }
-
             $db->commit();
+
+            if ($attachment !== null) {
+                try {
+                    deleteAttachmentStorageFile($attachment);
+                } catch (Throwable $cleanupException) {
+                    error_log(sprintf('Einkauf attachment cleanup error [delete:%d]: %s', $id, $cleanupException->getMessage()));
+                }
+            }
 
             respond(200, ['message' => 'Artikel gelöscht.']);
 
@@ -776,16 +907,20 @@ try {
             $db->beginTransaction();
             $stmt = $db->prepare('DELETE FROM items WHERE done = 1 AND section = :section');
             $stmt->execute([':section' => $section]);
+            $deletedCount = (int) $stmt->rowCount();
+            $db->commit();
 
             foreach ($attachments as $attachment) {
-                deleteAttachmentStorageFile($attachment);
+                try {
+                    deleteAttachmentStorageFile($attachment);
+                } catch (Throwable $cleanupException) {
+                    error_log(sprintf('Einkauf attachment cleanup error [clear:%s:%d]: %s', $section, (int) ($attachment['item_id'] ?? 0), $cleanupException->getMessage()));
+                }
             }
-
-            $db->commit();
 
             respond(200, [
                 'message' => 'Erledigte Artikel gelöscht.',
-                'deleted' => (int) $stmt->rowCount(),
+                'deleted' => $deletedCount,
             ]);
 
         case 'reorder':

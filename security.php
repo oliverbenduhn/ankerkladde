@@ -44,11 +44,7 @@ function isTrustedProxyPeer(?string $remoteAddress): bool
         return false;
     }
 
-    return filter_var(
-        $remoteAddress,
-        FILTER_VALIDATE_IP,
-        FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE
-    ) === false;
+    return $remoteAddress === '127.0.0.1' || $remoteAddress === '::1';
 }
 
 function shouldTrustProxyHeaders(): bool
