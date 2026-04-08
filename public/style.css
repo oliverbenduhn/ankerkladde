@@ -222,6 +222,29 @@ button, input { font: inherit; }
     padding: 0 16px 16px;
 }
 
+/* Pull-to-refresh indicator */
+#ptr-indicator {
+    height: 0;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted, #aaa);
+    font-size: 18px;
+    transition: height 0.25s ease;
+    user-select: none;
+}
+#ptr-indicator::after {
+    content: '↓';
+    display: block;
+    transition: transform 0.2s ease, opacity 0.2s ease;
+    opacity: 0.5;
+}
+#ptr-indicator.ptr-ready::after {
+    content: '↑';
+    opacity: 1;
+}
+
 #list {
     list-style: none;
     padding: 0;

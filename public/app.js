@@ -1742,6 +1742,7 @@ async function handleToggle(id) {
 
     const oldPositions = capturePositions();
     item.done = newDone;
+    triggerHapticFeedback();
     persistItemsLocally();
     renderItems();
     playFlip(oldPositions);
@@ -2729,3 +2730,70 @@ document.addEventListener('keydown', event => {
         closeSearch();
     }
 });
+
+// =========================================
+// WEB SHARE TARGET
+// =========================================
+(function handleShareTarget() {
+    const params = new URLSearchParams(location.search);
+    const title  = params.get('title') || '';
+    const text   = params.get('text')  || '';
+    const url    = params.get('url')   || '';
+    const value  = [title, text, url].filter(Boolean).join(' ').trim();
+    if (!value || !itemInput) return;
+    itemInput.value = value;
+    history.replaceState(null, '', location.pathname);
+    itemInput.focus();
+})();
+
+// =========================================
+// PULL-TO-REFRESH
+// =========================================
+(function setupPullToRefresh() {
+    if (!listAreaEl) return;
+
+    const THRESHOLD = 80;
+    let startY   = 0;
+    let pulling  = false;
+    let ptrEl    = null;
+
+    function getPtr() {
+        if (!ptrEl) {
+            ptrEl = document.createElement('div');
+            ptrEl.id = 'ptr-indicator';
+            ptrEl.setAttribute('aria-hidden', 'true');
+            listAreaEl.prepend(ptrEl);
+        }
+        return ptrEl;
+    }
+
+    listAreaEl.addEventListener('touchstart', e => {
+        if (listAreaEl.scrollTop > 0) return;
+        startY  = e.touches[0].clientY;
+        pulling = false;
+    }, { passive: true });
+
+    listAreaEl.addEventListener('touchmove', e => {
+        if (listAreaEl.scrollTop > 0) return;
+        const dy = e.touches[0].clientY - startY;
+        if (dy <= 0) return;
+        pulling = true;
+        const el = getPtr();
+        el.style.transition = 'none';
+        el.style.height     = `${Math.min(dy * 0.4, THRESHOLD * 0.55)}px`;
+        el.classList.toggle('ptr-ready', dy >= THRESHOLD);
+    }, { passive: true });
+
+    listAreaEl.addEventListener('touchend', async () => {
+        if (!pulling || !ptrEl) return;
+        const ready = ptrEl.classList.contains('ptr-ready');
+        ptrEl.style.transition = '';
+        ptrEl.style.height     = '';
+        ptrEl.classList.remove('ptr-ready');
+        pulling = false;
+        if (ready) {
+            triggerHapticFeedback();
+            await loadItems();
+        }
+    }, { passive: true });
+})();
