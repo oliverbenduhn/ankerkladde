@@ -114,6 +114,9 @@ if ($appBasePath === '' || $appBasePath === '.') {
             <button type="submit" class="btn-add" aria-label="Artikel hinzufügen">+</button>
         </form>
         <p class="input-hint" id="inputHint" hidden></p>
+        <div class="drop-zone" id="dropZone" hidden aria-hidden="true">
+            <span class="drop-zone-label">Bild hierher ziehen oder aus Zwischenablage einfügen</span>
+        </div>
     </section>
 
     <main class="list-area">

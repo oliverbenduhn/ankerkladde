@@ -19,6 +19,7 @@ const filePickerButton = document.getElementById('filePickerButton');
 const filePickerName  = document.getElementById('filePickerName');
 const cameraBtn       = document.getElementById('cameraBtn');
 const cameraInput     = document.getElementById('cameraInput');
+const dropZoneEl      = document.getElementById('dropZone');
 const inputHintEl     = document.getElementById('inputHint');
 const clearDoneBtn    = document.getElementById('clearDoneBtn');
 const messageEl       = document.getElementById('message');
@@ -274,6 +275,9 @@ function setUploadUiState() {
     if (cameraBtn) {
         cameraBtn.hidden = !isImageSection || isOffline;
         cameraBtn.disabled = !isImageSection || isOffline;
+    }
+    if (dropZoneEl) {
+        dropZoneEl.hidden = !isImageSection || isOffline;
     }
 
     if (!isUploadSection) {
@@ -1766,40 +1770,76 @@ if (cameraBtn && cameraInput) {
     cameraInput.addEventListener('change', async () => {
         const photo = cameraInput.files?.[0];
         if (!photo) return;
-
-        if (!navigator.onLine) {
-            setMessage('Uploads sind offline nicht möglich.', true);
-            cameraInput.value = '';
-            return;
-        }
-
-        const submitBtn = itemForm.querySelector('[type="submit"]');
-        if (submitBtn) submitBtn.disabled = true;
-        cameraBtn.disabled = true;
-
-        const title = normalizeNameInput(itemInput.value)
-            || photo.name
-            || `Foto ${new Date().toLocaleDateString('de-DE')}`;
-
-        const uploadFormData = new FormData();
-        uploadFormData.append('section', 'images');
-        uploadFormData.append('name', title);
-        uploadFormData.append('attachment', photo);
-
-        try {
-            await uploadAttachment(uploadFormData);
-            itemInput.value = '';
-            cameraInput.value = '';
-            await loadItems();
-            setMessage('Foto hochgeladen.');
-        } catch (err) {
-            setMessage(getUserFacingError(err, 'Foto konnte nicht hochgeladen werden.'), true);
-        } finally {
-            if (submitBtn) submitBtn.disabled = false;
-            cameraBtn.disabled = false;
-        }
+        cameraInput.value = '';
+        await uploadImageFileDirectly(photo);
     });
 }
+async function uploadImageFileDirectly(file) {
+    if (!file || !file.type.startsWith('image/')) {
+        setMessage('Nur Bilddateien werden unterstützt.', true);
+        return;
+    }
+    if (!navigator.onLine) {
+        setMessage('Uploads sind offline nicht möglich.', true);
+        return;
+    }
+
+    const title = normalizeNameInput(itemInput.value)
+        || file.name
+        || `Foto ${new Date().toLocaleDateString('de-DE')}`;
+
+    const uploadFormData = new FormData();
+    uploadFormData.append('section', 'images');
+    uploadFormData.append('name', title);
+    uploadFormData.append('attachment', file);
+
+    try {
+        await uploadAttachment(uploadFormData);
+        itemInput.value = '';
+        await loadItems();
+        setMessage('Bild hochgeladen.');
+    } catch (err) {
+        setMessage(getUserFacingError(err, 'Bild konnte nicht hochgeladen werden.'), true);
+    }
+}
+
+if (dropZoneEl) {
+    dropZoneEl.addEventListener('dragover', event => {
+        if (!event.dataTransfer?.types.includes('Files')) return;
+        event.preventDefault();
+        dropZoneEl.classList.add('drop-active');
+    });
+
+    dropZoneEl.addEventListener('dragleave', event => {
+        if (event.relatedTarget && dropZoneEl.contains(event.relatedTarget)) return;
+        dropZoneEl.classList.remove('drop-active');
+    });
+
+    dropZoneEl.addEventListener('drop', async event => {
+        event.preventDefault();
+        dropZoneEl.classList.remove('drop-active');
+        const file = event.dataTransfer?.files?.[0] || null;
+        if (file) await uploadImageFileDirectly(file);
+    });
+}
+
+document.addEventListener('paste', async event => {
+    if (state.section !== 'images') return;
+    if (!navigator.onLine) return;
+
+    const items = event.clipboardData?.items;
+    if (!items) return;
+
+    for (const item of items) {
+        if (item.kind === 'file' && item.type.startsWith('image/')) {
+            event.preventDefault();
+            const file = item.getAsFile();
+            if (file) await uploadImageFileDirectly(file);
+            break;
+        }
+    }
+});
+
 listEl.addEventListener('keydown', handleListKeydown);
 
 clearDoneBtn.addEventListener('click', clearDone);

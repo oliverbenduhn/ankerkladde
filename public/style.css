@@ -173,6 +173,25 @@ button, input { font: inherit; }
     font-size: 0.8rem;
 }
 
+.drop-zone {
+    margin-top: 10px;
+    padding: 18px 12px;
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    transition: border-color 0.15s ease, background 0.15s ease;
+    cursor: default;
+    user-select: none;
+}
+
+.drop-zone.drop-active {
+    border-color: var(--accent);
+    background: rgba(200, 184, 154, 0.1);
+    color: var(--text-primary);
+}
+
 .btn-add {
     min-width: 48px;
     min-height: 48px;
