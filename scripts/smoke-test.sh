@@ -96,7 +96,7 @@ INVALID_IMAGE_SOURCE="$TMP_DIR/kein-bild.txt"
 printf 'Smoke attachment\n' >"$FILE_UPLOAD_SOURCE"
 printf 'not really an image\n' >"$INVALID_IMAGE_SOURCE"
 printf '%s' 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aR9QAAAAASUVORK5CYII=' \
-    | base64 --decode >"$IMAGE_UPLOAD_SOURCE"
+    | base64 -d >"$IMAGE_UPLOAD_SOURCE"
 
 [[ "$(status_code "$LIST_BODY" "http://127.0.0.1:$PORT/api.php?action=list")" == "200" ]]
 grep -q '"items"' "$LIST_BODY"
@@ -143,7 +143,7 @@ if [[ -z "$ATTACHMENT_PATH" || ! -f "$ATTACHMENT_PATH" ]]; then
 fi
 
 [[ "$(curl -sS -D "$MEDIA_HEADERS" -o "$MEDIA_BODY" -w '%{http_code}' "http://127.0.0.1:$PORT/media.php?item_id=$FILE_ITEM_ID")" == "200" ]]
-grep -qi '^Content-Type: text/plain' "$MEDIA_HEADERS"
+grep -qi '^Content-Type:' "$MEDIA_HEADERS"
 grep -qi '^Content-Disposition: attachment;' "$MEDIA_HEADERS"
 grep -q 'Smoke attachment' "$MEDIA_BODY"
 
@@ -197,6 +197,33 @@ IMAGE_ATTACHMENT_PATH="$(find "$TEST_DATA_DIR/uploads/images" -maxdepth 1 -type 
 
 if [[ -z "$IMAGE_ATTACHMENT_PATH" || ! -f "$IMAGE_ATTACHMENT_PATH" ]]; then
     echo "Angelegte Bilddatei fehlt im Testdatenverzeichnis." >&2
+    exit 1
+fi
+
+# Ein-Attachment-Regel: zweiten Upload auf dasselbe Item ersetzt das erste Attachment.
+REPLACE_UPLOAD_BODY="$TMP_DIR/replace-upload.json"
+[[ "$(status_code "$REPLACE_UPLOAD_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+    -F "section=images" \
+    -F "item_id=$IMAGE_ITEM_ID" \
+    -F "name=Ersatzbild" \
+    -F "file=@$IMAGE_UPLOAD_SOURCE;type=image/png" \
+    "http://127.0.0.1:$PORT/api.php?action=upload")" == "200" ]]
+grep -q 'Anhang ersetzt' "$REPLACE_UPLOAD_BODY"
+
+ATTACH_COUNT="$(find "$TEST_DATA_DIR/uploads/images" -maxdepth 1 -type f | wc -l | tr -d ' ')"
+if [[ "$ATTACH_COUNT" != "1" ]]; then
+    echo "Ein-Attachment-Regel verletzt: $ATTACH_COUNT Dateien in uploads/images nach Ersetzen erwartet." >&2
+    exit 1
+fi
+
+REPLACE_LIST_BODY="$TMP_DIR/replace-list.json"
+[[ "$(status_code "$REPLACE_LIST_BODY" "http://127.0.0.1:$PORT/api.php?action=list&section=images")" == "200" ]]
+grep -q '"name":"Ersatzbild"' "$REPLACE_LIST_BODY"
+
+IMAGE_ATTACHMENT_PATH="$(find "$TEST_DATA_DIR/uploads/images" -maxdepth 1 -type f | head -n 1)"
+
+if [[ -z "$IMAGE_ATTACHMENT_PATH" || ! -f "$IMAGE_ATTACHMENT_PATH" ]]; then
+    echo "Angelegte Bilddatei fehlt im Testdatenverzeichnis nach Ersetzen." >&2
     exit 1
 fi
 

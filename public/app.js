@@ -46,9 +46,10 @@ const HAPTIC_FEEDBACK_MS = 12;
 const INSTALL_BANNER_DISMISSED_KEY = 'einkauf-install-banner-dismissed-v2';
 const ITEMS_CACHE_KEY_PREFIX = 'einkauf-items-cache-v1-';
 const TOGGLE_QUEUE_KEY = 'einkauf-toggle-queue-v1';
-const SECTION_KEY   = 'einkauf-section-v1';
+const SECTION_KEY     = 'einkauf-section-v1';
 const TABS_HIDDEN_KEY = 'einkauf-tabs-hidden-v1';
 const ATTACHMENT_SECTIONS = new Set(['images', 'files']);
+const TABS_ORDER_KEY  = 'einkauf-tabs-order-v1';
 
 const SECTIONS = {
     shopping:     { label: 'Einkauf',    title: 'Einkaufsliste',     shoppingTitle: 'Einkaufen'       },
@@ -181,12 +182,13 @@ function setEditDraftFromItem(item) {
     state.editDraft = {
         name: item.name || '',
         quantity: item.quantity || '',
+        replacementFile: null,
     };
 }
 
 function clearEditState() {
     state.editingId = null;
-    state.editDraft = { name: '', quantity: '' };
+    state.editDraft = { name: '', quantity: '', replacementFile: null };
 }
 
 function setNetworkStatus() {
@@ -825,6 +827,38 @@ function buildEditContent(content) {
         fields.appendChild(quantityField);
     }
 
+    if (isAttachmentSection()) {
+        const replaceRow = document.createElement('div');
+        replaceRow.className = 'item-edit-replace-row';
+
+        const replaceLabel = document.createElement('span');
+        replaceLabel.className = 'item-edit-replace-label';
+        replaceLabel.textContent = state.editDraft.replacementFile
+            ? state.editDraft.replacementFile.name
+            : 'Kein neues Attachment gewählt';
+
+        const replaceInput = document.createElement('input');
+        replaceInput.type = 'file';
+        replaceInput.className = 'item-edit-replace-input visually-hidden';
+        replaceInput.accept = state.section === 'images' ? 'image/*' : '';
+        replaceInput.disabled = isSaving;
+        replaceInput.addEventListener('change', () => {
+            const file = replaceInput.files?.[0] || null;
+            setEditField('replacementFile', file);
+            replaceLabel.textContent = file ? file.name : 'Kein neues Attachment gewählt';
+        });
+
+        const replaceBtn = document.createElement('button');
+        replaceBtn.type = 'button';
+        replaceBtn.className = 'btn-replace-attachment';
+        replaceBtn.textContent = state.section === 'images' ? 'Bild ersetzen' : 'Datei ersetzen';
+        replaceBtn.disabled = isSaving;
+        replaceBtn.addEventListener('click', () => replaceInput.click());
+
+        replaceRow.append(replaceBtn, replaceLabel, replaceInput);
+        fields.appendChild(replaceRow);
+    }
+
     content.appendChild(fields);
 }
 
@@ -1441,20 +1475,35 @@ async function handleEditSave(id) {
     renderItems();
 
     try {
-        await api('update', {
-            method: 'POST',
-            body: new URLSearchParams({
-                id: String(id),
-                name,
-                quantity,
-            }),
-        });
+        const replacementFile = state.editDraft.replacementFile || null;
 
-        item.name = name;
-        item.quantity = quantity;
-        clearEditState();
-        renderItems();
-        setMessage('Artikel gespeichert.');
+        if (isAttachmentSection() && replacementFile) {
+            const uploadFormData = new FormData();
+            uploadFormData.append('section', state.section);
+            uploadFormData.append('item_id', String(id));
+            uploadFormData.append('name', name);
+            uploadFormData.append('attachment', replacementFile);
+            await uploadAttachment(uploadFormData);
+            await loadItems({ silent: true });
+            clearEditState();
+            renderItems();
+            setMessage(state.section === 'images' ? 'Bild ersetzt.' : 'Datei ersetzt.');
+        } else {
+            await api('update', {
+                method: 'POST',
+                body: new URLSearchParams({
+                    id: String(id),
+                    name,
+                    quantity,
+                }),
+            });
+
+            item.name = name;
+            item.quantity = quantity;
+            clearEditState();
+            renderItems();
+            setMessage('Artikel gespeichert.');
+        }
     } catch (err) {
         setMessage(getUserFacingError(err, 'Artikel konnte nicht gespeichert werden.'), true);
     } finally {
@@ -1670,7 +1719,11 @@ listEl.addEventListener('keydown', handleListKeydown);
 
 clearDoneBtn.addEventListener('click', clearDone);
 modeToggleBtns.forEach(btn => btn.addEventListener('click', () => setMode(btn.dataset.nav)));
-sectionTabEls.forEach(tab => tab.addEventListener('click', () => setSection(tab.dataset.section)));
+let tabDragJustFinished = false;
+sectionTabEls.forEach(tab => tab.addEventListener('click', () => {
+    if (tabDragJustFinished) return;
+    setSection(tab.dataset.section);
+}));
 
 // =========================================
 // PWA INSTALL PROMPT
@@ -2119,6 +2172,116 @@ document.addEventListener('keydown', event => {
 });
 
 // =========================================
+// TAB DRAG REORDER
+// =========================================
+function saveTabOrder() {
+    const order = Array.from(sectionTabsEl.querySelectorAll('.section-tab'))
+        .map(tab => tab.dataset.section);
+    writeJsonStorage(TABS_ORDER_KEY, order);
+}
+
+function applyTabOrder() {
+    const saved = readJsonStorage(TABS_ORDER_KEY, null);
+    if (!Array.isArray(saved) || !saved.every(s => SECTIONS[s])) return;
+
+    const tabMap = new Map(
+        Array.from(sectionTabsEl.querySelectorAll('.section-tab'))
+            .map(tab => [tab.dataset.section, tab])
+    );
+    const savedSet = new Set(saved);
+    const extras = Array.from(tabMap.values()).filter(t => !savedSet.has(t.dataset.section));
+
+    [...saved, ...extras.map(t => t.dataset.section)].forEach(section => {
+        const tab = tabMap.get(section);
+        if (tab) sectionTabsEl.appendChild(tab);
+    });
+}
+
+function initTabDrag() {
+    applyTabOrder();
+
+    sectionTabsEl.addEventListener('pointerdown', event => {
+        const tab = event.target.closest('.section-tab');
+        if (!tab || (event.button !== undefined && event.button !== 0)) return;
+
+        const startX    = event.clientX;
+        const startY    = event.clientY;
+        let   dragActive = false;
+
+        const longPressTimer = setTimeout(() => {
+            dragActive = true;
+            triggerHapticFeedback();
+            tab.classList.add('is-tab-dragging');
+            sectionTabsEl.classList.add('is-tab-reordering');
+            try { tab.setPointerCapture(event.pointerId); } catch {}
+        }, 400);
+
+        function onMove(e) {
+            if (!dragActive) {
+                if (Math.abs(e.clientX - startX) > 8 || Math.abs(e.clientY - startY) > 8) {
+                    clearTimeout(longPressTimer);
+                    cleanup();
+                }
+                return;
+            }
+
+            const others = Array.from(sectionTabsEl.querySelectorAll('.section-tab:not(.is-tab-dragging)'));
+            others.forEach(t => t.classList.remove('tab-drop-before', 'tab-drop-after'));
+
+            let insertBefore = null;
+            for (const t of others) {
+                const rect = t.getBoundingClientRect();
+                if (e.clientX < rect.left + rect.width / 2) {
+                    insertBefore = t;
+                    t.classList.add('tab-drop-before');
+                    break;
+                }
+            }
+            if (!insertBefore && others.length > 0) {
+                others[others.length - 1].classList.add('tab-drop-after');
+            }
+
+            tab._tabInsertBefore = insertBefore;
+        }
+
+        function onEnd() {
+            clearTimeout(longPressTimer);
+            cleanup();
+
+            if (!dragActive) return;
+
+            tab.classList.remove('is-tab-dragging');
+            sectionTabsEl.classList.remove('is-tab-reordering');
+            Array.from(sectionTabsEl.querySelectorAll('.section-tab'))
+                .forEach(t => t.classList.remove('tab-drop-before', 'tab-drop-after'));
+
+            const insertBefore = tab._tabInsertBefore;
+            delete tab._tabInsertBefore;
+
+            if (insertBefore) {
+                sectionTabsEl.insertBefore(tab, insertBefore);
+            } else {
+                sectionTabsEl.appendChild(tab);
+            }
+
+            saveTabOrder();
+            tabDragJustFinished = true;
+            setTimeout(() => { tabDragJustFinished = false; }, 150);
+        }
+
+        function cleanup() {
+            document.removeEventListener('pointermove', onMove);
+            document.removeEventListener('pointerup',   onEnd);
+            document.removeEventListener('pointercancel', onEnd);
+        }
+
+        document.addEventListener('pointermove',   onMove);
+        document.addEventListener('pointerup',     onEnd);
+        document.addEventListener('pointercancel', onEnd);
+    });
+}
+
+// =========================================
 // TABS TOGGLE
 // =========================================
 function applyTabsVisibility(hidden) {
@@ -2148,6 +2311,7 @@ setNetworkStatus();
 renderInstallBanner();
 registerServiceWorker();
 initTabsToggle();
+initTabDrag();
 
 // Restore last active section
 (function initSection() {

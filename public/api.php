@@ -159,6 +159,13 @@ function detectMimeType(string $path): string
         }
     }
 
+    if ($mediaType === '' && function_exists('getimagesize')) {
+        $info = @getimagesize($path);
+        if (is_array($info) && isset($info['mime']) && is_string($info['mime']) && $info['mime'] !== '') {
+            $mediaType = $info['mime'];
+        }
+    }
+
     return $mediaType !== '' ? $mediaType : 'application/octet-stream';
 }
 
@@ -428,6 +435,86 @@ try {
             }
             $quantity = normalizeQuantity($data['quantity'] ?? null);
             $content = normalizeContent($data['content'] ?? null);
+
+            $replaceItemId = filter_var($data['item_id'] ?? null, FILTER_VALIDATE_INT, [
+                'options' => ['min_range' => 1],
+            ]);
+
+            if ($replaceItemId !== false && $replaceItemId !== null) {
+                // Replacement mode: swap the attachment of an existing item.
+                $storedName = buildStoredFilename($section, (string) $uploadMeta['stored_extension']);
+                $targetPath = getAttachmentStorageDirectory($section) . '/' . $storedName;
+                $storedFileMoved = false;
+
+                $db->beginTransaction();
+
+                try {
+                    $itemStmt = $db->prepare('SELECT id, section FROM items WHERE id = :id LIMIT 1');
+                    $itemStmt->execute([':id' => $replaceItemId]);
+                    $existingItem = $itemStmt->fetch();
+
+                    if (!is_array($existingItem) || $existingItem['section'] !== $section) {
+                        $db->rollBack();
+                        respond(404, ['error' => 'Artikel nicht gefunden.']);
+                    }
+
+                    $oldAttachment = findAttachmentByItemId($db, (int) $replaceItemId);
+
+                    if ($name !== '') {
+                        $nameStmt = $db->prepare(
+                            'UPDATE items SET name = :name, updated_at = CURRENT_TIMESTAMP WHERE id = :id'
+                        );
+                        $nameStmt->execute([':name' => $name, ':id' => $replaceItemId]);
+                    }
+
+                    if (!move_uploaded_file((string) $uploadedFile['tmp_name'], $targetPath)) {
+                        throw new RuntimeException('Upload-Datei konnte nicht verschoben werden.');
+                    }
+
+                    $storedFileMoved = true;
+
+                    $attachmentStmt = $db->prepare(
+                        'INSERT INTO attachments (item_id, storage_section, stored_name, original_name, media_type, size_bytes)
+                         VALUES (:item_id, :storage_section, :stored_name, :original_name, :media_type, :size_bytes)
+                         ON CONFLICT(item_id) DO UPDATE SET
+                            storage_section = excluded.storage_section,
+                            stored_name     = excluded.stored_name,
+                            original_name   = excluded.original_name,
+                            media_type      = excluded.media_type,
+                            size_bytes      = excluded.size_bytes,
+                            updated_at      = CURRENT_TIMESTAMP'
+                    );
+                    $attachmentStmt->execute([
+                        ':item_id'         => $replaceItemId,
+                        ':storage_section' => $section,
+                        ':stored_name'     => $storedName,
+                        ':original_name'   => (string) $uploadedFile['original_name'],
+                        ':media_type'      => (string) $uploadMeta['media_type'],
+                        ':size_bytes'      => (int) $uploadedFile['size_bytes'],
+                    ]);
+
+                    $db->commit();
+
+                    if ($oldAttachment !== null) {
+                        deleteAttachmentStorageFile($oldAttachment);
+                    }
+                } catch (Throwable $exception) {
+                    if ($db->inTransaction()) {
+                        $db->rollBack();
+                    }
+
+                    if ($storedFileMoved && is_file($targetPath) && !unlink($targetPath)) {
+                        error_log(sprintf('Einkauf upload replace cleanup error [%s]: %s', $section, $targetPath));
+                    }
+
+                    throw $exception;
+                }
+
+                respond(200, [
+                    'message' => 'Anhang ersetzt.',
+                    'id' => $replaceItemId,
+                ]);
+            }
 
             if ($name === '') {
                 respond(422, ['error' => 'Bitte gib einen Artikelnamen ein.']);
