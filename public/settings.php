@@ -21,6 +21,15 @@ $sections = [
 $flash = null;
 $flashType = 'ok';
 
+function validateSettingsPassword(string $password): ?string
+{
+    if (strlen($password) < 8) {
+        return 'Passwort muss mindestens 8 Zeichen lang sein.';
+    }
+
+    return null;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $providedToken = $_POST['csrf_token'] ?? null;
 
@@ -28,11 +37,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $flash = 'Ungültiges Sicherheits-Token.';
         $flashType = 'err';
     } else {
-        $hiddenSections = $_POST['hidden_sections'] ?? [];
-        $preferences = updateUserPreferences($db, $userId, [
-            'hidden_sections' => is_array($hiddenSections) ? $hiddenSections : [],
-        ]);
-        $flash = 'Einstellungen gespeichert.';
+        $action = (string) ($_POST['action'] ?? 'preferences');
+
+        if ($action === 'change_password') {
+            $currentPassword = (string) ($_POST['current_password'] ?? '');
+            $newPassword = (string) ($_POST['new_password'] ?? '');
+            $newPasswordConfirm = (string) ($_POST['new_password_confirm'] ?? '');
+
+            if ($currentPassword === '' || $newPassword === '' || $newPasswordConfirm === '') {
+                $flash = 'Bitte alle Passwort-Felder ausfüllen.';
+                $flashType = 'err';
+            } elseif (($passwordError = validateSettingsPassword($newPassword)) !== null) {
+                $flash = $passwordError;
+                $flashType = 'err';
+            } elseif ($newPassword !== $newPasswordConfirm) {
+                $flash = 'Die neuen Passwörter stimmen nicht überein.';
+                $flashType = 'err';
+            } else {
+                $stmt = $db->prepare('SELECT password_hash FROM users WHERE id = :id LIMIT 1');
+                $stmt->execute([':id' => $userId]);
+                $user = $stmt->fetch();
+
+                if (!is_array($user) || !password_verify($currentPassword, (string) $user['password_hash'])) {
+                    $flash = 'Aktuelles Passwort ist nicht korrekt.';
+                    $flashType = 'err';
+                } else {
+                    $db->prepare('UPDATE users SET password_hash = :password_hash WHERE id = :id')
+                        ->execute([
+                            ':password_hash' => password_hash($newPassword, PASSWORD_BCRYPT),
+                            ':id' => $userId,
+                        ]);
+                    $flash = 'Passwort geändert.';
+                }
+            }
+        } else {
+            $hiddenSections = $_POST['hidden_sections'] ?? [];
+            $preferences = updateUserPreferences($db, $userId, [
+                'hidden_sections' => is_array($hiddenSections) ? $hiddenSections : [],
+            ]);
+            $flash = 'Einstellungen gespeichert.';
+        }
     }
 }
 
@@ -83,6 +127,35 @@ $preferences ??= getUserPreferences($db, $userId);
 
             <div class="settings-actions">
                 <button type="submit" class="settings-save">Speichern</button>
+            </div>
+        </form>
+    </section>
+
+    <section class="settings-section settings-section-secondary">
+        <form method="post" action="<?= htmlspecialchars(appPath('settings.php'), ENT_QUOTES, 'UTF-8') ?>" class="settings-form">
+            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
+            <input type="hidden" name="action" value="change_password">
+            <div class="settings-block">
+                <h2>Passwort ändern</h2>
+                <p class="settings-copy">Dein neues Passwort muss mindestens 8 Zeichen lang sein.</p>
+                <div class="settings-password-fields">
+                    <label class="settings-field">
+                        <span>Aktuelles Passwort</span>
+                        <input type="password" name="current_password" autocomplete="current-password" required>
+                    </label>
+                    <label class="settings-field">
+                        <span>Neues Passwort</span>
+                        <input type="password" name="new_password" autocomplete="new-password" required>
+                    </label>
+                    <label class="settings-field">
+                        <span>Neues Passwort wiederholen</span>
+                        <input type="password" name="new_password_confirm" autocomplete="new-password" required>
+                    </label>
+                </div>
+            </div>
+
+            <div class="settings-actions">
+                <button type="submit" class="settings-save">Passwort ändern</button>
             </div>
         </form>
     </section>
