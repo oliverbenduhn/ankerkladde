@@ -88,8 +88,11 @@ if ($appBasePath === '' || $appBasePath === '.') {
     <header class="app-header liste-only">
         <button type="button" id="tabsToggleBtn" class="btn-tabs-toggle" aria-label="Symbolleiste ein-/ausblenden">☰</button>
         <h1 class="app-title" id="titleListe">Einkaufsliste</h1>
-        <button type="button" id="searchBtn" class="btn-search" aria-label="Suchen">🔍</button>
-        <button type="button" class="btn-mode-toggle" data-nav="einkaufen" aria-label="Einkaufs-Modus starten">👁️</button>
+        <div class="header-actions">
+            <button type="button" id="searchBtn" class="header-icon-btn btn-search" aria-label="Suchen">🔍</button>
+            <a href="<?= htmlspecialchars(appPath('settings.php'), ENT_QUOTES, 'UTF-8') ?>" class="header-icon-btn btn-settings" aria-label="Einstellungen">⚙️</a>
+            <button type="button" class="header-icon-btn btn-mode-toggle" data-nav="einkaufen" aria-label="Einkaufs-Modus starten">👁️</button>
+        </div>
     </header>
 
     <div class="search-bar liste-only" id="searchBar" hidden>
@@ -102,8 +105,11 @@ if ($appBasePath === '' || $appBasePath === '.') {
     <header class="app-header shopping-only">
         <button type="button" class="btn-tabs-toggle" aria-label="Symbolleiste ein-/ausblenden">☰</button>
         <h1 class="app-title" id="titleShopping">Einkaufen</h1>
-        <span class="progress" id="progress" aria-live="polite">0 / 0</span>
-        <button type="button" class="btn-mode-toggle" data-nav="liste" aria-label="Liste bearbeiten">✏️</button>
+        <div class="header-actions">
+            <span class="progress" id="progress" aria-live="polite">0 / 0</span>
+            <a href="<?= htmlspecialchars(appPath('settings.php'), ENT_QUOTES, 'UTF-8') ?>" class="header-icon-btn btn-settings" aria-label="Einstellungen">⚙️</a>
+            <button type="button" class="header-icon-btn btn-mode-toggle" data-nav="liste" aria-label="Liste bearbeiten">✏️</button>
+        </div>
     </header>
 
     <section class="input-area liste-only" id="inputArea">

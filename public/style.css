@@ -75,6 +75,13 @@ button, input { font: inherit; }
     letter-spacing: -0.03em;
 }
 
+.header-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
 .progress {
     font-size: 0.875rem;
     color: var(--text-muted);
@@ -826,9 +833,9 @@ button, input { font: inherit; }
 }
 
 /* ===========================================
-   MODE TOGGLE BUTTON (oben rechts im Header)
+   HEADER ICON BUTTONS
    =========================================== */
-.btn-mode-toggle {
+.header-icon-btn {
     min-width: 40px;
     min-height: 40px;
     padding: 0 10px;
@@ -842,10 +849,16 @@ button, input { font: inherit; }
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    text-decoration: none;
+    color: var(--text-secondary);
 }
 
-.btn-mode-toggle:hover  { background: var(--accent); }
-.btn-mode-toggle:active { transform: scale(0.92); }
+.header-icon-btn:hover  { background: var(--accent); color: var(--text-primary); }
+.header-icon-btn:active { transform: scale(0.92); }
+
+.btn-mode-toggle {
+    font-size: 1.1rem;
+}
 
 /* ===========================================
    MODE VISIBILITY (CSS-driven)
@@ -1335,26 +1348,15 @@ button, input { font: inherit; }
    SEARCH BUTTON
    =========================================== */
 .btn-search {
-    min-width: 40px;
-    min-height: 40px;
-    padding: 0 10px;
-    background: var(--border);
-    border: none;
-    border-radius: 10px;
     font-size: 1.3rem;
     font-weight: 400;
-    cursor: pointer;
-    flex-shrink: 0;
-    transition: background 0.15s ease, transform 0.1s ease;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--text-secondary);
 }
 
-.btn-search:hover  { background: var(--accent); color: var(--text-primary); }
-.btn-search:active { transform: scale(0.92); }
 .btn-search.is-active { background: var(--accent); color: var(--text-primary); }
+
+.btn-settings {
+    font-size: 1.15rem;
+}
 
 /* ===========================================
    SEARCH BAR
@@ -1530,6 +1532,85 @@ button, input { font: inherit; }
     padding: 0.5rem 0.75rem;
     background: #fdf0ec;
     border-radius: 6px;
+}
+
+/* ===========================================
+   SETTINGS PAGE
+   =========================================== */
+.settings-page {
+    min-height: 100vh;
+    min-height: 100dvh;
+    padding: env(safe-area-inset-top, 0px) 16px 24px;
+    max-width: 640px;
+    margin: 0 auto;
+}
+
+.settings-card {
+    margin-top: 20px;
+    padding: 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+}
+
+.settings-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.settings-header h1 {
+    margin: 0;
+    font-size: 1.35rem;
+    color: var(--text-primary);
+}
+
+.settings-back {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 40px;
+    min-height: 40px;
+    padding: 0 12px;
+    border-radius: 10px;
+    background: var(--border);
+    color: var(--text-primary);
+    text-decoration: none;
+}
+
+.settings-back:hover {
+    background: var(--accent);
+}
+
+.settings-section {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.settings-copy {
+    margin: 0;
+    color: var(--text-secondary);
+}
+
+.settings-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 0 16px;
+    border-radius: 10px;
+    background: var(--text-primary);
+    color: var(--surface);
+    text-decoration: none;
+    font-weight: 600;
+    width: fit-content;
+}
+
+.settings-link:hover {
+    opacity: 0.9;
 }
 
 /* ===========================================
