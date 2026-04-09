@@ -5,7 +5,7 @@ require dirname(__DIR__) . '/db.php';
 require dirname(__DIR__) . '/security.php';
 
 enforceCanonicalRequest();
-requireAdmin();
+$currentUserId = requireAdmin();
 
 $db = getDatabase();
 
@@ -80,6 +80,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 } elseif ((bool) $targetUser['is_admin']) {
                     $flash = 'Admin-Konten können nicht gelöscht werden.';
                     $flashType = 'err';
+                } elseif ($targetId === $currentUserId) {
+                    $flash = 'Du kannst dein eigenes Konto nicht löschen.';
+                    $flashType = 'err';
                 } else {
                     // Collect attachment file paths for physical deletion
                     $attStmt = $db->prepare(
@@ -134,6 +137,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $flashType = 'err';
                 } elseif ((bool) $targetUser['is_admin']) {
                     $flash = 'Admin-Passwort kann hier nicht geändert werden.';
+                    $flashType = 'err';
+                } elseif ($targetId === $currentUserId) {
+                    $flash = 'Eigenes Passwort kann hier nicht zurückgesetzt werden.';
                     $flashType = 'err';
                 } else {
                     $db->prepare(
@@ -212,7 +218,7 @@ $users = $db->query(
                     </form>
 
                     <form method="post" action="/admin.php" class="admin-inline-form"
-                          onsubmit="return confirm('Nutzer <?= htmlspecialchars(addslashes((string) $user['username']), ENT_QUOTES, 'UTF-8') ?> wirklich löschen?')">
+                          onsubmit="return confirm(<?= htmlspecialchars(json_encode('Nutzer ' . $user['username'] . ' wirklich löschen?'), ENT_QUOTES, 'UTF-8') ?>)">
                         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
                         <input type="hidden" name="action" value="delete">
                         <input type="hidden" name="user_id" value="<?= (int) $user['id'] ?>">
