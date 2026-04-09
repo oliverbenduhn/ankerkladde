@@ -1192,6 +1192,108 @@ function renderItems() {
     listEl.appendChild(fragment);
 }
 
+async function handleIncomingShare() {
+    const params = new URLSearchParams(window.location.search);
+    const hasShare = params.has('share') || params.has('title') || params.has('text') || params.has('url');
+    if (!hasShare) return;
+
+    history.replaceState(null, '', window.location.pathname);
+
+    const shareParam = params.get('share');
+    const title     = params.get('title') || '';
+    const text      = params.get('text')  || '';
+    const sharedUrl = params.get('url')   || '';
+
+    try {
+        if (shareParam === 'file') {
+            await handleSharedFile();
+        } else if (sharedUrl) {
+            await handleSharedLink(sharedUrl);
+        } else if (text || title) {
+            await handleSharedText(title, text);
+        }
+    } catch (error) {
+        setMessage(error instanceof Error ? error.message : 'Teilen fehlgeschlagen.', true);
+    }
+}
+
+async function handleSharedFile() {
+    const cache = await caches.open('einkauf-share-target');
+    const response = await cache.match('pending-file');
+    if (!response) {
+        setMessage('Geteilte Datei nicht gefunden.', true);
+        return;
+    }
+
+    const contentType = response.headers.get('Content-Type') || 'application/octet-stream';
+    const filename = decodeURIComponent(response.headers.get('X-Share-Filename') || 'shared');
+    const blob = await response.blob();
+    await cache.delete('pending-file');
+
+    const isImage = contentType.startsWith('image/');
+    const targetType = isImage ? 'images' : 'files';
+    const category = getVisibleCategories().find(c => c.type === targetType);
+    if (!category) {
+        setMessage(`Kein ${isImage ? 'Bilder' : 'Dateien'}-Bereich vorhanden.`, true);
+        return;
+    }
+
+    await setCategory(category.id);
+
+    const file = new File([blob], filename, { type: contentType });
+    const formData = new FormData();
+    formData.append('category_id', String(category.id));
+    formData.append('name', filename);
+    formData.append('attachment', file);
+
+    await apiUpload('upload', formData, makeUploadProgressCallback());
+    invalidateCategoryCache(category.id);
+    await loadItems();
+    setMessage(isImage ? 'Bild gespeichert.' : 'Datei gespeichert.');
+}
+
+async function handleSharedLink(url) {
+    const category = getVisibleCategories().find(c => c.type === 'links');
+    if (!category) {
+        setMessage('Kein Links-Bereich vorhanden.', true);
+        return;
+    }
+    await setCategory(category.id);
+    const body = new URLSearchParams({ category_id: String(category.id), name: url });
+    await api('add', { method: 'POST', body });
+    invalidateCategoryCache(category.id);
+    await loadItems();
+    setMessage('Link gespeichert.');
+}
+
+async function handleSharedText(title, text) {
+    const category = getVisibleCategories().find(c => c.type === 'notes');
+    if (!category) {
+        setMessage('Kein Notizen-Bereich vorhanden.', true);
+        return;
+    }
+    await setCategory(category.id);
+
+    const noteName = title || (text.length > 60 ? text.substring(0, 60) + '\u2026' : text) || 'Geteilte Notiz';
+    const noteContent = text
+        ? text.split('\n').map(line =>
+            `<p>${line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>`
+          ).join('')
+        : '';
+
+    const body = new URLSearchParams({ category_id: String(category.id), name: noteName, content: noteContent });
+    const payload = await api('add', { method: 'POST', body });
+    invalidateCategoryCache(category.id);
+    await loadItems();
+
+    const item = getItemById(payload.id);
+    if (item) {
+        await openNoteEditor(item);
+    } else {
+        setMessage('Notiz gespeichert.');
+    }
+}
+
 async function uploadSelectedAttachment() {
     const category = getCurrentCategory();
     if (!category || !isAttachmentCategory(category.type)) return;
@@ -1742,6 +1844,7 @@ document.addEventListener('keydown', event => {
         updateHeaders();
         await loadItems();
         prefetchAdjacentCategories();
+        await handleIncomingShare();
     } catch (error) {
         setMessage(error instanceof Error ? error.message : 'App konnte nicht geladen werden.', true);
     }
