@@ -198,3 +198,18 @@ function requireAdmin(): int
 
     return $userId;
 }
+
+function requireApiAuth(): int
+{
+    startAppSession();
+    $userId = getCurrentUserId();
+
+    if ($userId === null) {
+        http_response_code(401);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['error' => 'Nicht authentifiziert. Bitte anmelden.'], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    return $userId;
+}
