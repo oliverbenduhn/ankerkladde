@@ -465,8 +465,22 @@ function resolveCategoryId(array $data, PDO $db, int $userId): int
     }
 
     $legacySection = $_GET['section'] ?? ($data['section'] ?? null);
-    if (!is_string($legacySection)) {
-        respond(422, ['error' => 'Ungültige Kategorie.']);
+    if (!is_string($legacySection) || trim($legacySection) === '') {
+        $preferences = getUserPreferences($db, $userId);
+        $preferredCategoryId = filter_var($preferences['last_category_id'] ?? null, FILTER_VALIDATE_INT, [
+            'options' => ['min_range' => 1],
+        ]);
+
+        if (is_int($preferredCategoryId) && loadUserCategory($db, $userId, $preferredCategoryId) !== null) {
+            return $preferredCategoryId;
+        }
+
+        $categories = loadUserCategories($db, $userId, false);
+        if ($categories !== []) {
+            return (int) $categories[0]['id'];
+        }
+
+        respond(404, ['error' => 'Kategorie nicht gefunden.']);
     }
 
     $definition = legacyCategoryDefinition(trim($legacySection));

@@ -181,7 +181,7 @@ grep -q 'Smoke attachment' "$MEDIA_BODY"
 grep -q "\"id\":$FILE_ITEM_ID" "$FILES_LIST_BODY"
 grep -q '"has_attachment":1' "$FILES_LIST_BODY"
 grep -q '"attachment_original_name":"Rechnung.txt"' "$FILES_LIST_BODY"
-grep -q '"attachment_download_url":"/media.php?item_id='"$FILE_ITEM_ID"'&download=1"' "$FILES_LIST_BODY"
+grep -Eq '"attachment_download_url":"/media\.php\?item_id='"$FILE_ITEM_ID"'&download=1(&v=[^"]+)?"' "$FILES_LIST_BODY"
 grep -q '"attachment_preview_url":null' "$FILES_LIST_BODY"
 grep -q '"name":"Rechnung.txt"' "$FILES_LIST_BODY"
 
@@ -200,8 +200,8 @@ fi
 [[ "$(status_code "$IMAGE_LIST_BODY" -b "$COOKIE_JAR" "http://127.0.0.1:$PORT/api.php?action=list&section=images")" == "200" ]]
 grep -q "\"id\":$IMAGE_ITEM_ID" "$IMAGE_LIST_BODY"
 grep -q '"name":"Produktbild"' "$IMAGE_LIST_BODY"
-grep -q '"attachment_preview_url":"/media.php?item_id='"$IMAGE_ITEM_ID"'"' "$IMAGE_LIST_BODY"
-grep -q '"attachment_download_url":"/media.php?item_id='"$IMAGE_ITEM_ID"'&download=1"' "$IMAGE_LIST_BODY"
+grep -Eq '"attachment_preview_url":"/media\.php\?item_id='"$IMAGE_ITEM_ID"'&variant=thumb(&v=[^"]+)?"' "$IMAGE_LIST_BODY"
+grep -Eq '"attachment_download_url":"/media\.php\?item_id='"$IMAGE_ITEM_ID"'&download=1(&v=[^"]+)?"' "$IMAGE_LIST_BODY"
 grep -q '"attachment_original_name":"Bild.png"' "$IMAGE_LIST_BODY"
 grep -q '"attachment_media_type":"image/png"' "$IMAGE_LIST_BODY"
 
@@ -241,8 +241,8 @@ REPLACE_UPLOAD_BODY="$TMP_DIR/replace-upload.json"
 grep -q 'Anhang ersetzt' "$REPLACE_UPLOAD_BODY"
 
 ATTACH_COUNT="$(find "$TEST_DATA_DIR/uploads/images" -maxdepth 1 -type f | wc -l | tr -d ' ')"
-if [[ "$ATTACH_COUNT" != "1" ]]; then
-    echo "Ein-Attachment-Regel verletzt: $ATTACH_COUNT Dateien in uploads/images nach Ersetzen erwartet." >&2
+if [[ "$ATTACH_COUNT" -lt "1" || "$ATTACH_COUNT" -gt "2" ]]; then
+    echo "Ein-Attachment-Regel verletzt: $ATTACH_COUNT Dateien in uploads/images nach Ersetzen erwartet (Original, optional Thumbnail)." >&2
     exit 1
 fi
 
@@ -250,7 +250,7 @@ REPLACE_LIST_BODY="$TMP_DIR/replace-list.json"
 [[ "$(status_code "$REPLACE_LIST_BODY" -b "$COOKIE_JAR" "http://127.0.0.1:$PORT/api.php?action=list&section=images")" == "200" ]]
 grep -q '"name":"Ersatzbild"' "$REPLACE_LIST_BODY"
 
-IMAGE_ATTACHMENT_PATH="$(find "$TEST_DATA_DIR/uploads/images" -maxdepth 1 -type f | head -n 1)"
+IMAGE_ATTACHMENT_PATH="$(find "$TEST_DATA_DIR/uploads/images" -maxdepth 1 -type f ! -name 'thumb-*' | head -n 1)"
 
 if [[ -z "$IMAGE_ATTACHMENT_PATH" || ! -f "$IMAGE_ATTACHMENT_PATH" ]]; then
     echo "Angelegte Bilddatei fehlt im Testdatenverzeichnis nach Ersetzen." >&2
