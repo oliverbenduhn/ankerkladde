@@ -1202,7 +1202,8 @@ async function handleIncomingShare() {
     const shareParam = params.get('share');
     const title     = params.get('title') || '';
     const text      = params.get('text')  || '';
-    const sharedUrl = params.get('url')   || '';
+    // Chrome often puts the URL only in `text`, not in `url`
+    const sharedUrl = params.get('url') || /https?:\/\/\S+/.exec(text)?.[0] || '';
 
     try {
         if (shareParam === 'file') {
@@ -1276,9 +1277,11 @@ async function handleSharedText(title, text) {
 
     const noteName = title || (text.length > 60 ? text.substring(0, 60) + '\u2026' : text) || 'Geteilte Notiz';
     const noteContent = text
-        ? text.split('\n').map(line =>
-            `<p>${line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>`
-          ).join('')
+        ? text.split('\n')
+            .map(l => l.trim())
+            .filter(l => l.length > 0)
+            .map(l => `<p>${l.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>`)
+            .join('')
         : '';
 
     const body = new URLSearchParams({ category_id: String(category.id), name: noteName, content: noteContent });
