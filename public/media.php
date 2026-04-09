@@ -5,6 +5,7 @@ require dirname(__DIR__) . '/db.php';
 require dirname(__DIR__) . '/security.php';
 
 enforceCanonicalRequest();
+$userId = requireAuth();
 
 function mediaFail(int $status, string $message): never
 {
