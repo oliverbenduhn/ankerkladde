@@ -134,6 +134,15 @@ php -S 127.0.0.1:8000 -t public
 
 `localhost` gilt als sicherer Kontext – Service Worker und PWA-Installation funktionieren lokal ohne TLS.
 
+## Nutzer anlegen
+
+```bash
+php scripts/create-admin.php
+php scripts/create-user.php
+```
+
+`create-user.php` legt einen normalen Nutzer ohne Admin-Rechte an. Nicht-interaktiv geht es über `EINKAUF_USER` und `EINKAUF_PASS`.
+
 ## Smoke-Test
 
 ```bash

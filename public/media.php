@@ -72,9 +72,10 @@ try {
             ON attachments.item_id = items.id
            AND attachments.storage_section = items.section
          WHERE items.id = :item_id
+           AND items.user_id = :user_id
          LIMIT 1'
     );
-    $stmt->execute([':item_id' => $itemId]);
+    $stmt->execute([':item_id' => $itemId, ':user_id' => $userId]);
     $attachment = $stmt->fetch();
 
     if (!is_array($attachment)) {

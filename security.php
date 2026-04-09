@@ -136,6 +136,26 @@ function startAppSession(): void
     session_start();
 }
 
+function getAppBasePath(): string
+{
+    $scriptName = $_SERVER['SCRIPT_NAME'] ?? '';
+    $basePath = rtrim(dirname(str_replace('\\', '/', is_string($scriptName) ? $scriptName : '')), '/');
+
+    return $basePath === '' || $basePath === '.' ? '' : $basePath;
+}
+
+function appPath(string $path = ''): string
+{
+    $normalizedPath = ltrim($path, '/');
+    $basePath = getAppBasePath();
+
+    if ($normalizedPath === '') {
+        return $basePath === '' ? '/' : $basePath . '/';
+    }
+
+    return ($basePath === '' ? '' : $basePath) . '/' . $normalizedPath;
+}
+
 function getCsrfToken(): string
 {
     startAppSession();
@@ -176,9 +196,7 @@ function requireAuth(): int
 
     if ($userId === null) {
         http_response_code(302);
-        $scriptName = $_SERVER['SCRIPT_NAME'] ?? '';
-        $basePath = rtrim(dirname(str_replace('\\', '/', is_string($scriptName) ? $scriptName : '')), '/');
-        header('Location: ' . $basePath . '/login.php');
+        header('Location: ' . appPath('login.php'));
         exit;
     }
 

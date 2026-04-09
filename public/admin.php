@@ -169,14 +169,14 @@ $users = $db->query(
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#f5f0eb">
     <title>Nutzerverwaltung — Zettel</title>
-    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="<?= htmlspecialchars(appPath('style.css'), ENT_QUOTES, 'UTF-8') ?>">
 </head>
 <body>
 <div class="admin-page">
 
     <div class="admin-header">
         <h1>Nutzerverwaltung</h1>
-        <a href="/logout.php" class="admin-logout">Abmelden</a>
+        <a href="<?= htmlspecialchars(appPath('logout.php'), ENT_QUOTES, 'UTF-8') ?>" class="admin-logout">Abmelden</a>
     </div>
 
     <?php if ($flash !== null): ?>
@@ -187,7 +187,7 @@ $users = $db->query(
 
     <div class="admin-section">
         <h2>Nutzer anlegen</h2>
-        <form method="post" action="/admin.php">
+        <form method="post" action="<?= htmlspecialchars(appPath('admin.php'), ENT_QUOTES, 'UTF-8') ?>">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
             <input type="hidden" name="action" value="create">
             <div class="admin-form-row">
@@ -209,7 +209,7 @@ $users = $db->query(
                     <span class="admin-user-name"><?= htmlspecialchars((string) $user['username'], ENT_QUOTES, 'UTF-8') ?></span>
                     <span class="admin-user-date"><?= htmlspecialchars(substr((string) $user['created_at'], 0, 10), ENT_QUOTES, 'UTF-8') ?></span>
 
-                    <form method="post" action="/admin.php" class="admin-inline-form">
+                    <form method="post" action="<?= htmlspecialchars(appPath('admin.php'), ENT_QUOTES, 'UTF-8') ?>" class="admin-inline-form">
                         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
                         <input type="hidden" name="action" value="reset_password">
                         <input type="hidden" name="user_id" value="<?= (int) $user['id'] ?>">
@@ -217,7 +217,7 @@ $users = $db->query(
                         <button type="submit" class="admin-btn-sm">Setzen</button>
                     </form>
 
-                    <form method="post" action="/admin.php" class="admin-inline-form"
+                    <form method="post" action="<?= htmlspecialchars(appPath('admin.php'), ENT_QUOTES, 'UTF-8') ?>" class="admin-inline-form"
                           onsubmit="return confirm(<?= htmlspecialchars(json_encode('Nutzer ' . $user['username'] . ' wirklich löschen?'), ENT_QUOTES, 'UTF-8') ?>)">
                         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
                         <input type="hidden" name="action" value="delete">

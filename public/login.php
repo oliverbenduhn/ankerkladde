@@ -6,11 +6,12 @@ require dirname(__DIR__) . '/security.php';
 
 enforceCanonicalRequest();
 startAppSession();
+$basePath = appPath();
 
 // Already logged in → redirect to appropriate page
 $alreadyLoggedIn = getCurrentUserId() !== null;
 if ($alreadyLoggedIn) {
-    header('Location: ' . (empty($_SESSION['is_admin']) ? '/index.php' : '/admin.php'));
+    header('Location: ' . (empty($_SESSION['is_admin']) ? appPath('index.php') : appPath('admin.php')));
     exit;
 }
 
@@ -39,7 +40,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 session_regenerate_id(true);
                 $_SESSION['user_id']  = (int) $user['id'];
                 $_SESSION['is_admin'] = (bool) $user['is_admin'];
-                header('Location: ' . ($user['is_admin'] ? '/admin.php' : '/index.php'));
+                header('Location: ' . ($user['is_admin'] ? appPath('admin.php') : appPath('index.php')));
                 exit;
             }
 
@@ -57,7 +58,7 @@ $csrfToken = getCsrfToken();
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#f5f0eb">
     <title>Anmelden — Zettel</title>
-    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="<?= htmlspecialchars(appPath('style.css'), ENT_QUOTES, 'UTF-8') ?>">
 </head>
 <body class="login-page">
 <div class="login-card">
@@ -65,7 +66,7 @@ $csrfToken = getCsrfToken();
     <?php if ($error !== null): ?>
         <p class="login-error"><?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?></p>
     <?php endif; ?>
-    <form method="post" action="/login.php">
+    <form method="post" action="<?= htmlspecialchars(appPath('login.php'), ENT_QUOTES, 'UTF-8') ?>">
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
         <div class="login-field">
             <label for="username">Benutzername</label>

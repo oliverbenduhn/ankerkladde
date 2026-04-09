@@ -4,6 +4,7 @@ declare(strict_types=1);
 require dirname(__DIR__) . '/security.php';
 
 enforceCanonicalRequest();
+requireAuth();
 
 $csrfToken = getCsrfToken();
 $scriptName = $_SERVER['SCRIPT_NAME'] ?? '/index.php';
