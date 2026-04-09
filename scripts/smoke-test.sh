@@ -30,7 +30,7 @@ EINKAUF_DATA_DIR="$TEST_DATA_DIR" EINKAUF_TRUST_PROXY_HEADERS=0 php -S "127.0.0.
 SERVER_PID=$!
 
 for _ in $(seq 1 40); do
-    if curl -fsS "http://127.0.0.1:$PORT/" >/dev/null 2>&1; then
+    if curl -fsS "http://127.0.0.1:$PORT/login.php" >/dev/null 2>&1; then
         break
     fi
     sleep 0.25
@@ -70,7 +70,7 @@ if [[ -z "$CSRF_TOKEN" ]]; then
 fi
 
 grep -q '<link rel="manifest" href="manifest.php">' "$INDEX_HTML"
-curl -fsS -D "$MANIFEST_HEADERS" -o /dev/null "http://127.0.0.1:$PORT/manifest.php"
+curl -fsS -b "$COOKIE_JAR" -D "$MANIFEST_HEADERS" -o /dev/null "http://127.0.0.1:$PORT/manifest.php"
 grep -qi '^Content-Type: application/manifest+json' "$MANIFEST_HEADERS"
 
 status_code() {
