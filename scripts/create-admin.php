@@ -21,6 +21,20 @@ function promptLine(string $prompt, bool $required = true): string
     }
 }
 
+function promptPassword(string $prompt): string
+{
+    echo $prompt;
+    system('stty -echo');
+    $value = trim((string) fgets(STDIN));
+    system('stty echo');
+    echo "\n";
+    if ($value === '') {
+        fwrite(STDERR, "Passwort darf nicht leer sein.\n");
+        exit(1);
+    }
+    return $value;
+}
+
 function createUser(PDO $db, string $username, string $password, bool $isAdmin): int
 {
     $stmt = $db->prepare(
@@ -44,30 +58,63 @@ if ($existingAdmin !== false) {
 }
 
 // Non-interactive mode via env vars
-$envAdminUser = (string) (getenv('EINKAUF_ADMIN_USER') ?: '');
-$envAdminPass = (string) (getenv('EINKAUF_ADMIN_PASS') ?: '');
+$envVal = getenv('EINKAUF_ADMIN_USER');
+$envAdminUser = is_string($envVal) ? $envVal : '';
+$envVal = getenv('EINKAUF_ADMIN_PASS');
+$envAdminPass = is_string($envVal) ? $envVal : '';
 
 if ($envAdminUser !== '' && $envAdminPass !== '') {
-    $adminId = createUser($db, $envAdminUser, $envAdminPass, true);
-    echo "Admin '{$envAdminUser}' angelegt (ID: {$adminId}).\n";
+    try {
+        $adminId = createUser($db, $envAdminUser, $envAdminPass, true);
+        echo "Admin '{$envAdminUser}' angelegt (ID: {$adminId}).\n";
+    } catch (PDOException $e) {
+        if (str_contains($e->getMessage(), 'UNIQUE constraint failed')) {
+            fwrite(STDERR, "Fehler: Benutzername '{$envAdminUser}' ist bereits vergeben.\n");
+            exit(1);
+        }
+        throw $e;
+    }
 } else {
     echo "=== Admin-Nutzer anlegen ===\n";
     $adminUser = promptLine('Benutzername: ');
-    $adminPass = promptLine('Passwort: ');
-    $adminId   = createUser($db, $adminUser, $adminPass, true);
-    echo "Admin '{$adminUser}' angelegt (ID: {$adminId}).\n";
+    $adminPass = promptPassword('Passwort: ');
+    if (strlen($adminPass) < 8) {
+        fwrite(STDERR, "Passwort muss mindestens 8 Zeichen lang sein.\n");
+        exit(1);
+    }
+    try {
+        $adminId = createUser($db, $adminUser, $adminPass, true);
+        echo "Admin '{$adminUser}' angelegt (ID: {$adminId}).\n";
+    } catch (PDOException $e) {
+        if (str_contains($e->getMessage(), 'UNIQUE constraint failed')) {
+            fwrite(STDERR, "Fehler: Benutzername '{$adminUser}' ist bereits vergeben.\n");
+            exit(1);
+        }
+        throw $e;
+    }
 }
 
 // Optionally create a first regular user and assign existing items
-$envRegularUser = (string) (getenv('EINKAUF_REGULAR_USER') ?: '');
-$envRegularPass = (string) (getenv('EINKAUF_REGULAR_PASS') ?: '');
+$envVal = getenv('EINKAUF_REGULAR_USER');
+$envRegularUser = is_string($envVal) ? $envVal : '';
+$envVal = getenv('EINKAUF_REGULAR_PASS');
+$envRegularPass = is_string($envVal) ? $envVal : '';
+unset($envVal);
 
 if ($envRegularUser !== '' && $envRegularPass !== '') {
-    $userId = createUser($db, $envRegularUser, $envRegularPass, false);
-    $db->prepare('UPDATE items SET user_id = :uid WHERE user_id IS NULL')
-       ->execute([':uid' => $userId]);
-    $count = $db->query('SELECT changes()')->fetchColumn();
-    echo "Nutzer '{$envRegularUser}' angelegt (ID: {$userId}), {$count} Items zugewiesen.\n";
+    try {
+        $userId = createUser($db, $envRegularUser, $envRegularPass, false);
+        $db->prepare('UPDATE items SET user_id = :uid WHERE user_id IS NULL')
+           ->execute([':uid' => $userId]);
+        $count = $db->query('SELECT changes()')->fetchColumn();
+        echo "Nutzer '{$envRegularUser}' angelegt (ID: {$userId}), {$count} Items zugewiesen.\n";
+    } catch (PDOException $e) {
+        if (str_contains($e->getMessage(), 'UNIQUE constraint failed')) {
+            fwrite(STDERR, "Fehler: Benutzername '{$envRegularUser}' ist bereits vergeben.\n");
+            exit(1);
+        }
+        throw $e;
+    }
 } else {
     $orphanCount = (int) $db->query('SELECT COUNT(*) FROM items WHERE user_id IS NULL')->fetchColumn();
     if ($orphanCount > 0) {
@@ -76,12 +123,24 @@ if ($envRegularUser !== '' && $envRegularPass !== '') {
         $answer = strtolower(trim((string) fgets(STDIN)));
         if ($answer === 'j') {
             $regularUser = promptLine('Benutzername: ');
-            $regularPass = promptLine('Passwort: ');
-            $userId = createUser($db, $regularUser, $regularPass, false);
-            $db->prepare('UPDATE items SET user_id = :uid WHERE user_id IS NULL')
-               ->execute([':uid' => $userId]);
-            $count = $db->query('SELECT changes()')->fetchColumn();
-            echo "Nutzer '{$regularUser}' angelegt, {$count} Items zugewiesen.\n";
+            $regularPass = promptPassword('Passwort: ');
+            if (strlen($regularPass) < 8) {
+                fwrite(STDERR, "Passwort muss mindestens 8 Zeichen lang sein.\n");
+                exit(1);
+            }
+            try {
+                $userId = createUser($db, $regularUser, $regularPass, false);
+                $db->prepare('UPDATE items SET user_id = :uid WHERE user_id IS NULL')
+                   ->execute([':uid' => $userId]);
+                $count = $db->query('SELECT changes()')->fetchColumn();
+                echo "Nutzer '{$regularUser}' angelegt, {$count} Items zugewiesen.\n";
+            } catch (PDOException $e) {
+                if (str_contains($e->getMessage(), 'UNIQUE constraint failed')) {
+                    fwrite(STDERR, "Fehler: Benutzername '{$regularUser}' ist bereits vergeben.\n");
+                    exit(1);
+                }
+                throw $e;
+            }
         }
     }
 }
