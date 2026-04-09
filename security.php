@@ -160,6 +160,7 @@ function hasValidCsrfToken(?string $providedToken): bool
 
 function getCurrentUserId(): ?int
 {
+    // Does not start the session — callers must ensure the session is active.
     if (session_status() !== PHP_SESSION_ACTIVE) {
         return null;
     }
@@ -174,7 +175,10 @@ function requireAuth(): int
     $userId = getCurrentUserId();
 
     if ($userId === null) {
-        header('Location: /login.php');
+        http_response_code(302);
+        $scriptName = $_SERVER['SCRIPT_NAME'] ?? '';
+        $basePath = rtrim(dirname(str_replace('\\', '/', is_string($scriptName) ? $scriptName : '')), '/');
+        header('Location: ' . $basePath . '/login.php');
         exit;
     }
 
@@ -185,7 +189,7 @@ function requireAdmin(): int
 {
     $userId = requireAuth();
 
-    if (empty($_SESSION['is_admin'])) {
+    if (($_SESSION['is_admin'] ?? false) !== true) {
         http_response_code(403);
         header('Content-Type: text/plain; charset=utf-8');
         echo 'Kein Zugriff.';
