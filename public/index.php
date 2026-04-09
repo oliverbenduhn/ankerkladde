@@ -1,12 +1,14 @@
 <?php
 declare(strict_types=1);
 
+require dirname(__DIR__) . '/db.php';
 require dirname(__DIR__) . '/security.php';
 
 enforceCanonicalRequest();
-requireAuth();
+$userId = requireAuth();
 
 $csrfToken = getCsrfToken();
+$userPreferences = getUserPreferences(getDatabase(), $userId);
 $scriptName = $_SERVER['SCRIPT_NAME'] ?? '/index.php';
 if (!is_string($scriptName) || $scriptName === '') {
     $scriptName = '/index.php';
@@ -179,6 +181,7 @@ if ($appBasePath === '' || $appBasePath === '.') {
 
 </div>
 
+<script id="userPreferences" type="application/json"><?= json_encode($userPreferences, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
 <script src="app.js"></script>
 <script type="module">
 import { Editor } from 'https://esm.sh/@tiptap/core@2';

@@ -1590,9 +1590,86 @@ button, input { font: inherit; }
     gap: 12px;
 }
 
+.settings-section-secondary {
+    margin-top: 18px;
+    padding-top: 18px;
+    border-top: 1px solid var(--border);
+}
+
 .settings-copy {
     margin: 0;
     color: var(--text-secondary);
+}
+
+.settings-form {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.settings-block h2 {
+    margin: 0 0 8px;
+    font-size: 1rem;
+}
+
+.settings-options {
+    display: grid;
+    gap: 10px;
+    margin-top: 14px;
+}
+
+.settings-option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg);
+    color: var(--text-primary);
+}
+
+.settings-option input {
+    margin: 0;
+    width: 18px;
+    height: 18px;
+    accent-color: var(--text-primary);
+}
+
+.settings-actions {
+    display: flex;
+}
+
+.settings-save {
+    min-height: 44px;
+    padding: 0 16px;
+    border: none;
+    border-radius: 10px;
+    background: var(--text-primary);
+    color: var(--surface);
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.settings-save:hover {
+    opacity: 0.9;
+}
+
+.settings-flash {
+    margin-bottom: 16px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    font-size: 0.95rem;
+}
+
+.settings-flash-ok {
+    background: #e9f2e5;
+    color: #36562d;
+}
+
+.settings-flash-err {
+    background: #fdf0ec;
+    color: var(--error);
 }
 
 .settings-link {

@@ -112,6 +112,26 @@ function normalizeDueDate(?string $date): string
     return preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) ? $date : '';
 }
 
+function normalizeSectionPreferenceList(mixed $rawValue): array
+{
+    if (!is_array($rawValue)) {
+        return [];
+    }
+
+    $normalized = [];
+    foreach ($rawValue as $section) {
+        if (!is_string($section) || !in_array($section, VALID_SECTIONS, true)) {
+            continue;
+        }
+
+        if (!in_array($section, $normalized, true)) {
+            $normalized[] = $section;
+        }
+    }
+
+    return $normalized;
+}
+
 function sanitizeFtsQuery(string $q): string
 {
     $q = trim($q);
@@ -1060,6 +1080,48 @@ try {
             );
 
             respond(200, ['items' => $items]);
+
+        case 'preferences':
+            if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+                respond(200, ['preferences' => getUserPreferences($db, $userId)]);
+            }
+
+            requireMethod('POST');
+            $data = requestData();
+            requireCsrfToken($data);
+
+            $patch = [];
+
+            if (array_key_exists('mode', $data) && is_string($data['mode'])) {
+                $patch['mode'] = $data['mode'];
+            }
+
+            if (array_key_exists('section', $data) && is_string($data['section'])) {
+                $patch['section'] = $data['section'];
+            }
+
+            if (array_key_exists('tabs_hidden', $data)) {
+                $patch['tabs_hidden'] = filter_var($data['tabs_hidden'], FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? false;
+            }
+
+            if (array_key_exists('install_banner_dismissed', $data)) {
+                $patch['install_banner_dismissed'] = filter_var($data['install_banner_dismissed'], FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? false;
+            }
+
+            if (array_key_exists('tabs_order', $data)) {
+                $patch['tabs_order'] = normalizeSectionPreferenceList($data['tabs_order']);
+            } elseif (array_key_exists('tabs_order[]', $data)) {
+                $patch['tabs_order'] = normalizeSectionPreferenceList($data['tabs_order[]']);
+            }
+
+            if (array_key_exists('hidden_sections', $data)) {
+                $patch['hidden_sections'] = normalizeSectionPreferenceList($data['hidden_sections']);
+            } elseif (array_key_exists('hidden_sections[]', $data)) {
+                $patch['hidden_sections'] = normalizeSectionPreferenceList($data['hidden_sections[]']);
+            }
+
+            $preferences = updateUserPreferences($db, $userId, $patch);
+            respond(200, ['preferences' => $preferences]);
 
         default:
             respond(404, ['error' => 'Unbekannte Aktion.']);

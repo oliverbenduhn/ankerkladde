@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 const ATTACHMENT_SECTIONS = ['images', 'files'];
+const USER_PREFERENCE_SECTIONS = ['shopping', 'meds', 'todo_private', 'todo_work', 'notes', 'images', 'files', 'links'];
 
 function getDataDirectory(): string
 {
@@ -146,6 +147,115 @@ function rebuildSortOrder(PDO $db): void
         $db->rollBack();
         throw $e;
     }
+}
+
+function getDefaultUserPreferences(): array
+{
+    return [
+        'mode' => 'liste',
+        'section' => 'shopping',
+        'tabs_hidden' => false,
+        'tabs_order' => USER_PREFERENCE_SECTIONS,
+        'hidden_sections' => [],
+        'install_banner_dismissed' => false,
+    ];
+}
+
+function normalizeUserPreferenceSections(mixed $value): array
+{
+    if (!is_array($value)) {
+        return [];
+    }
+
+    $normalized = [];
+    foreach ($value as $section) {
+        if (!is_string($section) || !in_array($section, USER_PREFERENCE_SECTIONS, true)) {
+            continue;
+        }
+
+        if (!in_array($section, $normalized, true)) {
+            $normalized[] = $section;
+        }
+    }
+
+    return $normalized;
+}
+
+function normalizeUserPreferences(array $preferences): array
+{
+    $defaults = getDefaultUserPreferences();
+    $normalized = $defaults;
+
+    if (isset($preferences['mode']) && in_array($preferences['mode'], ['liste', 'einkaufen'], true)) {
+        $normalized['mode'] = $preferences['mode'];
+    }
+
+    $tabsOrder = normalizeUserPreferenceSections($preferences['tabs_order'] ?? null);
+    if ($tabsOrder !== []) {
+        $missingSections = array_values(array_diff(USER_PREFERENCE_SECTIONS, $tabsOrder));
+        $normalized['tabs_order'] = [...$tabsOrder, ...$missingSections];
+    }
+
+    $hiddenSections = normalizeUserPreferenceSections($preferences['hidden_sections'] ?? null);
+    if (count($hiddenSections) >= count(USER_PREFERENCE_SECTIONS)) {
+        $hiddenSections = array_values(array_diff(USER_PREFERENCE_SECTIONS, [$defaults['section']]));
+    }
+
+    $visibleSections = array_values(array_diff(USER_PREFERENCE_SECTIONS, $hiddenSections));
+    if ($visibleSections === []) {
+        $visibleSections = [$defaults['section']];
+        $hiddenSections = array_values(array_diff(USER_PREFERENCE_SECTIONS, $visibleSections));
+    }
+
+    $normalized['hidden_sections'] = $hiddenSections;
+
+    $preferredSection = $preferences['section'] ?? $defaults['section'];
+    if (!is_string($preferredSection) || !in_array($preferredSection, USER_PREFERENCE_SECTIONS, true) || in_array($preferredSection, $hiddenSections, true)) {
+        $preferredSection = $visibleSections[0];
+    }
+    $normalized['section'] = $preferredSection;
+
+    if (array_key_exists('tabs_hidden', $preferences)) {
+        $normalized['tabs_hidden'] = (bool) $preferences['tabs_hidden'];
+    }
+
+    if (array_key_exists('install_banner_dismissed', $preferences)) {
+        $normalized['install_banner_dismissed'] = (bool) $preferences['install_banner_dismissed'];
+    }
+
+    return $normalized;
+}
+
+function getUserPreferences(PDO $db, int $userId): array
+{
+    $stmt = $db->prepare('SELECT preferences_json FROM users WHERE id = :id LIMIT 1');
+    $stmt->execute([':id' => $userId]);
+    $row = $stmt->fetch();
+
+    if (!is_array($row)) {
+        return getDefaultUserPreferences();
+    }
+
+    $rawPreferences = $row['preferences_json'] ?? '{}';
+    $decoded = json_decode(is_string($rawPreferences) ? $rawPreferences : '{}', true);
+
+    return normalizeUserPreferences(is_array($decoded) ? $decoded : []);
+}
+
+function updateUserPreferences(PDO $db, int $userId, array $patch): array
+{
+    $preferences = normalizeUserPreferences([
+        ...getUserPreferences($db, $userId),
+        ...$patch,
+    ]);
+
+    $stmt = $db->prepare('UPDATE users SET preferences_json = :preferences_json WHERE id = :id');
+    $stmt->execute([
+        ':id' => $userId,
+        ':preferences_json' => json_encode($preferences, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+    ]);
+
+    return $preferences;
 }
 
 function getDatabase(): PDO
@@ -314,9 +424,17 @@ function getDatabase(): PDO
             username      TEXT    NOT NULL UNIQUE,
             password_hash TEXT    NOT NULL,
             is_admin      INTEGER NOT NULL DEFAULT 0 CHECK(is_admin IN (0, 1)),
+            preferences_json TEXT NOT NULL DEFAULT '{}',
             created_at    TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP
         )"
     );
+
+    $userColumns = $db->query('PRAGMA table_info(users)')->fetchAll();
+    $userColumnNames = array_map(static fn(array $column): string => $column['name'], $userColumns);
+
+    if (!in_array('preferences_json', $userColumnNames, true)) {
+        $db->exec("ALTER TABLE users ADD COLUMN preferences_json TEXT NOT NULL DEFAULT '{}'");
+    }
 
     // ── items.user_id migration ───────────────────────────────────────
     $columns     = $db->query('PRAGMA table_info(items)')->fetchAll();

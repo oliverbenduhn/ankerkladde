@@ -46,6 +46,7 @@ const noteTitleInput  = document.getElementById('noteTitleInput');
 const noteSaveStatus  = document.getElementById('noteSaveStatus');
 const noteEditorBody  = document.getElementById('noteEditorEl');
 const noteToolbar     = document.getElementById('noteToolbar');
+const userPreferencesScript = document.getElementById('userPreferences');
 
 // =========================================
 // CONSTANTS
@@ -62,6 +63,7 @@ const MODE_KEY        = 'einkauf-mode-v1';
 const TABS_HIDDEN_KEY = 'einkauf-tabs-hidden-v1';
 const ATTACHMENT_SECTIONS = new Set(['images', 'files']);
 const TABS_ORDER_KEY  = 'einkauf-tabs-order-v1';
+const HIDDEN_SECTIONS_KEY = 'einkauf-hidden-sections-v1';
 
 const SECTIONS = {
     shopping:     { label: 'Einkauf',    title: 'Einkaufsliste',     shoppingTitle: 'Einkaufen'       },
@@ -72,6 +74,24 @@ const SECTIONS = {
     images:       { label: 'Bilder',     title: 'Bilder',            shoppingTitle: 'Bilder'          },
     files:        { label: 'Dateien',    title: 'Dateien',           shoppingTitle: 'Dateien'         },
     links:        { label: 'Links',      title: 'Links',             shoppingTitle: 'Links'           },
+};
+
+const DEFAULT_PREFERENCES = {
+    mode: 'liste',
+    section: 'shopping',
+    tabs_hidden: false,
+    tabs_order: Object.keys(SECTIONS),
+    hidden_sections: [],
+    install_banner_dismissed: false,
+};
+
+const STORAGE_KEY_TO_PREFERENCE = {
+    [INSTALL_BANNER_DISMISSED_KEY]: 'install_banner_dismissed',
+    [SECTION_KEY]: 'section',
+    [MODE_KEY]: 'mode',
+    [TABS_HIDDEN_KEY]: 'tabs_hidden',
+    [TABS_ORDER_KEY]: 'tabs_order',
+    [HIDDEN_SECTIONS_KEY]: 'hidden_sections',
 };
 
 // =========================================
@@ -96,6 +116,22 @@ let dragScrollFrame = null;
 let swRefreshPending = false;
 let swRegistration = null;
 let offlineSyncInFlight = false;
+let preferencesSaveQueue = Promise.resolve();
+
+function readInitialPreferences() {
+    if (!userPreferencesScript) {
+        return { ...DEFAULT_PREFERENCES };
+    }
+
+    try {
+        const parsed = JSON.parse(userPreferencesScript.textContent || '{}');
+        return normalizePreferences(parsed);
+    } catch {
+        return { ...DEFAULT_PREFERENCES };
+    }
+}
+
+let userPreferences = readInitialPreferences();
 
 // =========================================
 // UTILITIES
@@ -380,7 +416,116 @@ function focusPrimaryInput() {
     itemInput.focus();
 }
 
+function normalizePreferenceSectionList(value) {
+    if (!Array.isArray(value)) return [];
+
+    const normalized = [];
+    value.forEach(section => {
+        if (typeof section !== 'string' || !SECTIONS[section] || normalized.includes(section)) {
+            return;
+        }
+
+        normalized.push(section);
+    });
+
+    return normalized;
+}
+
+function normalizePreferences(preferences) {
+    const normalized = {
+        ...DEFAULT_PREFERENCES,
+    };
+
+    if (preferences && (preferences.mode === 'liste' || preferences.mode === 'einkaufen')) {
+        normalized.mode = preferences.mode;
+    }
+
+    const tabsOrder = normalizePreferenceSectionList(preferences?.tabs_order);
+    normalized.tabs_order = tabsOrder.length > 0
+        ? [...tabsOrder, ...DEFAULT_PREFERENCES.tabs_order.filter(section => !tabsOrder.includes(section))]
+        : [...DEFAULT_PREFERENCES.tabs_order];
+
+    let hiddenSections = normalizePreferenceSectionList(preferences?.hidden_sections);
+    if (hiddenSections.length >= DEFAULT_PREFERENCES.tabs_order.length) {
+        hiddenSections = DEFAULT_PREFERENCES.tabs_order.filter(section => section !== DEFAULT_PREFERENCES.section);
+    }
+
+    normalized.hidden_sections = hiddenSections;
+    const visibleSections = normalized.tabs_order.filter(section => !hiddenSections.includes(section));
+    normalized.section = typeof preferences?.section === 'string' && visibleSections.includes(preferences.section)
+        ? preferences.section
+        : (visibleSections[0] || DEFAULT_PREFERENCES.section);
+
+    normalized.tabs_hidden = Boolean(preferences?.tabs_hidden);
+    normalized.install_banner_dismissed = Boolean(preferences?.install_banner_dismissed);
+
+    return normalized;
+}
+
+function readPreferenceValue(key) {
+    const field = STORAGE_KEY_TO_PREFERENCE[key];
+    return field ? userPreferences[field] : undefined;
+}
+
+function buildPreferenceRequestBody(patch) {
+    const body = new URLSearchParams();
+
+    Object.entries(patch).forEach(([field, value]) => {
+        if (Array.isArray(value)) {
+            value.forEach(entry => body.append(`${field}[]`, String(entry)));
+            return;
+        }
+
+        if (typeof value === 'boolean') {
+            body.set(field, value ? '1' : '0');
+            return;
+        }
+
+        body.set(field, String(value));
+    });
+
+    return body;
+}
+
+function applyPreferencesToUi() {
+    applyTabsVisibility(Boolean(userPreferences.tabs_hidden));
+    applyHiddenSections();
+}
+
+function queuePreferencePatch(patch) {
+    userPreferences = normalizePreferences({
+        ...userPreferences,
+        ...patch,
+    });
+
+    applyPreferencesToUi();
+
+    preferencesSaveQueue = preferencesSaveQueue
+        .catch(() => {})
+        .then(async () => {
+            const payload = await api('preferences', {
+                method: 'POST',
+                body: buildPreferenceRequestBody(patch),
+            });
+
+            if (payload?.preferences) {
+                userPreferences = normalizePreferences(payload.preferences);
+                applyPreferencesToUi();
+            }
+        })
+        .catch(error => {
+            if (!isConnectivityError(error)) {
+                setMessage(getUserFacingError(error, 'Einstellung konnte nicht gespeichert werden.'), true);
+            }
+        });
+}
+
 function readJsonStorage(key, fallbackValue) {
+    if (key in STORAGE_KEY_TO_PREFERENCE) {
+        const preferenceValue = readPreferenceValue(key);
+        return preferenceValue ?? fallbackValue;
+    }
+
     try {
         const raw = window.localStorage.getItem(key);
         if (!raw) return fallbackValue;
@@ -392,6 +537,12 @@ function readJsonStorage(key, fallbackValue) {
 }
 
 function writeJsonStorage(key, value) {
+    if (key in STORAGE_KEY_TO_PREFERENCE) {
+        const field = STORAGE_KEY_TO_PREFERENCE[key];
+        queuePreferencePatch({ [field]: value });
+        return;
+    }
+
     try {
         window.localStorage.setItem(key, JSON.stringify(value));
     } catch {
@@ -539,24 +690,11 @@ function hideUpdateBanner() {
 }
 
 function readInstallBannerDismissed() {
-    try {
-        return window.localStorage.getItem(INSTALL_BANNER_DISMISSED_KEY) === '1';
-    } catch {
-        return false;
-    }
+    return Boolean(readJsonStorage(INSTALL_BANNER_DISMISSED_KEY, false));
 }
 
 function writeInstallBannerDismissed(isDismissed) {
-    try {
-        if (isDismissed) {
-            window.localStorage.setItem(INSTALL_BANNER_DISMISSED_KEY, '1');
-            return;
-        }
-
-        window.localStorage.removeItem(INSTALL_BANNER_DISMISSED_KEY);
-    } catch {
-        // Ignore storage errors in private browsing or restricted contexts.
-    }
+    writeJsonStorage(INSTALL_BANNER_DISMISSED_KEY, Boolean(isDismissed));
 }
 
 function sortByPosition(items) {
@@ -2513,7 +2651,7 @@ function saveTabOrder() {
 }
 
 function applyTabOrder() {
-    const saved = readJsonStorage(TABS_ORDER_KEY, null);
+    const saved = normalizePreferenceSectionList(readJsonStorage(TABS_ORDER_KEY, null));
     if (!Array.isArray(saved) || !saved.every(s => SECTIONS[s])) return;
 
     const tabMap = new Map(
@@ -2526,6 +2664,15 @@ function applyTabOrder() {
     [...saved, ...extras.map(t => t.dataset.section)].forEach(section => {
         const tab = tabMap.get(section);
         if (tab) sectionTabsEl.appendChild(tab);
+    });
+}
+
+function applyHiddenSections() {
+    const hiddenSections = normalizePreferenceSectionList(readJsonStorage(HIDDEN_SECTIONS_KEY, []));
+
+    Array.from(sectionTabsEl.querySelectorAll('.section-tab')).forEach(tab => {
+        const isHidden = hiddenSections.includes(tab.dataset.section);
+        tab.hidden = isHidden;
     });
 }
 
@@ -2623,8 +2770,7 @@ function applyTabsVisibility(hidden) {
 }
 
 function initTabsToggle() {
-    const hidden = readJsonStorage(TABS_HIDDEN_KEY, false);
-    applyTabsVisibility(hidden);
+    applyTabsVisibility(Boolean(readJsonStorage(TABS_HIDDEN_KEY, false)));
 }
 
 document.querySelectorAll('.btn-tabs-toggle').forEach(btn => {
@@ -2644,6 +2790,7 @@ renderInstallBanner();
 registerServiceWorker();
 initTabsToggle();
 initTabDrag();
+applyHiddenSections();
 
 // Restore last active mode
 (function initMode() {
