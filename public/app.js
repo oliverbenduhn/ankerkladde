@@ -468,6 +468,7 @@ function initCategoryTabReorder() {
         const startX = event.clientX;
         const startY = event.clientY;
         let dragActive = false;
+        let isScrolling = false;
 
         const longPressTimer = window.setTimeout(() => {
             dragActive = true;
@@ -488,8 +489,20 @@ function initCategoryTabReorder() {
 
         function onMove(moveEvent) {
             if (!dragActive) {
-                if (Math.abs(moveEvent.clientX - startX) > 8 || Math.abs(moveEvent.clientY - startY) > 8) {
-                    cleanup();
+                if (isScrolling) {
+                    sectionTabsEl.scrollLeft -= moveEvent.movementX;
+                    return;
+                }
+                const dx = Math.abs(moveEvent.clientX - startX);
+                const dy = Math.abs(moveEvent.clientY - startY);
+                if (dx > 5 || dy > 5) {
+                    window.clearTimeout(longPressTimer);
+                    if (dx > dy) {
+                        isScrolling = true;
+                        sectionTabsEl.scrollLeft -= moveEvent.movementX;
+                    } else {
+                        cleanup();
+                    }
                 }
                 return;
             }
