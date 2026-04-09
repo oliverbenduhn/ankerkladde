@@ -1052,6 +1052,8 @@ function buildReadOnlyContent(item, content) {
     }
 
     if (state.section === 'links') {
+        content.classList.add('item-content-link');
+
         const link = document.createElement('a');
         link.className  = 'item-name item-link';
         link.textContent = item.name;

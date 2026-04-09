@@ -416,6 +416,10 @@ button, input { font: inherit; }
     flex-wrap: nowrap;
 }
 
+.item-content-link {
+    align-items: flex-start;
+}
+
 .attachment-preview-link {
     display: block;
     flex-shrink: 0;
@@ -623,6 +627,12 @@ button, input { font: inherit; }
 }
 
 .item-link {
+    display: block;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    overflow-wrap: anywhere;
+    line-height: 1.45;
     color: var(--text-primary);
     text-decoration: underline;
     text-underline-offset: 3px;
