@@ -157,3 +157,40 @@ function hasValidCsrfToken(?string $providedToken): bool
         && is_string($providedToken)
         && hash_equals($sessionToken, $providedToken);
 }
+
+function getCurrentUserId(): ?int
+{
+    if (session_status() !== PHP_SESSION_ACTIVE) {
+        return null;
+    }
+
+    $id = $_SESSION['user_id'] ?? null;
+    return is_int($id) ? $id : null;
+}
+
+function requireAuth(): int
+{
+    startAppSession();
+    $userId = getCurrentUserId();
+
+    if ($userId === null) {
+        header('Location: /login.php');
+        exit;
+    }
+
+    return $userId;
+}
+
+function requireAdmin(): int
+{
+    $userId = requireAuth();
+
+    if (empty($_SESSION['is_admin'])) {
+        http_response_code(403);
+        header('Content-Type: text/plain; charset=utf-8');
+        echo 'Kein Zugriff.';
+        exit;
+    }
+
+    return $userId;
+}
