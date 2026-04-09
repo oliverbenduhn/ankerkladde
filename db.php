@@ -1,8 +1,23 @@
 <?php
 declare(strict_types=1);
 
-const ATTACHMENT_SECTIONS = ['images', 'files'];
-const USER_PREFERENCE_SECTIONS = ['shopping', 'meds', 'todo_private', 'todo_work', 'notes', 'images', 'files', 'links'];
+const CATEGORY_TYPES = ['list_quantity', 'list_due_date', 'notes', 'images', 'files', 'links'];
+const ATTACHMENT_CATEGORY_TYPES = ['images', 'files'];
+const CATEGORY_ICON_OPTIONS = [
+    '🛒', '💊', '✅', '💼', '📝', '🖼️', '📁', '🔗',
+    '⭐', '📌', '🏠', '🚗', '🍎', '🥦', '🧴', '🎁',
+    '📚', '💡', '🔧', '📦', '🐶', '👶', '❤️', '☀️',
+];
+const LEGACY_CATEGORY_DEFINITIONS = [
+    'shopping' => ['name' => 'Einkauf', 'type' => 'list_quantity', 'sort_order' => 1, 'icon' => '🛒'],
+    'meds' => ['name' => 'Medizin', 'type' => 'list_quantity', 'sort_order' => 2, 'icon' => '💊'],
+    'todo_private' => ['name' => 'Privat', 'type' => 'list_due_date', 'sort_order' => 3, 'icon' => '✅'],
+    'todo_work' => ['name' => 'Arbeit', 'type' => 'list_due_date', 'sort_order' => 4, 'icon' => '💼'],
+    'notes' => ['name' => 'Notizen', 'type' => 'notes', 'sort_order' => 5, 'icon' => '📝'],
+    'images' => ['name' => 'Bilder', 'type' => 'images', 'sort_order' => 6, 'icon' => '🖼️'],
+    'files' => ['name' => 'Dateien', 'type' => 'files', 'sort_order' => 7, 'icon' => '📁'],
+    'links' => ['name' => 'Links', 'type' => 'links', 'sort_order' => 8, 'icon' => '🔗'],
+];
 
 function getDataDirectory(): string
 {
@@ -31,14 +46,14 @@ function getUploadsDirectory(): string
     return getDataDirectory() . '/uploads';
 }
 
-function isAttachmentSection(string $section): bool
+function isAttachmentCategoryType(string $type): bool
 {
-    return in_array($section, ATTACHMENT_SECTIONS, true);
+    return in_array($type, ATTACHMENT_CATEGORY_TYPES, true);
 }
 
 function getAttachmentStorageDirectory(string $section): string
 {
-    if (!isAttachmentSection($section)) {
+    if (!isAttachmentCategoryType($section)) {
         throw new InvalidArgumentException('Ungültige Attachment-Sektion.');
     }
 
@@ -50,7 +65,7 @@ function ensureUploadDirectories(): void
     ensureDirectoryExists(getDataDirectory());
     ensureDirectoryExists(getUploadsDirectory());
 
-    foreach (ATTACHMENT_SECTIONS as $section) {
+    foreach (ATTACHMENT_CATEGORY_TYPES as $section) {
         ensureDirectoryExists(getAttachmentStorageDirectory($section));
     }
 }
@@ -71,7 +86,7 @@ function getAttachmentStorageRelativePath(array $attachment): string
     $section = (string) ($attachment['storage_section'] ?? '');
     $storedName = normalizeAttachmentStoredName((string) ($attachment['stored_name'] ?? ''));
 
-    if (!isAttachmentSection($section)) {
+    if (!isAttachmentCategoryType($section)) {
         throw new RuntimeException('Ungültige Attachment-Sektion.');
     }
 
@@ -108,6 +123,58 @@ function deleteAttachmentStorageFile(array $attachment): void
     }
 }
 
+function legacyCategoryDefinition(string $legacyKey): ?array
+{
+    return LEGACY_CATEGORY_DEFINITIONS[$legacyKey] ?? null;
+}
+
+function categoryTypeLabel(string $type): string
+{
+    return match ($type) {
+        'list_quantity' => 'Liste mit Menge',
+        'list_due_date' => 'Liste mit Datum',
+        'notes' => 'Notizen',
+        'images' => 'Bilder',
+        'files' => 'Dateien',
+        'links' => 'Links',
+        default => $type,
+    };
+}
+
+function defaultCategoryIcon(string $type): string
+{
+    return match ($type) {
+        'list_quantity' => '🛒',
+        'list_due_date' => '✅',
+        'notes' => '📝',
+        'images' => '🖼️',
+        'files' => '📁',
+        'links' => '🔗',
+        default => '•',
+    };
+}
+
+function normalizeCategoryIcon(?string $value, ?string $fallbackType = null): string
+{
+    $value = trim((string) $value);
+    $value = preg_replace('/\s+/u', ' ', $value) ?? '';
+
+    if ($value === '') {
+        return $fallbackType !== null ? defaultCategoryIcon($fallbackType) : '•';
+    }
+
+    if (function_exists('mb_substr')) {
+        return mb_substr($value, 0, 8);
+    }
+
+    return substr($value, 0, 8);
+}
+
+function getCategoryIconOptions(): array
+{
+    return CATEGORY_ICON_OPTIONS;
+}
+
 function rebuildSortOrder(PDO $db): void
 {
     $db->beginTransaction();
@@ -115,25 +182,51 @@ function rebuildSortOrder(PDO $db): void
     try {
         $pragmaRows = $db->query('PRAGMA table_info(items)')->fetchAll();
         $columnNames = array_column($pragmaRows, 'name');
+        $hasCategoryId = in_array('category_id', $columnNames, true);
         $hasSection = in_array('section', $columnNames, true);
 
         $stmt = $db->prepare('UPDATE items SET sort_order = :sort_order WHERE id = :id');
 
-        if ($hasSection) {
-            // Per-section rebuild so sort_orders are relative within each section (1, 2, 3...)
-            $sections = $db->query('SELECT DISTINCT section FROM items')->fetchAll(PDO::FETCH_COLUMN);
-            foreach ($sections as $section) {
+        if ($hasCategoryId) {
+            $categoryIds = $db->query('SELECT DISTINCT category_id FROM items WHERE category_id IS NOT NULL')->fetchAll(PDO::FETCH_COLUMN);
+
+            foreach ($categoryIds as $categoryId) {
                 $idsStmt = $db->prepare(
-                    'SELECT id FROM items WHERE section = :section ORDER BY done ASC, updated_at DESC, id DESC'
+                    'SELECT id FROM items WHERE category_id = :category_id ORDER BY done ASC, updated_at DESC, id DESC'
                 );
-                $idsStmt->execute([':section' => $section]);
+                $idsStmt->execute([':category_id' => $categoryId]);
                 $ids = $idsStmt->fetchAll(PDO::FETCH_COLUMN);
+
                 foreach ($ids as $index => $id) {
                     $stmt->execute([':sort_order' => $index + 1, ':id' => (int) $id]);
                 }
             }
-        } else {
-            // Original behavior: section column not yet present
+        }
+
+        if ($hasSection) {
+            $sectionSql = $hasCategoryId
+                ? 'SELECT DISTINCT section FROM items WHERE category_id IS NULL'
+                : 'SELECT DISTINCT section FROM items';
+            $sections = $db->query($sectionSql)->fetchAll(PDO::FETCH_COLUMN);
+            foreach ($sections as $section) {
+                if ($hasCategoryId) {
+                    $idsStmt = $db->prepare(
+                        'SELECT id FROM items WHERE section = :section AND category_id IS NULL ORDER BY done ASC, updated_at DESC, id DESC'
+                    );
+                    $idsStmt->execute([':section' => $section]);
+                } else {
+                    $idsStmt = $db->prepare(
+                        'SELECT id FROM items WHERE section = :section ORDER BY done ASC, updated_at DESC, id DESC'
+                    );
+                    $idsStmt->execute([':section' => $section]);
+                }
+                $ids = $idsStmt->fetchAll(PDO::FETCH_COLUMN);
+
+                foreach ($ids as $index => $id) {
+                    $stmt->execute([':sort_order' => $index + 1, ':id' => (int) $id]);
+                }
+            }
+        } elseif (!$hasCategoryId) {
             $ids = $db->query(
                 'SELECT id FROM items ORDER BY done ASC, updated_at DESC, id DESC'
             )->fetchAll(PDO::FETCH_COLUMN);
@@ -153,32 +246,11 @@ function getDefaultUserPreferences(): array
 {
     return [
         'mode' => 'liste',
-        'section' => 'shopping',
         'tabs_hidden' => false,
-        'tabs_order' => USER_PREFERENCE_SECTIONS,
-        'hidden_sections' => [],
+        'category_swipe_enabled' => true,
+        'last_category_id' => null,
         'install_banner_dismissed' => false,
     ];
-}
-
-function normalizeUserPreferenceSections(mixed $value): array
-{
-    if (!is_array($value)) {
-        return [];
-    }
-
-    $normalized = [];
-    foreach ($value as $section) {
-        if (!is_string($section) || !in_array($section, USER_PREFERENCE_SECTIONS, true)) {
-            continue;
-        }
-
-        if (!in_array($section, $normalized, true)) {
-            $normalized[] = $section;
-        }
-    }
-
-    return $normalized;
 }
 
 function normalizeUserPreferences(array $preferences): array
@@ -190,38 +262,22 @@ function normalizeUserPreferences(array $preferences): array
         $normalized['mode'] = $preferences['mode'];
     }
 
-    $tabsOrder = normalizeUserPreferenceSections($preferences['tabs_order'] ?? null);
-    if ($tabsOrder !== []) {
-        $missingSections = array_values(array_diff(USER_PREFERENCE_SECTIONS, $tabsOrder));
-        $normalized['tabs_order'] = [...$tabsOrder, ...$missingSections];
-    }
-
-    $hiddenSections = normalizeUserPreferenceSections($preferences['hidden_sections'] ?? null);
-    if (count($hiddenSections) >= count(USER_PREFERENCE_SECTIONS)) {
-        $hiddenSections = array_values(array_diff(USER_PREFERENCE_SECTIONS, [$defaults['section']]));
-    }
-
-    $visibleSections = array_values(array_diff(USER_PREFERENCE_SECTIONS, $hiddenSections));
-    if ($visibleSections === []) {
-        $visibleSections = [$defaults['section']];
-        $hiddenSections = array_values(array_diff(USER_PREFERENCE_SECTIONS, $visibleSections));
-    }
-
-    $normalized['hidden_sections'] = $hiddenSections;
-
-    $preferredSection = $preferences['section'] ?? $defaults['section'];
-    if (!is_string($preferredSection) || !in_array($preferredSection, USER_PREFERENCE_SECTIONS, true) || in_array($preferredSection, $hiddenSections, true)) {
-        $preferredSection = $visibleSections[0];
-    }
-    $normalized['section'] = $preferredSection;
-
     if (array_key_exists('tabs_hidden', $preferences)) {
         $normalized['tabs_hidden'] = (bool) $preferences['tabs_hidden'];
+    }
+
+    if (array_key_exists('category_swipe_enabled', $preferences)) {
+        $normalized['category_swipe_enabled'] = (bool) $preferences['category_swipe_enabled'];
     }
 
     if (array_key_exists('install_banner_dismissed', $preferences)) {
         $normalized['install_banner_dismissed'] = (bool) $preferences['install_banner_dismissed'];
     }
+
+    $lastCategoryId = filter_var($preferences['last_category_id'] ?? null, FILTER_VALIDATE_INT, [
+        'options' => ['min_range' => 1],
+    ]);
+    $normalized['last_category_id'] = is_int($lastCategoryId) ? $lastCategoryId : null;
 
     return $normalized;
 }
@@ -258,6 +314,366 @@ function updateUserPreferences(PDO $db, int $userId, array $patch): array
     return $preferences;
 }
 
+function loadUserCategories(PDO $db, int $userId, bool $includeHidden = true): array
+{
+    $sql = 'SELECT id, user_id, name, type, icon, legacy_key, sort_order, is_hidden, created_at, updated_at
+            FROM categories
+            WHERE user_id = :user_id';
+
+    if (!$includeHidden) {
+        $sql .= ' AND is_hidden = 0';
+    }
+
+    $sql .= ' ORDER BY sort_order ASC, id ASC';
+
+    $stmt = $db->prepare($sql);
+    $stmt->execute([':user_id' => $userId]);
+    $rows = $stmt->fetchAll();
+
+    return array_map(static function (array $row): array {
+        $row['id'] = (int) $row['id'];
+        $row['user_id'] = (int) $row['user_id'];
+        $row['sort_order'] = (int) $row['sort_order'];
+        $row['is_hidden'] = (int) $row['is_hidden'];
+        return $row;
+    }, $rows);
+}
+
+function loadUserCategory(PDO $db, int $userId, int $categoryId): ?array
+{
+    $stmt = $db->prepare(
+        'SELECT id, user_id, name, type, icon, legacy_key, sort_order, is_hidden, created_at, updated_at
+         FROM categories
+         WHERE id = :id AND user_id = :user_id
+         LIMIT 1'
+    );
+    $stmt->execute([':id' => $categoryId, ':user_id' => $userId]);
+    $row = $stmt->fetch();
+
+    if (!is_array($row)) {
+        return null;
+    }
+
+    $row['id'] = (int) $row['id'];
+    $row['user_id'] = (int) $row['user_id'];
+    $row['sort_order'] = (int) $row['sort_order'];
+    $row['is_hidden'] = (int) $row['is_hidden'];
+    return $row;
+}
+
+function nextItemSortOrder(PDO $db, int $userId, int $categoryId): int
+{
+    $maxStmt = $db->prepare(
+        'SELECT COALESCE(MAX(sort_order), 0) FROM items WHERE category_id = :category_id AND user_id = :user_id'
+    );
+    $maxStmt->execute([':category_id' => $categoryId, ':user_id' => $userId]);
+    return (int) $maxStmt->fetchColumn() + 1;
+}
+
+function nextCategorySortOrder(PDO $db, int $userId): int
+{
+    $stmt = $db->prepare('SELECT COALESCE(MAX(sort_order), 0) FROM categories WHERE user_id = :user_id');
+    $stmt->execute([':user_id' => $userId]);
+    return (int) $stmt->fetchColumn() + 1;
+}
+
+function loadItemCategory(PDO $db, int $userId, int $itemId): ?array
+{
+    $stmt = $db->prepare(
+        'SELECT c.id, c.user_id, c.name, c.type, c.icon, c.legacy_key, c.sort_order, c.is_hidden, c.created_at, c.updated_at
+         FROM items i
+         INNER JOIN categories c ON c.id = i.category_id
+         WHERE i.id = :item_id AND i.user_id = :user_id
+         LIMIT 1'
+    );
+    $stmt->execute([':item_id' => $itemId, ':user_id' => $userId]);
+    $row = $stmt->fetch();
+
+    if (!is_array($row)) {
+        return null;
+    }
+
+    $row['id'] = (int) $row['id'];
+    $row['user_id'] = (int) $row['user_id'];
+    $row['sort_order'] = (int) $row['sort_order'];
+    $row['is_hidden'] = (int) $row['is_hidden'];
+    return $row;
+}
+
+function findLegacyCategoryId(PDO $db, int $userId, string $legacyKey): ?int
+{
+    $definition = legacyCategoryDefinition($legacyKey);
+    if ($definition === null) {
+        return null;
+    }
+
+    $stmt = $db->prepare(
+        'SELECT c.id,
+                c.name = :name AS exact_name_match,
+                c.icon = :icon AS exact_icon_match,
+                c.sort_order = :sort_order AS sort_order_match,
+                COUNT(i.id) AS item_count
+         FROM categories c
+         LEFT JOIN items i ON i.category_id = c.id
+         WHERE c.user_id = :user_id
+           AND c.type = :type
+           AND (
+                c.legacy_key = :legacy_key
+                OR c.name = :name
+                OR ((c.legacy_key IS NULL OR c.legacy_key = \'\') AND c.sort_order = :sort_order)
+                OR ((c.legacy_key IS NULL OR c.legacy_key = \'\') AND c.icon = :icon AND c.name = :name)
+           )
+         GROUP BY c.id, c.name, c.sort_order, c.legacy_key
+         ORDER BY
+            item_count DESC,
+            CASE WHEN c.legacy_key = :legacy_key THEN 0 ELSE 1 END,
+            exact_name_match DESC,
+            exact_icon_match DESC,
+            sort_order_match DESC,
+            c.sort_order ASC,
+            c.id ASC
+         LIMIT 1'
+    );
+    $stmt->execute([
+        ':user_id' => $userId,
+        ':legacy_key' => $legacyKey,
+        ':name' => $definition['name'],
+        ':icon' => $definition['icon'],
+        ':type' => $definition['type'],
+        ':sort_order' => $definition['sort_order'],
+    ]);
+    $categoryId = $stmt->fetchColumn();
+
+    return $categoryId === false ? null : (int) $categoryId;
+}
+
+function backfillLegacyCategoryKeys(PDO $db): void
+{
+    $users = $db->query('SELECT id FROM users')->fetchAll(PDO::FETCH_COLUMN);
+    $updateStmt = $db->prepare(
+        'UPDATE categories
+         SET legacy_key = :legacy_key, icon = :icon, updated_at = CURRENT_TIMESTAMP
+         WHERE id = :id'
+    );
+
+    foreach ($users as $userId) {
+        foreach (LEGACY_CATEGORY_DEFINITIONS as $legacyKey => $definition) {
+            $categoryId = findLegacyCategoryId($db, (int) $userId, $legacyKey);
+            if ($categoryId === null) {
+                continue;
+            }
+
+            $updateStmt->execute([
+                ':id' => $categoryId,
+                ':legacy_key' => $legacyKey,
+                ':icon' => $definition['icon'],
+            ]);
+        }
+    }
+}
+
+function ensureDefaultCategories(PDO $db): void
+{
+    $users = $db->query('SELECT id FROM users')->fetchAll(PDO::FETCH_COLUMN);
+    $insertStmt = $db->prepare(
+        'INSERT INTO categories (user_id, name, type, icon, legacy_key, sort_order, is_hidden)
+         VALUES (:user_id, :name, :type, :icon, :legacy_key, :sort_order, :is_hidden)'
+    );
+
+    foreach ($users as $userId) {
+        foreach (LEGACY_CATEGORY_DEFINITIONS as $legacyKey => $definition) {
+            if (findLegacyCategoryId($db, (int) $userId, $legacyKey) !== null) {
+                continue;
+            }
+
+            $insertStmt->execute([
+                ':user_id' => (int) $userId,
+                ':name' => $definition['name'],
+                ':type' => $definition['type'],
+                ':icon' => $definition['icon'],
+                ':legacy_key' => $legacyKey,
+                ':sort_order' => $definition['sort_order'],
+                ':is_hidden' => 0,
+            ]);
+        }
+    }
+}
+
+function migrateLegacyCategories(PDO $db): void
+{
+    $updateStmt = $db->prepare(
+        'UPDATE items
+         SET category_id = :category_id
+         WHERE user_id = :user_id AND section = :section AND category_id IS NULL'
+    );
+
+    $users = $db->query('SELECT id FROM users')->fetchAll(PDO::FETCH_COLUMN);
+
+    foreach ($users as $userId) {
+        foreach (LEGACY_CATEGORY_DEFINITIONS as $legacyKey => $definition) {
+            $categoryId = findLegacyCategoryId($db, (int) $userId, $legacyKey);
+            if ($categoryId === null) {
+                continue;
+            }
+
+            $updateStmt->execute([
+                ':category_id' => (int) $categoryId,
+                ':user_id' => (int) $userId,
+                ':section' => $legacyKey,
+            ]);
+        }
+    }
+}
+
+function migrateLegacyPreferencesToCategories(PDO $db): void
+{
+    $users = $db->query('SELECT id, preferences_json FROM users')->fetchAll();
+    $updateCategoryStmt = $db->prepare(
+        'UPDATE categories
+         SET sort_order = :sort_order, is_hidden = :is_hidden, icon = :icon, legacy_key = :legacy_key, updated_at = CURRENT_TIMESTAMP
+         WHERE id = :id'
+    );
+    $updateUserStmt = $db->prepare('UPDATE users SET preferences_json = :preferences_json WHERE id = :id');
+
+    foreach ($users as $user) {
+        $userId = (int) $user['id'];
+        $decoded = json_decode((string) ($user['preferences_json'] ?? '{}'), true);
+        if (!is_array($decoded)) {
+            $decoded = [];
+        }
+
+        $tabsOrder = [];
+        if (is_array($decoded['tabs_order'] ?? null)) {
+            foreach ($decoded['tabs_order'] as $legacyKey) {
+                if (is_string($legacyKey) && isset(LEGACY_CATEGORY_DEFINITIONS[$legacyKey]) && !in_array($legacyKey, $tabsOrder, true)) {
+                    $tabsOrder[] = $legacyKey;
+                }
+            }
+        }
+
+        foreach (array_keys(LEGACY_CATEGORY_DEFINITIONS) as $legacyKey) {
+            if (!in_array($legacyKey, $tabsOrder, true)) {
+                $tabsOrder[] = $legacyKey;
+            }
+        }
+
+        $hiddenSections = [];
+        if (is_array($decoded['hidden_sections'] ?? null)) {
+            foreach ($decoded['hidden_sections'] as $legacyKey) {
+                if (is_string($legacyKey) && isset(LEGACY_CATEGORY_DEFINITIONS[$legacyKey]) && !in_array($legacyKey, $hiddenSections, true)) {
+                    $hiddenSections[] = $legacyKey;
+                }
+            }
+        }
+
+        foreach ($tabsOrder as $index => $legacyKey) {
+            $definition = LEGACY_CATEGORY_DEFINITIONS[$legacyKey];
+            $categoryId = findLegacyCategoryId($db, $userId, $legacyKey);
+            if ($categoryId === null) {
+                continue;
+            }
+
+            $updateCategoryStmt->execute([
+                ':id' => $categoryId,
+                ':sort_order' => $index + 1,
+                ':is_hidden' => in_array($legacyKey, $hiddenSections, true) ? 1 : 0,
+                ':icon' => $definition['icon'],
+                ':legacy_key' => $legacyKey,
+            ]);
+        }
+
+        $lastCategoryId = null;
+        $preferredSection = $decoded['section'] ?? null;
+        if (is_string($preferredSection) && isset(LEGACY_CATEGORY_DEFINITIONS[$preferredSection])) {
+            $lastCategoryId = findLegacyCategoryId($db, $userId, $preferredSection);
+        }
+
+        $normalizedPreferences = normalizeUserPreferences([
+            'mode' => $decoded['mode'] ?? null,
+            'tabs_hidden' => $decoded['tabs_hidden'] ?? false,
+            'install_banner_dismissed' => $decoded['install_banner_dismissed'] ?? false,
+            'last_category_id' => $decoded['last_category_id'] ?? $lastCategoryId,
+        ]);
+
+        $updateUserStmt->execute([
+            ':id' => $userId,
+            ':preferences_json' => json_encode($normalizedPreferences, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+        ]);
+    }
+}
+
+function cleanupDuplicateLegacyCategories(PDO $db): void
+{
+    $users = $db->query('SELECT id FROM users')->fetchAll(PDO::FETCH_COLUMN);
+    $deleteStmt = $db->prepare('DELETE FROM categories WHERE id = :id');
+
+    foreach ($users as $userId) {
+        foreach (LEGACY_CATEGORY_DEFINITIONS as $legacyKey => $definition) {
+            $stmt = $db->prepare(
+                'SELECT c.id, c.name, c.icon, c.legacy_key, c.sort_order, COUNT(i.id) AS item_count
+                 FROM categories c
+                 LEFT JOIN items i ON i.category_id = c.id
+                 WHERE c.user_id = :user_id
+                   AND c.type = :type
+                   AND (
+                        c.legacy_key = :legacy_key
+                        OR c.name = :name
+                        OR ((c.legacy_key IS NULL OR c.legacy_key = \'\') AND c.sort_order = :sort_order)
+                        OR ((c.legacy_key IS NULL OR c.legacy_key = \'\') AND c.icon = :icon AND c.name = :name)
+                   )
+                 GROUP BY c.id, c.name, c.icon, c.legacy_key, c.sort_order
+                 ORDER BY item_count DESC, CASE WHEN c.legacy_key = :legacy_key THEN 0 ELSE 1 END, c.sort_order ASC, c.id ASC'
+            );
+            $stmt->execute([
+                ':user_id' => (int) $userId,
+                ':type' => $definition['type'],
+                ':legacy_key' => $legacyKey,
+                ':name' => $definition['name'],
+                ':sort_order' => $definition['sort_order'],
+                ':icon' => $definition['icon'],
+            ]);
+            $rows = $stmt->fetchAll();
+
+            $keeperId = null;
+            foreach ($rows as $row) {
+                if ((string) ($row['legacy_key'] ?? '') === $legacyKey) {
+                    $keeperId = (int) $row['id'];
+                    break;
+                }
+            }
+
+            if ($keeperId === null) {
+                continue;
+            }
+
+            foreach ($rows as $row) {
+                $id = (int) $row['id'];
+                if ($id === $keeperId) {
+                    continue;
+                }
+
+                $legacyKeyValue = (string) ($row['legacy_key'] ?? '');
+                $nameValue = (string) ($row['name'] ?? '');
+                $iconValue = (string) ($row['icon'] ?? '');
+                $looksLikeDefaultDuplicate =
+                    $legacyKeyValue === $legacyKey
+                    || (
+                        $legacyKeyValue === ''
+                        && (
+                            $nameValue === $definition['name']
+                            || (int) ($row['sort_order'] ?? 0) === (int) $definition['sort_order']
+                            || ($nameValue === $definition['name'] && $iconValue === $definition['icon'])
+                        )
+                    );
+
+                if ((int) ($row['item_count'] ?? 0) === 0 && $looksLikeDefaultDuplicate) {
+                    $deleteStmt->execute([':id' => $id]);
+                }
+            }
+        }
+    }
+}
+
 function getDatabase(): PDO
 {
     static $db = null;
@@ -276,6 +692,7 @@ function getDatabase(): PDO
     $db->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
     $db->exec('PRAGMA journal_mode = WAL');
     $db->exec('PRAGMA foreign_keys = ON');
+
     $db->exec(
         "CREATE TABLE IF NOT EXISTS items (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -294,11 +711,9 @@ function getDatabase(): PDO
         $db->exec("ALTER TABLE items ADD COLUMN quantity TEXT NOT NULL DEFAULT ''");
     }
 
-    // Migrate section column BEFORE sort_order validation (order matters)
     if (!in_array('section', $columnNames, true)) {
         $db->exec("ALTER TABLE items ADD COLUMN section TEXT NOT NULL DEFAULT 'shopping'");
-        // Refresh column list after migration
-        $columns    = $db->query('PRAGMA table_info(items)')->fetchAll();
+        $columns = $db->query('PRAGMA table_info(items)')->fetchAll();
         $columnNames = array_map(static fn(array $column): string => $column['name'], $columns);
     }
 
@@ -306,7 +721,6 @@ function getDatabase(): PDO
         $db->exec("ALTER TABLE items ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0");
         rebuildSortOrder($db);
     } else {
-        // Per-section sort_order validity check
         $sections = $db->query('SELECT DISTINCT section FROM items')->fetchAll(PDO::FETCH_COLUMN);
         $needsRebuild = false;
 
@@ -321,9 +735,9 @@ function getDatabase(): PDO
             $s->execute([':section' => $sec]);
             $stats = $s->fetch();
 
-            $total        = (int) ($stats['total'] ?? 0);
+            $total = (int) ($stats['total'] ?? 0);
             $distinctCount = (int) ($stats['distinct_count'] ?? 0);
-            $minSortOrder  = (int) ($stats['min_sort_order'] ?? 0);
+            $minSortOrder = (int) ($stats['min_sort_order'] ?? 0);
 
             if ($total > 0 && ($distinctCount !== $total || $minSortOrder < 1)) {
                 $needsRebuild = true;
@@ -336,21 +750,18 @@ function getDatabase(): PDO
         }
     }
 
-    // Re-fetch column list to avoid stale cache after previous migrations
-    $columns     = $db->query('PRAGMA table_info(items)')->fetchAll();
+    $columns = $db->query('PRAGMA table_info(items)')->fetchAll();
     $columnNames = array_map(static fn(array $column): string => $column['name'], $columns);
 
     if (!in_array('content', $columnNames, true)) {
         $db->exec("ALTER TABLE items ADD COLUMN content TEXT NOT NULL DEFAULT ''");
     }
 
-    // Re-fetch so we see all columns added so far
-    $columns     = $db->query('PRAGMA table_info(items)')->fetchAll();
+    $columns = $db->query('PRAGMA table_info(items)')->fetchAll();
     $columnNames = array_map(static fn(array $column): string => $column['name'], $columns);
 
     if (!in_array('due_date', $columnNames, true)) {
         $db->exec("ALTER TABLE items ADD COLUMN due_date TEXT NOT NULL DEFAULT ''");
-        // Migrate ISO dates that were stored in quantity for todo sections
         $db->exec(
             "UPDATE items
              SET due_date = quantity, quantity = ''
@@ -364,7 +775,6 @@ function getDatabase(): PDO
         $db->exec("ALTER TABLE items ADD COLUMN is_pinned INTEGER NOT NULL DEFAULT 0 CHECK(is_pinned IN (0, 1))");
     }
 
-    // FTS5 full-text search index
     $hasFts = (bool) $db->query(
         "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = 'items_fts'"
     )->fetchColumn();
@@ -378,7 +788,6 @@ function getDatabase(): PDO
                 content_rowid = 'id'
             )"
         );
-        // Populate from existing data
         $db->exec("INSERT INTO items_fts(items_fts) VALUES('rebuild')");
 
         $db->exec(
@@ -417,15 +826,14 @@ function getDatabase(): PDO
     );
     $db->exec('CREATE INDEX IF NOT EXISTS idx_attachments_item_id ON attachments(item_id)');
 
-    // ── Users table ──────────────────────────────────────────────────
     $db->exec(
         "CREATE TABLE IF NOT EXISTS users (
-            id            INTEGER PRIMARY KEY AUTOINCREMENT,
-            username      TEXT    NOT NULL UNIQUE,
-            password_hash TEXT    NOT NULL,
-            is_admin      INTEGER NOT NULL DEFAULT 0 CHECK(is_admin IN (0, 1)),
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL UNIQUE,
+            password_hash TEXT NOT NULL,
+            is_admin INTEGER NOT NULL DEFAULT 0 CHECK(is_admin IN (0, 1)),
             preferences_json TEXT NOT NULL DEFAULT '{}',
-            created_at    TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         )"
     );
 
@@ -436,12 +844,15 @@ function getDatabase(): PDO
         $db->exec("ALTER TABLE users ADD COLUMN preferences_json TEXT NOT NULL DEFAULT '{}'");
     }
 
-    // ── items.user_id migration ───────────────────────────────────────
-    $columns     = $db->query('PRAGMA table_info(items)')->fetchAll();
+    $columns = $db->query('PRAGMA table_info(items)')->fetchAll();
     $columnNames = array_map(static fn(array $column): string => $column['name'], $columns);
 
     if (!in_array('user_id', $columnNames, true)) {
         $db->exec('ALTER TABLE items ADD COLUMN user_id INTEGER REFERENCES users(id)');
+    }
+
+    if (!in_array('category_id', $columnNames, true)) {
+        $db->exec('ALTER TABLE items ADD COLUMN category_id INTEGER REFERENCES categories(id)');
     }
 
     $attachmentColumns = $db->query('PRAGMA table_info(attachments)')->fetchAll();
@@ -465,6 +876,56 @@ function getDatabase(): PDO
 
     if (!in_array('updated_at', $attachmentColumnNames, true)) {
         $db->exec("ALTER TABLE attachments ADD COLUMN updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP");
+    }
+
+    $db->exec(
+        "CREATE TABLE IF NOT EXISTS categories (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            name TEXT NOT NULL,
+            type TEXT NOT NULL CHECK(type IN ('list_quantity', 'list_due_date', 'notes', 'images', 'files', 'links')),
+            icon TEXT NOT NULL DEFAULT '',
+            legacy_key TEXT NOT NULL DEFAULT '',
+            sort_order INTEGER NOT NULL DEFAULT 0,
+            is_hidden INTEGER NOT NULL DEFAULT 0 CHECK(is_hidden IN (0, 1)),
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )"
+    );
+    $db->exec('CREATE INDEX IF NOT EXISTS idx_categories_user_id ON categories(user_id)');
+    $db->exec('CREATE INDEX IF NOT EXISTS idx_categories_user_sort ON categories(user_id, sort_order)');
+    $db->exec('CREATE INDEX IF NOT EXISTS idx_items_category_id ON items(category_id)');
+
+    $categoryColumns = $db->query('PRAGMA table_info(categories)')->fetchAll();
+    $categoryColumnNames = array_map(static fn(array $column): string => $column['name'], $categoryColumns);
+    if (!in_array('icon', $categoryColumnNames, true)) {
+        $db->exec("ALTER TABLE categories ADD COLUMN icon TEXT NOT NULL DEFAULT ''");
+    }
+    if (!in_array('legacy_key', $categoryColumnNames, true)) {
+        $db->exec("ALTER TABLE categories ADD COLUMN legacy_key TEXT NOT NULL DEFAULT ''");
+    }
+
+    ensureDefaultCategories($db);
+    migrateLegacyCategories($db);
+    migrateLegacyPreferencesToCategories($db);
+    backfillLegacyCategoryKeys($db);
+    cleanupDuplicateLegacyCategories($db);
+
+    $fillIconsStmt = $db->prepare('UPDATE categories SET icon = :icon WHERE id = :id');
+    $categoryRows = $db->query('SELECT id, type, icon FROM categories')->fetchAll();
+    foreach ($categoryRows as $categoryRow) {
+        $icon = normalizeCategoryIcon((string) ($categoryRow['icon'] ?? ''), (string) ($categoryRow['type'] ?? ''));
+        if ($icon !== (string) ($categoryRow['icon'] ?? '')) {
+            $fillIconsStmt->execute([
+                ':id' => (int) $categoryRow['id'],
+                ':icon' => $icon,
+            ]);
+        }
+    }
+
+    $orphanItems = (int) $db->query('SELECT COUNT(*) FROM items WHERE user_id IS NOT NULL AND category_id IS NULL')->fetchColumn();
+    if ($orphanItems > 0) {
+        rebuildSortOrder($db);
     }
 
     return $db;

@@ -61,7 +61,7 @@ try {
     $stmt = $db->prepare(
         'SELECT
             items.id AS item_id,
-            items.section AS item_section,
+            categories.type AS category_type,
             attachments.storage_section,
             attachments.stored_name,
             attachments.original_name,
@@ -69,9 +69,10 @@ try {
             attachments.size_bytes,
             attachments.updated_at
          FROM items
+         INNER JOIN categories
+            ON categories.id = items.category_id
          INNER JOIN attachments
             ON attachments.item_id = items.id
-           AND attachments.storage_section = items.section
          WHERE items.id = :item_id
            AND items.user_id = :user_id
          LIMIT 1'

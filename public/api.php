@@ -11,8 +11,6 @@ header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 header('X-Content-Type-Options: nosniff');
 
-const VALID_SECTIONS = ['shopping', 'meds', 'todo_private', 'todo_work', 'notes', 'images', 'files', 'links'];
-const UPLOADABLE_SECTIONS = ['images', 'files'];
 const IMAGE_UPLOAD_MIME_TYPES = [
     'image/jpeg' => 'jpg',
     'image/png' => 'png',
@@ -20,6 +18,32 @@ const IMAGE_UPLOAD_MIME_TYPES = [
     'image/gif' => 'gif',
 ];
 const IMAGE_UPLOAD_MAX_BYTES = 20971520;
+const MIME_TYPE_EXTENSIONS = [
+    'application/pdf' => 'pdf',
+    'application/zip' => 'zip',
+    'application/x-zip-compressed' => 'zip',
+    'application/gzip' => 'gz',
+    'application/x-tar' => 'tar',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 'docx',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' => 'xlsx',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation' => 'pptx',
+    'application/msword' => 'doc',
+    'application/vnd.ms-excel' => 'xls',
+    'application/vnd.ms-powerpoint' => 'ppt',
+    'text/plain' => 'txt',
+    'text/csv' => 'csv',
+    'text/html' => 'html',
+    'audio/mpeg' => 'mp3',
+    'audio/ogg' => 'ogg',
+    'audio/wav' => 'wav',
+    'audio/flac' => 'flac',
+    'audio/mp4' => 'm4a',
+    'video/mp4' => 'mp4',
+    'video/webm' => 'webm',
+    'video/quicktime' => 'mov',
+    'video/x-matroska' => 'mkv',
+    'video/x-msvideo' => 'avi',
+];
 
 function respond(int $status, array $payload): never
 {
@@ -38,10 +62,8 @@ function requireMethod(string $expectedMethod): void
 
 function requestData(): array
 {
-    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        if ($_POST !== []) {
-            return $_POST;
-        }
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && $_POST !== []) {
+        return $_POST;
     }
 
     $raw = file_get_contents('php://input');
@@ -83,15 +105,6 @@ function requireCsrfToken(array $data): void
     }
 }
 
-function getSection(array $data = []): string
-{
-    $section = $_GET['section'] ?? ($data['section'] ?? 'shopping');
-    if (!in_array($section, VALID_SECTIONS, true)) {
-        respond(422, ['error' => 'Ungültige Sektion.']);
-    }
-    return (string) $section;
-}
-
 function normalizeName(?string $name): string
 {
     $name = trim((string) $name);
@@ -112,21 +125,26 @@ function normalizeDueDate(?string $date): string
     return preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) ? $date : '';
 }
 
-function normalizeSectionPreferenceList(mixed $rawValue): array
+function normalizeIdList(mixed $ids): array
 {
-    if (!is_array($rawValue)) {
+    if (!is_array($ids) || $ids === []) {
         return [];
     }
 
     $normalized = [];
-    foreach ($rawValue as $section) {
-        if (!is_string($section) || !in_array($section, VALID_SECTIONS, true)) {
-            continue;
+
+    foreach ($ids as $rawId) {
+        $id = filter_var($rawId, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+
+        if ($id === false || $id === null) {
+            return [];
         }
 
-        if (!in_array($section, $normalized, true)) {
-            $normalized[] = $section;
-        }
+        $normalized[] = (int) $id;
+    }
+
+    if (count(array_unique($normalized)) !== count($normalized)) {
+        return [];
     }
 
     return $normalized;
@@ -306,15 +324,6 @@ function normalizeStoredExtension(string $extension): string
     return truncateText($extension, 16);
 }
 
-function nextSortOrder(PDO $db, string $section, int $userId): int
-{
-    $maxStmt = $db->prepare(
-        'SELECT COALESCE(MAX(sort_order), 0) FROM items WHERE section = :section AND user_id = :user_id'
-    );
-    $maxStmt->execute([':section' => $section, ':user_id' => $userId]);
-    return (int) $maxStmt->fetchColumn() + 1;
-}
-
 function detectMimeType(string $path): string
 {
     $mediaType = '';
@@ -398,13 +407,6 @@ function getSingleUploadedFile(): array
     ];
 }
 
-function validateUploadSection(string $section): void
-{
-    if (!in_array($section, UPLOADABLE_SECTIONS, true)) {
-        respond(422, ['error' => 'Uploads sind nur in den Sektionen Bilder und Dateien erlaubt.']);
-    }
-}
-
 function validateImageUpload(array $uploadedFile): array
 {
     if ((int) $uploadedFile['size_bytes'] > IMAGE_UPLOAD_MAX_BYTES) {
@@ -428,38 +430,10 @@ function validateImageUpload(array $uploadedFile): array
     ];
 }
 
-const MIME_TYPE_EXTENSIONS = [
-    'application/pdf'                                                          => 'pdf',
-    'application/zip'                                                          => 'zip',
-    'application/x-zip-compressed'                                             => 'zip',
-    'application/gzip'                                                         => 'gz',
-    'application/x-tar'                                                        => 'tar',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document'  => 'docx',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'        => 'xlsx',
-    'application/vnd.openxmlformats-officedocument.presentationml.presentation'=> 'pptx',
-    'application/msword'                                                        => 'doc',
-    'application/vnd.ms-excel'                                                  => 'xls',
-    'application/vnd.ms-powerpoint'                                             => 'ppt',
-    'text/plain'                                                                => 'txt',
-    'text/csv'                                                                  => 'csv',
-    'text/html'                                                                 => 'html',
-    'audio/mpeg'                                                                => 'mp3',
-    'audio/ogg'                                                                 => 'ogg',
-    'audio/wav'                                                                 => 'wav',
-    'audio/flac'                                                                => 'flac',
-    'audio/mp4'                                                                 => 'm4a',
-    'video/mp4'                                                                 => 'mp4',
-    'video/webm'                                                                => 'webm',
-    'video/quicktime'                                                           => 'mov',
-    'video/x-matroska'                                                          => 'mkv',
-    'video/x-msvideo'                                                           => 'avi',
-];
-
 function validateFileUpload(array $uploadedFile): array
 {
     $pathInfoExtension = pathinfo((string) $uploadedFile['original_name'], PATHINFO_EXTENSION);
     $extension = normalizeStoredExtension(is_string($pathInfoExtension) ? $pathInfoExtension : '');
-
     $mediaType = detectMimeType((string) $uploadedFile['tmp_name']);
 
     if ($extension === '') {
@@ -467,17 +441,75 @@ function validateFileUpload(array $uploadedFile): array
     }
 
     return [
-        'media_type'       => $mediaType,
+        'media_type' => $mediaType,
         'stored_extension' => $extension,
     ];
 }
 
-function buildStoredFilename(string $section, string $extension): string
+function buildStoredFilename(string $type, string $extension): string
 {
     $randomName = bin2hex(random_bytes(16));
     $suffix = $extension !== '' ? '.' . $extension : '';
 
-    return $section . '-' . $randomName . $suffix;
+    return $type . '-' . $randomName . $suffix;
+}
+
+function resolveCategoryId(array $data, PDO $db, int $userId): int
+{
+    $categoryId = filter_var($_GET['category_id'] ?? ($data['category_id'] ?? null), FILTER_VALIDATE_INT, [
+        'options' => ['min_range' => 1],
+    ]);
+
+    if (is_int($categoryId)) {
+        return $categoryId;
+    }
+
+    $legacySection = $_GET['section'] ?? ($data['section'] ?? null);
+    if (!is_string($legacySection)) {
+        respond(422, ['error' => 'Ungültige Kategorie.']);
+    }
+
+    $definition = legacyCategoryDefinition(trim($legacySection));
+    if ($definition === null) {
+        respond(422, ['error' => 'Ungültige Kategorie.']);
+    }
+
+    $stmt = $db->prepare(
+        'SELECT id FROM categories
+         WHERE user_id = :user_id AND legacy_key = :legacy_key
+         ORDER BY id ASC
+         LIMIT 1'
+    );
+    $stmt->execute([
+        ':user_id' => $userId,
+        ':legacy_key' => trim($legacySection),
+    ]);
+    $categoryId = $stmt->fetchColumn();
+
+    if ($categoryId === false) {
+        respond(404, ['error' => 'Kategorie nicht gefunden.']);
+    }
+
+    return (int) $categoryId;
+}
+
+function requireCategory(array $data, PDO $db, int $userId): array
+{
+    $categoryId = resolveCategoryId($data, $db, $userId);
+    $category = loadUserCategory($db, $userId, $categoryId);
+
+    if ($category === null) {
+        respond(404, ['error' => 'Kategorie nicht gefunden.']);
+    }
+
+    return $category;
+}
+
+function validateCategoryType(array $category, array $allowedTypes, string $message): void
+{
+    if (!in_array((string) $category['type'], $allowedTypes, true)) {
+        respond(422, ['error' => $message]);
+    }
 }
 
 function buildAttachmentPayload(array $item): ?array
@@ -485,7 +517,7 @@ function buildAttachmentPayload(array $item): ?array
     $section = (string) ($item['attachment_storage_section'] ?? '');
     $hasAttachment = (int) ($item['has_attachment'] ?? 0) === 1;
 
-    if (!$hasAttachment || !isAttachmentSection($section)) {
+    if (!$hasAttachment || !isAttachmentCategoryType($section)) {
         return null;
     }
 
@@ -506,12 +538,14 @@ function formatListItem(array $item): array
 
     return [
         'id' => (int) $item['id'],
+        'category_id' => (int) ($item['category_id'] ?? 0),
+        'category_name' => (string) ($item['category_name'] ?? ''),
+        'category_type' => (string) ($item['category_type'] ?? ''),
         'name' => (string) ($item['name'] ?? ''),
         'quantity' => (string) ($item['quantity'] ?? ''),
         'due_date' => (string) ($item['due_date'] ?? ''),
         'is_pinned' => (int) ($item['is_pinned'] ?? 0),
         'content' => (string) ($item['content'] ?? ''),
-        'section' => (string) ($item['section'] ?? ''),
         'done' => (int) ($item['done'] ?? 0),
         'sort_order' => (int) ($item['sort_order'] ?? 0),
         'created_at' => (string) ($item['created_at'] ?? ''),
@@ -528,52 +562,222 @@ function formatListItem(array $item): array
     ];
 }
 
-function normalizeIdList(mixed $ids): array
+function fetchItemForUser(PDO $db, int $userId, int $itemId): ?array
 {
-    if (!is_array($ids) || $ids === []) {
-        return [];
-    }
+    $stmt = $db->prepare(
+        'SELECT
+            items.id,
+            items.category_id,
+            categories.name AS category_name,
+            categories.type AS category_type,
+            items.name,
+            items.quantity,
+            items.due_date,
+            items.is_pinned,
+            items.content,
+            items.done,
+            items.sort_order,
+            items.created_at,
+            items.updated_at,
+            attachments.storage_section AS attachment_storage_section,
+            attachments.original_name AS attachment_original_name,
+            attachments.media_type AS attachment_media_type,
+            attachments.size_bytes AS attachment_size_bytes,
+            CASE WHEN attachments.id IS NULL THEN 0 ELSE 1 END AS has_attachment
+         FROM items
+         INNER JOIN categories ON categories.id = items.category_id
+         LEFT JOIN attachments ON attachments.item_id = items.id
+         WHERE items.id = :id AND items.user_id = :user_id
+         LIMIT 1'
+    );
+    $stmt->execute([':id' => $itemId, ':user_id' => $userId]);
+    $item = $stmt->fetch();
 
-    $normalized = [];
-
-    foreach ($ids as $rawId) {
-        $id = filter_var($rawId, FILTER_VALIDATE_INT, [
-            'options' => ['min_range' => 1],
-        ]);
-
-        if ($id === false || $id === null) {
-            return [];
-        }
-
-        $normalized[] = (int) $id;
-    }
-
-    if (count(array_unique($normalized)) !== count($normalized)) {
-        return [];
-    }
-
-    return $normalized;
+    return is_array($item) ? $item : null;
 }
 
 $action = $_GET['action'] ?? 'list';
-$db     = getDatabase();
+$db = getDatabase();
 $userId = requireApiAuth();
 
 try {
     switch ($action) {
+        case 'categories_list':
+            requireMethod('GET');
+            respond(200, [
+                'categories' => loadUserCategories($db, $userId),
+                'preferences' => getUserPreferences($db, $userId),
+            ]);
+
+        case 'categories_create':
+            requireMethod('POST');
+            $data = requestData();
+            requireCsrfToken($data);
+
+            $name = normalizeName($data['name'] ?? null);
+            $type = trim((string) ($data['type'] ?? ''));
+
+            if ($name === '') {
+                respond(422, ['error' => 'Bitte gib einen Kategorienamen ein.']);
+            }
+
+            if (!in_array($type, CATEGORY_TYPES, true)) {
+                respond(422, ['error' => 'Ungültiger Kategorietyp.']);
+            }
+
+            $icon = normalizeCategoryIcon($data['icon'] ?? null, $type);
+
+            $stmt = $db->prepare(
+                'INSERT INTO categories (user_id, name, type, icon, sort_order, is_hidden)
+                 VALUES (:user_id, :name, :type, :icon, :sort_order, 0)'
+            );
+            $stmt->execute([
+                ':user_id' => $userId,
+                ':name' => $name,
+                ':type' => $type,
+                ':icon' => $icon,
+                ':sort_order' => nextCategorySortOrder($db, $userId),
+            ]);
+
+            $categoryId = (int) $db->lastInsertId();
+            updateUserPreferences($db, $userId, ['last_category_id' => $categoryId]);
+
+            respond(201, [
+                'message' => 'Kategorie erstellt.',
+                'category' => loadUserCategory($db, $userId, $categoryId),
+            ]);
+
+        case 'categories_update':
+            requireMethod('POST');
+            $data = requestData();
+            requireCsrfToken($data);
+
+            $categoryId = filter_var($data['category_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+            if (!is_int($categoryId)) {
+                respond(422, ['error' => 'Ungültige Kategorie.']);
+            }
+
+            $category = loadUserCategory($db, $userId, $categoryId);
+            if ($category === null) {
+                respond(404, ['error' => 'Kategorie nicht gefunden.']);
+            }
+
+            $patches = [];
+            $params = [':id' => $categoryId, ':user_id' => $userId];
+
+            if (array_key_exists('name', $data)) {
+                $name = normalizeName($data['name'] ?? null);
+                if ($name === '') {
+                    respond(422, ['error' => 'Bitte gib einen Kategorienamen ein.']);
+                }
+                $patches[] = 'name = :name';
+                $params[':name'] = $name;
+            }
+
+            if (array_key_exists('icon', $data)) {
+                $patches[] = 'icon = :icon';
+                $params[':icon'] = normalizeCategoryIcon((string) $data['icon'], (string) $category['type']);
+            }
+
+            if (array_key_exists('is_hidden', $data)) {
+                $patches[] = 'is_hidden = :is_hidden';
+                $params[':is_hidden'] = filter_var($data['is_hidden'], FILTER_VALIDATE_BOOL) ? 1 : 0;
+            }
+
+            if ($patches === []) {
+                respond(422, ['error' => 'Keine Änderungen übergeben.']);
+            }
+
+            $stmt = $db->prepare(
+                'UPDATE categories SET ' . implode(', ', $patches) . ', updated_at = CURRENT_TIMESTAMP
+                 WHERE id = :id AND user_id = :user_id'
+            );
+            $stmt->execute($params);
+
+            respond(200, [
+                'message' => 'Kategorie aktualisiert.',
+                'category' => loadUserCategory($db, $userId, $categoryId),
+            ]);
+
+        case 'categories_reorder':
+            requireMethod('POST');
+            $data = requestData();
+            requireCsrfToken($data);
+
+            $ids = normalizeIdList($data['ids'] ?? ($data['ids[]'] ?? null));
+            if ($ids === []) {
+                respond(422, ['error' => 'Ungültige Reihenfolge.']);
+            }
+
+            $stmt = $db->prepare('SELECT id FROM categories WHERE user_id = :user_id ORDER BY sort_order ASC, id ASC');
+            $stmt->execute([':user_id' => $userId]);
+            $existingIds = array_map(static fn(mixed $id): int => (int) $id, $stmt->fetchAll(PDO::FETCH_COLUMN));
+
+            $sortedIds = $ids;
+            sort($sortedIds);
+            $sortedExisting = $existingIds;
+            sort($sortedExisting);
+
+            if ($sortedIds !== $sortedExisting) {
+                respond(422, ['error' => 'Reihenfolge passt nicht zu den vorhandenen Kategorien.']);
+            }
+
+            $stmt = $db->prepare(
+                'UPDATE categories SET sort_order = :sort_order, updated_at = CURRENT_TIMESTAMP
+                 WHERE id = :id AND user_id = :user_id'
+            );
+
+            $db->beginTransaction();
+            foreach ($ids as $index => $id) {
+                $stmt->execute([
+                    ':sort_order' => $index + 1,
+                    ':id' => $id,
+                    ':user_id' => $userId,
+                ]);
+            }
+            $db->commit();
+
+            respond(200, ['message' => 'Kategorien neu sortiert.']);
+
+        case 'categories_delete':
+            requireMethod('POST');
+            $data = requestData();
+            requireCsrfToken($data);
+
+            $category = requireCategory($data, $db, $userId);
+
+            $countStmt = $db->prepare('SELECT COUNT(*) FROM items WHERE user_id = :user_id AND category_id = :category_id');
+            $countStmt->execute([':user_id' => $userId, ':category_id' => (int) $category['id']]);
+            if ((int) $countStmt->fetchColumn() > 0) {
+                respond(422, ['error' => 'Kategorie kann nur gelöscht werden, wenn sie leer ist.']);
+            }
+
+            $db->prepare('DELETE FROM categories WHERE id = :id AND user_id = :user_id')
+                ->execute([':id' => (int) $category['id'], ':user_id' => $userId]);
+
+            $preferences = getUserPreferences($db, $userId);
+            if ((int) ($preferences['last_category_id'] ?? 0) === (int) $category['id']) {
+                $fallback = loadUserCategories($db, $userId, false)[0]['id'] ?? null;
+                updateUserPreferences($db, $userId, ['last_category_id' => $fallback]);
+            }
+
+            respond(200, ['message' => 'Kategorie gelöscht.']);
+
         case 'list':
             requireMethod('GET');
-            $section = getSection();
+            $category = requireCategory([], $db, $userId);
 
             $stmt = $db->prepare(
                 'SELECT
                     items.id,
+                    items.category_id,
+                    categories.name AS category_name,
+                    categories.type AS category_type,
                     items.name,
                     items.quantity,
                     items.due_date,
                     items.is_pinned,
                     items.content,
-                    items.section,
                     items.done,
                     items.sort_order,
                     items.created_at,
@@ -582,26 +786,20 @@ try {
                     attachments.original_name AS attachment_original_name,
                     attachments.media_type AS attachment_media_type,
                     attachments.size_bytes AS attachment_size_bytes,
-                    CASE WHEN attachments.id IS NULL THEN NULL ELSE "media.php?item_id=" || items.id END AS attachment_url,
                     CASE WHEN attachments.id IS NULL THEN 0 ELSE 1 END AS has_attachment
                  FROM items
-                 LEFT JOIN attachments
-                    ON attachments.item_id = items.id
-                   AND attachments.storage_section = items.section
-                 WHERE items.section = :section
+                 INNER JOIN categories ON categories.id = items.category_id
+                 LEFT JOIN attachments ON attachments.item_id = items.id
+                 WHERE items.category_id = :category_id
                    AND items.user_id = :user_id
                  ORDER BY items.is_pinned DESC, items.sort_order ASC, items.id ASC'
             );
-            $stmt->execute([':section' => $section, ':user_id' => $userId]);
+            $stmt->execute([':category_id' => (int) $category['id'], ':user_id' => $userId]);
 
-            $items = array_map(
-                static fn(array $item): array => formatListItem($item),
-                $stmt->fetchAll()
-            );
+            $items = array_map(static fn(array $item): array => formatListItem($item), $stmt->fetchAll());
+            $response = ['items' => $items, 'category' => $category];
 
-            $response = ['items' => $items];
-
-            if (in_array($section, UPLOADABLE_SECTIONS, true)) {
+            if (isAttachmentCategoryType((string) $category['type'])) {
                 $freeBytes = disk_free_space(getDataDirectory());
                 if ($freeBytes !== false) {
                     $response['disk_free_bytes'] = (int) $freeBytes;
@@ -612,48 +810,69 @@ try {
 
         case 'add':
             requireMethod('POST');
-
-            $data     = requestData();
+            $data = requestData();
             requireCsrfToken($data);
-            $section  = getSection($data);
-            $name     = normalizeName($data['name'] ?? null);
-            $quantity = normalizeQuantity($data['quantity'] ?? null);
-            $due_date = normalizeDueDate($data['due_date'] ?? null);
-            $content  = normalizeContent($data['content'] ?? null);
 
-            if ($name == '') {
+            $category = requireCategory($data, $db, $userId);
+            $name = normalizeName($data['name'] ?? null);
+            $quantity = normalizeQuantity($data['quantity'] ?? null);
+            $dueDate = normalizeDueDate($data['due_date'] ?? null);
+            $content = normalizeContent($data['content'] ?? null);
+
+            if ($name === '') {
                 respond(422, ['error' => 'Bitte gib einen Artikelnamen ein.']);
             }
 
+            $type = (string) $category['type'];
+
+            if ($type === 'list_due_date') {
+                $quantity = '';
+            } elseif ($type === 'list_quantity') {
+                $dueDate = '';
+                $content = '';
+            } elseif ($type === 'notes') {
+                $quantity = '';
+                $dueDate = '';
+            } elseif ($type === 'links') {
+                $quantity = '';
+                $dueDate = '';
+                $content = '';
+            } else {
+                $quantity = '';
+                $dueDate = '';
+                $content = '';
+            }
+
             $stmt = $db->prepare(
-                'INSERT INTO items (name, quantity, due_date, content, section, sort_order, user_id)
-                 VALUES (:name, :quantity, :due_date, :content, :section, :sort_order, :user_id)'
+                'INSERT INTO items (name, quantity, due_date, content, section, category_id, sort_order, user_id)
+                 VALUES (:name, :quantity, :due_date, :content, :section, :category_id, :sort_order, :user_id)'
             );
             $stmt->execute([
-                ':name'       => $name,
-                ':quantity'   => $quantity,
-                ':due_date'   => $due_date,
-                ':content'    => $content,
-                ':section'    => $section,
-                ':sort_order' => nextSortOrder($db, $section, $userId),
-                ':user_id'    => $userId,
+                ':name' => $name,
+                ':quantity' => $quantity,
+                ':due_date' => $dueDate,
+                ':content' => $content,
+                ':section' => '',
+                ':category_id' => (int) $category['id'],
+                ':sort_order' => nextItemSortOrder($db, $userId, (int) $category['id']),
+                ':user_id' => $userId,
             ]);
 
             respond(201, [
                 'message' => 'Artikel hinzugefügt.',
-                'id'      => (int) $db->lastInsertId(),
+                'id' => (int) $db->lastInsertId(),
             ]);
 
         case 'upload':
             requireMethod('POST');
-
             $data = requestData();
             requireCsrfToken($data);
-            $section = getSection($data);
-            validateUploadSection($section);
+
+            $category = requireCategory($data, $db, $userId);
+            validateCategoryType($category, ['images', 'files'], 'Uploads sind nur in Kategorien vom Typ Bilder oder Dateien erlaubt.');
 
             $uploadedFile = getSingleUploadedFile();
-            $uploadMeta = $section === 'images'
+            $uploadMeta = $category['type'] === 'images'
                 ? validateImageUpload($uploadedFile)
                 : validateFileUpload($uploadedFile);
 
@@ -661,66 +880,49 @@ try {
             if ($name === '') {
                 $name = normalizeName((string) $uploadedFile['original_name']);
             }
-            $quantity = normalizeQuantity($data['quantity'] ?? null);
-            $content = normalizeContent($data['content'] ?? null);
 
-            $replaceItemId = filter_var($data['item_id'] ?? null, FILTER_VALIDATE_INT, [
-                'options' => ['min_range' => 1],
-            ]);
+            $replaceItemId = filter_var($data['item_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
 
-            if ($replaceItemId !== false && $replaceItemId !== null) {
-                // Replacement mode: swap the attachment of an existing item.
-                $storedName = buildStoredFilename($section, (string) $uploadMeta['stored_extension']);
-                $targetPath = getAttachmentStorageDirectory($section) . '/' . $storedName;
+            if (is_int($replaceItemId)) {
+                $existingItem = fetchItemForUser($db, $userId, $replaceItemId);
+                if ($existingItem === null || (int) $existingItem['category_id'] !== (int) $category['id']) {
+                    respond(404, ['error' => 'Artikel nicht gefunden.']);
+                }
+
+                $storedName = buildStoredFilename((string) $category['type'], (string) $uploadMeta['stored_extension']);
+                $targetPath = getAttachmentStorageDirectory((string) $category['type']) . '/' . $storedName;
                 $storedFileMoved = false;
 
                 $db->beginTransaction();
-
                 try {
-                    $itemStmt = $db->prepare(
-                        'SELECT id, section FROM items WHERE id = :id AND user_id = :user_id LIMIT 1'
-                    );
-                    $itemStmt->execute([':id' => $replaceItemId, ':user_id' => $userId]);
-                    $existingItem = $itemStmt->fetch();
-
-                    if (!is_array($existingItem) || $existingItem['section'] !== $section) {
-                        $db->rollBack();
-                        respond(404, ['error' => 'Artikel nicht gefunden.']);
-                    }
-
-                    $oldAttachment = findAttachmentByItemId($db, (int) $replaceItemId);
-
                     if ($name !== '') {
-                        $nameStmt = $db->prepare(
-                            'UPDATE items SET name = :name, updated_at = CURRENT_TIMESTAMP WHERE id = :id'
-                        );
-                        $nameStmt->execute([':name' => $name, ':id' => $replaceItemId]);
+                        $db->prepare('UPDATE items SET name = :name, updated_at = CURRENT_TIMESTAMP WHERE id = :id')
+                            ->execute([':name' => $name, ':id' => $replaceItemId]);
                     }
 
                     if (!move_uploaded_file((string) $uploadedFile['tmp_name'], $targetPath)) {
                         throw new RuntimeException('Upload-Datei konnte nicht verschoben werden.');
                     }
-
                     $storedFileMoved = true;
 
-                    $attachmentStmt = $db->prepare(
+                    $oldAttachment = findAttachmentByItemId($db, $replaceItemId);
+                    $db->prepare(
                         'INSERT INTO attachments (item_id, storage_section, stored_name, original_name, media_type, size_bytes)
                          VALUES (:item_id, :storage_section, :stored_name, :original_name, :media_type, :size_bytes)
                          ON CONFLICT(item_id) DO UPDATE SET
                             storage_section = excluded.storage_section,
-                            stored_name     = excluded.stored_name,
-                            original_name   = excluded.original_name,
-                            media_type      = excluded.media_type,
-                            size_bytes      = excluded.size_bytes,
-                            updated_at      = CURRENT_TIMESTAMP'
-                    );
-                    $attachmentStmt->execute([
-                        ':item_id'         => $replaceItemId,
-                        ':storage_section' => $section,
-                        ':stored_name'     => $storedName,
-                        ':original_name'   => (string) $uploadedFile['original_name'],
-                        ':media_type'      => (string) $uploadMeta['media_type'],
-                        ':size_bytes'      => (int) $uploadedFile['size_bytes'],
+                            stored_name = excluded.stored_name,
+                            original_name = excluded.original_name,
+                            media_type = excluded.media_type,
+                            size_bytes = excluded.size_bytes,
+                            updated_at = CURRENT_TIMESTAMP'
+                    )->execute([
+                        ':item_id' => $replaceItemId,
+                        ':storage_section' => (string) $category['type'],
+                        ':stored_name' => $storedName,
+                        ':original_name' => (string) $uploadedFile['original_name'],
+                        ':media_type' => (string) $uploadMeta['media_type'],
+                        ':size_bytes' => (int) $uploadedFile['size_bytes'],
                     ]);
 
                     $db->commit();
@@ -732,60 +934,48 @@ try {
                     if ($db->inTransaction()) {
                         $db->rollBack();
                     }
-
-                    if ($storedFileMoved && is_file($targetPath) && !unlink($targetPath)) {
-                        error_log(sprintf('Einkauf upload replace cleanup error [%s]: %s', $section, $targetPath));
+                    if ($storedFileMoved && is_file($targetPath)) {
+                        @unlink($targetPath);
                     }
-
                     throw $exception;
                 }
 
-                respond(200, [
-                    'message' => 'Anhang ersetzt.',
-                    'id' => $replaceItemId,
-                ]);
+                respond(200, ['message' => 'Anhang ersetzt.', 'id' => $replaceItemId]);
             }
 
             if ($name === '') {
                 respond(422, ['error' => 'Bitte gib einen Artikelnamen ein.']);
             }
 
-            $storedName = buildStoredFilename($section, (string) $uploadMeta['stored_extension']);
-            $targetPath = getAttachmentStorageDirectory($section) . '/' . $storedName;
-            $itemId = null;
+            $storedName = buildStoredFilename((string) $category['type'], (string) $uploadMeta['stored_extension']);
+            $targetPath = getAttachmentStorageDirectory((string) $category['type']) . '/' . $storedName;
             $storedFileMoved = false;
+            $itemId = null;
 
             $db->beginTransaction();
-
             try {
-                $stmt = $db->prepare(
-                    'INSERT INTO items (name, quantity, due_date, content, section, sort_order, user_id)
-                     VALUES (:name, :quantity, :due_date, :content, :section, :sort_order, :user_id)'
-                );
-                $stmt->execute([
-                    ':name'     => $name,
-                    ':quantity' => $quantity,
-                    ':due_date' => normalizeDueDate($data['due_date'] ?? null),
-                    ':content'  => $content,
-                    ':section'  => $section,
-                    ':sort_order' => nextSortOrder($db, $section, $userId),
-                    ':user_id'  => $userId,
+                $db->prepare(
+                    'INSERT INTO items (name, quantity, due_date, content, section, category_id, sort_order, user_id)
+                     VALUES (:name, \'\', \'\', \'\', \'\', :category_id, :sort_order, :user_id)'
+                )->execute([
+                    ':name' => $name,
+                    ':category_id' => (int) $category['id'],
+                    ':sort_order' => nextItemSortOrder($db, $userId, (int) $category['id']),
+                    ':user_id' => $userId,
                 ]);
                 $itemId = (int) $db->lastInsertId();
 
                 if (!move_uploaded_file((string) $uploadedFile['tmp_name'], $targetPath)) {
                     throw new RuntimeException('Upload-Datei konnte nicht verschoben werden.');
                 }
-
                 $storedFileMoved = true;
 
-                $attachmentStmt = $db->prepare(
+                $db->prepare(
                     'INSERT INTO attachments (item_id, storage_section, stored_name, original_name, media_type, size_bytes)
                      VALUES (:item_id, :storage_section, :stored_name, :original_name, :media_type, :size_bytes)'
-                );
-                $attachmentStmt->execute([
+                )->execute([
                     ':item_id' => $itemId,
-                    ':storage_section' => $section,
+                    ':storage_section' => (string) $category['type'],
                     ':stored_name' => $storedName,
                     ':original_name' => (string) $uploadedFile['original_name'],
                     ':media_type' => (string) $uploadMeta['media_type'],
@@ -797,36 +987,27 @@ try {
                 if ($db->inTransaction()) {
                     $db->rollBack();
                 }
-
-                if ($storedFileMoved && is_file($targetPath) && !unlink($targetPath)) {
-                    error_log(sprintf('Einkauf upload cleanup error [%s]: %s', $section, $targetPath));
+                if ($storedFileMoved && is_file($targetPath)) {
+                    @unlink($targetPath);
                 }
-
                 throw $exception;
             }
 
-            respond(201, [
-                'message' => 'Upload gespeichert.',
-                'id' => $itemId,
-            ]);
+            respond(201, ['message' => 'Upload gespeichert.', 'id' => $itemId]);
 
         case 'toggle':
             requireMethod('POST');
-
             $data = requestData();
             requireCsrfToken($data);
-            $id   = filter_var($data['id'] ?? null, FILTER_VALIDATE_INT);
-            $done = filter_var($data['done'] ?? null, FILTER_VALIDATE_INT, [
-                'options' => ['min_range' => 0, 'max_range' => 1],
-            ]);
 
-            if (!$id || $done === false || $done === null) {
+            $id = filter_var($data['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+            $done = filter_var($data['done'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 0, 'max_range' => 1]]);
+
+            if (!is_int($id) || !is_int($done)) {
                 respond(422, ['error' => 'Ungültige Parameter für den Statuswechsel.']);
             }
 
-            $stmt = $db->prepare(
-                'UPDATE items SET done = :done, updated_at = CURRENT_TIMESTAMP WHERE id = :id AND user_id = :user_id'
-            );
+            $stmt = $db->prepare('UPDATE items SET done = :done, updated_at = CURRENT_TIMESTAMP WHERE id = :id AND user_id = :user_id');
             $stmt->execute([':done' => $done, ':id' => $id, ':user_id' => $userId]);
 
             if ($stmt->rowCount() === 0) {
@@ -837,63 +1018,66 @@ try {
 
         case 'update':
             requireMethod('POST');
-
-            $data     = requestData();
+            $data = requestData();
             requireCsrfToken($data);
-            $id       = filter_var($data['id'] ?? null, FILTER_VALIDATE_INT, [
-                'options' => ['min_range' => 1],
-            ]);
-            $name     = normalizeName($data['name'] ?? null);
-            $quantity = normalizeQuantity($data['quantity'] ?? null);
-            $due_date = normalizeDueDate($data['due_date'] ?? null);
-            $content  = normalizeContent($data['content'] ?? null);
 
-            if (!$id) {
+            $id = filter_var($data['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+            if (!is_int($id)) {
                 respond(422, ['error' => 'Ungültige ID.']);
             }
+
+            $item = fetchItemForUser($db, $userId, $id);
+            if ($item === null) {
+                respond(404, ['error' => 'Artikel nicht gefunden.']);
+            }
+
+            $type = (string) $item['category_type'];
+            $name = normalizeName($data['name'] ?? null);
+            $quantity = normalizeQuantity($data['quantity'] ?? null);
+            $dueDate = normalizeDueDate($data['due_date'] ?? null);
+            $content = normalizeContent($data['content'] ?? null);
 
             if ($name === '') {
                 respond(422, ['error' => 'Bitte gib einen Artikelnamen ein.']);
             }
 
+            if ($type !== 'list_quantity') {
+                $quantity = '';
+            }
+            if ($type !== 'list_due_date') {
+                $dueDate = '';
+            }
+            if ($type !== 'notes') {
+                $content = '';
+            }
+
             $stmt = $db->prepare(
                 'UPDATE items
-                 SET name = :name, quantity = :quantity, due_date = :due_date,
-                     content = :content, updated_at = CURRENT_TIMESTAMP
+                 SET name = :name, quantity = :quantity, due_date = :due_date, content = :content, updated_at = CURRENT_TIMESTAMP
                  WHERE id = :id AND user_id = :user_id'
             );
             $stmt->execute([
-                ':id'       => $id,
-                ':name'     => $name,
+                ':id' => $id,
+                ':name' => $name,
                 ':quantity' => $quantity,
-                ':due_date' => $due_date,
-                ':content'  => $content,
-                ':user_id'  => $userId,
+                ':due_date' => $dueDate,
+                ':content' => $content,
+                ':user_id' => $userId,
             ]);
-
-            if ($stmt->rowCount() === 0) {
-                $existsStmt = $db->prepare('SELECT 1 FROM items WHERE id = :id AND user_id = :user_id');
-                $existsStmt->execute([':id' => $id, ':user_id' => $userId]);
-
-                if ($existsStmt->fetchColumn() === false) {
-                    respond(404, ['error' => 'Artikel nicht gefunden.']);
-                }
-            }
 
             respond(200, ['message' => 'Artikel aktualisiert.']);
 
         case 'delete':
             requireMethod('POST');
-
             $data = requestData();
             requireCsrfToken($data);
-            $id   = filter_var($data['id'] ?? null, FILTER_VALIDATE_INT);
-            if (!$id) {
+
+            $id = filter_var($data['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+            if (!is_int($id)) {
                 respond(422, ['error' => 'Ungültige ID.']);
             }
 
-            $attachment = findAttachmentByItemId($db, (int) $id);
-
+            $attachment = findAttachmentByItemId($db, $id);
             $db->beginTransaction();
             $stmt = $db->prepare('DELETE FROM items WHERE id = :id AND user_id = :user_id');
             $stmt->execute([':id' => $id, ':user_id' => $userId]);
@@ -902,7 +1086,6 @@ try {
                 $db->rollBack();
                 respond(404, ['error' => 'Artikel nicht gefunden.']);
             }
-
             $db->commit();
 
             if ($attachment !== null) {
@@ -917,26 +1100,23 @@ try {
 
         case 'clear':
             requireMethod('POST');
-
-            $data    = requestData();
+            $data = requestData();
             requireCsrfToken($data);
-            $section = getSection($data);
+
+            $category = requireCategory($data, $db, $userId);
 
             $attachmentStmt = $db->prepare(
                 'SELECT attachments.id, attachments.item_id, attachments.storage_section, attachments.stored_name
                  FROM attachments
-                 INNER JOIN items
-                    ON items.id = attachments.item_id
-                 WHERE items.done = 1
-                   AND items.section = :section
-                   AND items.user_id = :user_id'
+                 INNER JOIN items ON items.id = attachments.item_id
+                 WHERE items.done = 1 AND items.category_id = :category_id AND items.user_id = :user_id'
             );
-            $attachmentStmt->execute([':section' => $section, ':user_id' => $userId]);
+            $attachmentStmt->execute([':category_id' => (int) $category['id'], ':user_id' => $userId]);
             $attachments = $attachmentStmt->fetchAll();
 
             $db->beginTransaction();
-            $stmt = $db->prepare('DELETE FROM items WHERE done = 1 AND section = :section AND user_id = :user_id');
-            $stmt->execute([':section' => $section, ':user_id' => $userId]);
+            $stmt = $db->prepare('DELETE FROM items WHERE done = 1 AND category_id = :category_id AND user_id = :user_id');
+            $stmt->execute([':category_id' => (int) $category['id'], ':user_id' => $userId]);
             $deletedCount = (int) $stmt->rowCount();
             $db->commit();
 
@@ -944,83 +1124,68 @@ try {
                 try {
                     deleteAttachmentStorageFile($attachment);
                 } catch (Throwable $cleanupException) {
-                    error_log(sprintf('Einkauf attachment cleanup error [clear:%s:%d]: %s', $section, (int) ($attachment['item_id'] ?? 0), $cleanupException->getMessage()));
+                    error_log(sprintf('Einkauf attachment cleanup error [clear:%d:%d]: %s', (int) $category['id'], (int) ($attachment['item_id'] ?? 0), $cleanupException->getMessage()));
                 }
             }
 
-            respond(200, [
-                'message' => 'Erledigte Artikel gelöscht.',
-                'deleted' => $deletedCount,
-            ]);
+            respond(200, ['message' => 'Erledigte Artikel gelöscht.', 'deleted' => $deletedCount]);
 
         case 'reorder':
             requireMethod('POST');
-
-            $data    = requestData();
+            $data = requestData();
             requireCsrfToken($data);
-            $section = getSection($data);
-            $ids     = normalizeIdList($data['ids'] ?? null);
 
-            if ($ids === []) {
+            $category = requireCategory($data, $db, $userId);
+            $orderedIds = normalizeIdList($data['ids'] ?? ($data['ids[]'] ?? null));
+            if ($orderedIds === []) {
                 respond(422, ['error' => 'Ungültige Reihenfolge.']);
             }
 
             $existingStmt = $db->prepare(
-                'SELECT id FROM items WHERE section = :section AND user_id = :user_id ORDER BY sort_order ASC, id ASC'
+                'SELECT id FROM items WHERE category_id = :category_id AND user_id = :user_id ORDER BY sort_order ASC, id ASC'
             );
-            $existingStmt->execute([':section' => $section, ':user_id' => $userId]);
-            $existingIds = array_map(
-                static fn(mixed $id): int => (int) $id,
-                $existingStmt->fetchAll(PDO::FETCH_COLUMN)
-            );
+            $existingStmt->execute([':category_id' => (int) $category['id'], ':user_id' => $userId]);
+            $existingIds = array_map(static fn(mixed $id): int => (int) $id, $existingStmt->fetchAll(PDO::FETCH_COLUMN));
 
-            sort($ids);
+            $sortedIds = $orderedIds;
+            sort($sortedIds);
             $sortedExistingIds = $existingIds;
             sort($sortedExistingIds);
 
-            if ($ids !== $sortedExistingIds) {
+            if ($sortedIds !== $sortedExistingIds) {
                 respond(422, ['error' => 'Reihenfolge passt nicht zur aktuellen Liste.']);
             }
 
-            $orderedIds = normalizeIdList($data['ids'] ?? null);
             $stmt = $db->prepare(
-                'UPDATE items
-                 SET sort_order = :sort_order, updated_at = CURRENT_TIMESTAMP
-                 WHERE id = :id AND user_id = :user_id'
+                'UPDATE items SET sort_order = :sort_order, updated_at = CURRENT_TIMESTAMP WHERE id = :id AND user_id = :user_id'
             );
 
             $db->beginTransaction();
-
             foreach ($orderedIds as $index => $id) {
                 $stmt->execute([
                     ':sort_order' => $index + 1,
-                    ':id'         => $id,
-                    ':user_id'    => $userId,
+                    ':id' => $id,
+                    ':user_id' => $userId,
                 ]);
             }
-
             $db->commit();
 
             respond(200, ['message' => 'Reihenfolge aktualisiert.']);
 
         case 'pin':
             requireMethod('POST');
-
-            $data      = requestData();
+            $data = requestData();
             requireCsrfToken($data);
-            $id        = filter_var($data['id'] ?? null, FILTER_VALIDATE_INT);
-            $is_pinned = filter_var($data['is_pinned'] ?? null, FILTER_VALIDATE_INT, [
-                'options' => ['min_range' => 0, 'max_range' => 1],
-            ]);
 
-            if (!$id || $is_pinned === false || $is_pinned === null) {
+            $id = filter_var($data['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+            $isPinned = filter_var($data['is_pinned'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 0, 'max_range' => 1]]);
+
+            if (!is_int($id) || !is_int($isPinned)) {
                 respond(422, ['error' => 'Ungültige Parameter.']);
             }
 
-            $stmt = $db->prepare(
-                'UPDATE items SET is_pinned = :is_pinned, updated_at = CURRENT_TIMESTAMP WHERE id = :id AND user_id = :user_id'
-            );
-            $stmt->execute([':is_pinned' => $is_pinned, ':id' => $id, ':user_id' => $userId]);
+            $stmt = $db->prepare('UPDATE items SET is_pinned = :is_pinned, updated_at = CURRENT_TIMESTAMP WHERE id = :id AND user_id = :user_id');
+            $stmt->execute([':is_pinned' => $isPinned, ':id' => $id, ':user_id' => $userId]);
 
             if ($stmt->rowCount() === 0) {
                 respond(404, ['error' => 'Artikel nicht gefunden.']);
@@ -1030,15 +1195,12 @@ try {
 
         case 'search':
             requireMethod('GET');
-
             $q = trim((string) ($_GET['q'] ?? ''));
-
             if (strlen($q) < 2) {
                 respond(200, ['items' => []]);
             }
 
             $ftsQuery = sanitizeFtsQuery($q);
-
             if ($ftsQuery === '') {
                 respond(200, ['items' => []]);
             }
@@ -1046,12 +1208,14 @@ try {
             $stmt = $db->prepare(
                 'SELECT
                     items.id,
+                    items.category_id,
+                    categories.name AS category_name,
+                    categories.type AS category_type,
                     items.name,
                     items.quantity,
                     items.due_date,
                     items.is_pinned,
                     items.content,
-                    items.section,
                     items.done,
                     items.sort_order,
                     items.created_at,
@@ -1060,25 +1224,18 @@ try {
                     attachments.original_name AS attachment_original_name,
                     attachments.media_type AS attachment_media_type,
                     attachments.size_bytes AS attachment_size_bytes,
-                    CASE WHEN attachments.id IS NULL THEN NULL ELSE "media.php?item_id=" || items.id END AS attachment_url,
                     CASE WHEN attachments.id IS NULL THEN 0 ELSE 1 END AS has_attachment
                  FROM items_fts
                  INNER JOIN items ON items.id = items_fts.rowid
-                 LEFT JOIN attachments
-                    ON attachments.item_id = items.id
-                   AND attachments.storage_section = items.section
-                 WHERE items_fts MATCH :q
-                   AND items.user_id = :user_id
+                 INNER JOIN categories ON categories.id = items.category_id
+                 LEFT JOIN attachments ON attachments.item_id = items.id
+                 WHERE items_fts MATCH :q AND items.user_id = :user_id
                  ORDER BY rank
                  LIMIT 50'
             );
             $stmt->execute([':q' => $ftsQuery, ':user_id' => $userId]);
 
-            $items = array_map(
-                static fn(array $item): array => formatListItem($item),
-                $stmt->fetchAll()
-            );
-
+            $items = array_map(static fn(array $item): array => formatListItem($item), $stmt->fetchAll());
             respond(200, ['items' => $items]);
 
         case 'preferences':
@@ -1096,28 +1253,23 @@ try {
                 $patch['mode'] = $data['mode'];
             }
 
-            if (array_key_exists('section', $data) && is_string($data['section'])) {
-                $patch['section'] = $data['section'];
-            }
-
             if (array_key_exists('tabs_hidden', $data)) {
                 $patch['tabs_hidden'] = filter_var($data['tabs_hidden'], FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? false;
+            }
+
+            if (array_key_exists('category_swipe_enabled', $data)) {
+                $patch['category_swipe_enabled'] = filter_var($data['category_swipe_enabled'], FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? false;
             }
 
             if (array_key_exists('install_banner_dismissed', $data)) {
                 $patch['install_banner_dismissed'] = filter_var($data['install_banner_dismissed'], FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? false;
             }
 
-            if (array_key_exists('tabs_order', $data)) {
-                $patch['tabs_order'] = normalizeSectionPreferenceList($data['tabs_order']);
-            } elseif (array_key_exists('tabs_order[]', $data)) {
-                $patch['tabs_order'] = normalizeSectionPreferenceList($data['tabs_order[]']);
-            }
-
-            if (array_key_exists('hidden_sections', $data)) {
-                $patch['hidden_sections'] = normalizeSectionPreferenceList($data['hidden_sections']);
-            } elseif (array_key_exists('hidden_sections[]', $data)) {
-                $patch['hidden_sections'] = normalizeSectionPreferenceList($data['hidden_sections[]']);
+            if (array_key_exists('last_category_id', $data)) {
+                $lastCategoryId = filter_var($data['last_category_id'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+                if (is_int($lastCategoryId) && loadUserCategory($db, $userId, $lastCategoryId) !== null) {
+                    $patch['last_category_id'] = $lastCategoryId;
+                }
             }
 
             $preferences = updateUserPreferences($db, $userId, $patch);
@@ -1132,9 +1284,8 @@ try {
     }
 
     error_log(sprintf(
-        'Einkauf API error [action=%s section=%s method=%s ip=%s]: %s',
+        'Einkauf API error [action=%s method=%s ip=%s]: %s',
         (string) $action,
-        (string) ($section ?? ''),
         (string) ($_SERVER['REQUEST_METHOD'] ?? ''),
         (string) ($_SERVER['REMOTE_ADDR'] ?? ''),
         (string) $exception

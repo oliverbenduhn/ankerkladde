@@ -1631,6 +1631,7 @@ button, input { font: inherit; }
 .settings-option {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 10px;
     padding: 12px 14px;
     border: 1px solid var(--border);
@@ -1639,11 +1640,38 @@ button, input { font: inherit; }
     color: var(--text-primary);
 }
 
-.settings-option input {
+.settings-toggle input {
     margin: 0;
     width: 18px;
     height: 18px;
     accent-color: var(--text-primary);
+}
+
+.settings-category-row {
+    display: grid;
+    gap: 14px;
+}
+
+.settings-row-main {
+    display: grid;
+    grid-template-columns: 96px minmax(0, 1fr);
+    gap: 14px;
+    align-items: end;
+}
+
+.settings-row-bottom {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    flex-wrap: wrap;
+}
+
+.settings-row-meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
 }
 
 .settings-actions {
@@ -1659,6 +1687,7 @@ button, input { font: inherit; }
 .settings-field {
     display: flex;
     flex-direction: column;
+    flex: 1 1 180px;
     gap: 6px;
     color: var(--text-primary);
     font-size: 0.95rem;
@@ -1673,9 +1702,111 @@ button, input { font: inherit; }
     color: var(--text-primary);
 }
 
+.settings-field select {
+    min-height: 44px;
+    padding: 0 12px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg);
+    color: var(--text-primary);
+}
+
 .settings-field input:focus {
     outline: 2px solid var(--accent);
     outline-offset: 1px;
+}
+
+.settings-field select:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+}
+
+.settings-field-icon {
+    flex: 0 0 96px;
+}
+
+.settings-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+    min-height: 44px;
+}
+
+.settings-type-badge {
+    display: inline-flex;
+    align-items: center;
+    min-height: 32px;
+    padding: 0 10px;
+    border-radius: 999px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    white-space: nowrap;
+}
+
+.settings-move-group {
+    display: inline-flex;
+    gap: 8px;
+}
+
+.settings-delete-button {
+    align-self: end;
+    white-space: nowrap;
+}
+
+.settings-row-actions {
+    display: inline-flex;
+    align-items: end;
+    gap: 8px;
+}
+
+.settings-row-save {
+    min-height: 40px;
+    padding: 0 14px;
+}
+
+.settings-move-button {
+    min-width: 40px;
+    min-height: 40px;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+    color: var(--text-primary);
+    cursor: pointer;
+}
+
+.settings-move-button:hover {
+    background: var(--border);
+}
+
+@media (max-width: 640px) {
+    .settings-row-main {
+        grid-template-columns: 1fr;
+    }
+
+    .settings-field-icon {
+        flex-basis: auto;
+    }
+
+    .settings-row-bottom {
+        align-items: stretch;
+    }
+
+    .settings-row-meta,
+    .settings-row-actions {
+        width: 100%;
+    }
+
+    .settings-row-actions {
+        justify-content: stretch;
+    }
+
+    .settings-row-actions > * {
+        flex: 1 1 0;
+    }
 }
 
 .settings-save {

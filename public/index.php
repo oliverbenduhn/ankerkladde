@@ -52,40 +52,7 @@ if ($appBasePath === '' || $appBasePath === '.') {
         <button type="button" id="updateReloadBtn" class="btn-update-reload">Neu laden</button>
     </div>
 
-    <nav class="section-tabs" id="sectionTabs" aria-label="Bereich wählen">
-        <button class="section-tab" data-section="shopping" aria-current="page">
-            <span class="section-icon" aria-hidden="true">🛒</span>
-            <span class="section-label">Einkauf</span>
-        </button>
-        <button class="section-tab" data-section="meds">
-            <span class="section-icon" aria-hidden="true">💊</span>
-            <span class="section-label">Medizin</span>
-        </button>
-        <button class="section-tab" data-section="todo_private">
-            <span class="section-icon" aria-hidden="true">✅</span>
-            <span class="section-label">Privat</span>
-        </button>
-        <button class="section-tab" data-section="todo_work">
-            <span class="section-icon" aria-hidden="true">💼</span>
-            <span class="section-label">Arbeit</span>
-        </button>
-        <button class="section-tab" data-section="notes">
-            <span class="section-icon" aria-hidden="true">📝</span>
-            <span class="section-label">Notizen</span>
-        </button>
-        <button class="section-tab" data-section="images">
-            <span class="section-icon" aria-hidden="true">🖼️</span>
-            <span class="section-label">Bilder</span>
-        </button>
-        <button class="section-tab" data-section="files">
-            <span class="section-icon" aria-hidden="true">📁</span>
-            <span class="section-label">Dateien</span>
-        </button>
-        <button class="section-tab" data-section="links">
-            <span class="section-icon" aria-hidden="true">🔗</span>
-            <span class="section-label">Links</span>
-        </button>
-    </nav>
+    <nav class="section-tabs" id="sectionTabs" aria-label="Bereich wählen"></nav>
 
     <header class="app-header liste-only">
         <button type="button" id="tabsToggleBtn" class="btn-tabs-toggle" aria-label="Symbolleiste ein-/ausblenden">☰</button>

@@ -8,16 +8,6 @@ enforceCanonicalRequest();
 $userId = requireAuth();
 $db = getDatabase();
 $csrfToken = getCsrfToken();
-$sections = [
-    'shopping' => 'Einkauf',
-    'meds' => 'Medizin',
-    'todo_private' => 'Privat',
-    'todo_work' => 'Arbeit',
-    'notes' => 'Notizen',
-    'images' => 'Bilder',
-    'files' => 'Dateien',
-    'links' => 'Links',
-];
 $flash = null;
 $flashType = 'ok';
 
@@ -30,6 +20,73 @@ function validateSettingsPassword(string $password): ?string
     return null;
 }
 
+function normalizeSettingsName(string $value): string
+{
+    $value = trim($value);
+    $value = preg_replace('/\s+/u', ' ', $value) ?? '';
+
+    if (function_exists('mb_substr')) {
+        return mb_substr($value, 0, 120);
+    }
+
+    return substr($value, 0, 120);
+}
+
+function moveCategorySortOrder(PDO $db, int $userId, int $categoryId, string $direction): bool
+{
+    $category = loadUserCategory($db, $userId, $categoryId);
+    if ($category === null) {
+        return false;
+    }
+
+    $operator = $direction === 'up' ? '<' : '>';
+    $order = $direction === 'up' ? 'DESC' : 'ASC';
+
+    $stmt = $db->prepare(
+        "SELECT id, sort_order
+         FROM categories
+         WHERE user_id = :user_id
+           AND sort_order {$operator} :sort_order
+         ORDER BY sort_order {$order}, id {$order}
+         LIMIT 1"
+    );
+    $stmt->execute([
+        ':user_id' => $userId,
+        ':sort_order' => (int) $category['sort_order'],
+    ]);
+    $swapCategory = $stmt->fetch();
+
+    if (!is_array($swapCategory)) {
+        return false;
+    }
+
+    $db->beginTransaction();
+    try {
+        $updateStmt = $db->prepare(
+            'UPDATE categories
+             SET sort_order = :sort_order, updated_at = CURRENT_TIMESTAMP
+             WHERE id = :id AND user_id = :user_id'
+        );
+        $updateStmt->execute([
+            ':sort_order' => (int) $swapCategory['sort_order'],
+            ':id' => (int) $category['id'],
+            ':user_id' => $userId,
+        ]);
+        $updateStmt->execute([
+            ':sort_order' => (int) $category['sort_order'],
+            ':id' => (int) $swapCategory['id'],
+            ':user_id' => $userId,
+        ]);
+        $db->commit();
+        return true;
+    } catch (Throwable $exception) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
+        throw $exception;
+    }
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $providedToken = $_POST['csrf_token'] ?? null;
 
@@ -37,7 +94,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $flash = 'Ungültiges Sicherheits-Token.';
         $flashType = 'err';
     } else {
-        $action = (string) ($_POST['action'] ?? 'preferences');
+        $moveDirection = (string) ($_POST['move_direction'] ?? '');
+        if ($moveDirection === 'up') {
+            $action = 'move_category_up';
+        } elseif ($moveDirection === 'down') {
+            $action = 'move_category_down';
+        } else {
+            $action = (string) ($_POST['action'] ?? 'categories');
+        }
 
         if ($action === 'change_password') {
             $currentPassword = (string) ($_POST['current_password'] ?? '');
@@ -70,17 +134,125 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $flash = 'Passwort geändert.';
                 }
             }
-        } else {
-            $hiddenSections = $_POST['hidden_sections'] ?? [];
+        } elseif ($action === 'create_category') {
+            $name = normalizeSettingsName((string) ($_POST['name'] ?? ''));
+            $type = trim((string) ($_POST['type'] ?? ''));
+            $icon = normalizeCategoryIcon((string) ($_POST['icon'] ?? ''), $type);
+
+            if ($name === '') {
+                $flash = 'Bitte einen Kategorienamen eingeben.';
+                $flashType = 'err';
+            } elseif (!in_array($type, CATEGORY_TYPES, true)) {
+                $flash = 'Ungültiger Kategorietyp.';
+                $flashType = 'err';
+            } else {
+                $stmt = $db->prepare(
+                    'INSERT INTO categories (user_id, name, type, icon, sort_order, is_hidden)
+                     VALUES (:user_id, :name, :type, :icon, :sort_order, 0)'
+                );
+                $stmt->execute([
+                    ':user_id' => $userId,
+                    ':name' => $name,
+                    ':type' => $type,
+                    ':icon' => $icon,
+                    ':sort_order' => nextCategorySortOrder($db, $userId),
+                ]);
+                $categoryId = (int) $db->lastInsertId();
+                updateUserPreferences($db, $userId, ['last_category_id' => $categoryId]);
+                $flash = 'Kategorie erstellt.';
+            }
+        } elseif ($action === 'save_category') {
+            $categoryId = filter_var($_POST['category_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+
+            if (!is_int($categoryId)) {
+                $flash = 'Kategorie nicht gefunden.';
+                $flashType = 'err';
+            } else {
+                $category = loadUserCategory($db, $userId, $categoryId);
+                if ($category === null) {
+                    $flash = 'Kategorie nicht gefunden.';
+                    $flashType = 'err';
+                } else {
+                    $name = normalizeSettingsName((string) ($_POST['category_name'] ?? $category['name']));
+                    $icon = normalizeCategoryIcon((string) ($_POST['category_icon'] ?? $category['icon']), (string) $category['type']);
+                    $isHidden = isset($_POST['category_hidden']) ? 1 : 0;
+
+                    if ($name === '') {
+                        $name = (string) $category['name'];
+                    }
+
+                    $db->prepare(
+                        'UPDATE categories
+                         SET name = :name, icon = :icon, is_hidden = :is_hidden, updated_at = CURRENT_TIMESTAMP
+                         WHERE id = :id AND user_id = :user_id'
+                    )->execute([
+                        ':name' => $name,
+                        ':icon' => $icon,
+                        ':is_hidden' => $isHidden,
+                        ':id' => $categoryId,
+                        ':user_id' => $userId,
+                    ]);
+
+                    $flash = 'Kategorie gespeichert.';
+                }
+            }
+        } elseif ($action === 'move_category_up' || $action === 'move_category_down') {
+            $categoryId = filter_var($_POST['category_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+            $direction = $action === 'move_category_up' ? 'up' : 'down';
+
+            if (!is_int($categoryId)) {
+                $flash = 'Kategorie konnte nicht verschoben werden.';
+                $flashType = 'err';
+            } elseif (moveCategorySortOrder($db, $userId, $categoryId, $direction)) {
+                $flash = 'Reihenfolge aktualisiert.';
+            } else {
+                $flash = 'Kategorie konnte nicht verschoben werden.';
+                $flashType = 'err';
+            }
+        } elseif ($action === 'delete_category') {
+            $deleteCategoryId = filter_var($_POST['category_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+
+            if (!is_int($deleteCategoryId)) {
+                $flash = 'Kategorie nicht gefunden.';
+                $flashType = 'err';
+            } else {
+                $category = loadUserCategory($db, $userId, $deleteCategoryId);
+                if ($category === null) {
+                    $flash = 'Kategorie nicht gefunden.';
+                    $flashType = 'err';
+                } else {
+                    $countStmt = $db->prepare('SELECT COUNT(*) FROM items WHERE user_id = :user_id AND category_id = :category_id');
+                    $countStmt->execute([':user_id' => $userId, ':category_id' => $deleteCategoryId]);
+
+                    if ((int) $countStmt->fetchColumn() > 0) {
+                        $flash = 'Kategorie kann nur gelöscht werden, wenn sie leer ist.';
+                        $flashType = 'err';
+                    } else {
+                        $db->prepare('DELETE FROM categories WHERE id = :id AND user_id = :user_id')
+                            ->execute([':id' => $deleteCategoryId, ':user_id' => $userId]);
+                        $preferences = getUserPreferences($db, $userId);
+                        if ((int) ($preferences['last_category_id'] ?? 0) === $deleteCategoryId) {
+                            $fallback = loadUserCategories($db, $userId, false)[0]['id'] ?? null;
+                            updateUserPreferences($db, $userId, ['last_category_id' => $fallback]);
+                        }
+                        $flash = 'Kategorie gelöscht.';
+                    }
+                }
+            }
+        } elseif ($action === 'save_app_preferences') {
             $preferences = updateUserPreferences($db, $userId, [
-                'hidden_sections' => is_array($hiddenSections) ? $hiddenSections : [],
+                'category_swipe_enabled' => isset($_POST['category_swipe_enabled']),
             ]);
-            $flash = 'Einstellungen gespeichert.';
+            $flash = 'Anzeige-Einstellungen gespeichert.';
         }
     }
 }
 
-$preferences ??= getUserPreferences($db, $userId);
+$preferences = getUserPreferences($db, $userId);
+settings_done:
+$preferences = getUserPreferences($db, $userId);
+$categories = loadUserCategories($db, $userId);
+$iconOptions = getCategoryIconOptions();
 ?>
 <!DOCTYPE html>
 <html lang="de">
@@ -107,26 +279,150 @@ $preferences ??= getUserPreferences($db, $userId);
     <section class="settings-section">
         <form method="post" action="<?= htmlspecialchars(appPath('settings.php'), ENT_QUOTES, 'UTF-8') ?>" class="settings-form">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
+            <input type="hidden" name="action" value="create_category">
             <div class="settings-block">
-                <h2>Sichtbare Bereiche</h2>
-                <p class="settings-copy">Blende Symbole in der oberen Leiste ein oder aus. Mindestens ein Bereich bleibt immer sichtbar.</p>
-                <div class="settings-options">
-                    <?php foreach ($sections as $sectionKey => $sectionLabel): ?>
-                        <label class="settings-option">
-                            <input
-                                type="checkbox"
-                                name="hidden_sections[]"
-                                value="<?= htmlspecialchars($sectionKey, ENT_QUOTES, 'UTF-8') ?>"
-                                <?= in_array($sectionKey, $preferences['hidden_sections'], true) ? 'checked' : '' ?>
-                            >
-                            <span><?= htmlspecialchars($sectionLabel, ENT_QUOTES, 'UTF-8') ?> ausblenden</span>
-                        </label>
-                    <?php endforeach; ?>
+                <h2>Neue Kategorie</h2>
+                <p class="settings-copy">Name frei wählen, Strukturtyp bleibt fest im Produkt definiert.</p>
+                <div class="settings-password-fields">
+                    <label class="settings-field">
+                        <span>Symbol</span>
+                        <select name="icon">
+                            <option value="">Automatisch nach Typ</option>
+                            <?php foreach ($iconOptions as $iconOption): ?>
+                                <option value="<?= htmlspecialchars($iconOption, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($iconOption, ENT_QUOTES, 'UTF-8') ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </label>
+                    <label class="settings-field">
+                        <span>Name</span>
+                        <input type="text" name="name" maxlength="120" required>
+                    </label>
+                    <label class="settings-field">
+                        <span>Typ</span>
+                        <select name="type" required>
+                            <?php foreach (CATEGORY_TYPES as $type): ?>
+                                <option value="<?= htmlspecialchars($type, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars(categoryTypeLabel($type), ENT_QUOTES, 'UTF-8') ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </label>
                 </div>
             </div>
 
             <div class="settings-actions">
-                <button type="submit" class="settings-save">Speichern</button>
+                <button type="submit" class="settings-save">Kategorie anlegen</button>
+            </div>
+        </form>
+    </section>
+
+    <section class="settings-section">
+        <div class="settings-block">
+            <h2>Kategorien</h2>
+            <p class="settings-copy">Neue Kategorien werden direkt angelegt. Bestehende Kategorien speicherst du pro Zeile.</p>
+            <div class="settings-options">
+                <?php foreach ($categories as $category): ?>
+                    <?php
+                    $categoryIcon = (string) $category['icon'];
+                    $categoryIconOptions = $iconOptions;
+                    if ($categoryIcon !== '' && !in_array($categoryIcon, $categoryIconOptions, true)) {
+                        array_unshift($categoryIconOptions, $categoryIcon);
+                    }
+                    ?>
+                    <form method="post" action="<?= htmlspecialchars(appPath('settings.php'), ENT_QUOTES, 'UTF-8') ?>" class="settings-option settings-category-row">
+                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
+                        <input type="hidden" name="action" value="save_category">
+                        <input type="hidden" name="category_id" value="<?= (int) $category['id'] ?>">
+                        <div class="settings-row-main">
+                            <label class="settings-field settings-field-icon">
+                                <span>Symbol</span>
+                                <select name="category_icon">
+                                    <?php foreach ($categoryIconOptions as $iconOption): ?>
+                                        <option
+                                            value="<?= htmlspecialchars($iconOption, ENT_QUOTES, 'UTF-8') ?>"
+                                            <?= $iconOption === $categoryIcon ? 'selected' : '' ?>
+                                        ><?= htmlspecialchars($iconOption, ENT_QUOTES, 'UTF-8') ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </label>
+                            <label class="settings-field settings-field-name">
+                                <span>Name</span>
+                                <input
+                                    type="text"
+                                    name="category_name"
+                                    value="<?= htmlspecialchars((string) $category['name'], ENT_QUOTES, 'UTF-8') ?>"
+                                    maxlength="120"
+                                    required
+                                >
+                            </label>
+                        </div>
+                        <div class="settings-row-bottom">
+                            <div class="settings-row-meta">
+                                <span class="settings-type-badge"><?= htmlspecialchars(categoryTypeLabel((string) $category['type']), ENT_QUOTES, 'UTF-8') ?></span>
+                                <label class="settings-toggle">
+                                    <input
+                                        type="checkbox"
+                                        name="category_hidden"
+                                        value="1"
+                                        <?= (int) $category['is_hidden'] === 1 ? 'checked' : '' ?>
+                                    >
+                                    <span>Ausblenden</span>
+                                </label>
+                                <div class="settings-move-group" aria-label="Reihenfolge">
+                            <button
+                                type="submit"
+                                name="move_direction"
+                                value="up"
+                                formnovalidate
+                                class="settings-move-button"
+                                title="Nach oben"
+                            >↑</button>
+                            <button
+                                type="submit"
+                                name="move_direction"
+                                value="down"
+                                formnovalidate
+                                class="settings-move-button"
+                                title="Nach unten"
+                            >↓</button>
+                                </div>
+                            </div>
+                            <div class="settings-row-actions">
+                                <button type="submit" class="settings-save settings-row-save">Speichern</button>
+                                <button
+                                    type="submit"
+                                    name="action"
+                                    value="delete_category"
+                                    class="settings-link settings-delete-button"
+                                    formnovalidate
+                                >Löschen</button>
+                            </div>
+                        </div>
+                    </form>
+                <?php endforeach; ?>
+            </div>
+        </div>
+    </section>
+
+    <section class="settings-section settings-section-secondary">
+        <form method="post" action="<?= htmlspecialchars(appPath('settings.php'), ENT_QUOTES, 'UTF-8') ?>" class="settings-form">
+            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
+            <input type="hidden" name="action" value="save_app_preferences">
+            <div class="settings-block">
+                <h2>Anzeige</h2>
+                <div class="settings-options">
+                    <label class="settings-option">
+                        <input
+                            type="checkbox"
+                            name="category_swipe_enabled"
+                            value="1"
+                            <?= !array_key_exists('category_swipe_enabled', $preferences) || !empty($preferences['category_swipe_enabled']) ? 'checked' : '' ?>
+                        >
+                        <span>Wischgeste für Kategorien aktivieren</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="settings-actions">
+                <button type="submit" class="settings-save">Anzeige speichern</button>
             </div>
         </form>
     </section>
@@ -161,9 +457,28 @@ $preferences ??= getUserPreferences($db, $userId);
     </section>
 
     <section class="settings-section settings-section-secondary">
-        <p class="settings-copy">Andere Anzeige-Einstellungen wie letzter Bereich, Modus oder Reihenfolge der Symbole werden jetzt automatisch serverseitig pro Benutzer gespeichert.</p>
+        <p class="settings-copy">Global gespeichert bleiben Modus, ausgeblendete Tabs, letzter aktiver Bereich und Installationshinweis. Zuletzt aktiv: <?= $preferences['last_category_id'] !== null ? (int) $preferences['last_category_id'] : 'keine' ?>.</p>
         <a href="<?= htmlspecialchars(appPath('logout.php'), ENT_QUOTES, 'UTF-8') ?>" class="settings-link">Abmelden</a>
     </section>
 </div>
+<script>
+(() => {
+    const scrollKey = 'einkauf-settings-scroll-y';
+    const saved = window.sessionStorage.getItem(scrollKey);
+
+    if (saved !== null) {
+        window.sessionStorage.removeItem(scrollKey);
+        window.requestAnimationFrame(() => {
+            window.scrollTo({ top: Number(saved) || 0, behavior: 'auto' });
+        });
+    }
+
+    document.querySelectorAll('form.settings-form, form.settings-category-row').forEach(form => {
+        form.addEventListener('submit', () => {
+            window.sessionStorage.setItem(scrollKey, String(window.scrollY || window.pageYOffset || 0));
+        });
+    });
+})();
+</script>
 </body>
 </html>
