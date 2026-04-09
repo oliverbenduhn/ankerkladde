@@ -1455,3 +1455,233 @@ button, input { font: inherit; }
 .btn-pin.is-pinned { opacity: 1; }
 .btn-pin:hover     { opacity: 0.7; }
 .btn-pin:disabled  { opacity: 0.12; }
+
+/* ===========================================
+   LOGIN PAGE
+   =========================================== */
+.login-page {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 1rem;
+}
+
+.login-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 2rem;
+    width: 100%;
+    max-width: 360px;
+}
+
+.login-card h1 {
+    margin: 0 0 1.5rem;
+    font-size: 1.5rem;
+    color: var(--text-primary);
+    text-align: center;
+}
+
+.login-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    margin-bottom: 1rem;
+}
+
+.login-field label {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+.login-field input {
+    padding: 0.6rem 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text-primary);
+    font-size: 1rem;
+}
+
+.login-field input:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+}
+
+.login-btn {
+    width: 100%;
+    padding: 0.7rem;
+    background: var(--text-primary);
+    color: var(--surface);
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    cursor: pointer;
+    margin-top: 0.5rem;
+}
+
+.login-btn:hover { opacity: 0.85; }
+
+.login-error {
+    color: var(--error);
+    font-size: 0.875rem;
+    margin-bottom: 1rem;
+    padding: 0.5rem 0.75rem;
+    background: #fdf0ec;
+    border-radius: 6px;
+}
+
+/* ===========================================
+   ADMIN PAGE
+   =========================================== */
+.admin-page {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 1.5rem 1rem;
+}
+
+.admin-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+}
+
+.admin-header h1 {
+    margin: 0;
+    font-size: 1.25rem;
+}
+
+.admin-logout {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    text-decoration: none;
+}
+
+.admin-logout:hover { color: var(--error); }
+
+.admin-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.25rem;
+    margin-bottom: 1.25rem;
+}
+
+.admin-section h2 {
+    margin: 0 0 1rem;
+    font-size: 1rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.admin-form-row {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.5rem;
+}
+
+.admin-form-row input[type="text"],
+.admin-form-row input[type="password"] {
+    flex: 1;
+    min-width: 120px;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text-primary);
+    font-size: 0.9rem;
+}
+
+.admin-btn {
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    background: var(--text-primary);
+    color: var(--surface);
+}
+
+.admin-btn:hover { opacity: 0.85; }
+
+.admin-btn-danger {
+    background: var(--error);
+}
+
+.admin-user-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.admin-user-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.6rem 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.admin-user-item:last-child { border-bottom: none; }
+
+.admin-user-name {
+    flex: 1;
+    font-weight: 500;
+}
+
+.admin-user-date {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.admin-notice {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    margin: 0;
+}
+
+.admin-flash {
+    padding: 0.6rem 0.75rem;
+    border-radius: 6px;
+    margin-bottom: 1rem;
+    font-size: 0.875rem;
+}
+
+.admin-flash-ok  { background: #edf7ed; color: #2e6e2e; }
+.admin-flash-err { background: #fdf0ec; color: var(--error); }
+
+.admin-inline-form {
+    display: inline-flex;
+    gap: 0.4rem;
+    align-items: center;
+}
+
+.admin-inline-form input[type="password"] {
+    width: 130px;
+    padding: 0.35rem 0.6rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg);
+    color: var(--text-primary);
+    font-size: 0.85rem;
+}
+
+.admin-btn-sm {
+    padding: 0.35rem 0.65rem;
+    font-size: 0.8rem;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    background: var(--text-primary);
+    color: var(--surface);
+}
+
+.admin-btn-sm:hover { opacity: 0.85; }
+
+.admin-btn-sm-danger {
+    background: var(--error);
+}
