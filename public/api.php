@@ -286,10 +286,12 @@ function normalizeStoredExtension(string $extension): string
     return truncateText($extension, 16);
 }
 
-function nextSortOrder(PDO $db, string $section): int
+function nextSortOrder(PDO $db, string $section, int $userId): int
 {
-    $maxStmt = $db->prepare('SELECT COALESCE(MAX(sort_order), 0) FROM items WHERE section = :section');
-    $maxStmt->execute([':section' => $section]);
+    $maxStmt = $db->prepare(
+        'SELECT COALESCE(MAX(sort_order), 0) FROM items WHERE section = :section AND user_id = :user_id'
+    );
+    $maxStmt->execute([':section' => $section, ':user_id' => $userId]);
     return (int) $maxStmt->fetchColumn() + 1;
 }
 
@@ -534,7 +536,8 @@ function normalizeIdList(mixed $ids): array
 }
 
 $action = $_GET['action'] ?? 'list';
-$db = getDatabase();
+$db     = getDatabase();
+$userId = requireApiAuth();
 
 try {
     switch ($action) {
@@ -566,9 +569,10 @@ try {
                     ON attachments.item_id = items.id
                    AND attachments.storage_section = items.section
                  WHERE items.section = :section
+                   AND items.user_id = :user_id
                  ORDER BY items.is_pinned DESC, items.sort_order ASC, items.id ASC'
             );
-            $stmt->execute([':section' => $section]);
+            $stmt->execute([':section' => $section, ':user_id' => $userId]);
 
             $items = array_map(
                 static fn(array $item): array => formatListItem($item),
@@ -602,8 +606,8 @@ try {
             }
 
             $stmt = $db->prepare(
-                'INSERT INTO items (name, quantity, due_date, content, section, sort_order)
-                 VALUES (:name, :quantity, :due_date, :content, :section, :sort_order)'
+                'INSERT INTO items (name, quantity, due_date, content, section, sort_order, user_id)
+                 VALUES (:name, :quantity, :due_date, :content, :section, :sort_order, :user_id)'
             );
             $stmt->execute([
                 ':name'       => $name,
@@ -611,7 +615,8 @@ try {
                 ':due_date'   => $due_date,
                 ':content'    => $content,
                 ':section'    => $section,
-                ':sort_order' => nextSortOrder($db, $section),
+                ':sort_order' => nextSortOrder($db, $section, $userId),
+                ':user_id'    => $userId,
             ]);
 
             respond(201, [
@@ -652,8 +657,10 @@ try {
                 $db->beginTransaction();
 
                 try {
-                    $itemStmt = $db->prepare('SELECT id, section FROM items WHERE id = :id LIMIT 1');
-                    $itemStmt->execute([':id' => $replaceItemId]);
+                    $itemStmt = $db->prepare(
+                        'SELECT id, section FROM items WHERE id = :id AND user_id = :user_id LIMIT 1'
+                    );
+                    $itemStmt->execute([':id' => $replaceItemId, ':user_id' => $userId]);
                     $existingItem = $itemStmt->fetch();
 
                     if (!is_array($existingItem) || $existingItem['section'] !== $section) {
@@ -732,8 +739,8 @@ try {
 
             try {
                 $stmt = $db->prepare(
-                    'INSERT INTO items (name, quantity, due_date, content, section, sort_order)
-                     VALUES (:name, :quantity, :due_date, :content, :section, :sort_order)'
+                    'INSERT INTO items (name, quantity, due_date, content, section, sort_order, user_id)
+                     VALUES (:name, :quantity, :due_date, :content, :section, :sort_order, :user_id)'
                 );
                 $stmt->execute([
                     ':name'     => $name,
@@ -741,7 +748,8 @@ try {
                     ':due_date' => normalizeDueDate($data['due_date'] ?? null),
                     ':content'  => $content,
                     ':section'  => $section,
-                    ':sort_order' => nextSortOrder($db, $section),
+                    ':sort_order' => nextSortOrder($db, $section, $userId),
+                    ':user_id'  => $userId,
                 ]);
                 $itemId = (int) $db->lastInsertId();
 
@@ -797,9 +805,9 @@ try {
             }
 
             $stmt = $db->prepare(
-                'UPDATE items SET done = :done, updated_at = CURRENT_TIMESTAMP WHERE id = :id'
+                'UPDATE items SET done = :done, updated_at = CURRENT_TIMESTAMP WHERE id = :id AND user_id = :user_id'
             );
-            $stmt->execute([':done' => $done, ':id' => $id]);
+            $stmt->execute([':done' => $done, ':id' => $id, ':user_id' => $userId]);
 
             if ($stmt->rowCount() === 0) {
                 respond(404, ['error' => 'Artikel nicht gefunden.']);
@@ -832,7 +840,7 @@ try {
                 'UPDATE items
                  SET name = :name, quantity = :quantity, due_date = :due_date,
                      content = :content, updated_at = CURRENT_TIMESTAMP
-                 WHERE id = :id'
+                 WHERE id = :id AND user_id = :user_id'
             );
             $stmt->execute([
                 ':id'       => $id,
@@ -840,11 +848,12 @@ try {
                 ':quantity' => $quantity,
                 ':due_date' => $due_date,
                 ':content'  => $content,
+                ':user_id'  => $userId,
             ]);
 
             if ($stmt->rowCount() === 0) {
-                $existsStmt = $db->prepare('SELECT 1 FROM items WHERE id = :id');
-                $existsStmt->execute([':id' => $id]);
+                $existsStmt = $db->prepare('SELECT 1 FROM items WHERE id = :id AND user_id = :user_id');
+                $existsStmt->execute([':id' => $id, ':user_id' => $userId]);
 
                 if ($existsStmt->fetchColumn() === false) {
                     respond(404, ['error' => 'Artikel nicht gefunden.']);
@@ -866,8 +875,8 @@ try {
             $attachment = findAttachmentByItemId($db, (int) $id);
 
             $db->beginTransaction();
-            $stmt = $db->prepare('DELETE FROM items WHERE id = :id');
-            $stmt->execute([':id' => $id]);
+            $stmt = $db->prepare('DELETE FROM items WHERE id = :id AND user_id = :user_id');
+            $stmt->execute([':id' => $id, ':user_id' => $userId]);
 
             if ($stmt->rowCount() === 0) {
                 $db->rollBack();
@@ -899,14 +908,15 @@ try {
                  INNER JOIN items
                     ON items.id = attachments.item_id
                  WHERE items.done = 1
-                   AND items.section = :section'
+                   AND items.section = :section
+                   AND items.user_id = :user_id'
             );
-            $attachmentStmt->execute([':section' => $section]);
+            $attachmentStmt->execute([':section' => $section, ':user_id' => $userId]);
             $attachments = $attachmentStmt->fetchAll();
 
             $db->beginTransaction();
-            $stmt = $db->prepare('DELETE FROM items WHERE done = 1 AND section = :section');
-            $stmt->execute([':section' => $section]);
+            $stmt = $db->prepare('DELETE FROM items WHERE done = 1 AND section = :section AND user_id = :user_id');
+            $stmt->execute([':section' => $section, ':user_id' => $userId]);
             $deletedCount = (int) $stmt->rowCount();
             $db->commit();
 
@@ -936,9 +946,9 @@ try {
             }
 
             $existingStmt = $db->prepare(
-                'SELECT id FROM items WHERE section = :section ORDER BY sort_order ASC, id ASC'
+                'SELECT id FROM items WHERE section = :section AND user_id = :user_id ORDER BY sort_order ASC, id ASC'
             );
-            $existingStmt->execute([':section' => $section]);
+            $existingStmt->execute([':section' => $section, ':user_id' => $userId]);
             $existingIds = array_map(
                 static fn(mixed $id): int => (int) $id,
                 $existingStmt->fetchAll(PDO::FETCH_COLUMN)
@@ -956,7 +966,7 @@ try {
             $stmt = $db->prepare(
                 'UPDATE items
                  SET sort_order = :sort_order, updated_at = CURRENT_TIMESTAMP
-                 WHERE id = :id'
+                 WHERE id = :id AND user_id = :user_id'
             );
 
             $db->beginTransaction();
@@ -965,6 +975,7 @@ try {
                 $stmt->execute([
                     ':sort_order' => $index + 1,
                     ':id'         => $id,
+                    ':user_id'    => $userId,
                 ]);
             }
 
@@ -987,9 +998,9 @@ try {
             }
 
             $stmt = $db->prepare(
-                'UPDATE items SET is_pinned = :is_pinned, updated_at = CURRENT_TIMESTAMP WHERE id = :id'
+                'UPDATE items SET is_pinned = :is_pinned, updated_at = CURRENT_TIMESTAMP WHERE id = :id AND user_id = :user_id'
             );
-            $stmt->execute([':is_pinned' => $is_pinned, ':id' => $id]);
+            $stmt->execute([':is_pinned' => $is_pinned, ':id' => $id, ':user_id' => $userId]);
 
             if ($stmt->rowCount() === 0) {
                 respond(404, ['error' => 'Artikel nicht gefunden.']);
@@ -1037,10 +1048,11 @@ try {
                     ON attachments.item_id = items.id
                    AND attachments.storage_section = items.section
                  WHERE items_fts MATCH :q
+                   AND items.user_id = :user_id
                  ORDER BY rank
                  LIMIT 50'
             );
-            $stmt->execute([':q' => $ftsQuery]);
+            $stmt->execute([':q' => $ftsQuery, ':user_id' => $userId]);
 
             $items = array_map(
                 static fn(array $item): array => formatListItem($item),

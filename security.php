@@ -157,3 +157,59 @@ function hasValidCsrfToken(?string $providedToken): bool
         && is_string($providedToken)
         && hash_equals($sessionToken, $providedToken);
 }
+
+function getCurrentUserId(): ?int
+{
+    // Does not start the session — callers must ensure the session is active.
+    if (session_status() !== PHP_SESSION_ACTIVE) {
+        return null;
+    }
+
+    $id = $_SESSION['user_id'] ?? null;
+    return is_int($id) ? $id : null;
+}
+
+function requireAuth(): int
+{
+    startAppSession();
+    $userId = getCurrentUserId();
+
+    if ($userId === null) {
+        http_response_code(302);
+        $scriptName = $_SERVER['SCRIPT_NAME'] ?? '';
+        $basePath = rtrim(dirname(str_replace('\\', '/', is_string($scriptName) ? $scriptName : '')), '/');
+        header('Location: ' . $basePath . '/login.php');
+        exit;
+    }
+
+    return $userId;
+}
+
+function requireAdmin(): int
+{
+    $userId = requireAuth();
+
+    if (($_SESSION['is_admin'] ?? false) !== true) {
+        http_response_code(403);
+        header('Content-Type: text/plain; charset=utf-8');
+        echo 'Kein Zugriff.';
+        exit;
+    }
+
+    return $userId;
+}
+
+function requireApiAuth(): int
+{
+    startAppSession();
+    $userId = getCurrentUserId();
+
+    if ($userId === null) {
+        http_response_code(401);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['error' => 'Nicht authentifiziert. Bitte anmelden.'], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    return $userId;
+}

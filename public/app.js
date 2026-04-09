@@ -2919,7 +2919,7 @@ document.addEventListener('keydown', event => {
     const hasUrl   = Boolean(urlMatch);
 
     const targetSection = hasUrl ? 'links' : 'notes';
-    if (state.section !== targetSection) await setSection(targetSection);
+    if (state.section !== targetSection) void setSection(targetSection);
 
     if (hasUrl) {
         if (!itemInput) return;

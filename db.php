@@ -307,6 +307,25 @@ function getDatabase(): PDO
     );
     $db->exec('CREATE INDEX IF NOT EXISTS idx_attachments_item_id ON attachments(item_id)');
 
+    // ── Users table ──────────────────────────────────────────────────
+    $db->exec(
+        "CREATE TABLE IF NOT EXISTS users (
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            username      TEXT    NOT NULL UNIQUE,
+            password_hash TEXT    NOT NULL,
+            is_admin      INTEGER NOT NULL DEFAULT 0 CHECK(is_admin IN (0, 1)),
+            created_at    TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )"
+    );
+
+    // ── items.user_id migration ───────────────────────────────────────
+    $columns     = $db->query('PRAGMA table_info(items)')->fetchAll();
+    $columnNames = array_map(static fn(array $column): string => $column['name'], $columns);
+
+    if (!in_array('user_id', $columnNames, true)) {
+        $db->exec('ALTER TABLE items ADD COLUMN user_id INTEGER REFERENCES users(id)');
+    }
+
     $attachmentColumns = $db->query('PRAGMA table_info(attachments)')->fetchAll();
     $attachmentColumnNames = array_map(static fn(array $column): string => $column['name'], $attachmentColumns);
 
