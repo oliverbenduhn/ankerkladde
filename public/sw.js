@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION = 'v11';
+const VERSION = 'v19';
 const STATIC_CACHE = `einkauf-static-${VERSION}`;
 const RUNTIME_CACHE = `einkauf-runtime-${VERSION}`;
 const SHARE_CACHE = 'einkauf-share-target';

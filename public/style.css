@@ -234,6 +234,36 @@ button, input { font: inherit; }
     min-height: 0;
     overflow-y: auto;
     padding: 0 16px 16px;
+    position: relative;
+}
+
+.list-area.is-swipe-gesture {
+    overflow-x: clip;
+}
+
+.list-swipe-stage {
+    min-height: 100%;
+    will-change: transform, opacity;
+    position: relative;
+    z-index: 1;
+    background: var(--bg);
+}
+
+.list-swipe-stage.is-swipe-animating {
+    transition: transform 220ms ease, opacity 220ms ease;
+}
+
+.list-area.is-swipe-gesture .list-swipe-stage,
+.list-swipe-stage.is-swipe-animating {
+    box-shadow: 0 0 0 1px rgba(232, 224, 213, 0.8), 10px 0 24px rgba(44, 36, 22, 0.08);
+}
+
+.list-area.is-swipe-gesture .list-swipe-stage {
+    border-radius: 0 18px 18px 0;
+}
+
+.list-swipe-preview {
+    display: none !important;
 }
 
 /* Pull-to-refresh indicator */
@@ -438,6 +468,17 @@ button, input { font: inherit; }
     width: 100%;
     height: 100%;
     object-fit: contain;
+}
+
+.attachment-preview-placeholder {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #f0ebe4, #e7ddd0);
+    color: var(--text-muted);
+    font-size: 1.6rem;
 }
 
 .attachment-meta {

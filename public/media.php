@@ -40,6 +40,18 @@ function mediaShouldForceDownload(): bool
     return in_array(strtolower(trim((string) $download)), ['1', 'true', 'yes', 'on'], true);
 }
 
+function mediaRequestedVariant(): string
+{
+    $variant = $_GET['variant'] ?? null;
+
+    if (!is_string($variant)) {
+        return 'original';
+    }
+
+    $variant = strtolower(trim($variant));
+    return $variant === 'thumb' ? 'thumb' : 'original';
+}
+
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
 if ($method !== 'GET' && $method !== 'HEAD') {
@@ -85,6 +97,27 @@ try {
     }
 
     $absolutePath = getAttachmentAbsolutePath($attachment);
+    $variant = mediaRequestedVariant();
+
+    if (
+        $variant === 'thumb'
+        && (string) ($attachment['storage_section'] ?? '') === 'images'
+        && !mediaShouldForceDownload()
+    ) {
+        $thumbnailPath = getAttachmentThumbnailAbsolutePath($attachment);
+
+        if (!is_file($thumbnailPath)) {
+            @generateImageThumbnailFile($absolutePath, $thumbnailPath);
+        }
+
+        if (is_file($thumbnailPath)) {
+            $absolutePath = $thumbnailPath;
+            $attachment['media_type'] = 'image/jpeg';
+            $attachment['original_name'] = preg_replace('/\.[^.]+$/', '', (string) ($attachment['original_name'] ?? 'bild')) . '.jpg';
+        } else {
+            mediaFail(404, 'Vorschaubild nicht gefunden.');
+        }
+    }
 
     if (!is_file($absolutePath)) {
         mediaFail(404, 'Datei nicht gefunden.');

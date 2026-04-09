@@ -9,6 +9,10 @@ const appBasePath = appBasePathMeta?.content || '/';
 const appEl = document.getElementById('app');
 const listEl = document.getElementById('list');
 const listAreaEl = document.querySelector('.list-area');
+const listSwipeStageEl = document.getElementById('listSwipeStage');
+const listSwipePreviewEl = document.getElementById('listSwipePreview');
+const listSwipePreviewHeaderEl = document.getElementById('listSwipePreviewHeader');
+const listSwipePreviewListEl = document.getElementById('listSwipePreviewList');
 const itemForm = document.getElementById('itemForm');
 const itemInput = document.getElementById('itemInput');
 const quantityInput = document.getElementById('quantityInput');
@@ -63,6 +67,7 @@ const state = {
     categories: [],
     categoryId: null,
     items: [],
+    itemsByCategoryId: new Map(),
     mode: 'liste',
     editingId: null,
     editDraft: { name: '', quantity: '', due_date: '' },
@@ -77,6 +82,7 @@ let noteSaveTimer = null;
 let tiptapEditor = null;
 let tabDragJustFinished = false;
 let swipeState = null;
+let swipeTransitionActive = false;
 const NOTE_SAVE_DEBOUNCE_MS = 800;
 const TAB_REORDER_LONG_PRESS_MS = 400;
 const CATEGORY_SWIPE_THRESHOLD_PX = 72;
@@ -139,6 +145,64 @@ function triggerHapticFeedback() {
     if ('vibrate' in navigator) {
         navigator.vibrate(12);
     }
+}
+
+function setSwipeStagePosition(offsetPx, opacity = 1) {
+    if (!listSwipeStageEl) return;
+    listSwipeStageEl.style.transform = `translateX(${Math.round(offsetPx)}px)`;
+    listSwipeStageEl.style.opacity = String(opacity);
+}
+
+function setSwipePreviewPosition(offsetPx, opacity = 0) {
+    void offsetPx;
+    void opacity;
+}
+
+function clearSwipeStageTransition() {
+    if (!listSwipeStageEl) return;
+    listSwipeStageEl.classList.remove('is-swipe-animating');
+}
+
+function enableSwipeStageTransition() {
+    if (!listSwipeStageEl) return;
+    listSwipeStageEl.classList.add('is-swipe-animating');
+}
+
+function animateSwipeStageTo(offsetPx, opacity = 1) {
+    if (!listSwipeStageEl) return Promise.resolve();
+
+    enableSwipeStageTransition();
+
+    return new Promise(resolve => {
+        let settled = false;
+        const finish = () => {
+            if (settled) return;
+            settled = true;
+            listSwipeStageEl.removeEventListener('transitionend', onEnd);
+            resolve();
+        };
+        const onEnd = event => {
+            if (event.target === listSwipeStageEl) {
+                finish();
+            }
+        };
+
+        listSwipeStageEl.addEventListener('transitionend', onEnd);
+        setSwipeStagePosition(offsetPx, opacity);
+        window.setTimeout(finish, 260);
+    });
+}
+
+function resetSwipeStage() {
+    clearSwipeStageTransition();
+    setSwipeStagePosition(0, 1);
+    hideSwipePreview();
+    listAreaEl?.classList.remove('is-swipe-gesture');
+}
+
+function hideSwipePreview() {
+    if (!listSwipePreviewEl || !listSwipePreviewHeaderEl || !listSwipePreviewListEl) return;
+    listSwipePreviewEl.hidden = true;
 }
 
 function setUploadProgress(fraction) {
@@ -243,6 +307,7 @@ function normalizeItem(item) {
         attachmentMediaType: item.attachment_media_type || '',
         attachmentUrl: item.attachment_url || '',
         attachmentPreviewUrl: item.attachment_preview_url || '',
+        attachmentOriginalUrl: item.attachment_original_url || '',
         attachmentDownloadUrl: item.attachment_download_url || '',
     };
 }
@@ -253,6 +318,38 @@ function getItemById(id) {
 
 function getVisibleCategories() {
     return state.categories.filter(category => Number(category.is_hidden) === 0);
+}
+
+function cloneItems(items) {
+    return items.map(item => ({ ...item }));
+}
+
+function cacheCurrentCategoryItems() {
+    if (!Number.isInteger(Number(state.categoryId))) return;
+    state.itemsByCategoryId.set(Number(state.categoryId), {
+        items: cloneItems(state.items),
+        diskFreeBytes: state.diskFreeBytes,
+    });
+}
+
+function invalidateCategoryCache(categoryId) {
+    state.itemsByCategoryId.delete(Number(categoryId));
+}
+
+function cacheCategoryPayload(categoryId, payload) {
+    const normalizedItems = Array.isArray(payload.items) ? payload.items.map(normalizeItem) : [];
+    const diskFreeBytes = typeof payload.disk_free_bytes === 'number' ? payload.disk_free_bytes : null;
+    state.itemsByCategoryId.set(Number(categoryId), {
+        items: cloneItems(normalizedItems),
+        diskFreeBytes,
+    });
+    return { items: normalizedItems, diskFreeBytes };
+}
+
+function applyCategoryPayload(categoryId, payload) {
+    const normalized = cacheCategoryPayload(categoryId, payload);
+    state.items = normalized.items;
+    state.diskFreeBytes = normalized.diskFreeBytes;
 }
 
 async function loadCategories() {
@@ -561,23 +658,57 @@ async function setCategory(categoryId) {
     state.categoryId = Number(categoryId);
     renderCategoryTabs();
     updateHeaders();
-    await savePreferences({ last_category_id: state.categoryId });
-    await loadItems();
+    const loadPromise = loadItems();
+    void savePreferences({ last_category_id: state.categoryId }).catch(() => {});
+    await loadPromise;
+    prefetchAdjacentCategories();
 }
 
-async function loadItems() {
-    const category = getCurrentCategory();
+async function loadItems(categoryId = state.categoryId, options = {}) {
+    const resolvedCategoryId = Number(categoryId);
+    const useCache = options.useCache !== false;
+    const category = state.categories.find(entry => entry.id === resolvedCategoryId) || null;
     if (!category) {
         state.items = [];
+        state.diskFreeBytes = null;
         renderItems();
         return;
     }
 
+    if (useCache) {
+        const cached = state.itemsByCategoryId.get(resolvedCategoryId);
+        if (cached) {
+            state.items = cloneItems(cached.items);
+            state.diskFreeBytes = cached.diskFreeBytes ?? null;
+            renderItems();
+            updateUploadUi();
+            return;
+        }
+    }
+
     const payload = await api(`list&category_id=${encodeURIComponent(category.id)}`);
-    state.items = Array.isArray(payload.items) ? payload.items.map(normalizeItem) : [];
-    state.diskFreeBytes = typeof payload.disk_free_bytes === 'number' ? payload.disk_free_bytes : null;
+
+    if (resolvedCategoryId !== Number(state.categoryId)) {
+        cacheCategoryPayload(resolvedCategoryId, payload);
+        return;
+    }
+
+    applyCategoryPayload(resolvedCategoryId, payload);
     renderItems();
     updateUploadUi();
+}
+
+function prefetchAdjacentCategories() {
+    const visibleCategories = getVisibleCategories();
+    const currentIndex = visibleCategories.findIndex(category => category.id === state.categoryId);
+    if (currentIndex === -1) return;
+
+    [currentIndex - 1, currentIndex + 1]
+        .map(index => visibleCategories[index]?.id ?? null)
+        .filter(categoryId => categoryId !== null && !state.itemsByCategoryId.has(Number(categoryId)))
+        .forEach(categoryId => {
+            void loadItems(categoryId, { useCache: false }).catch(() => {});
+        });
 }
 
 function getVisibleItems() {
@@ -638,16 +769,184 @@ async function doSearch(query) {
     renderItems();
 }
 
+function getAttachmentTitle(item) {
+    return item.name || item.attachmentOriginalName || 'Anhang';
+}
+
+function openLightbox(src, alt) {
+    const overlay = document.createElement('div');
+    overlay.className = 'lightbox-overlay';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-label', alt);
+
+    const img = document.createElement('img');
+    img.className = 'lightbox-img';
+    img.src = src;
+    img.alt = alt;
+
+    const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'lightbox-close';
+    closeBtn.setAttribute('aria-label', 'Schließen');
+    closeBtn.textContent = '×';
+
+    function close() {
+        overlay.remove();
+        document.removeEventListener('keydown', onKey);
+    }
+
+    function onKey(event) {
+        if (event.key === 'Escape') close();
+    }
+
+    closeBtn.addEventListener('click', close);
+    overlay.addEventListener('click', event => {
+        if (event.target === overlay) close();
+    });
+    document.addEventListener('keydown', onKey);
+
+    overlay.append(img, closeBtn);
+    document.body.appendChild(overlay);
+    closeBtn.focus();
+}
+
+function createImagePreviewPlaceholder(label = 'Kein Vorschaubild') {
+    const placeholder = document.createElement('span');
+    placeholder.className = 'attachment-preview-placeholder';
+    placeholder.setAttribute('aria-hidden', 'true');
+    placeholder.textContent = '🖼';
+    placeholder.title = label;
+    return placeholder;
+}
+
 function buildReadOnlyContent(item, content) {
     const type = item.category_type;
 
+    if ((type === 'images' || type === 'files') && !item.has_attachment) {
+        content.classList.add('item-content-attachment', 'item-content-missing-attachment');
+
+        const meta = document.createElement('div');
+        meta.className = 'attachment-meta';
+
+        const titleEl = document.createElement('span');
+        titleEl.className = 'item-name attachment-title';
+        titleEl.textContent = getAttachmentTitle(item);
+        meta.appendChild(titleEl);
+
+        const missingEl = document.createElement('span');
+        missingEl.className = 'attachment-subline';
+        missingEl.textContent = 'Anhang nicht verfügbar';
+        meta.appendChild(missingEl);
+
+        content.appendChild(meta);
+        return;
+    }
+
     if (type === 'images' && item.has_attachment) {
+        content.classList.add('item-content-attachment', 'item-content-image');
+
+        const previewLink = document.createElement('button');
+        previewLink.type = 'button';
+        previewLink.className = 'attachment-preview-link';
+        previewLink.setAttribute('aria-label', `${getAttachmentTitle(item)} öffnen`);
+        previewLink.addEventListener('click', event => {
+            event.stopPropagation();
+            openLightbox(item.attachmentOriginalUrl || item.attachmentDownloadUrl || item.attachmentUrl, getAttachmentTitle(item));
+        });
+
         const preview = document.createElement('img');
         preview.className = 'attachment-image-preview';
-        preview.src = item.attachmentUrl;
-        preview.alt = item.name;
+        preview.src = item.attachmentPreviewUrl || '';
+        preview.alt = getAttachmentTitle(item);
         preview.loading = 'lazy';
-        content.appendChild(preview);
+        preview.decoding = 'async';
+        preview.addEventListener('error', () => {
+            preview.remove();
+            if (!previewLink.querySelector('.attachment-preview-placeholder')) {
+                previewLink.appendChild(createImagePreviewPlaceholder());
+            }
+        }, { once: true });
+        previewLink.appendChild(preview);
+
+        if (!item.attachmentPreviewUrl) {
+            preview.remove();
+            previewLink.appendChild(createImagePreviewPlaceholder());
+        }
+
+        const meta = document.createElement('div');
+        meta.className = 'attachment-meta';
+
+        const titleEl = document.createElement('span');
+        titleEl.className = 'item-name attachment-title';
+        titleEl.textContent = getAttachmentTitle(item);
+        meta.appendChild(titleEl);
+
+        if (item.attachmentOriginalName) {
+            const originalEl = document.createElement('span');
+            originalEl.className = 'attachment-subline';
+            originalEl.textContent = item.attachmentOriginalName;
+            meta.appendChild(originalEl);
+        }
+
+        const actions = document.createElement('div');
+        actions.className = 'attachment-inline-actions';
+
+        const downloadLink = document.createElement('a');
+        downloadLink.className = 'attachment-download-link';
+        downloadLink.href = item.attachmentDownloadUrl || item.attachmentUrl;
+        downloadLink.target = '_blank';
+        downloadLink.rel = 'noopener noreferrer';
+        downloadLink.download = item.attachmentOriginalName || getAttachmentTitle(item);
+        downloadLink.textContent = 'Download';
+        downloadLink.addEventListener('click', event => event.stopPropagation());
+        actions.appendChild(downloadLink);
+
+        meta.appendChild(actions);
+        content.append(previewLink, meta);
+        return;
+    }
+
+    if (type === 'files' && item.has_attachment) {
+        content.classList.add('item-content-attachment', 'item-content-file');
+
+        const meta = document.createElement('div');
+        meta.className = 'attachment-meta';
+
+        const titleEl = document.createElement('span');
+        titleEl.className = 'item-name attachment-title';
+        titleEl.textContent = getAttachmentTitle(item);
+        meta.appendChild(titleEl);
+
+        const detailValues = [
+            item.attachmentOriginalName || null,
+            item.attachmentMediaType || null,
+            item.attachmentSizeBytes > 0 ? formatBytes(item.attachmentSizeBytes) : null,
+        ].filter(Boolean);
+
+        if (detailValues.length > 0) {
+            const detailsEl = document.createElement('span');
+            detailsEl.className = 'attachment-subline';
+            detailsEl.textContent = detailValues.join(' · ');
+            meta.appendChild(detailsEl);
+        }
+
+        const actions = document.createElement('div');
+        actions.className = 'attachment-inline-actions';
+
+        const downloadLink = document.createElement('a');
+        downloadLink.className = 'attachment-download-link';
+        downloadLink.href = item.attachmentDownloadUrl || item.attachmentUrl;
+        downloadLink.target = '_blank';
+        downloadLink.rel = 'noopener noreferrer';
+        downloadLink.download = item.attachmentOriginalName || getAttachmentTitle(item);
+        downloadLink.textContent = 'Download';
+        downloadLink.addEventListener('click', event => event.stopPropagation());
+        actions.appendChild(downloadLink);
+
+        meta.appendChild(actions);
+        content.appendChild(meta);
+        return;
     }
 
     if (type === 'links') {
@@ -677,15 +976,6 @@ function buildReadOnlyContent(item, content) {
         content.appendChild(badge);
     }
 
-    if ((type === 'files' || type === 'images') && item.has_attachment) {
-        const link = document.createElement('a');
-        link.className = 'attachment-download-link';
-        link.href = item.attachmentDownloadUrl || item.attachmentUrl;
-        link.target = '_blank';
-        link.rel = 'noopener noreferrer';
-        link.textContent = 'Download';
-        content.appendChild(link);
-    }
 }
 
 function buildEditContent(item, content) {
@@ -872,6 +1162,29 @@ function renderItems() {
     listEl.appendChild(fragment);
 }
 
+async function uploadSelectedAttachment() {
+    const category = getCurrentCategory();
+    if (!category || !isAttachmentCategory(category.type)) return;
+
+    const file = fileInput?.files?.[0] || null;
+    if (!file) {
+        setMessage(category.type === 'images' ? 'Bitte wähle ein Bild aus.' : 'Bitte wähle eine Datei aus.', true);
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('category_id', String(category.id));
+    formData.append('name', itemInput.value.trim() || file.name);
+    formData.append('attachment', file);
+
+    await apiUpload('upload', formData, makeUploadProgressCallback());
+    itemForm.reset();
+    updateFilePickerLabel();
+    invalidateCategoryCache(category.id);
+    await loadItems();
+    setMessage(category.type === 'images' ? 'Bild hochgeladen.' : 'Datei hochgeladen.');
+}
+
 async function addItem(event) {
     event.preventDefault();
     const category = getCurrentCategory();
@@ -882,6 +1195,7 @@ async function addItem(event) {
         const body = new URLSearchParams({ category_id: String(category.id), name });
         const payload = await api('add', { method: 'POST', body });
         itemForm.reset();
+        invalidateCategoryCache(category.id);
         await loadItems();
         const item = getItemById(payload.id);
         if (item) {
@@ -891,22 +1205,7 @@ async function addItem(event) {
     }
 
     if (isAttachmentCategory(category.type)) {
-        const file = fileInput?.files?.[0] || null;
-        if (!file) {
-            setMessage(category.type === 'images' ? 'Bitte wähle ein Bild aus.' : 'Bitte wähle eine Datei aus.', true);
-            return;
-        }
-
-        const formData = new FormData();
-        formData.append('category_id', String(category.id));
-        formData.append('name', itemInput.value.trim() || file.name);
-        formData.append('attachment', file);
-
-        await apiUpload('upload', formData, makeUploadProgressCallback());
-        itemForm.reset();
-        updateFilePickerLabel();
-        await loadItems();
-        setMessage(category.type === 'images' ? 'Bild hochgeladen.' : 'Datei hochgeladen.');
+        await uploadSelectedAttachment();
         return;
     }
 
@@ -925,6 +1224,7 @@ async function addItem(event) {
 
     await api('add', { method: 'POST', body });
     itemForm.reset();
+    invalidateCategoryCache(category.id);
     await loadItems();
     setMessage('Artikel hinzugefügt.');
 }
@@ -937,8 +1237,10 @@ async function handleToggle(id, done) {
     const item = getItemById(id);
     if (item) {
         item.done = done;
+        cacheCurrentCategoryItems();
         renderItems();
     } else {
+        invalidateCategoryCache(state.categoryId);
         await loadItems();
     }
 }
@@ -948,6 +1250,7 @@ async function handleDelete(id) {
     if (state.noteEditorId === id) {
         await closeNoteEditor();
     }
+    invalidateCategoryCache(state.categoryId);
     await loadItems();
     setMessage('Artikel gelöscht.');
 }
@@ -962,6 +1265,7 @@ async function handleEditSave(id) {
 
     await api('update', { method: 'POST', body });
     state.editingId = null;
+    invalidateCategoryCache(state.categoryId);
     await loadItems();
     setMessage('Artikel gespeichert.');
 }
@@ -974,6 +1278,7 @@ async function clearDone() {
         method: 'POST',
         body: new URLSearchParams({ category_id: String(category.id) }),
     });
+    invalidateCategoryCache(category.id);
     await loadItems();
     setMessage('Erledigte Artikel entfernt.');
 }
@@ -988,6 +1293,7 @@ function canStartCategorySwipe(target) {
     if (!(target instanceof Element)) return false;
     if (state.noteEditorId !== null || state.search.open) return false;
     if (!userPreferences.category_swipe_enabled) return false;
+    if (swipeTransitionActive) return false;
     return !target.closest('input, select, textarea, button, a, [contenteditable="true"], .note-editor, .section-tabs, .search-bar, .input-area');
 }
 
@@ -1023,6 +1329,7 @@ function initCategorySwipe() {
             startX: touch.clientX,
             startY: touch.clientY,
             lockedAxis: null,
+            currentX: touch.clientX,
         };
     }, { passive: true });
 
@@ -1040,7 +1347,19 @@ function initCategorySwipe() {
 
             swipeState.lockedAxis = Math.abs(deltaX) > Math.abs(deltaY) ? 'x' : 'y';
         }
-    }, { passive: true });
+
+        if (swipeState.lockedAxis !== 'x') return;
+
+        swipeState.currentX = touch.clientX;
+        const direction = deltaX < 0 ? 1 : -1;
+        const hasTarget = getSwipeTargetCategoryId(direction) !== null;
+        const clampedDeltaX = hasTarget ? deltaX : deltaX * 0.18;
+
+        event.preventDefault();
+        listAreaEl.classList.add('is-swipe-gesture');
+        clearSwipeStageTransition();
+        setSwipeStagePosition(clampedDeltaX, 1);
+    }, { passive: false });
 
     listAreaEl.addEventListener('touchend', event => {
         if (!swipeState) return;
@@ -1052,18 +1371,41 @@ function initCategorySwipe() {
         swipeState = null;
 
         if (lockedAxis !== 'x') return;
-        if (Math.abs(deltaX) < CATEGORY_SWIPE_THRESHOLD_PX) return;
-        if (Math.abs(deltaY) > Math.abs(deltaX) * 0.6) return;
+        if (Math.abs(deltaY) > Math.abs(deltaX) * 0.6) {
+            void animateSwipeStageTo(0, 1).then(() => resetSwipeStage());
+            return;
+        }
 
         const direction = deltaX < 0 ? 1 : -1;
         const targetCategoryId = getSwipeTargetCategoryId(direction);
-        if (targetCategoryId === null) return;
+        if (targetCategoryId === null || Math.abs(deltaX) < CATEGORY_SWIPE_THRESHOLD_PX) {
+            void animateSwipeStageTo(0, 1).then(() => resetSwipeStage());
+            return;
+        }
 
-        void setCategory(targetCategoryId);
+        const width = listAreaEl?.clientWidth || window.innerWidth || 320;
+        const exitOffset = deltaX < 0 ? -width : width;
+        swipeTransitionActive = true;
+        void (async () => {
+            try {
+                enableSwipeStageTransition();
+                setSwipeStagePosition(exitOffset, 1);
+                await new Promise(resolve => window.setTimeout(resolve, 220));
+                await setCategory(targetCategoryId);
+                clearSwipeStageTransition();
+                setSwipeStagePosition(0, 1);
+            } finally {
+                swipeTransitionActive = false;
+                resetSwipeStage();
+            }
+        })();
     }, { passive: true });
 
     listAreaEl.addEventListener('touchcancel', () => {
         swipeState = null;
+        if (!swipeTransitionActive) {
+            void animateSwipeStageTo(0, 1).then(() => resetSwipeStage());
+        }
     }, { passive: true });
 }
 
@@ -1107,6 +1449,7 @@ async function saveNoteContent(id, title, htmlContent) {
         item.name = title || 'Ohne Titel';
         item.content = htmlContent;
     }
+    cacheCurrentCategoryItems();
     setNoteSaveStatus('Gespeichert');
 }
 
@@ -1196,12 +1539,29 @@ itemForm?.addEventListener('submit', event => {
     });
 });
 
-fileInput?.addEventListener('change', updateFilePickerLabel);
+fileInput?.addEventListener('change', () => {
+    updateFilePickerLabel();
+
+    if (!isAttachmentCategory()) return;
+    if (!fileInput.files?.[0]) return;
+
+    void uploadSelectedAttachment().catch(error => {
+        setUploadProgress(0);
+        setMessage(error instanceof Error ? error.message : 'Upload fehlgeschlagen.', true);
+    });
+});
 cameraBtn?.addEventListener('click', () => cameraInput?.click());
 cameraInput?.addEventListener('change', () => {
     if (!cameraInput?.files?.[0] || !fileInput) return;
     fileInput.files = cameraInput.files;
     updateFilePickerLabel();
+
+    if (!isAttachmentCategory()) return;
+
+    void uploadSelectedAttachment().catch(error => {
+        setUploadProgress(0);
+        setMessage(error instanceof Error ? error.message : 'Upload fehlgeschlagen.', true);
+    });
 });
 
 clearDoneBtn?.addEventListener('click', () => {
@@ -1302,6 +1662,11 @@ dropZoneEl?.addEventListener('drop', event => {
     transfer.items.add(file);
     fileInput.files = transfer.files;
     updateFilePickerLabel();
+
+    void uploadSelectedAttachment().catch(error => {
+        setUploadProgress(0);
+        setMessage(error instanceof Error ? error.message : 'Upload fehlgeschlagen.', true);
+    });
 });
 
 window.addEventListener('online', setNetworkStatus);
@@ -1322,6 +1687,7 @@ document.addEventListener('keydown', event => {
         await loadCategories();
         updateHeaders();
         await loadItems();
+        prefetchAdjacentCategories();
     } catch (error) {
         setMessage(error instanceof Error ? error.message : 'App konnte nicht geladen werden.', true);
     }

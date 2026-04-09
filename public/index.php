@@ -105,9 +105,15 @@ if ($appBasePath === '' || $appBasePath === '.') {
     </section>
 
     <main class="list-area">
-        <ul id="list" aria-label="Einkaufsliste"></ul>
-        <button type="button" class="btn-clear liste-only"
-                id="clearDoneBtn" disabled>Erledigte löschen</button>
+        <div class="list-swipe-stage" id="listSwipeStage">
+            <ul id="list" aria-label="Einkaufsliste"></ul>
+            <button type="button" class="btn-clear liste-only"
+                    id="clearDoneBtn" disabled>Erledigte löschen</button>
+        </div>
+        <div class="list-swipe-preview" id="listSwipePreview" aria-hidden="true" hidden>
+            <div class="list-swipe-preview-header" id="listSwipePreviewHeader"></div>
+            <ul class="list-swipe-preview-list" id="listSwipePreviewList"></ul>
+        </div>
     </main>
 
     <div class="message" id="message" role="status" aria-live="polite"></div>

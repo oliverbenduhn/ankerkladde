@@ -101,6 +101,94 @@ function getAttachmentAbsolutePath(array $attachment): string
     return getAttachmentStorageDirectory($section) . '/' . $storedName;
 }
 
+function getAttachmentThumbnailAbsolutePath(array $attachment): string
+{
+    $section = (string) ($attachment['storage_section'] ?? '');
+    if ($section !== 'images') {
+        return getAttachmentAbsolutePath($attachment);
+    }
+
+    $storedName = normalizeAttachmentStoredName((string) ($attachment['stored_name'] ?? ''));
+    $baseName = pathinfo($storedName, PATHINFO_FILENAME);
+
+    return getAttachmentStorageDirectory($section) . '/thumb-' . $baseName . '.jpg';
+}
+
+function canGenerateImageThumbnail(): bool
+{
+    return function_exists('imagecreatefromstring')
+        && function_exists('imagecreatetruecolor')
+        && function_exists('imagecopyresampled')
+        && function_exists('imagejpeg');
+}
+
+function generateImageThumbnailFile(
+    string $sourcePath,
+    string $targetPath,
+    int $maxWidth = 480,
+    int $maxHeight = 480,
+    int $jpegQuality = 82
+): bool {
+    if (!canGenerateImageThumbnail() || !is_file($sourcePath)) {
+        return false;
+    }
+
+    $sourceBytes = @file_get_contents($sourcePath);
+    if (!is_string($sourceBytes) || $sourceBytes === '') {
+        return false;
+    }
+
+    $sourceImage = @imagecreatefromstring($sourceBytes);
+    if ($sourceImage === false) {
+        return false;
+    }
+
+    $sourceWidth = imagesx($sourceImage);
+    $sourceHeight = imagesy($sourceImage);
+    if ($sourceWidth < 1 || $sourceHeight < 1) {
+        imagedestroy($sourceImage);
+        return false;
+    }
+
+    $scale = min($maxWidth / $sourceWidth, $maxHeight / $sourceHeight, 1);
+    $targetWidth = max(1, (int) round($sourceWidth * $scale));
+    $targetHeight = max(1, (int) round($sourceHeight * $scale));
+
+    $thumbnail = imagecreatetruecolor($targetWidth, $targetHeight);
+    if ($thumbnail === false) {
+        imagedestroy($sourceImage);
+        return false;
+    }
+
+    $background = imagecolorallocate($thumbnail, 255, 255, 255);
+    imagefill($thumbnail, 0, 0, $background);
+
+    $copied = imagecopyresampled(
+        $thumbnail,
+        $sourceImage,
+        0,
+        0,
+        0,
+        0,
+        $targetWidth,
+        $targetHeight,
+        $sourceWidth,
+        $sourceHeight
+    );
+
+    if ($copied === false) {
+        imagedestroy($thumbnail);
+        imagedestroy($sourceImage);
+        return false;
+    }
+
+    $saved = imagejpeg($thumbnail, $targetPath, $jpegQuality);
+    imagedestroy($thumbnail);
+    imagedestroy($sourceImage);
+
+    return $saved;
+}
+
 function findAttachmentByItemId(PDO $db, int $itemId): ?array
 {
     $stmt = $db->prepare(
@@ -117,9 +205,14 @@ function findAttachmentByItemId(PDO $db, int $itemId): ?array
 function deleteAttachmentStorageFile(array $attachment): void
 {
     $absolutePath = getAttachmentAbsolutePath($attachment);
+    $thumbnailPath = getAttachmentThumbnailAbsolutePath($attachment);
 
     if (is_file($absolutePath) && !unlink($absolutePath)) {
         throw new RuntimeException(sprintf('Attachment-Datei konnte nicht gelöscht werden: %s', $absolutePath));
+    }
+
+    if ($thumbnailPath !== $absolutePath && is_file($thumbnailPath) && !unlink($thumbnailPath)) {
+        throw new RuntimeException(sprintf('Thumbnail-Datei konnte nicht gelöscht werden: %s', $thumbnailPath));
     }
 }
 
@@ -368,6 +461,18 @@ function nextItemSortOrder(PDO $db, int $userId, int $categoryId): int
     );
     $maxStmt->execute([':category_id' => $categoryId, ':user_id' => $userId]);
     return (int) $maxStmt->fetchColumn() + 1;
+}
+
+function prependItemSortOrder(PDO $db, int $userId, int $categoryId): int
+{
+    $shiftStmt = $db->prepare(
+        'UPDATE items
+         SET sort_order = sort_order + 1
+         WHERE category_id = :category_id AND user_id = :user_id'
+    );
+    $shiftStmt->execute([':category_id' => $categoryId, ':user_id' => $userId]);
+
+    return 1;
 }
 
 function nextCategorySortOrder(PDO $db, int $userId): int

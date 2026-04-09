@@ -522,10 +522,31 @@ function buildAttachmentPayload(array $item): ?array
     }
 
     $baseUrl = requestPath('media.php?item_id=' . (int) $item['id']);
+    $versionSource = '';
+
+    if ($section === 'images' && !empty($item['attachment_stored_name'])) {
+        $thumbnailPath = getAttachmentThumbnailAbsolutePath([
+            'storage_section' => $section,
+            'stored_name' => (string) $item['attachment_stored_name'],
+        ]);
+        $thumbnailMtime = is_file($thumbnailPath) ? @filemtime($thumbnailPath) : false;
+        if (is_int($thumbnailMtime) && $thumbnailMtime > 0) {
+            $versionSource = 'thumb-' . $thumbnailMtime;
+        }
+    }
+
+    if ($versionSource === '') {
+        $versionSource = (string) ($item['attachment_updated_at'] ?? '');
+    }
+    if ($versionSource === '') {
+        $versionSource = (string) ($item['attachment_stored_name'] ?? '');
+    }
+    $versionQuery = $versionSource !== '' ? '&v=' . rawurlencode($versionSource) : '';
 
     return [
-        'preview_url' => $section === 'images' ? $baseUrl : null,
-        'download_url' => $baseUrl . '&download=1',
+        'preview_url' => $section === 'images' ? $baseUrl . '&variant=thumb' . $versionQuery : null,
+        'original_url' => $section === 'images' ? $baseUrl : $baseUrl . '&download=1' . $versionQuery,
+        'download_url' => $baseUrl . '&download=1' . $versionQuery,
         'original_name' => (string) ($item['attachment_original_name'] ?? ''),
         'mime_type' => (string) ($item['attachment_media_type'] ?? 'application/octet-stream'),
         'size_bytes' => (int) ($item['attachment_size_bytes'] ?? 0),
@@ -558,6 +579,7 @@ function formatListItem(array $item): array
         'attachment_size_bytes' => $attachment['size_bytes'] ?? null,
         'attachment_url' => $attachment['preview_url'] ?? $attachment['download_url'] ?? null,
         'attachment_preview_url' => $attachment['preview_url'] ?? null,
+        'attachment_original_url' => $attachment['original_url'] ?? null,
         'attachment_download_url' => $attachment['download_url'] ?? null,
     ];
 }
@@ -580,9 +602,11 @@ function fetchItemForUser(PDO $db, int $userId, int $itemId): ?array
             items.created_at,
             items.updated_at,
             attachments.storage_section AS attachment_storage_section,
+            attachments.stored_name AS attachment_stored_name,
             attachments.original_name AS attachment_original_name,
             attachments.media_type AS attachment_media_type,
             attachments.size_bytes AS attachment_size_bytes,
+            attachments.updated_at AS attachment_updated_at,
             CASE WHEN attachments.id IS NULL THEN 0 ELSE 1 END AS has_attachment
          FROM items
          INNER JOIN categories ON categories.id = items.category_id
@@ -783,9 +807,11 @@ try {
                     items.created_at,
                     items.updated_at,
                     attachments.storage_section AS attachment_storage_section,
+                    attachments.stored_name AS attachment_stored_name,
                     attachments.original_name AS attachment_original_name,
                     attachments.media_type AS attachment_media_type,
                     attachments.size_bytes AS attachment_size_bytes,
+                    attachments.updated_at AS attachment_updated_at,
                     CASE WHEN attachments.id IS NULL THEN 0 ELSE 1 END AS has_attachment
                  FROM items
                  INNER JOIN categories ON categories.id = items.category_id
@@ -905,6 +931,13 @@ try {
                     }
                     $storedFileMoved = true;
 
+                    if ((string) $category['type'] === 'images') {
+                        @generateImageThumbnailFile($targetPath, getAttachmentThumbnailAbsolutePath([
+                            'storage_section' => (string) $category['type'],
+                            'stored_name' => $storedName,
+                        ]));
+                    }
+
                     $oldAttachment = findAttachmentByItemId($db, $replaceItemId);
                     $db->prepare(
                         'INSERT INTO attachments (item_id, storage_section, stored_name, original_name, media_type, size_bytes)
@@ -960,7 +993,7 @@ try {
                 )->execute([
                     ':name' => $name,
                     ':category_id' => (int) $category['id'],
-                    ':sort_order' => nextItemSortOrder($db, $userId, (int) $category['id']),
+                    ':sort_order' => prependItemSortOrder($db, $userId, (int) $category['id']),
                     ':user_id' => $userId,
                 ]);
                 $itemId = (int) $db->lastInsertId();
@@ -969,6 +1002,13 @@ try {
                     throw new RuntimeException('Upload-Datei konnte nicht verschoben werden.');
                 }
                 $storedFileMoved = true;
+
+                if ((string) $category['type'] === 'images') {
+                    @generateImageThumbnailFile($targetPath, getAttachmentThumbnailAbsolutePath([
+                        'storage_section' => (string) $category['type'],
+                        'stored_name' => $storedName,
+                    ]));
+                }
 
                 $db->prepare(
                     'INSERT INTO attachments (item_id, storage_section, stored_name, original_name, media_type, size_bytes)
@@ -1221,9 +1261,11 @@ try {
                     items.created_at,
                     items.updated_at,
                     attachments.storage_section AS attachment_storage_section,
+                    attachments.stored_name AS attachment_stored_name,
                     attachments.original_name AS attachment_original_name,
                     attachments.media_type AS attachment_media_type,
                     attachments.size_bytes AS attachment_size_bytes,
+                    attachments.updated_at AS attachment_updated_at,
                     CASE WHEN attachments.id IS NULL THEN 0 ELSE 1 END AS has_attachment
                  FROM items_fts
                  INNER JOIN items ON items.id = items_fts.rowid
