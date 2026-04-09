@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION = 'v9';
+const VERSION = 'v10';
 const STATIC_CACHE = `einkauf-static-${VERSION}`;
 const RUNTIME_CACHE = `einkauf-runtime-${VERSION}`;
 const SHARE_CACHE = 'einkauf-share-target';
@@ -108,7 +108,7 @@ async function handleNavigationRequest(request) {
     try {
         const response = await fetch(request);
 
-        if (response.ok) {
+        if (response.ok && request.method === 'GET') {
             const cache = await caches.open(RUNTIME_CACHE);
             await cache.put(request, response.clone());
         }
