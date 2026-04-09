@@ -92,7 +92,7 @@ button, input { font: inherit; }
    INPUT AREA (Liste-Modus only)
    =========================================== */
 .input-area {
-    padding: 0 16px 12px;
+    padding: 0 16px calc(12px + env(safe-area-inset-bottom, 0px));
     flex-shrink: 0;
 }
 
@@ -388,9 +388,9 @@ button, input { font: inherit; }
 .toggle {
     appearance: none;
     -webkit-appearance: none;
-    width: 24px;
-    height: 24px;
-    min-width: 24px;
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
     border: 1.5px solid var(--accent);
     border-radius: 7px;
     background: transparent;
@@ -905,7 +905,7 @@ button, input { font: inherit; }
 }
 
 .header-icon-btn:hover  { background: var(--accent); color: var(--text-primary); }
-.header-icon-btn:active { transform: scale(0.92); }
+.header-icon-btn:active { background: var(--accent); color: var(--text-primary); transform: scale(0.92); }
 
 .btn-mode-toggle {
     font-size: 1.1rem;
@@ -1042,8 +1042,8 @@ button, input { font: inherit; }
    TABS TOGGLE BUTTON
    =========================================== */
 .btn-tabs-toggle {
-    min-width: 28px;
-    min-height: 28px;
+    min-width: 44px;
+    min-height: 44px;
     padding: 0;
     background: none;
     border: none;
@@ -1058,7 +1058,8 @@ button, input { font: inherit; }
     transition: color 0.15s ease, background 0.15s ease;
 }
 
-.btn-tabs-toggle:hover     { color: var(--text-primary); background: rgba(200,184,154,0.15); }
+.btn-tabs-toggle:hover,
+.btn-tabs-toggle:active    { color: var(--text-primary); background: rgba(200,184,154,0.15); }
 .btn-tabs-toggle.is-active { color: var(--text-primary); }
 
 .section-tabs.tabs-hidden { display: none; }
@@ -1096,6 +1097,7 @@ button, input { font: inherit; }
     min-height: 52px;
     transition: color 0.15s ease, border-color 0.15s ease;
     margin-bottom: -1.5px; /* overlap border-bottom */
+    touch-action: none; /* prevent browser scroll-gesture from cancelling pointer events */
 }
 
 .section-tab.is-tab-dragging {
@@ -1117,12 +1119,13 @@ button, input { font: inherit; }
     font-weight: 700;
 }
 
-.section-tab:hover:not([aria-current="page"]) {
+.section-tab:hover:not([aria-current="page"]),
+.section-tab:active:not([aria-current="page"]) {
     color: var(--text-secondary);
 }
 
 .section-icon { font-size: 1.1rem; line-height: 1; }
-.section-label { font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+.section-label { font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
 
 /* ===========================================
    NOTE CARDS
@@ -1244,8 +1247,8 @@ button, input { font: inherit; }
 .note-toolbar::-webkit-scrollbar { display: none; }
 
 .note-toolbar button {
-    min-width: 34px;
-    min-height: 32px;
+    min-width: 40px;
+    min-height: 40px;
     padding: 0 6px;
     background: none;
     border: 1.5px solid transparent;
@@ -1260,7 +1263,8 @@ button, input { font: inherit; }
     transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
 }
 
-.note-toolbar button:hover {
+.note-toolbar button:hover,
+.note-toolbar button:active {
     background: rgba(200, 184, 154, 0.15);
     color: var(--text-primary);
 }
@@ -1467,7 +1471,8 @@ button, input { font: inherit; }
    SEARCH RESULTS
    =========================================== */
 .search-result { cursor: pointer; }
-.search-result:hover { background: var(--done-bg); }
+.search-result:hover,
+.search-result:active { background: var(--done-bg); }
 
 .search-result-section {
     font-size: 0.7rem;

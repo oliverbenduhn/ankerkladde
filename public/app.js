@@ -37,6 +37,7 @@ const modeToggleBtns = document.querySelectorAll('.btn-mode-toggle');
 const sectionTabsEl = document.getElementById('sectionTabs');
 const tabsToggleBtns = document.querySelectorAll('.btn-tabs-toggle');
 const networkStatusEl = document.getElementById('networkStatus');
+const updateBannerEl = document.getElementById('updateBanner');
 const diskFreeEl = document.getElementById('diskFreeDisplay');
 const noteEditorEl = document.getElementById('noteEditor');
 const noteEditorBack = document.getElementById('noteEditorBack');
@@ -419,6 +420,11 @@ function renderCategoryTabs() {
     });
 
     sectionTabsEl.appendChild(fragment);
+
+    const activeTab = sectionTabsEl.querySelector('[aria-current="page"]');
+    if (activeTab) {
+        activeTab.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    }
 }
 
 function updateCategoryOrderState(orderedIds) {
@@ -477,7 +483,7 @@ function initCategoryTabReorder() {
             window.clearTimeout(longPressTimer);
             document.removeEventListener('pointermove', onMove);
             document.removeEventListener('pointerup', onEnd);
-            document.removeEventListener('pointercancel', onEnd);
+            document.removeEventListener('pointercancel', onAbort);
         }
 
         function onMove(moveEvent) {
@@ -540,9 +546,20 @@ function initCategoryTabReorder() {
             void persistCategoryOrder(orderedIds);
         }
 
+        function onAbort() {
+            cleanup();
+            if (!dragActive) return;
+            tab.classList.remove('is-tab-dragging');
+            sectionTabsEl.classList.remove('is-tab-reordering');
+            Array.from(sectionTabsEl.querySelectorAll('.section-tab')).forEach(other => {
+                other.classList.remove('tab-drop-before', 'tab-drop-after');
+            });
+            delete tab._tabInsertBefore;
+        }
+
         document.addEventListener('pointermove', onMove);
         document.addEventListener('pointerup', onEnd);
-        document.addEventListener('pointercancel', onEnd);
+        document.addEventListener('pointercancel', onAbort);
     });
 }
 
@@ -1677,6 +1694,30 @@ document.addEventListener('keydown', event => {
     }
 });
 
+{
+    let deferredInstallPrompt = null;
+    const installBannerEl = document.getElementById('installBanner');
+    const installBtn = document.getElementById('installBtn');
+    const installDismiss = document.getElementById('installDismiss');
+
+    window.addEventListener('beforeinstallprompt', e => {
+        e.preventDefault();
+        if (userPreferences.install_banner_dismissed) return;
+        deferredInstallPrompt = e;
+        if (installBannerEl) installBannerEl.hidden = false;
+    });
+    installBtn?.addEventListener('click', async () => {
+        if (installBannerEl) installBannerEl.hidden = true;
+        await deferredInstallPrompt?.prompt();
+        deferredInstallPrompt = null;
+    });
+    installDismiss?.addEventListener('click', () => {
+        if (installBannerEl) installBannerEl.hidden = true;
+        deferredInstallPrompt = null;
+        void savePreferences({ install_banner_dismissed: true });
+    });
+}
+
 (async function init() {
     try {
         setNetworkStatus();
@@ -1691,4 +1732,26 @@ document.addEventListener('keydown', event => {
     } catch (error) {
         setMessage(error instanceof Error ? error.message : 'App konnte nicht geladen werden.', true);
     }
+
+    if ('serviceWorker' in navigator) {
+        try {
+            const reg = await navigator.serviceWorker.register(appBasePath + 'sw.js');
+            reg.addEventListener('updatefound', () => {
+                const w = reg.installing;
+                w?.addEventListener('statechange', () => {
+                    if (w.state === 'installed' && navigator.serviceWorker.controller) {
+                        if (updateBannerEl) updateBannerEl.hidden = false;
+                    }
+                });
+            });
+        } catch {
+            // SW registration failure is non-fatal
+        }
+    }
+
+    document.getElementById('updateReloadBtn')?.addEventListener('click', async () => {
+        const reg = await navigator.serviceWorker.getRegistration();
+        reg?.waiting?.postMessage({ type: 'SKIP_WAITING' });
+        window.location.reload();
+    });
 })();
