@@ -153,6 +153,9 @@ button, input { font: inherit; }
     transition: background 0.15s ease;
 }
 
+.btn-camera { filter: grayscale(1) opacity(0.6); transition: background 0.15s ease, filter 0.15s ease; }
+.btn-camera:hover { filter: none; }
+
 .file-picker-button:hover {
     background: var(--accent);
 }
@@ -900,16 +903,18 @@ button, input { font: inherit; }
     font-size: 1.1rem;
     cursor: pointer;
     flex-shrink: 0;
-    transition: background 0.15s ease, transform 0.1s ease;
+    transition: background 0.15s ease, transform 0.1s ease, filter 0.15s ease;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     text-decoration: none;
     color: var(--text-secondary);
+    filter: grayscale(1) opacity(0.6);
 }
 
-.header-icon-btn:hover  { background: var(--accent); color: var(--text-primary); }
-.header-icon-btn:active { background: var(--accent); color: var(--text-primary); transform: scale(0.92); }
+.header-icon-btn:hover  { background: var(--accent); color: var(--text-primary); filter: none; }
+.header-icon-btn:active { background: var(--accent); color: var(--text-primary); transform: scale(0.92); filter: none; }
+.btn-search.is-active   { filter: none; }
 
 .btn-mode-toggle {
     font-size: 1.1rem;
