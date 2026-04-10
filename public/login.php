@@ -57,10 +57,21 @@ $csrfToken = getCsrfToken();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#f5f0eb">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Zettel">
+    <link rel="manifest" href="<?= htmlspecialchars(appPath('manifest.php'), ENT_QUOTES, 'UTF-8') ?>">
     <title>Anmelden — Zettel</title>
     <link rel="stylesheet" href="<?= htmlspecialchars(appPath('style.css'), ENT_QUOTES, 'UTF-8') ?>">
 </head>
 <body class="login-page">
+
+<div class="install-banner" id="installBanner" hidden style="position:fixed;top:0;left:0;right:0;z-index:100">
+    <span class="install-text">App installieren?</span>
+    <button type="button" id="installBtn" class="btn-install">Installieren</button>
+    <button type="button" id="installDismiss" class="btn-install-dismiss" aria-label="Schließen">✕</button>
+</div>
+
 <div class="login-card">
     <h1>Zettel</h1>
     <?php if ($error !== null): ?>
@@ -82,5 +93,36 @@ $csrfToken = getCsrfToken();
         <button type="submit" class="login-btn">Anmelden</button>
     </form>
 </div>
+<script>
+(function () {
+    'use strict';
+    const basePath = <?= json_encode($basePath, JSON_UNESCAPED_SLASHES) ?>;
+    const bannerEl = document.getElementById('installBanner');
+    const installBtn = document.getElementById('installBtn');
+    const dismissBtn = document.getElementById('installDismiss');
+    let deferredPrompt = null;
+
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register(basePath + 'sw.js').catch(() => {});
+    }
+
+    window.addEventListener('beforeinstallprompt', e => {
+        e.preventDefault();
+        deferredPrompt = e;
+        if (bannerEl) bannerEl.hidden = false;
+    });
+
+    installBtn?.addEventListener('click', async () => {
+        if (!deferredPrompt) return;
+        bannerEl.hidden = true;
+        await deferredPrompt.prompt();
+        deferredPrompt = null;
+    });
+
+    dismissBtn?.addEventListener('click', () => {
+        if (bannerEl) bannerEl.hidden = true;
+    });
+}());
+</script>
 </body>
 </html>
