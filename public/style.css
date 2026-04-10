@@ -236,11 +236,11 @@ button, input { font: inherit; }
     color: var(--surface);
     border: none;
     border-radius: 12px;
-    font-size: 1.6rem;
-    font-weight: 300;
-    line-height: 1;
     cursor: pointer;
     flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     transition: background 0.15s ease, transform 0.1s ease;
 }
 
