@@ -20,6 +20,7 @@ if ($appBasePath === '' || $appBasePath === '.') {
 } else {
     $appBasePath = rtrim($appBasePath, '/') . '/';
 }
+$assetVersion = '27';
 
 function icon(string $name): string {
     static $paths = [
@@ -47,12 +48,12 @@ function icon(string $name): string {
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="apple-mobile-web-app-title" content="Zettel">
+    <meta name="apple-mobile-web-app-title" content="Ankerkladde">
     <meta name="app-base-path" content="<?= htmlspecialchars($appBasePath, ENT_QUOTES, 'UTF-8') ?>">
     <meta name="csrf-token" content="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
-    <link rel="manifest" href="manifest.php">
-    <link rel="stylesheet" href="style.css">
-    <title>Zettel</title>
+    <link rel="manifest" href="manifest.php?v=<?= urlencode($assetVersion) ?>">
+    <link rel="stylesheet" href="style.css?v=<?= urlencode($assetVersion) ?>">
+    <title>Ankerkladde</title>
 </head>
 <body>
 <div class="app" id="app" data-mode="einkaufen">
@@ -72,7 +73,13 @@ function icon(string $name): string {
 
     <header class="app-header liste-only">
         <button type="button" id="tabsToggleBtn" class="btn-tabs-toggle" aria-label="Symbolleiste ein-/ausblenden"><?= icon('menu') ?></button>
-        <h1 class="app-title" id="titleListe">Einkaufsliste</h1>
+        <div class="app-title-group">
+            <img src="icon.php?size=96" alt="" class="brand-mark brand-mark-app" aria-hidden="true">
+            <div class="app-title-stack">
+                <h1 class="app-title">Ankerkladde</h1>
+                <div class="app-subtitle" id="titleListe">Listen</div>
+            </div>
+        </div>
         <div class="header-actions">
             <button type="button" id="searchBtn" class="header-icon-btn btn-search" aria-label="Suchen"><?= icon('search') ?></button>
             <a href="<?= htmlspecialchars(appPath('settings.php'), ENT_QUOTES, 'UTF-8') ?>" class="header-icon-btn btn-settings" aria-label="Einstellungen"><?= icon('settings') ?></a>
@@ -89,7 +96,13 @@ function icon(string $name): string {
 
     <header class="app-header shopping-only">
         <button type="button" class="btn-tabs-toggle" aria-label="Symbolleiste ein-/ausblenden"><?= icon('menu') ?></button>
-        <h1 class="app-title" id="titleShopping">Einkaufen</h1>
+        <div class="app-title-group">
+            <img src="icon.php?size=96" alt="" class="brand-mark brand-mark-app" aria-hidden="true">
+            <div class="app-title-stack">
+                <h1 class="app-title">Ankerkladde</h1>
+                <div class="app-subtitle" id="titleShopping">Einkaufen</div>
+            </div>
+        </div>
         <div class="header-actions">
             <span class="progress" id="progress" aria-live="polite">0 / 0</span>
             <a href="<?= htmlspecialchars(appPath('settings.php'), ENT_QUOTES, 'UTF-8') ?>" class="header-icon-btn btn-settings" aria-label="Einstellungen"><?= icon('settings') ?></a>
@@ -99,9 +112,9 @@ function icon(string $name): string {
 
     <section class="input-area liste-only" id="inputArea">
         <form id="itemForm" novalidate>
-            <input type="text" id="itemInput" name="name"
-                   placeholder="Artikel..." maxlength="120"
-                   autocomplete="off" enterkeyhint="done" required>
+            <textarea id="itemInput" name="name"
+                      placeholder="Artikel..." maxlength="120"
+                      autocomplete="off" enterkeyhint="done" rows="3" required></textarea>
             <div class="file-input-group" id="fileInputGroup" hidden>
                 <label for="fileInput" class="file-picker-button" id="filePickerButton">Datei wählen</label>
                 <input type="file" id="fileInput" name="attachment" hidden>
@@ -122,7 +135,7 @@ function icon(string $name): string {
 
     <main class="list-area">
         <div class="list-swipe-stage" id="listSwipeStage">
-            <ul id="list" aria-label="Einkaufsliste"></ul>
+            <ul id="list" aria-label="Ankerkladde"></ul>
             <button type="button" class="btn-clear liste-only"
                     id="clearDoneBtn" disabled>Erledigte löschen</button>
         </div>
@@ -174,7 +187,7 @@ function icon(string $name): string {
 </div>
 
 <script id="userPreferences" type="application/json"><?= json_encode($userPreferences, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
-<script src="app.js"></script>
+<script src="app.js?v=<?= urlencode($assetVersion) ?>"></script>
 <script type="module">
 import { Editor } from 'https://esm.sh/@tiptap/core@2';
 import StarterKit from 'https://esm.sh/@tiptap/starter-kit@2';

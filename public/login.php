@@ -7,6 +7,7 @@ require dirname(__DIR__) . '/security.php';
 enforceCanonicalRequest();
 startAppSession();
 $basePath = appPath();
+$assetVersion = '26';
 
 // Already logged in → redirect to appropriate page
 $alreadyLoggedIn = getCurrentUserId() !== null;
@@ -59,10 +60,10 @@ $csrfToken = getCsrfToken();
     <meta name="theme-color" content="#f5f0eb">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-title" content="Zettel">
-    <link rel="manifest" href="<?= htmlspecialchars(appPath('manifest.php'), ENT_QUOTES, 'UTF-8') ?>">
-    <title>Anmelden — Zettel</title>
-    <link rel="stylesheet" href="<?= htmlspecialchars(appPath('style.css'), ENT_QUOTES, 'UTF-8') ?>">
+    <meta name="apple-mobile-web-app-title" content="Ankerkladde">
+    <link rel="manifest" href="<?= htmlspecialchars(appPath('manifest.php?v=' . $assetVersion), ENT_QUOTES, 'UTF-8') ?>">
+    <title>Anmelden — Ankerkladde</title>
+    <link rel="stylesheet" href="<?= htmlspecialchars(appPath('style.css?v=' . $assetVersion), ENT_QUOTES, 'UTF-8') ?>">
 </head>
 <body class="login-page">
 
@@ -73,7 +74,10 @@ $csrfToken = getCsrfToken();
 </div>
 
 <div class="login-card">
-    <h1>Zettel</h1>
+    <div class="login-brand">
+        <img src="<?= htmlspecialchars(appPath('icon.php?size=192'), ENT_QUOTES, 'UTF-8') ?>" alt="Ankerkladde Logo" class="brand-mark brand-mark-login">
+        <h1>Ankerkladde</h1>
+    </div>
     <?php if ($error !== null): ?>
         <p class="login-error"><?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?></p>
     <?php endif; ?>
@@ -103,7 +107,7 @@ $csrfToken = getCsrfToken();
     let deferredPrompt = null;
 
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register(basePath + 'sw.js').catch(() => {});
+        navigator.serviceWorker.register(basePath + 'sw.js?v=26').catch(() => {});
     }
 
     window.addEventListener('beforeinstallprompt', e => {

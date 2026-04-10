@@ -19,9 +19,9 @@ if ($appBasePath === '' || $appBasePath === '.') {
 
 $manifest = [
     'id' => $appBasePath,
-    'name' => 'Zettel',
-    'short_name' => 'Zettel',
-    'description' => 'Schnelle mobile Zettel – Listen, Notizen, ToDos.',
+    'name' => 'Ankerkladde',
+    'short_name' => 'Ankerkladde',
+    'description' => 'Mobile Kladde für Listen, Notizen, Bilder, Dateien und Links.',
     'lang' => 'de',
     'start_url' => $appBasePath,
     'scope' => $appBasePath,

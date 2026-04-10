@@ -37,7 +37,8 @@ const modeToggleBtns = document.querySelectorAll('.btn-mode-toggle');
 const sectionTabsEl = document.getElementById('sectionTabs');
 const mehrMenuEl = document.getElementById('mehrMenu');
 const tabsToggleBtns = document.querySelectorAll('.btn-tabs-toggle');
-const MAX_VISIBLE_TABS = 4;
+const MIN_VISIBLE_TAB_WIDTH = 64;
+const MEHR_BUTTON_WIDTH = 48;
 let mehrOpen = false;
 const networkStatusEl = document.getElementById('networkStatus');
 const updateBannerEl = document.getElementById('updateBanner');
@@ -74,6 +75,19 @@ function svgIcon(name) {
     svg.classList.add('icon');
     svg.innerHTML = ICONS[name] || '';
     return svg;
+}
+
+function updateViewportHeight() {
+    const viewportHeight = window.visualViewport?.height || window.innerHeight || 0;
+    if (viewportHeight > 0) {
+        document.documentElement.style.setProperty('--app-height', `${Math.round(viewportHeight)}px`);
+    }
+}
+
+function syncAutoHeight(element) {
+    if (!element) return;
+    element.style.height = 'auto';
+    element.style.height = `${element.scrollHeight}px`;
 }
 
 const TYPE_CONFIG = {
@@ -419,7 +433,10 @@ async function savePreferences(patch) {
 function makeCategoryTab(category) {
     const button = document.createElement('button');
     button.className = 'section-tab';
+    button.type = 'button';
     button.dataset.categoryId = String(category.id);
+    button.setAttribute('aria-label', category.name);
+    button.title = category.name;
     if (category.id === state.categoryId) {
         button.setAttribute('aria-current', 'page');
     }
@@ -432,12 +449,28 @@ function makeCategoryTab(category) {
     const dot = document.createElement('span');
     dot.className = 'section-dot';
 
-    button.append(icon, dot);
+    const label = document.createElement('span');
+    label.className = 'section-label';
+    label.textContent = category.name;
+
+    button.append(icon, label, dot);
     button.addEventListener('click', () => {
         if (tabDragJustFinished) return;
         void setCategory(category.id);
     });
     return button;
+}
+
+function getMaxVisibleTabs(categoryCount) {
+    if (!sectionTabsEl || categoryCount <= 0) return 0;
+
+    const navWidth = sectionTabsEl.clientWidth || window.innerWidth || 320;
+    const tabsWithoutOverflow = Math.max(1, Math.floor(navWidth / MIN_VISIBLE_TAB_WIDTH));
+    if (categoryCount <= tabsWithoutOverflow) {
+        return categoryCount;
+    }
+
+    return Math.max(1, Math.floor((navWidth - MEHR_BUTTON_WIDTH) / MIN_VISIBLE_TAB_WIDTH));
 }
 
 function toggleMehrMenu() {
@@ -461,8 +494,9 @@ function renderCategoryTabs() {
     closeMehrMenu();
 
     const categories = getVisibleCategories();
-    const visibleTabs = categories.slice(0, MAX_VISIBLE_TABS);
-    const overflowCategories = categories.slice(MAX_VISIBLE_TABS);
+    const maxVisibleTabs = getMaxVisibleTabs(categories.length);
+    const visibleTabs = categories.slice(0, maxVisibleTabs);
+    const overflowCategories = categories.slice(maxVisibleTabs);
 
     const fragment = document.createDocumentFragment();
 
@@ -659,22 +693,40 @@ function initItemDragReorder() {
     if (!listEl) return;
 
     listEl.addEventListener('pointerdown', event => {
-        const handle = event.target.closest('.btn-drag-handle');
-        if (!handle || (event.button !== undefined && event.button !== 0)) return;
+        if (state.mode !== 'liste' || state.search.open) return;
+        if (event.button !== undefined && event.button !== 0) return;
+        if (event.target.closest('.toggle, .btn-item-menu, .item-actions, a, input, textarea, select, button')) return;
 
-        const li = handle.closest('li.item-card');
-        if (!li) return;
-
-        event.preventDefault();
-
-        try {
-            handle.setPointerCapture(event.pointerId);
-        } catch {}
-
-        triggerHapticFeedback();
-        li.classList.add('is-dragging');
+        const li = event.target.closest('li.item-card');
+        if (!li || li.classList.contains('is-editing')) return;
 
         let insertBefore = null;
+        let dragging = false;
+        let longPressActivated = false;
+        let longPressTimer = null;
+        const startX = event.clientX;
+        const startY = event.clientY;
+        const isTouchPointer = event.pointerType === 'touch';
+
+        function startDragging(moveEvent = null) {
+            if (dragging) return;
+            dragging = true;
+            if (moveEvent) {
+                moveEvent.preventDefault();
+            }
+            try {
+                li.setPointerCapture(event.pointerId);
+            } catch {}
+            triggerHapticFeedback();
+            li.classList.add('is-dragging');
+        }
+
+        if (isTouchPointer) {
+            longPressTimer = window.setTimeout(() => {
+                longPressActivated = true;
+                startDragging();
+            }, 300);
+        }
 
         function getOtherItems() {
             return Array.from(listEl.querySelectorAll('li.item-card:not(.is-dragging)'));
@@ -687,12 +739,33 @@ function initItemDragReorder() {
         }
 
         function cleanup() {
+            if (longPressTimer !== null) {
+                window.clearTimeout(longPressTimer);
+                longPressTimer = null;
+            }
             document.removeEventListener('pointermove', onMove);
             document.removeEventListener('pointerup', onEnd);
             document.removeEventListener('pointercancel', onAbort);
         }
 
         function onMove(moveEvent) {
+            if (!dragging) {
+                const deltaX = Math.abs(moveEvent.clientX - startX);
+                const deltaY = Math.abs(moveEvent.clientY - startY);
+                const movement = Math.max(deltaX, deltaY);
+
+                if (isTouchPointer) {
+                    if (!longPressActivated && movement > 8) {
+                        cleanup();
+                        return;
+                    }
+                    if (!longPressActivated) return;
+                } else {
+                    if (movement < 6) return;
+                    startDragging(moveEvent);
+                }
+            }
+
             const others = getOtherItems();
             clearDropTargets();
 
@@ -713,6 +786,7 @@ function initItemDragReorder() {
 
         function onEnd() {
             cleanup();
+            if (!dragging) return;
             li.classList.remove('is-dragging');
             clearDropTargets();
 
@@ -727,6 +801,7 @@ function initItemDragReorder() {
 
         function onAbort() {
             cleanup();
+            if (!dragging) return;
             li.classList.remove('is-dragging');
             clearDropTargets();
         }
@@ -769,7 +844,7 @@ function updateHeaders() {
     const titleShopping = document.getElementById('titleShopping');
     if (titleListe) titleListe.textContent = config.title(category.name);
     if (titleShopping) titleShopping.textContent = config.shoppingTitle(category.name);
-    document.title = category.name;
+    document.title = `Ankerkladde - ${category.name}`;
 
     if (itemInput) {
         itemInput.placeholder = config.placeholder;
@@ -1025,6 +1100,71 @@ function openLightbox(src, alt) {
     closeBtn.focus();
 }
 
+function openItemMenu(item) {
+    const overlay = document.createElement('div');
+    overlay.className = 'item-menu-overlay';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-label', `${item.name || 'Eintrag'} Aktionen`);
+
+    const sheet = document.createElement('div');
+    sheet.className = 'item-menu-sheet';
+
+    const title = document.createElement('div');
+    title.className = 'item-menu-title';
+    title.textContent = item.name || getAttachmentTitle(item);
+    sheet.appendChild(title);
+
+    const actions = document.createElement('div');
+    actions.className = 'item-menu-actions';
+
+    function close() {
+        overlay.remove();
+        document.removeEventListener('keydown', onKey);
+    }
+
+    function onKey(event) {
+        if (event.key === 'Escape') close();
+    }
+
+    function appendAction(label, onClick, className = '') {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = `item-menu-action${className ? ` ${className}` : ''}`;
+        button.textContent = label;
+        button.addEventListener('click', async event => {
+            event.stopPropagation();
+            close();
+            await onClick();
+        });
+        actions.appendChild(button);
+    }
+
+    if (item.category_type === 'notes') {
+        appendAction('Notiz öffnen', () => openNoteEditor(item));
+    } else {
+        appendAction('Bearbeiten', async () => {
+            state.editingId = item.id;
+            state.editDraft = { name: item.name || '', quantity: item.quantity || '', due_date: item.due_date || '' };
+            renderItems();
+        });
+    }
+
+    appendAction(item.is_pinned ? 'Lösen' : 'Anheften', () => handlePin(item.id, item.is_pinned ? 0 : 1));
+
+    appendAction('Löschen', () => handleDelete(item.id), 'is-danger');
+    appendAction('Abbrechen', async () => {}, 'is-secondary');
+
+    sheet.appendChild(actions);
+    overlay.appendChild(sheet);
+
+    overlay.addEventListener('click', event => {
+        if (event.target === overlay) close();
+    });
+    document.addEventListener('keydown', onKey);
+    document.body.appendChild(overlay);
+}
+
 function createImagePreviewPlaceholder(label = 'Kein Vorschaubild') {
     const placeholder = document.createElement('span');
     placeholder.className = 'attachment-preview-placeholder';
@@ -1193,19 +1333,23 @@ function buildReadOnlyContent(item, content) {
 }
 
 function buildEditContent(item, content) {
-    const nameInput = document.createElement('input');
-    nameInput.type = 'text';
-    nameInput.className = 'item-edit-input edit-name-input';
+    const nameInput = document.createElement('textarea');
+    nameInput.className = 'item-edit-input item-edit-textarea edit-name-input';
+    nameInput.rows = 5;
+    nameInput.maxLength = 120;
     nameInput.value = state.editDraft.name;
     nameInput.addEventListener('input', event => {
         state.editDraft.name = event.target.value;
+        syncAutoHeight(nameInput);
     });
+    syncAutoHeight(nameInput);
     content.appendChild(nameInput);
 
     if (item.category_type === 'list_quantity') {
         const quantity = document.createElement('input');
         quantity.type = 'text';
         quantity.className = 'item-edit-input';
+        quantity.maxLength = 40;
         quantity.value = state.editDraft.quantity;
         quantity.placeholder = 'Menge';
         quantity.addEventListener('input', event => {
@@ -1256,32 +1400,24 @@ function buildItemNode(item) {
             state.editingId = null;
             renderItems();
         }));
-    } else if (item.category_type !== 'notes') {
-        actions.appendChild(buildActionButton('pencil', `${item.name} bearbeiten`, () => {
-            state.editingId = item.id;
-            state.editDraft = { name: item.name || '', quantity: item.quantity || '', due_date: item.due_date || '' };
-            renderItems();
-        }, 'btn-item-action btn-edit'));
+    } else {
+        const menuButton = document.createElement('button');
+        menuButton.type = 'button';
+        menuButton.className = 'btn-item-menu';
+        menuButton.setAttribute('aria-label', `${item.name} Aktionen`);
+        menuButton.appendChild(svgIcon('more-horizontal'));
+        menuButton.addEventListener('click', event => {
+            event.stopPropagation();
+            openItemMenu(item);
+        });
+        actions.appendChild(menuButton);
     }
 
-    if (state.editingId !== item.id) {
-        const pinLabel = item.is_pinned ? `${item.name} lösen` : `${item.name} anheften`;
-        actions.appendChild(buildActionButton('pin', pinLabel, () => void handlePin(item.id, item.is_pinned ? 0 : 1), `btn-item-action btn-pin${item.is_pinned ? ' btn-pin-active' : ''}`));
-    }
-
-    actions.appendChild(buildActionButton('x', `${item.name} löschen`, () => void handleDelete(item.id), 'btn-delete'));
-
-    const dragHandle = document.createElement('button');
-    dragHandle.type = 'button';
-    dragHandle.className = 'btn-drag-handle';
-    dragHandle.setAttribute('aria-label', `${item.name} verschieben`);
-    dragHandle.setAttribute('tabindex', '-1');
-
-    li.append(dragHandle, checkbox, content, actions);
+    li.append(checkbox, content, actions);
 
     if (item.category_type === 'notes') {
         li.addEventListener('click', event => {
-            if (event.target.closest('.toggle') || event.target.closest('.btn-delete') || event.target.closest('.btn-drag-handle')) return;
+            if (event.target.closest('.toggle') || event.target.closest('.btn-item-menu')) return;
             void openNoteEditor(item);
         });
     }
@@ -1509,6 +1645,7 @@ async function uploadSelectedAttachment() {
 
     await apiUpload('upload', formData, makeUploadProgressCallback());
     itemForm.reset();
+    syncAutoHeight(itemInput);
     updateFilePickerLabel();
     invalidateCategoryCache(category.id);
     await loadItems();
@@ -1525,6 +1662,7 @@ async function addItem(event) {
         const body = new URLSearchParams({ category_id: String(category.id), name });
         const payload = await api('add', { method: 'POST', body });
         itemForm.reset();
+        syncAutoHeight(itemInput);
         invalidateCategoryCache(category.id);
         await loadItems();
         const item = getItemById(payload.id);
@@ -1554,6 +1692,7 @@ async function addItem(event) {
 
     await api('add', { method: 'POST', body });
     itemForm.reset();
+    syncAutoHeight(itemInput);
     invalidateCategoryCache(category.id);
     await loadItems();
     setMessage('Artikel hinzugefügt.');
@@ -1893,6 +2032,12 @@ fileInput?.addEventListener('change', () => {
         setMessage(error instanceof Error ? error.message : 'Upload fehlgeschlagen.', true);
     });
 });
+
+itemInput?.addEventListener('input', () => {
+    syncAutoHeight(itemInput);
+});
+syncAutoHeight(itemInput);
+
 cameraBtn?.addEventListener('click', () => cameraInput?.click());
 cameraInput?.addEventListener('change', () => {
     if (!cameraInput?.files?.[0] || !fileInput) return;
@@ -1934,6 +2079,26 @@ document.addEventListener('click', (e) => {
     if (mehrOpen && !e.target.closest('.mehr-menu') && !e.target.closest('.mehr-btn')) {
         closeMehrMenu();
     }
+});
+
+window.addEventListener('resize', () => {
+    updateViewportHeight();
+    renderCategoryTabs();
+});
+
+window.addEventListener('orientationchange', () => {
+    updateViewportHeight();
+    renderCategoryTabs();
+});
+
+window.addEventListener('pageshow', () => {
+    updateViewportHeight();
+    renderCategoryTabs();
+});
+
+window.visualViewport?.addEventListener('resize', () => {
+    updateViewportHeight();
+    renderCategoryTabs();
 });
 
 searchBtn?.addEventListener('click', openSearch);
@@ -2070,6 +2235,7 @@ document.addEventListener('keydown', event => {
 
 (async function init() {
     try {
+        updateViewportHeight();
         setNetworkStatus();
         state.mode = userPreferences.mode;
         appEl.dataset.mode = state.mode;
@@ -2087,7 +2253,7 @@ document.addEventListener('keydown', event => {
 
     if ('serviceWorker' in navigator) {
         try {
-            const reg = await navigator.serviceWorker.register(appBasePath + 'sw.js');
+            const reg = await navigator.serviceWorker.register(appBasePath + 'sw.js?v=26');
             reg.addEventListener('updatefound', () => {
                 const w = reg.installing;
                 w?.addEventListener('statechange', () => {

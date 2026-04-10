@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#f5f0eb">
-    <title>Offline | Einkaufsliste</title>
+    <title>Offline | Ankerkladde</title>
     <style>
         :root {
             --bg: #f5f0eb;
@@ -41,6 +41,16 @@
             font-size: 1.4rem;
         }
 
+        .brand-mark {
+            width: 72px;
+            height: 72px;
+            margin: 0 auto 16px;
+            border-radius: 18px;
+            display: block;
+            object-fit: cover;
+            box-shadow: 0 10px 28px rgba(44, 36, 22, 0.12);
+        }
+
         p {
             margin: 0;
             color: var(--muted);
@@ -50,6 +60,7 @@
 </head>
 <body>
 <main>
+    <img src="icon.php?size=192" alt="" class="brand-mark" aria-hidden="true">
     <h1>Gerade offline</h1>
     <p>Die zuletzt geladene App ist weiter verfuegbar. Sobald die Verbindung wieder da ist, werden neue Daten geladen.</p>
 </main>

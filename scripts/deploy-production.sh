@@ -2,9 +2,9 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-APP_ROOT="/var/www/einkauf"
-DATA_ROOT="/var/lib/einkauf"
-SITE_NAME="einkauf.conf"
+APP_ROOT="/var/www/ankerkladde"
+DATA_ROOT="/var/lib/ankerkladde"
+SITE_NAME="ankerkladde.conf"
 SITE_SOURCE="$ROOT_DIR/deploy/apache/$SITE_NAME"
 SITE_TARGET="/etc/apache2/sites-available/$SITE_NAME"
 
@@ -13,7 +13,7 @@ if [[ "${EUID}" -ne 0 ]]; then
     exit 1
 fi
 
-install -d -m 0755 "$APP_ROOT" "$APP_ROOT/public" "$APP_ROOT/public/icons" "$APP_ROOT/scripts" "$APP_ROOT/deploy/apache"
+install -d -m 0755 "$APP_ROOT" "$APP_ROOT/public" "$APP_ROOT/public/icons" "$APP_ROOT/public/branding" "$APP_ROOT/scripts" "$APP_ROOT/deploy/apache"
 install -d -m 0775 -o www-data -g www-data "$DATA_ROOT"
 
 install -m 0644 "$ROOT_DIR/db.php" "$APP_ROOT/db.php"
@@ -27,6 +27,7 @@ install -m 0644 "$ROOT_DIR/public/style.css" "$APP_ROOT/public/style.css"
 install -m 0644 "$ROOT_DIR/public/app.js" "$APP_ROOT/public/app.js"
 install -m 0644 "$ROOT_DIR/public/sw.js" "$APP_ROOT/public/sw.js"
 install -m 0644 "$ROOT_DIR/public/manifest.json" "$APP_ROOT/public/manifest.json"
+install -m 0644 "$ROOT_DIR/public/branding/ankerkladde-logo.png" "$APP_ROOT/public/branding/ankerkladde-logo.png"
 install -m 0644 "$ROOT_DIR/public/icons/icon.svg" "$APP_ROOT/public/icons/icon.svg"
 install -m 0644 "$ROOT_DIR/public/icons/icon-192.png" "$APP_ROOT/public/icons/icon-192.png"
 install -m 0644 "$ROOT_DIR/public/icons/icon-512.png" "$APP_ROOT/public/icons/icon-512.png"

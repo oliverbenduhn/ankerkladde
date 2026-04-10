@@ -894,7 +894,7 @@ try {
                 ':content' => $content,
                 ':section' => '',
                 ':category_id' => (int) $category['id'],
-                ':sort_order' => nextItemSortOrder($db, $userId, (int) $category['id']),
+                ':sort_order' => prependItemSortOrder($db, $userId, (int) $category['id']),
                 ':user_id' => $userId,
             ]);
 

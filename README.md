@@ -1,8 +1,8 @@
-# Zettel
+# Ankerkladde
 
 Mobile-freundliche PHP-Webanwendung für Einkaufslisten, Todos, Notizen, Bilder, Dateien und Links – gespeichert in SQLite.
 
-**Produktion:** [zettel.benduhn.de](https://zettel.benduhn.de)
+**Produktion:** aktuell weiterhin unter [zettel.benduhn.de](https://zettel.benduhn.de) erreichbar.
 
 ---
 
@@ -61,7 +61,7 @@ Jeder Nutzer verwaltet eigene **Kategorien** – Anzahl, Namen, Icons und Reihen
 - **Installierbar** als PWA – Installations-Banner erscheint sowohl auf der Login-Seite als auch in der App
 - **Service Worker** cached App-Shell für Offline-Nutzung
 - Update-Banner bei neuer Version
-- **Share Target**: URLs und Dateien können aus anderen Apps direkt an Zettel weitergegeben werden
+- **Share Target**: URLs und Dateien können aus anderen Apps direkt an Ankerkladde weitergegeben werden
 
 ### Einstellungen
 

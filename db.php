@@ -335,6 +335,29 @@ function rebuildSortOrder(PDO $db): void
     }
 }
 
+function hasInvalidSortOrder(PDO $db, string $whereClause = '', array $params = []): bool
+{
+    $sql = 'SELECT
+                COUNT(*) AS total,
+                COUNT(DISTINCT sort_order) AS distinct_count,
+                MIN(sort_order) AS min_sort_order
+            FROM items';
+
+    if ($whereClause !== '') {
+        $sql .= ' WHERE ' . $whereClause;
+    }
+
+    $stmt = $db->prepare($sql);
+    $stmt->execute($params);
+    $stats = $stmt->fetch();
+
+    $total = (int) ($stats['total'] ?? 0);
+    $distinctCount = (int) ($stats['distinct_count'] ?? 0);
+    $minSortOrder = (int) ($stats['min_sort_order'] ?? 0);
+
+    return $total > 0 && ($distinctCount !== $total || $minSortOrder < 1);
+}
+
 function getDefaultUserPreferences(): array
 {
     return [
@@ -647,44 +670,50 @@ function migrateLegacyPreferencesToCategories(PDO $db): void
             $decoded = [];
         }
 
-        $tabsOrder = [];
-        if (is_array($decoded['tabs_order'] ?? null)) {
-            foreach ($decoded['tabs_order'] as $legacyKey) {
-                if (is_string($legacyKey) && isset(LEGACY_CATEGORY_DEFINITIONS[$legacyKey]) && !in_array($legacyKey, $tabsOrder, true)) {
+        $hasLegacyCategoryPreferences = array_key_exists('tabs_order', $decoded)
+            || array_key_exists('hidden_sections', $decoded)
+            || array_key_exists('section', $decoded);
+
+        if ($hasLegacyCategoryPreferences) {
+            $tabsOrder = [];
+            if (is_array($decoded['tabs_order'] ?? null)) {
+                foreach ($decoded['tabs_order'] as $legacyKey) {
+                    if (is_string($legacyKey) && isset(LEGACY_CATEGORY_DEFINITIONS[$legacyKey]) && !in_array($legacyKey, $tabsOrder, true)) {
+                        $tabsOrder[] = $legacyKey;
+                    }
+                }
+            }
+
+            foreach (array_keys(LEGACY_CATEGORY_DEFINITIONS) as $legacyKey) {
+                if (!in_array($legacyKey, $tabsOrder, true)) {
                     $tabsOrder[] = $legacyKey;
                 }
             }
-        }
 
-        foreach (array_keys(LEGACY_CATEGORY_DEFINITIONS) as $legacyKey) {
-            if (!in_array($legacyKey, $tabsOrder, true)) {
-                $tabsOrder[] = $legacyKey;
-            }
-        }
-
-        $hiddenSections = [];
-        if (is_array($decoded['hidden_sections'] ?? null)) {
-            foreach ($decoded['hidden_sections'] as $legacyKey) {
-                if (is_string($legacyKey) && isset(LEGACY_CATEGORY_DEFINITIONS[$legacyKey]) && !in_array($legacyKey, $hiddenSections, true)) {
-                    $hiddenSections[] = $legacyKey;
+            $hiddenSections = [];
+            if (is_array($decoded['hidden_sections'] ?? null)) {
+                foreach ($decoded['hidden_sections'] as $legacyKey) {
+                    if (is_string($legacyKey) && isset(LEGACY_CATEGORY_DEFINITIONS[$legacyKey]) && !in_array($legacyKey, $hiddenSections, true)) {
+                        $hiddenSections[] = $legacyKey;
+                    }
                 }
             }
-        }
 
-        foreach ($tabsOrder as $index => $legacyKey) {
-            $definition = LEGACY_CATEGORY_DEFINITIONS[$legacyKey];
-            $categoryId = findLegacyCategoryId($db, $userId, $legacyKey);
-            if ($categoryId === null) {
-                continue;
+            foreach ($tabsOrder as $index => $legacyKey) {
+                $definition = LEGACY_CATEGORY_DEFINITIONS[$legacyKey];
+                $categoryId = findLegacyCategoryId($db, $userId, $legacyKey);
+                if ($categoryId === null) {
+                    continue;
+                }
+
+                $updateCategoryStmt->execute([
+                    ':id' => $categoryId,
+                    ':sort_order' => $index + 1,
+                    ':is_hidden' => in_array($legacyKey, $hiddenSections, true) ? 1 : 0,
+                    ':icon' => $definition['icon'],
+                    ':legacy_key' => $legacyKey,
+                ]);
             }
-
-            $updateCategoryStmt->execute([
-                ':id' => $categoryId,
-                ':sort_order' => $index + 1,
-                ':is_hidden' => in_array($legacyKey, $hiddenSections, true) ? 1 : 0,
-                ':icon' => $definition['icon'],
-                ':legacy_key' => $legacyKey,
-            ]);
         }
 
         $lastCategoryId = null;
@@ -795,6 +824,7 @@ function getDatabase(): PDO
     $db = new PDO('sqlite:' . $dbFile);
     $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     $db->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+    $db->exec('PRAGMA busy_timeout = 5000');
     $db->exec('PRAGMA journal_mode = WAL');
     $db->exec('PRAGMA foreign_keys = ON');
 
@@ -826,28 +856,36 @@ function getDatabase(): PDO
         $db->exec("ALTER TABLE items ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0");
         rebuildSortOrder($db);
     } else {
-        $sections = $db->query('SELECT DISTINCT section FROM items')->fetchAll(PDO::FETCH_COLUMN);
         $needsRebuild = false;
 
-        foreach ($sections as $sec) {
-            $s = $db->prepare(
-                'SELECT
-                    COUNT(*) AS total,
-                    COUNT(DISTINCT sort_order) AS distinct_count,
-                    MIN(sort_order) AS min_sort_order
-                 FROM items WHERE section = :section'
-            );
-            $s->execute([':section' => $sec]);
-            $stats = $s->fetch();
-
-            $total = (int) ($stats['total'] ?? 0);
-            $distinctCount = (int) ($stats['distinct_count'] ?? 0);
-            $minSortOrder = (int) ($stats['min_sort_order'] ?? 0);
-
-            if ($total > 0 && ($distinctCount !== $total || $minSortOrder < 1)) {
-                $needsRebuild = true;
-                break;
+        if (in_array('category_id', $columnNames, true)) {
+            $categoryIds = $db->query('SELECT DISTINCT category_id FROM items WHERE category_id IS NOT NULL')->fetchAll(PDO::FETCH_COLUMN);
+            foreach ($categoryIds as $categoryId) {
+                if (hasInvalidSortOrder($db, 'category_id = :category_id', [':category_id' => (int) $categoryId])) {
+                    $needsRebuild = true;
+                    break;
+                }
             }
+
+            if (!$needsRebuild && in_array('section', $columnNames, true)) {
+                $orphanSections = $db->query('SELECT DISTINCT section FROM items WHERE category_id IS NULL')->fetchAll(PDO::FETCH_COLUMN);
+                foreach ($orphanSections as $section) {
+                    if (hasInvalidSortOrder($db, 'section = :section AND category_id IS NULL', [':section' => (string) $section])) {
+                        $needsRebuild = true;
+                        break;
+                    }
+                }
+            }
+        } elseif (in_array('section', $columnNames, true)) {
+            $sections = $db->query('SELECT DISTINCT section FROM items')->fetchAll(PDO::FETCH_COLUMN);
+            foreach ($sections as $section) {
+                if (hasInvalidSortOrder($db, 'section = :section', [':section' => (string) $section])) {
+                    $needsRebuild = true;
+                    break;
+                }
+            }
+        } elseif (hasInvalidSortOrder($db)) {
+            $needsRebuild = true;
         }
 
         if ($needsRebuild) {

@@ -69,7 +69,7 @@ if [[ -z "$CSRF_TOKEN" ]]; then
     exit 1
 fi
 
-grep -q '<link rel="manifest" href="manifest.php">' "$INDEX_HTML"
+grep -Eq '<link rel="manifest" href="manifest\.php(\?v=[^"]+)?"' "$INDEX_HTML"
 curl -fsS -b "$COOKIE_JAR" -D "$MANIFEST_HEADERS" -o /dev/null "http://127.0.0.1:$PORT/manifest.php"
 grep -qi '^Content-Type: application/manifest+json' "$MANIFEST_HEADERS"
 
@@ -370,9 +370,9 @@ curl -fsS \
 
 curl -fsS -b "$SUBPATH_COOKIE_JAR" "http://127.0.0.1:$SUBPATH_PORT/sub/index.php" >"$SUBPATH_HTML"
 grep -q '<meta name="app-base-path" content="/sub/">' "$SUBPATH_HTML"
-grep -q '<link rel="manifest" href="manifest.php">' "$SUBPATH_HTML"
-grep -q '<link rel="stylesheet" href="style.css">' "$SUBPATH_HTML"
-grep -q '<script src="app.js"></script>' "$SUBPATH_HTML"
+grep -Eq '<link rel="manifest" href="manifest\.php(\?v=[^"]+)?"' "$SUBPATH_HTML"
+grep -Eq '<link rel="stylesheet" href="style\.css(\?v=[^"]+)?"' "$SUBPATH_HTML"
+grep -Eq '<script src="app\.js(\?v=[^"]+)?"></script>' "$SUBPATH_HTML"
 
 curl -fsS -b "$SUBPATH_COOKIE_JAR" "http://127.0.0.1:$SUBPATH_PORT/sub/manifest.php" >"$SUBPATH_MANIFEST"
 grep -q '"id":"/sub/"' "$SUBPATH_MANIFEST"

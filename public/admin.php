@@ -168,14 +168,17 @@ $users = $db->query(
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#f5f0eb">
-    <title>Nutzerverwaltung — Zettel</title>
+    <title>Nutzerverwaltung — Ankerkladde</title>
     <link rel="stylesheet" href="<?= htmlspecialchars(appPath('style.css'), ENT_QUOTES, 'UTF-8') ?>">
 </head>
 <body>
 <div class="admin-page">
 
     <div class="admin-header">
-        <h1>Nutzerverwaltung</h1>
+        <div class="admin-title-group">
+            <img src="<?= htmlspecialchars(appPath('icon.php?size=96'), ENT_QUOTES, 'UTF-8') ?>" alt="" class="brand-mark brand-mark-admin" aria-hidden="true">
+            <h1>Nutzerverwaltung</h1>
+        </div>
         <a href="<?= htmlspecialchars(appPath('logout.php'), ENT_QUOTES, 'UTF-8') ?>" class="admin-logout">Abmelden</a>
     </div>
 

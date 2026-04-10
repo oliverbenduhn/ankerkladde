@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION = 'v19';
+const VERSION = 'v26';
 const STATIC_CACHE = `einkauf-static-${VERSION}`;
 const RUNTIME_CACHE = `einkauf-runtime-${VERSION}`;
 const SHARE_CACHE = 'einkauf-share-target';
@@ -10,9 +10,9 @@ const API_URL = new URL('api.php', APP_SCOPE_URL);
 
 const APP_SHELL_ASSET_URLS = [
     'offline.html',
-    'style.css',
-    'app.js',
-    'manifest.php',
+    'style.css?v=26',
+    'app.js?v=26',
+    'manifest.php?v=26',
     'icon.php?size=192',
     'icon.php?size=512',
     'icons/icon.svg',
