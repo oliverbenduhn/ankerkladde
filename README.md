@@ -1,8 +1,12 @@
 # Ankerkladde
 
+<p align="center">
+  <img src="public/icons/icon-192.png" alt="Ankerkladde" width="96">
+</p>
+
 Mobile-freundliche PHP-Webanwendung für Einkaufslisten, Todos, Notizen, Bilder, Dateien und Links – gespeichert in SQLite.
 
-**Produktion:** aktuell weiterhin unter [zettel.benduhn.de](https://zettel.benduhn.de) erreichbar.
+**Produktion:** erreichbar unter [ankerkladde.benduhn.de](https://ankerkladde.benduhn.de).
 
 ---
 
@@ -163,7 +167,7 @@ bash scripts/test-db-migration.sh # Migrationen auf frischer DB
 
 ## Deployment (Produktion)
 
-Läuft auf `web` (Alpine LXC, nginx + PHP-FPM 8.3), erreichbar unter `zettel.benduhn.de` (intern Port 8083, Caddy leitet weiter).
+Läuft auf `web` (Alpine LXC, nginx + PHP-FPM 8.3), erreichbar unter `ankerkladde.benduhn.de` (intern Port 8083, Caddy leitet weiter).
 
 ```
 Git Push → GitHub Webhook → deploy.sh → git pull + php-fpm reload
@@ -171,15 +175,15 @@ Git Push → GitHub Webhook → deploy.sh → git pull + php-fpm reload
 
 ```bash
 # Manuell
-ssh ansible@web "sudo /var/www/projects/einkauf/deploy.sh"
-ssh ansible@web "tail -f /var/log/einkauf/deploy.log"
+ssh ansible@web "sudo /var/www/projects/ankerkladde/deploy.sh"
+ssh ansible@web "tail -f /var/log/ankerkladde/deploy.log"
 ```
 
 ### Upload-Limits
 
 | Ebene | Datei | Limit |
 |---|---|---|
-| nginx | `/etc/nginx/http.d/einkauf.conf` | 5200 MB |
+| nginx | `/etc/nginx/http.d/ankerkladde.conf` | 5200 MB |
 | PHP | `public/.user.ini` | 5 GB / 5200 MB |
 
 ### Voraussetzungen
