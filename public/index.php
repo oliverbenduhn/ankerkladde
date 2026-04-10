@@ -20,6 +20,23 @@ if ($appBasePath === '' || $appBasePath === '.') {
 } else {
     $appBasePath = rtrim($appBasePath, '/') . '/';
 }
+
+function icon(string $name): string {
+    static $paths = [
+        'menu'     => '<line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="18" y2="18"/>',
+        'search'   => '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+        'settings' => '<path d="M20 7h-9"/><path d="M14 17H5"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/>',
+        'eye'      => '<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>',
+        'pencil'   => '<path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/>',
+        'camera'   => '<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/>',
+        'x'        => '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+        'plus'     => '<path d="M5 12h14"/><path d="M12 5v14"/>',
+        'link'     => '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+        'arrow-left' => '<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>',
+    ];
+    $p = $paths[$name] ?? '';
+    return '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true">' . $p . '</svg>';
+}
 ?>
 <!DOCTYPE html>
 <html lang="de">
@@ -54,12 +71,12 @@ if ($appBasePath === '' || $appBasePath === '.') {
     </div>
 
     <header class="app-header liste-only">
-        <button type="button" id="tabsToggleBtn" class="btn-tabs-toggle" aria-label="Symbolleiste ein-/ausblenden">☰</button>
+        <button type="button" id="tabsToggleBtn" class="btn-tabs-toggle" aria-label="Symbolleiste ein-/ausblenden"><?= icon('menu') ?></button>
         <h1 class="app-title" id="titleListe">Einkaufsliste</h1>
         <div class="header-actions">
-            <button type="button" id="searchBtn" class="header-icon-btn btn-search" aria-label="Suchen">🔍</button>
-            <a href="<?= htmlspecialchars(appPath('settings.php'), ENT_QUOTES, 'UTF-8') ?>" class="header-icon-btn btn-settings" aria-label="Einstellungen">⚙️</a>
-            <button type="button" class="header-icon-btn btn-mode-toggle" data-nav="einkaufen" aria-label="Einkaufs-Modus starten">👁️</button>
+            <button type="button" id="searchBtn" class="header-icon-btn btn-search" aria-label="Suchen"><?= icon('search') ?></button>
+            <a href="<?= htmlspecialchars(appPath('settings.php'), ENT_QUOTES, 'UTF-8') ?>" class="header-icon-btn btn-settings" aria-label="Einstellungen"><?= icon('settings') ?></a>
+            <button type="button" class="header-icon-btn btn-mode-toggle" data-nav="einkaufen" aria-label="Einkaufs-Modus starten"><?= icon('eye') ?></button>
         </div>
     </header>
 
@@ -67,16 +84,16 @@ if ($appBasePath === '' || $appBasePath === '.') {
         <input type="search" id="searchInput" class="search-input"
                placeholder="In allen Bereichen suchen…"
                autocomplete="off" enterkeyhint="search" maxlength="120">
-        <button type="button" id="searchClose" class="btn-search-close" aria-label="Suche schließen">✕</button>
+        <button type="button" id="searchClose" class="btn-search-close" aria-label="Suche schließen"><?= icon('x') ?></button>
     </div>
 
     <header class="app-header shopping-only">
-        <button type="button" class="btn-tabs-toggle" aria-label="Symbolleiste ein-/ausblenden">☰</button>
+        <button type="button" class="btn-tabs-toggle" aria-label="Symbolleiste ein-/ausblenden"><?= icon('menu') ?></button>
         <h1 class="app-title" id="titleShopping">Einkaufen</h1>
         <div class="header-actions">
             <span class="progress" id="progress" aria-live="polite">0 / 0</span>
-            <a href="<?= htmlspecialchars(appPath('settings.php'), ENT_QUOTES, 'UTF-8') ?>" class="header-icon-btn btn-settings" aria-label="Einstellungen">⚙️</a>
-            <button type="button" class="header-icon-btn btn-mode-toggle" data-nav="liste" aria-label="Liste bearbeiten">✏️</button>
+            <a href="<?= htmlspecialchars(appPath('settings.php'), ENT_QUOTES, 'UTF-8') ?>" class="header-icon-btn btn-settings" aria-label="Einstellungen"><?= icon('settings') ?></a>
+            <button type="button" class="header-icon-btn btn-mode-toggle" data-nav="liste" aria-label="Liste bearbeiten"><?= icon('pencil') ?></button>
         </div>
     </header>
 
@@ -88,14 +105,14 @@ if ($appBasePath === '' || $appBasePath === '.') {
             <div class="file-input-group" id="fileInputGroup" hidden>
                 <label for="fileInput" class="file-picker-button" id="filePickerButton">Datei wählen</label>
                 <input type="file" id="fileInput" name="attachment" hidden>
-                <button type="button" id="cameraBtn" class="file-picker-button btn-camera" hidden aria-label="Foto aufnehmen">📷</button>
+                <button type="button" id="cameraBtn" class="file-picker-button btn-camera" hidden aria-label="Foto aufnehmen"><?= icon('camera') ?></button>
                 <input type="file" id="cameraInput" accept="image/*" capture="environment" hidden>
                 <span class="file-picker-name" id="filePickerName">Keine Datei ausgewählt</span>
                 <span class="disk-free-display" id="diskFreeDisplay" hidden></span>
             </div>
             <input type="text" id="quantityInput" name="quantity"
                    placeholder="Menge" maxlength="40" autocomplete="off" enterkeyhint="done">
-            <button type="submit" class="btn-add" aria-label="Artikel hinzufügen">+</button>
+            <button type="submit" class="btn-add" aria-label="Artikel hinzufügen"><?= icon('plus') ?></button>
         </form>
         <p class="input-hint" id="inputHint" hidden></p>
         <div class="drop-zone" id="dropZone" hidden aria-hidden="true">
@@ -126,7 +143,7 @@ if ($appBasePath === '' || $appBasePath === '.') {
 
     <div class="note-editor" id="noteEditor" hidden>
         <div class="note-editor-top">
-            <button type="button" id="noteEditorBack" class="btn-note-back" aria-label="Zurück">←</button>
+            <button type="button" id="noteEditorBack" class="btn-note-back" aria-label="Zurück"><?= icon('arrow-left') ?></button>
             <input type="text" id="noteTitleInput" class="note-title-input"
                    placeholder="Titel..." maxlength="120" autocomplete="off">
             <span class="note-save-status" id="noteSaveStatus" aria-live="polite"></span>
@@ -146,7 +163,7 @@ if ($appBasePath === '' || $appBasePath === '.') {
             <button type="button" data-cmd="blockquote" title="Zitat">❝</button>
             <button type="button" data-cmd="codeBlock" title="Code">&lt;/&gt;</button>
             <span class="toolbar-sep"></span>
-            <button type="button" data-cmd="link" title="Link">🔗</button>
+            <button type="button" data-cmd="link" title="Link"><?= icon('link') ?></button>
             <span class="toolbar-sep"></span>
             <button type="button" data-cmd="undo" title="Rückgängig">↩</button>
             <button type="button" data-cmd="redo" title="Wiederholen">↪</button>
