@@ -1,9 +1,9 @@
 'use strict';
 
-const VERSION = 'v26';
-const STATIC_CACHE = `einkauf-static-${VERSION}`;
-const RUNTIME_CACHE = `einkauf-runtime-${VERSION}`;
-const SHARE_CACHE = 'einkauf-share-target';
+const VERSION = 'v27';
+const STATIC_CACHE = `ankerkladde-static-${VERSION}`;
+const RUNTIME_CACHE = `ankerkladde-runtime-${VERSION}`;
+const SHARE_CACHE = 'ankerkladde-share-target';
 const APP_SCOPE_URL = new URL(self.registration.scope);
 const OFFLINE_PAGE_URL = new URL('offline.html', APP_SCOPE_URL);
 const API_URL = new URL('api.php', APP_SCOPE_URL);

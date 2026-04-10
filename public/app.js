@@ -1550,7 +1550,7 @@ async function handleIncomingShare() {
 }
 
 async function handleSharedFile() {
-    const cache = await caches.open('einkauf-share-target');
+    const cache = await caches.open('ankerkladde-share-target');
     const response = await cache.match('pending-file');
     if (!response) {
         setMessage('Geteilte Datei nicht gefunden.', true);
