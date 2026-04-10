@@ -137,6 +137,49 @@ SQLite unter `data/einkaufsliste.db` (überschreibbar per `EINKAUF_DATA_DIR`). S
 
 ---
 
+## Docker
+
+### Schnellstart
+
+```bash
+git clone https://github.com/oliverbenduhn/ankerkladde.git
+cd ankerkladde
+docker compose up -d
+```
+
+Danach unter [http://localhost:8083](http://localhost:8083) erreichbar.
+
+Ersten Admin-User anlegen:
+
+```bash
+docker exec -it ankerkladde php scripts/create-admin.php
+```
+
+### Umgebungsvariablen
+
+| Variable | Standard | Beschreibung |
+|---|---|---|
+| `EINKAUF_DATA_DIR` | `/data` | Pfad zur SQLite-Datenbank im Container |
+| `ANKERKLADDE_CANONICAL_HOST` | `ankerkladde.benduhn.de` | Produktions-Domain (leer lassen für localhost) |
+| `EINKAUF_TRUST_PROXY_HEADERS` | – | Auf `true` setzen wenn hinter Reverse Proxy |
+
+### Hinter einem Reverse Proxy
+
+```yaml
+environment:
+  ANKERKLADDE_CANONICAL_HOST: meine-domain.de
+  EINKAUF_TRUST_PROXY_HEADERS: 'true'
+```
+
+### Daten-Backup
+
+```bash
+docker run --rm -v ankerkladde_data:/data -v $(pwd):/backup alpine tar czf /backup/backup.tar.gz -C /data .
+docker run --rm -v ankerkladde_data:/data -v $(pwd):/backup alpine tar xzf /backup/backup.tar.gz -C /data
+```
+
+---
+
 ## Lokal entwickeln
 
 ```bash

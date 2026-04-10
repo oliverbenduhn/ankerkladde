@@ -1,11 +1,18 @@
 services:
-  einkauf:
-    container_name: einkauf
+  ankerkladde:
+    container_name: ankerkladde
     build: .
     ports:
-      - "8083:80"
+      - '8083:80'
     volumes:
-      - ./data:/data
+      - ankerkladde_data:/data
     restart: unless-stopped
     environment:
       EINKAUF_DATA_DIR: /data
+      # Eigene Domain setzen (leer lassen für lokalen Betrieb auf localhost)
+      # ANKERKLADDE_CANONICAL_HOST: meine-domain.de
+      # Proxy-Header vertrauen (true wenn hinter Reverse Proxy wie Caddy/Nginx/Traefik)
+      # EINKAUF_TRUST_PROXY_HEADERS: 'true'
+
+volumes:
+  ankerkladde_data:

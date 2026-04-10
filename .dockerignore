@@ -1,3 +1,6 @@
 data/
 .git/
 .superpowers/
+.worktrees/
+.claude/
+CLAUDE.md

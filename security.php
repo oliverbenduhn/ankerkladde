@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-const EINKAUF_CANONICAL_HOST = 'zettel.benduhn.de';
+define('EINKAUF_CANONICAL_HOST', (string)(getenv('ANKERKLADDE_CANONICAL_HOST') ?: 'ankerkladde.benduhn.de'));
 
 function getEnvBool(string $name): ?bool
 {
