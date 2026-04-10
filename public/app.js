@@ -2018,6 +2018,24 @@ dropZoneEl?.addEventListener('drop', event => {
     });
 });
 
+document.addEventListener('paste', event => {
+    if (!isAttachmentCategory()) return;
+    if (state.noteEditorId !== null) return; // let TipTap handle paste in note editor
+    const file = Array.from(event.clipboardData?.items || [])
+        .find(item => item.kind === 'file')
+        ?.getAsFile() || null;
+    if (!file || !fileInput) return;
+    event.preventDefault();
+    const transfer = new DataTransfer();
+    transfer.items.add(file);
+    fileInput.files = transfer.files;
+    updateFilePickerLabel();
+    void uploadSelectedAttachment().catch(error => {
+        setUploadProgress(0);
+        setMessage(error instanceof Error ? error.message : 'Upload fehlgeschlagen.', true);
+    });
+});
+
 window.addEventListener('online', setNetworkStatus);
 window.addEventListener('offline', setNetworkStatus);
 document.addEventListener('keydown', event => {
