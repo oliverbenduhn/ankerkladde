@@ -629,6 +629,111 @@ function initCategoryTabReorder() {
     });
 }
 
+function initItemDragReorder() {
+    if (!listEl) return;
+
+    listEl.addEventListener('pointerdown', event => {
+        const handle = event.target.closest('.btn-drag-handle');
+        if (!handle || (event.button !== undefined && event.button !== 0)) return;
+
+        const li = handle.closest('li.item-card');
+        if (!li) return;
+
+        event.preventDefault();
+
+        try {
+            handle.setPointerCapture(event.pointerId);
+        } catch {}
+
+        triggerHapticFeedback();
+        li.classList.add('is-dragging');
+
+        let insertBefore = null;
+
+        function getOtherItems() {
+            return Array.from(listEl.querySelectorAll('li.item-card:not(.is-dragging)'));
+        }
+
+        function clearDropTargets() {
+            listEl.querySelectorAll('li.item-card').forEach(other => {
+                other.classList.remove('is-drop-target-before', 'is-drop-target-after');
+            });
+        }
+
+        function cleanup() {
+            document.removeEventListener('pointermove', onMove);
+            document.removeEventListener('pointerup', onEnd);
+            document.removeEventListener('pointercancel', onAbort);
+        }
+
+        function onMove(moveEvent) {
+            const others = getOtherItems();
+            clearDropTargets();
+
+            insertBefore = null;
+            for (const other of others) {
+                const rect = other.getBoundingClientRect();
+                if (moveEvent.clientY < rect.top + rect.height / 2) {
+                    insertBefore = other;
+                    other.classList.add('is-drop-target-before');
+                    break;
+                }
+            }
+
+            if (!insertBefore && others.length > 0) {
+                others[others.length - 1].classList.add('is-drop-target-after');
+            }
+        }
+
+        function onEnd() {
+            cleanup();
+            li.classList.remove('is-dragging');
+            clearDropTargets();
+
+            if (insertBefore) {
+                listEl.insertBefore(li, insertBefore);
+            } else {
+                listEl.appendChild(li);
+            }
+
+            void persistItemOrder();
+        }
+
+        function onAbort() {
+            cleanup();
+            li.classList.remove('is-dragging');
+            clearDropTargets();
+        }
+
+        document.addEventListener('pointermove', onMove);
+        document.addEventListener('pointerup', onEnd);
+        document.addEventListener('pointercancel', onAbort);
+    });
+}
+
+async function persistItemOrder() {
+    const orderedIds = Array.from(listEl.querySelectorAll('li.item-card'))
+        .map(li => Number(li.dataset.itemId))
+        .filter(id => Number.isInteger(id) && id > 0);
+
+    orderedIds.forEach((id, index) => {
+        const item = getItemById(id);
+        if (item) item.sort_order = index + 1;
+    });
+    cacheCurrentCategoryItems();
+
+    const body = new URLSearchParams({ category_id: String(state.categoryId) });
+    orderedIds.forEach(id => body.append('ids[]', String(id)));
+
+    try {
+        await api('reorder', { method: 'POST', body });
+    } catch (error) {
+        setMessage(error instanceof Error ? error.message : 'Reihenfolge konnte nicht gespeichert werden.', true);
+        invalidateCategoryCache(state.categoryId);
+        await loadItems();
+    }
+}
+
 function updateHeaders() {
     const category = getCurrentCategory();
     if (!category) return;
@@ -1097,7 +1202,7 @@ function buildEditContent(item, content) {
 
 function buildItemNode(item) {
     const li = document.createElement('li');
-    li.className = `item-card ${item.done === 1 ? 'done' : 'open'}`;
+    li.className = `item-card ${item.done === 1 ? 'done' : 'open'}${item.is_pinned ? ' is-pinned' : ''}`;
     li.dataset.itemId = String(item.id);
 
     const checkbox = document.createElement('input');
@@ -1133,13 +1238,24 @@ function buildItemNode(item) {
         }));
     }
 
+    if (state.editingId !== item.id) {
+        const pinLabel = item.is_pinned ? `${item.name} lösen` : `${item.name} anheften`;
+        actions.appendChild(buildActionButton('⚓', pinLabel, () => void handlePin(item.id, item.is_pinned ? 0 : 1), `btn-item-action btn-pin${item.is_pinned ? ' btn-pin-active' : ''}`));
+    }
+
     actions.appendChild(buildActionButton('×', `${item.name} löschen`, () => void handleDelete(item.id), 'btn-delete'));
 
-    li.append(checkbox, content, actions);
+    const dragHandle = document.createElement('button');
+    dragHandle.type = 'button';
+    dragHandle.className = 'btn-drag-handle';
+    dragHandle.setAttribute('aria-label', `${item.name} verschieben`);
+    dragHandle.setAttribute('tabindex', '-1');
+
+    li.append(dragHandle, checkbox, content, actions);
 
     if (item.category_type === 'notes') {
         li.addEventListener('click', event => {
-            if (event.target.closest('.toggle') || event.target.closest('.btn-delete')) return;
+            if (event.target.closest('.toggle') || event.target.closest('.btn-delete') || event.target.closest('.btn-drag-handle')) return;
             void openNoteEditor(item);
         });
     }
@@ -1441,6 +1557,19 @@ async function handleDelete(id) {
     invalidateCategoryCache(state.categoryId);
     await loadItems();
     setMessage('Artikel gelöscht.');
+}
+
+async function handlePin(id, isPinned) {
+    await api('pin', { method: 'POST', body: new URLSearchParams({ id: String(id), is_pinned: String(isPinned) }) });
+    const item = getItemById(id);
+    if (item) {
+        item.is_pinned = isPinned;
+        cacheCurrentCategoryItems();
+        renderItems();
+    } else {
+        invalidateCategoryCache(state.categoryId);
+        await loadItems();
+    }
 }
 
 async function handleEditSave(id) {
@@ -1901,6 +2030,7 @@ document.addEventListener('keydown', event => {
         state.mode = userPreferences.mode;
         appEl.dataset.mode = state.mode;
         initCategoryTabReorder();
+        initItemDragReorder();
         initCategorySwipe();
         await loadCategories();
         updateHeaders();

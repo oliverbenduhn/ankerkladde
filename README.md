@@ -31,9 +31,9 @@ Jeder Nutzer verwaltet eigene **Kategorien** – Anzahl, Namen, Icons und Reihen
 ### Items
 
 - **Zwei Modi** je Bereich: Bearbeiten (✏️) und Ansicht (👁️)
-- **Drag & Drop** zum Umsortieren
+- **Drag & Drop** zum Umsortieren (Griff links am Item ziehen)
 - **Inline-Bearbeitung** direkt in der Liste
-- **Anheften** (📌): Items an den Anfang der Liste heften
+- **Anheften** (⚓): Items an den Anfang der Liste heften
 - **Erledigte löschen**: Schaltfläche entfernt alle abgehakten Items auf einmal
 - **Volltextsuche** über alle Kategorien (FTS5, Mindestlänge 2 Zeichen)
 
