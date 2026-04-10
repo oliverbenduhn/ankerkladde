@@ -297,6 +297,11 @@ async function api(action, options = {}) {
     const response = await fetch(url, fetchOptions);
     const payload = await response.json().catch(() => ({}));
 
+    if (response.status === 401) {
+        window.location.href = appUrl('login.php');
+        throw new Error('Sitzung abgelaufen. Bitte neu anmelden.');
+    }
+
     if (!response.ok) {
         throw new Error(payload.error || 'Unbekannter Fehler');
     }
