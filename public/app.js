@@ -1235,7 +1235,7 @@ function buildItemNode(item) {
             state.editingId = item.id;
             state.editDraft = { name: item.name || '', quantity: item.quantity || '', due_date: item.due_date || '' };
             renderItems();
-        }));
+        }, 'btn-item-action btn-edit'));
     }
 
     if (state.editingId !== item.id) {

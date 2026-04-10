@@ -806,6 +806,7 @@ button, input { font: inherit; }
 
 /* Hidden in shopping mode */
 [data-mode="einkaufen"] .btn-edit { display: none; }
+[data-mode="einkaufen"] .btn-pin { display: none; }
 [data-mode="einkaufen"] .btn-drag-handle { display: none; }
 [data-mode="einkaufen"] .btn-delete { display: none; }
 
