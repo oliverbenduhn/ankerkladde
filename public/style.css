@@ -747,7 +747,8 @@ button, input { font: inherit; }
     transition: color 0.15s ease, background 0.15s ease, transform 0.12s ease;
 }
 
-.btn-pin-active { color: var(--accent); }
+.btn-pin-active { color: var(--text-primary); }
+.btn-pin-active .icon { stroke-width: 3; }
 .btn-pin-active:hover { color: var(--text-secondary); }
 
 .btn-item-action:hover,
