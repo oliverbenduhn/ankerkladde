@@ -1065,38 +1065,32 @@ button, input { font: inherit; }
 .section-tabs.tabs-hidden { display: none; }
 
 /* ===========================================
-   SECTION TABS (Bereichs-Navigation oben)
+   SECTION TABS (Bereichs-Navigation unten)
    =========================================== */
 .section-tabs {
     display: flex;
-    overflow-x: auto;
-    overflow-y: hidden;
-    border-bottom: 1.5px solid var(--border);
+    border-top: 1.5px solid var(--border);
     background: var(--surface);
     flex-shrink: 0;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
+    position: relative;
+    z-index: 1;
+    justify-content: space-around;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
 }
-
-.section-tabs::-webkit-scrollbar { display: none; }
 
 .section-tab {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 2px;
-    padding: 8px 9px;
+    gap: 4px;
+    padding: 8px 6px 10px;
     background: none;
     border: none;
-    border-bottom: 2.5px solid transparent;
     cursor: pointer;
     color: var(--text-muted);
-    white-space: nowrap;
-    flex-shrink: 0;
-    min-height: 52px;
-    transition: color 0.15s ease, border-color 0.15s ease;
-    margin-bottom: -1.5px; /* overlap border-bottom */
+    flex: 1;
+    transition: color 0.15s ease;
     touch-action: none; /* prevent browser scroll-gesture from cancelling pointer events */
 }
 
@@ -1113,19 +1107,77 @@ button, input { font: inherit; }
 .section-tab.tab-drop-before { box-shadow: -2px 0 0 0 var(--accent); }
 .section-tab.tab-drop-after  { box-shadow:  2px 0 0 0 var(--accent); }
 
-.section-tab[aria-current="page"] {
-    color: var(--text-primary);
-    border-bottom-color: var(--text-primary);
-    font-weight: 700;
-}
+.section-tab[aria-current="page"] { color: var(--text-primary); }
 
 .section-tab:hover:not([aria-current="page"]),
 .section-tab:active:not([aria-current="page"]) {
     color: var(--text-secondary);
 }
 
-.section-icon { font-size: 1.1rem; line-height: 1; }
-.section-label { font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+.section-icon {
+    font-size: 1.1rem;
+    line-height: 1;
+    filter: grayscale(1) opacity(0.45);
+    transition: filter 0.15s ease;
+}
+.section-tab[aria-current="page"] .section-icon { filter: grayscale(1) opacity(1); }
+.section-label { display: none; }
+
+.section-dot {
+    width: 4px; height: 4px; border-radius: 50%;
+    background: var(--text-primary);
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+.section-tab[aria-current="page"] .section-dot { opacity: 1; }
+
+.mehr-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 6px 10px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-muted);
+    font-size: 1.1rem;
+    letter-spacing: 2px;
+}
+.mehr-btn:hover, .mehr-btn:active { color: var(--text-secondary); }
+
+.mehr-menu {
+    position: absolute;
+    bottom: 100%;
+    left: 0; right: 0;
+    z-index: 100;
+    background: var(--bg);
+    border-top: 1.5px solid var(--border);
+    border-radius: 12px 12px 0 0;
+    padding: 10px 12px 8px;
+    box-shadow: 0 -4px 16px rgba(0,0,0,0.08);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.mehr-menu[hidden] { display: none; }
+.mehr-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    font-size: 13px;
+    color: var(--text-secondary);
+    flex: 1 0 calc(50% - 3px);
+    cursor: pointer;
+    min-width: 0;
+}
+.mehr-item-icon { font-size: 1.1rem; filter: grayscale(1) opacity(0.6); }
+.mehr-item.active { color: var(--text-primary); border-color: var(--accent); }
+.mehr-item.active .mehr-item-icon { filter: grayscale(1) opacity(1); }
 
 /* ===========================================
    NOTE CARDS

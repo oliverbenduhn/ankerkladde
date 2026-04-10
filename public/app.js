@@ -35,7 +35,10 @@ const searchInput = document.getElementById('searchInput');
 const searchClose = document.getElementById('searchClose');
 const modeToggleBtns = document.querySelectorAll('.btn-mode-toggle');
 const sectionTabsEl = document.getElementById('sectionTabs');
+const mehrMenuEl = document.getElementById('mehrMenu');
 const tabsToggleBtns = document.querySelectorAll('.btn-tabs-toggle');
+const MAX_VISIBLE_TABS = 4;
+let mehrOpen = false;
 const networkStatusEl = document.getElementById('networkStatus');
 const updateBannerEl = document.getElementById('updateBanner');
 const diskFreeEl = document.getElementById('diskFreeDisplay');
@@ -387,44 +390,94 @@ async function savePreferences(patch) {
     }
 }
 
+function makeCategoryTab(category) {
+    const button = document.createElement('button');
+    button.className = 'section-tab';
+    button.dataset.categoryId = String(category.id);
+    if (category.id === state.categoryId) {
+        button.setAttribute('aria-current', 'page');
+    }
+
+    const icon = document.createElement('span');
+    icon.className = 'section-icon';
+    icon.setAttribute('aria-hidden', 'true');
+    icon.textContent = category.icon || getTypeConfig(category.type).icon;
+
+    const dot = document.createElement('span');
+    dot.className = 'section-dot';
+
+    button.append(icon, dot);
+    button.addEventListener('click', () => {
+        if (tabDragJustFinished) return;
+        void setCategory(category.id);
+    });
+    return button;
+}
+
+function toggleMehrMenu() {
+    mehrOpen = !mehrOpen;
+    if (mehrMenuEl) mehrMenuEl.hidden = !mehrOpen;
+}
+
+function closeMehrMenu() {
+    mehrOpen = false;
+    if (mehrMenuEl) mehrMenuEl.hidden = true;
+}
+
 function renderCategoryTabs() {
     if (!sectionTabsEl) return;
 
     sectionTabsEl.replaceChildren();
+    if (mehrMenuEl) {
+        mehrMenuEl.replaceChildren();
+        sectionTabsEl.appendChild(mehrMenuEl); // muss innerhalb der nav sein für position:absolute
+    }
+    closeMehrMenu();
+
+    const categories = getVisibleCategories();
+    const visibleTabs = categories.slice(0, MAX_VISIBLE_TABS);
+    const overflowCategories = categories.slice(MAX_VISIBLE_TABS);
 
     const fragment = document.createDocumentFragment();
 
-    getVisibleCategories().forEach(category => {
-        const button = document.createElement('button');
-        button.className = 'section-tab';
-        button.dataset.categoryId = String(category.id);
-        if (category.id === state.categoryId) {
-            button.setAttribute('aria-current', 'page');
-        }
-
-        const icon = document.createElement('span');
-        icon.className = 'section-icon';
-        icon.setAttribute('aria-hidden', 'true');
-        icon.textContent = category.icon || getTypeConfig(category.type).icon;
-
-        const label = document.createElement('span');
-        label.className = 'section-label';
-        label.textContent = category.name;
-
-        button.append(icon, label);
-        button.addEventListener('click', () => {
-            if (tabDragJustFinished) return;
-            void setCategory(category.id);
-        });
-        fragment.appendChild(button);
+    visibleTabs.forEach(category => {
+        fragment.appendChild(makeCategoryTab(category));
     });
 
-    sectionTabsEl.appendChild(fragment);
+    if (overflowCategories.length > 0) {
+        const mehrBtn = document.createElement('button');
+        mehrBtn.type = 'button';
+        mehrBtn.className = 'mehr-btn';
+        mehrBtn.setAttribute('aria-label', 'Weitere Bereiche');
+        mehrBtn.textContent = '···';
+        mehrBtn.addEventListener('click', toggleMehrMenu);
+        fragment.appendChild(mehrBtn);
 
-    const activeTab = sectionTabsEl.querySelector('[aria-current="page"]');
-    if (activeTab) {
-        activeTab.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        overflowCategories.forEach(category => {
+            const item = document.createElement('button');
+            item.type = 'button';
+            item.className = 'mehr-item' + (category.id === state.categoryId ? ' active' : '');
+            item.dataset.categoryId = String(category.id);
+
+            const icon = document.createElement('span');
+            icon.className = 'mehr-item-icon';
+            icon.setAttribute('aria-hidden', 'true');
+            icon.textContent = category.icon || getTypeConfig(category.type).icon;
+
+            const label = document.createElement('span');
+            label.textContent = category.name;
+
+            item.append(icon, label);
+            item.addEventListener('click', () => {
+                closeMehrMenu();
+                if (tabDragJustFinished) return;
+                void setCategory(category.id);
+            });
+            if (mehrMenuEl) mehrMenuEl.appendChild(item);
+        });
     }
+
+    sectionTabsEl.appendChild(fragment);
 }
 
 function updateCategoryOrderState(orderedIds) {
@@ -1720,6 +1773,12 @@ tabsToggleBtns.forEach(button => {
         applyTabsVisibility(hidden);
         void savePreferences({ tabs_hidden: hidden });
     });
+});
+
+document.addEventListener('click', (e) => {
+    if (mehrOpen && !e.target.closest('.mehr-menu') && !e.target.closest('.mehr-btn')) {
+        closeMehrMenu();
+    }
 });
 
 searchBtn?.addEventListener('click', openSearch);

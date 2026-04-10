@@ -53,8 +53,6 @@ if ($appBasePath === '' || $appBasePath === '.') {
         <button type="button" id="updateReloadBtn" class="btn-update-reload">Neu laden</button>
     </div>
 
-    <nav class="section-tabs" id="sectionTabs" aria-label="Bereich wählen"></nav>
-
     <header class="app-header liste-only">
         <button type="button" id="tabsToggleBtn" class="btn-tabs-toggle" aria-label="Symbolleiste ein-/ausblenden">☰</button>
         <h1 class="app-title" id="titleListe">Einkaufsliste</h1>
@@ -116,6 +114,9 @@ if ($appBasePath === '' || $appBasePath === '.') {
             <ul class="list-swipe-preview-list" id="listSwipePreviewList"></ul>
         </div>
     </main>
+
+    <nav class="section-tabs" id="sectionTabs" aria-label="Bereich wählen"></nav>
+    <div class="mehr-menu" id="mehrMenu" hidden></div>
 
     <div class="message" id="message" role="status" aria-live="polite"></div>
 
