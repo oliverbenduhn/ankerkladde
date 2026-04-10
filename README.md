@@ -1,7 +1,7 @@
 # Ankerkladde
 
 <p align="center">
-  <img src="public/icons/icon-192.png" alt="Ankerkladde" width="96">
+  <img src="public/branding/ankerkladde-logo.png" alt="Ankerkladde" width="96">
 </p>
 
 Mobile-freundliche PHP-Webanwendung für Einkaufslisten, Todos, Notizen, Bilder, Dateien und Links – gespeichert in SQLite.
