@@ -346,44 +346,6 @@ $themeColor = getThemeColor($effectiveTheme);
     </section>
 
     <section class="settings-section">
-        <form method="post" action="<?= htmlspecialchars(appPath('settings.php'), ENT_QUOTES, 'UTF-8') ?>" class="settings-form">
-            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
-            <input type="hidden" name="action" value="create_category">
-            <div class="settings-block">
-                <h2>Neue Kategorie</h2>
-                <p class="settings-copy">Name frei wählen, Strukturtyp bleibt fest im Produkt definiert.</p>
-                <div class="settings-password-fields">
-                    <label class="settings-field">
-                        <span>Symbol</span>
-                        <select name="icon">
-                            <option value="">Automatisch nach Typ</option>
-                            <?php foreach ($iconOptions as $iconOption): ?>
-                                <option value="<?= htmlspecialchars($iconOption, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($iconOption, ENT_QUOTES, 'UTF-8') ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                    </label>
-                    <label class="settings-field">
-                        <span>Name</span>
-                        <input type="text" name="name" maxlength="120" required>
-                    </label>
-                    <label class="settings-field">
-                        <span>Typ</span>
-                        <select name="type" required>
-                            <?php foreach (CATEGORY_TYPES as $type): ?>
-                                <option value="<?= htmlspecialchars($type, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars(categoryTypeLabel($type), ENT_QUOTES, 'UTF-8') ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                    </label>
-                </div>
-            </div>
-
-            <div class="settings-actions">
-                <button type="submit" class="settings-save">Kategorie anlegen</button>
-            </div>
-        </form>
-    </section>
-
-    <section class="settings-section">
         <div class="settings-block">
             <h2>Kategorien</h2>
             <p class="settings-copy">Neue Kategorien werden direkt angelegt. Bestehende Kategorien speicherst du pro Zeile.</p>
@@ -469,6 +431,44 @@ $themeColor = getThemeColor($effectiveTheme);
                 <?php endforeach; ?>
             </div>
         </div>
+    </section>
+
+    <section class="settings-section">
+        <form method="post" action="<?= htmlspecialchars(appPath('settings.php'), ENT_QUOTES, 'UTF-8') ?>" class="settings-form">
+            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
+            <input type="hidden" name="action" value="create_category">
+            <div class="settings-block">
+                <h2>Neue Kategorie</h2>
+                <p class="settings-copy">Name frei wählen, Strukturtyp bleibt fest im Produkt definiert.</p>
+                <div class="settings-password-fields">
+                    <label class="settings-field">
+                        <span>Symbol</span>
+                        <select name="icon">
+                            <option value="">Automatisch nach Typ</option>
+                            <?php foreach ($iconOptions as $iconOption): ?>
+                                <option value="<?= htmlspecialchars($iconOption, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($iconOption, ENT_QUOTES, 'UTF-8') ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </label>
+                    <label class="settings-field">
+                        <span>Name</span>
+                        <input type="text" name="name" maxlength="120" required>
+                    </label>
+                    <label class="settings-field">
+                        <span>Typ</span>
+                        <select name="type" required>
+                            <?php foreach (CATEGORY_TYPES as $type): ?>
+                                <option value="<?= htmlspecialchars($type, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars(categoryTypeLabel($type), ENT_QUOTES, 'UTF-8') ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </label>
+                </div>
+            </div>
+
+            <div class="settings-actions">
+                <button type="submit" class="settings-save">Kategorie anlegen</button>
+            </div>
+        </form>
     </section>
 
     <section class="settings-section settings-section-secondary">

@@ -3,11 +3,15 @@ declare(strict_types=1);
 
 require dirname(__DIR__) . '/db.php';
 require dirname(__DIR__) . '/security.php';
+require __DIR__ . '/theme.php';
 
 enforceCanonicalRequest();
 startAppSession();
 $basePath = appPath();
-$assetVersion = '26';
+$assetVersion = '30';
+$defaultThemePreferences = getThemePreferenceDefaults();
+$effectiveTheme = resolveEffectiveTheme($defaultThemePreferences);
+$themeColor = getThemeColor($effectiveTheme);
 
 // Already logged in → redirect to appropriate page
 $alreadyLoggedIn = getCurrentUserId() !== null;
@@ -57,7 +61,8 @@ $csrfToken = getCsrfToken();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#f5f0eb">
+    <meta name="theme-color" content="<?= htmlspecialchars($themeColor, ENT_QUOTES, 'UTF-8') ?>">
+    <?= renderThemeBootScript($defaultThemePreferences) ?>
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="Ankerkladde">
@@ -65,7 +70,7 @@ $csrfToken = getCsrfToken();
     <title>Anmelden — Ankerkladde</title>
     <link rel="stylesheet" href="<?= htmlspecialchars(appPath('style.css?v=' . $assetVersion), ENT_QUOTES, 'UTF-8') ?>">
 </head>
-<body class="login-page">
+<body class="login-page" data-theme="<?= htmlspecialchars($effectiveTheme, ENT_QUOTES, 'UTF-8') ?>">
 
 <div class="install-banner" id="installBanner" hidden style="position:fixed;top:0;left:0;right:0;z-index:100">
     <span class="install-text">App installieren?</span>
@@ -107,7 +112,7 @@ $csrfToken = getCsrfToken();
     let deferredPrompt = null;
 
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register(basePath + 'sw.js?v=27').catch(() => {});
+        navigator.serviceWorker.register(basePath + 'sw.js?v=30').catch(() => {});
     }
 
     window.addEventListener('beforeinstallprompt', e => {
