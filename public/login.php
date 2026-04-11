@@ -8,10 +8,11 @@ require __DIR__ . '/theme.php';
 enforceCanonicalRequest();
 startAppSession();
 $basePath = appPath();
-$assetVersion = '31';
+$assetVersion = '32';
 $defaultThemePreferences = getThemePreferenceDefaults();
 $effectiveTheme = resolveEffectiveTheme($defaultThemePreferences);
 $themeColor = getThemeColor($effectiveTheme);
+$brandMarkSrc = appPath('icon.php?size=192&theme=' . rawurlencode($effectiveTheme) . '&v=' . rawurlencode($assetVersion));
 
 // Already logged in → redirect to appropriate page
 $alreadyLoggedIn = getCurrentUserId() !== null;
@@ -80,7 +81,7 @@ $csrfToken = getCsrfToken();
 
 <div class="login-card">
     <div class="login-brand">
-        <img src="<?= htmlspecialchars(appPath('icon.php?size=192'), ENT_QUOTES, 'UTF-8') ?>" alt="Ankerkladde Logo" class="brand-mark brand-mark-login">
+        <img src="<?= htmlspecialchars($brandMarkSrc, ENT_QUOTES, 'UTF-8') ?>" alt="Ankerkladde Logo" class="brand-mark brand-mark-login">
         <h1>Ankerkladde</h1>
     </div>
     <?php if ($error !== null): ?>
@@ -112,7 +113,7 @@ $csrfToken = getCsrfToken();
     let deferredPrompt = null;
 
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register(basePath + 'sw.js?v=31').catch(() => {});
+        navigator.serviceWorker.register(basePath + 'sw.js?v=32').catch(() => {});
     }
 
     window.addEventListener('beforeinstallprompt', e => {

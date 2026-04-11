@@ -51,6 +51,7 @@ const noteSaveStatus = document.getElementById('noteSaveStatus');
 const noteEditorBody = document.getElementById('noteEditorEl');
 const noteToolbar = document.getElementById('noteToolbar');
 const userPreferencesScript = document.getElementById('userPreferences');
+const brandMarkEls = document.querySelectorAll('.brand-mark');
 
 const ICONS = {
     menu:            '<line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="18" y2="18"/>',
@@ -152,6 +153,16 @@ function appUrl(path) {
     return new URL(path, `${window.location.origin}${appBasePath}`).toString();
 }
 
+function updateBrandMarks(themeName) {
+    brandMarkEls.forEach(image => {
+        if (!(image instanceof HTMLImageElement)) return;
+        const url = new URL(image.getAttribute('src') || '', window.location.href);
+        if (!url.pathname.endsWith('/icon.php') && !url.pathname.endsWith('icon.php')) return;
+        url.searchParams.set('theme', themeName);
+        image.src = url.toString();
+    });
+}
+
 function readInitialPreferences() {
     if (!userPreferencesScript) {
         return { ...DEFAULT_PREFERENCES };
@@ -218,6 +229,7 @@ function applyThemePreferences() {
         themeColorMeta.setAttribute('content', THEME_COLORS[effectiveTheme]);
     }
 
+    updateBrandMarks(effectiveTheme);
     updateThemeModeButtons();
 }
 
@@ -2357,7 +2369,7 @@ document.addEventListener('keydown', event => {
 
     if ('serviceWorker' in navigator) {
         try {
-            const reg = await navigator.serviceWorker.register(appBasePath + 'sw.js?v=31');
+            const reg = await navigator.serviceWorker.register(appBasePath + 'sw.js?v=32');
             reg.addEventListener('updatefound', () => {
                 const w = reg.installing;
                 w?.addEventListener('statechange', () => {

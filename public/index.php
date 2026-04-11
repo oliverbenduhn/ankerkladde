@@ -22,7 +22,7 @@ if ($appBasePath === '' || $appBasePath === '.') {
 } else {
     $appBasePath = rtrim($appBasePath, '/') . '/';
 }
-$assetVersion = '31';
+$assetVersion = '32';
 
 function icon(string $name): string {
     static $paths = [
@@ -47,6 +47,7 @@ function icon(string $name): string {
 <?php
 $effectiveTheme = resolveEffectiveTheme($userPreferences);
 $themeColor = getThemeColor($effectiveTheme);
+$brandMarkSrc = 'icon.php?size=96&theme=' . rawurlencode($effectiveTheme) . '&v=' . rawurlencode($assetVersion);
 ?>
 <!DOCTYPE html>
 <html lang="de">
@@ -84,7 +85,7 @@ $themeColor = getThemeColor($effectiveTheme);
     <header class="app-header liste-only">
         <button type="button" id="tabsToggleBtn" class="btn-tabs-toggle" aria-label="Symbolleiste ein-/ausblenden"><?= icon('menu') ?></button>
         <div class="app-title-group">
-            <img src="icon.php?size=96" alt="" class="brand-mark brand-mark-app" aria-hidden="true">
+            <img src="<?= htmlspecialchars($brandMarkSrc, ENT_QUOTES, 'UTF-8') ?>" alt="" class="brand-mark brand-mark-app" aria-hidden="true">
             <div class="app-title-stack">
                 <h1 class="app-title">Ankerkladde</h1>
                 <div class="app-subtitle" id="titleListe">Listen</div>
@@ -108,7 +109,7 @@ $themeColor = getThemeColor($effectiveTheme);
     <header class="app-header shopping-only">
         <button type="button" class="btn-tabs-toggle" aria-label="Symbolleiste ein-/ausblenden"><?= icon('menu') ?></button>
         <div class="app-title-group">
-            <img src="icon.php?size=96" alt="" class="brand-mark brand-mark-app" aria-hidden="true">
+            <img src="<?= htmlspecialchars($brandMarkSrc, ENT_QUOTES, 'UTF-8') ?>" alt="" class="brand-mark brand-mark-app" aria-hidden="true">
             <div class="app-title-stack">
                 <h1 class="app-title">Ankerkladde</h1>
                 <div class="app-subtitle" id="titleShopping">Einkaufen</div>

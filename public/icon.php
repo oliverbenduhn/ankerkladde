@@ -14,6 +14,8 @@ const ICON_FALLBACK_MAP = [
     512 => '/public/icons/icon-512.png',
 ];
 
+const BRAND_LOGO_THEMES = ['parchment', 'hafenblau', 'nachtwache', 'pier'];
+
 function iconFail(int $status, string $message): never
 {
     http_response_code($status);
@@ -48,6 +50,14 @@ function fallbackIconPath(int $size): ?string
     return is_file($absolute) ? $absolute : null;
 }
 
+function requestedBrandTheme(): string
+{
+    $theme = filter_input(INPUT_GET, 'theme', FILTER_UNSAFE_RAW);
+    $theme = is_string($theme) ? trim($theme) : '';
+
+    return in_array($theme, BRAND_LOGO_THEMES, true) ? $theme : 'parchment';
+}
+
 function brandLogoPath(): ?string
 {
     $absolute = dirname(__DIR__) . BRAND_LOGO_PATH;
@@ -64,7 +74,34 @@ function outputPngFile(string $path): never
     exit;
 }
 
-function outputResizedBrandLogo(string $path, int $size): never
+function applyBrandThemeVariant(GdImage $image, string $theme): void
+{
+    if (!function_exists('imagefilter')) {
+        return;
+    }
+
+    switch ($theme) {
+        case 'hafenblau':
+            @imagefilter($image, IMG_FILTER_COLORIZE, -18, 10, 48, 18);
+            @imagefilter($image, IMG_FILTER_CONTRAST, -4);
+            break;
+        case 'nachtwache':
+            @imagefilter($image, IMG_FILTER_BRIGHTNESS, -12);
+            @imagefilter($image, IMG_FILTER_COLORIZE, -30, -10, 36, 24);
+            @imagefilter($image, IMG_FILTER_CONTRAST, -8);
+            break;
+        case 'pier':
+            @imagefilter($image, IMG_FILTER_BRIGHTNESS, -8);
+            @imagefilter($image, IMG_FILTER_COLORIZE, 22, 10, -12, 18);
+            @imagefilter($image, IMG_FILTER_CONTRAST, -5);
+            break;
+        default:
+            @imagefilter($image, IMG_FILTER_COLORIZE, 4, 0, -6, 6);
+            break;
+    }
+}
+
+function outputResizedBrandLogo(string $path, int $size, string $theme): never
 {
     if (
         !function_exists('imagecreatefrompng')
@@ -116,6 +153,7 @@ function outputResizedBrandLogo(string $path, int $size): never
     );
 
     imagedestroy($sourceImage);
+    applyBrandThemeVariant($targetImage, $theme);
 
     header('Content-Type: image/png');
     header('Cache-Control: public, max-age=86400');
@@ -126,10 +164,11 @@ function outputResizedBrandLogo(string $path, int $size): never
 }
 
 $size = requestedIconSize();
+$theme = requestedBrandTheme();
 $brandLogoPath = brandLogoPath();
 
 if (is_string($brandLogoPath) && is_file($brandLogoPath)) {
-    outputResizedBrandLogo($brandLogoPath, $size);
+    outputResizedBrandLogo($brandLogoPath, $size, $theme);
 }
 
 $fallbackPath = fallbackIconPath($size);
