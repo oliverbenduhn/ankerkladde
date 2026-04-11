@@ -366,6 +366,7 @@ function getDefaultUserPreferences(): array
         'category_swipe_enabled' => true,
         'last_category_id' => null,
         'install_banner_dismissed' => false,
+        'theme' => 'parchment',
     ];
 }
 
@@ -394,6 +395,11 @@ function normalizeUserPreferences(array $preferences): array
         'options' => ['min_range' => 1],
     ]);
     $normalized['last_category_id'] = is_int($lastCategoryId) ? $lastCategoryId : null;
+
+    $validThemes = ['parchment', 'hafenblau', 'nachtwache', 'pier'];
+    if (isset($preferences['theme']) && in_array($preferences['theme'], $validThemes, true)) {
+        $normalized['theme'] = $preferences['theme'];
+    }
 
     return $normalized;
 }
