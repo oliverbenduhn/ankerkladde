@@ -1,6 +1,28 @@
 <?php
 declare(strict_types=1);
 
+function getExtensionManifestVersion(string $baseDir): string
+{
+    $manifestPath = $baseDir . '/manifest.json';
+    $contents = file_get_contents($manifestPath);
+    if (!is_string($contents)) {
+        throw new RuntimeException('Manifest konnte nicht gelesen werden.');
+    }
+
+    $manifest = json_decode($contents, true);
+    if (!is_array($manifest) || !is_string($manifest['version'] ?? null) || trim($manifest['version']) === '') {
+        throw new RuntimeException('Manifest-Version fehlt.');
+    }
+
+    return trim($manifest['version']);
+}
+
+function getVersionedExtensionZipFilename(string $baseDir): string
+{
+    $version = preg_replace('/[^0-9A-Za-z._-]+/', '-', getExtensionManifestVersion($baseDir)) ?? 'unknown';
+    return sprintf('ankerkladde-extension-v%s.zip', $version);
+}
+
 function getExtensionArchiveEntries(): array
 {
     return [
@@ -8,6 +30,7 @@ function getExtensionArchiveEntries(): array
         'popup.html',
         'popup.js',
         'background.js',
+        'icon.png',
         'icons/icon16.png',
         'icons/icon32.png',
         'icons/icon48.png',
