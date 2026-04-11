@@ -914,8 +914,7 @@ document.getElementById('setupBtn')?.addEventListener('click', async () => {
         apiKeyEditInput.dataset.hasKey = 'true';
       }
       
-      document.getElementById('setupScreen').classList.remove('visible');
-      document.querySelector('.content').style.display = 'grid';
+      setAuthenticatedView(true);
       document.querySelector('[data-tab="save"]').classList.add('active');
       document.querySelector('[data-tab="settings"]').classList.remove('active');
       document.getElementById('tab-save').classList.add('active');
@@ -967,6 +966,22 @@ document.getElementById('savePageBtn').addEventListener('click', async () => {
 
 const setupScreen = document.getElementById('setupScreen');
 const mainContent = document.querySelector('.content');
+const topTabs = document.getElementById('topTabs');
+
+function setAuthenticatedView(isAuthenticated) {
+  if (setupScreen) {
+    setupScreen.classList.toggle('visible', !isAuthenticated);
+    setupScreen.style.display = isAuthenticated ? 'none' : '';
+  }
+
+  if (mainContent) {
+    mainContent.style.display = isAuthenticated ? 'grid' : 'none';
+  }
+
+  if (topTabs) {
+    topTabs.classList.toggle('hidden', !isAuthenticated);
+  }
+}
 
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -989,11 +1004,11 @@ Object.entries(DEFAULT_CATEGORY_KEYS).forEach(([type, elementId]) => {
   await loadSettings();
   
   if (!state.apiKey) {
-    setupScreen.classList.add('visible');
-    if (mainContent) mainContent.style.display = 'none';
+    setAuthenticatedView(false);
+    setStatus('Bitte Ankerkladde verbinden.', 'err');
   } else {
     await loadCategories();
-    if (setupScreen) setupScreen.style.display = 'none';
+    setAuthenticatedView(true);
   }
   
   setupDropzone();

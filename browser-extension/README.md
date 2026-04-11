@@ -1,5 +1,9 @@
 # Ankerkladde Extension
 
+<p align="center">
+  <img src="../public/branding/ankerkladde-logo.png" alt="Ankerkladde" width="140">
+</p>
+
 Browser-Erweiterung zum Speichern von Links, Bildern und Dateien direkt nach Ankerkladde.
 
 ## Unterstützte Browser
