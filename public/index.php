@@ -3,12 +3,14 @@ declare(strict_types=1);
 
 require dirname(__DIR__) . '/db.php';
 require dirname(__DIR__) . '/security.php';
+require __DIR__ . '/theme.php';
 
 enforceCanonicalRequest();
 $userId = requireAuth();
 
+$db = getDatabase();
 $csrfToken = getCsrfToken();
-$userPreferences = getUserPreferences(getDatabase(), $userId);
+$userPreferences = getExtendedUserPreferences($db, $userId);
 $scriptName = $_SERVER['SCRIPT_NAME'] ?? '/index.php';
 if (!is_string($scriptName) || $scriptName === '') {
     $scriptName = '/index.php';
@@ -20,13 +22,16 @@ if ($appBasePath === '' || $appBasePath === '.') {
 } else {
     $appBasePath = rtrim($appBasePath, '/') . '/';
 }
-$assetVersion = '27';
+$assetVersion = '28';
 
 function icon(string $name): string {
     static $paths = [
         'menu'     => '<line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="18" y2="18"/>',
         'search'   => '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
         'settings' => '<path d="M20 7h-9"/><path d="M14 17H5"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/>',
+        'theme-auto' => '<path d="M12 3v2"/><path d="M12 19v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66-1.41-1.41"/><path d="M3 12h2"/><path d="M19 12h2"/><path d="m4.93 19.07 1.41-1.41"/><path d="m17.66 6.34-1.41 1.41"/><circle cx="12" cy="12" r="4"/>',
+        'theme-light' => '<path d="M12 3v2"/><path d="M12 19v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66-1.41-1.41"/><path d="M3 12h2"/><path d="M19 12h2"/><path d="m4.93 19.07 1.41-1.41"/><path d="m17.66 6.34-1.41 1.41"/><circle cx="12" cy="12" r="4"/>',
+        'theme-dark' => '<path d="M12 3a6 6 0 1 0 9 9 7.5 7.5 0 1 1-9-9Z"/>',
         'eye'      => '<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>',
         'pencil'   => '<path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/>',
         'camera'   => '<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/>',
@@ -40,13 +45,8 @@ function icon(string $name): string {
 }
 ?>
 <?php
-$themeColors = [
-    'parchment'  => '#f5f0eb',
-    'hafenblau'  => '#cfe0ec',
-    'nachtwache' => '#162338',
-    'pier'       => '#0f1419',
-];
-$themeColor = $themeColors[$userPreferences['theme'] ?? 'parchment'] ?? '#f5f0eb';
+$effectiveTheme = resolveEffectiveTheme($userPreferences);
+$themeColor = getThemeColor($effectiveTheme);
 ?>
 <!DOCTYPE html>
 <html lang="de">
@@ -54,6 +54,7 @@ $themeColor = $themeColors[$userPreferences['theme'] ?? 'parchment'] ?? '#f5f0eb
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="<?= htmlspecialchars($themeColor, ENT_QUOTES, 'UTF-8') ?>">
+    <?= renderThemeBootScript($userPreferences) ?>
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -64,7 +65,7 @@ $themeColor = $themeColors[$userPreferences['theme'] ?? 'parchment'] ?? '#f5f0eb
     <link rel="stylesheet" href="style.css?v=<?= urlencode($assetVersion) ?>">
     <title>Ankerkladde</title>
 </head>
-<body data-theme="<?= htmlspecialchars($userPreferences['theme'] ?? 'parchment', ENT_QUOTES, 'UTF-8') ?>">
+<body data-theme="<?= htmlspecialchars($effectiveTheme, ENT_QUOTES, 'UTF-8') ?>">
 <div class="app" id="app" data-mode="einkaufen">
 
     <div class="install-banner" id="installBanner" hidden>
@@ -92,6 +93,7 @@ $themeColor = $themeColors[$userPreferences['theme'] ?? 'parchment'] ?? '#f5f0eb
         <div class="header-actions">
             <button type="button" id="searchBtn" class="header-icon-btn btn-search" aria-label="Suchen"><?= icon('search') ?></button>
             <a href="<?= htmlspecialchars(appPath('settings.php'), ENT_QUOTES, 'UTF-8') ?>" class="header-icon-btn btn-settings" aria-label="Einstellungen"><?= icon('settings') ?></a>
+            <button type="button" class="header-icon-btn btn-theme-mode" aria-label="Farbschema umschalten" title="Farbschema umschalten"><?= icon('theme-auto') ?></button>
             <button type="button" class="header-icon-btn btn-mode-toggle" data-nav="einkaufen" aria-label="Einkaufs-Modus starten"><?= icon('eye') ?></button>
         </div>
     </header>
@@ -115,6 +117,7 @@ $themeColor = $themeColors[$userPreferences['theme'] ?? 'parchment'] ?? '#f5f0eb
         <div class="header-actions">
             <span class="progress" id="progress" aria-live="polite">0 / 0</span>
             <a href="<?= htmlspecialchars(appPath('settings.php'), ENT_QUOTES, 'UTF-8') ?>" class="header-icon-btn btn-settings" aria-label="Einstellungen"><?= icon('settings') ?></a>
+            <button type="button" class="header-icon-btn btn-theme-mode" aria-label="Farbschema umschalten" title="Farbschema umschalten"><?= icon('theme-auto') ?></button>
             <button type="button" class="header-icon-btn btn-mode-toggle" data-nav="liste" aria-label="Liste bearbeiten"><?= icon('pencil') ?></button>
         </div>
     </header>

@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require dirname(__DIR__) . '/db.php';
 require dirname(__DIR__) . '/security.php';
+require __DIR__ . '/theme.php';
 
 enforceCanonicalRequest();
 $userId = requireAuth();
@@ -158,7 +159,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     ':sort_order' => nextCategorySortOrder($db, $userId),
                 ]);
                 $categoryId = (int) $db->lastInsertId();
-                updateUserPreferences($db, $userId, ['last_category_id' => $categoryId]);
+                updateExtendedUserPreferences($db, $userId, ['last_category_id' => $categoryId]);
                 $flash = 'Kategorie erstellt.';
             }
         } elseif ($action === 'save_category') {
@@ -230,25 +231,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     } else {
                         $db->prepare('DELETE FROM categories WHERE id = :id AND user_id = :user_id')
                             ->execute([':id' => $deleteCategoryId, ':user_id' => $userId]);
-                        $preferences = getUserPreferences($db, $userId);
+                        $preferences = getExtendedUserPreferences($db, $userId);
                         if ((int) ($preferences['last_category_id'] ?? 0) === $deleteCategoryId) {
                             $fallback = loadUserCategories($db, $userId, false)[0]['id'] ?? null;
-                            updateUserPreferences($db, $userId, ['last_category_id' => $fallback]);
+                            updateExtendedUserPreferences($db, $userId, ['last_category_id' => $fallback]);
                         }
                         $flash = 'Kategorie gelöscht.';
                     }
                 }
             }
         } elseif ($action === 'save_theme') {
-            $validThemes = ['parchment', 'hafenblau', 'nachtwache', 'pier'];
-            $newTheme = (string) ($_POST['theme'] ?? 'parchment');
-            if (!in_array($newTheme, $validThemes, true)) {
-                $newTheme = 'parchment';
+            $lightTheme = (string) ($_POST['light_theme'] ?? 'parchment');
+            $darkTheme = (string) ($_POST['dark_theme'] ?? 'nachtwache');
+            if (!in_array($lightTheme, ['parchment', 'hafenblau'], true)) {
+                $lightTheme = 'parchment';
             }
-            updateUserPreferences($db, $userId, ['theme' => $newTheme]);
-            $flash = 'Theme gespeichert.';
+            if (!in_array($darkTheme, ['nachtwache', 'pier'], true)) {
+                $darkTheme = 'nachtwache';
+            }
+            updateExtendedUserPreferences($db, $userId, [
+                'light_theme' => $lightTheme,
+                'dark_theme' => $darkTheme,
+            ]);
+            $flash = 'Themes gespeichert.';
         } elseif ($action === 'save_app_preferences') {
-            $preferences = updateUserPreferences($db, $userId, [
+            $preferences = updateExtendedUserPreferences($db, $userId, [
                 'category_swipe_enabled' => isset($_POST['category_swipe_enabled']),
             ]);
             $flash = 'Anzeige-Einstellungen gespeichert.';
@@ -256,9 +263,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$preferences = getUserPreferences($db, $userId);
+$preferences = getExtendedUserPreferences($db, $userId);
 settings_done:
-$preferences = getUserPreferences($db, $userId);
+$preferences = getExtendedUserPreferences($db, $userId);
 $categories = loadUserCategories($db, $userId);
 $iconOptions = getCategoryIconOptions();
 ?>
@@ -268,19 +275,15 @@ $iconOptions = getCategoryIconOptions();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 <?php
-$themeColors = [
-    'parchment'  => '#f5f0eb',
-    'hafenblau'  => '#cfe0ec',
-    'nachtwache' => '#162338',
-    'pier'       => '#0f1419',
-];
-$themeColor = $themeColors[$preferences['theme'] ?? 'parchment'] ?? '#f5f0eb';
+$effectiveTheme = resolveEffectiveTheme($preferences);
+$themeColor = getThemeColor($effectiveTheme);
 ?>
     <meta name="theme-color" content="<?= htmlspecialchars($themeColor, ENT_QUOTES, 'UTF-8') ?>">
+    <?= renderThemeBootScript($preferences) ?>
     <title>Einstellungen — Ankerkladde</title>
-    <link rel="stylesheet" href="<?= htmlspecialchars(appPath('style.css'), ENT_QUOTES, 'UTF-8') ?>">
+    <link rel="stylesheet" href="<?= htmlspecialchars(appPath('style.css?v=28'), ENT_QUOTES, 'UTF-8') ?>">
 </head>
-<body class="settings-page" data-theme="<?= htmlspecialchars($preferences['theme'] ?? 'parchment', ENT_QUOTES, 'UTF-8') ?>">
+<body class="settings-page" data-theme="<?= htmlspecialchars($effectiveTheme, ENT_QUOTES, 'UTF-8') ?>">
 <div class="settings-card">
     <div class="settings-header">
         <div class="settings-title-group">
@@ -428,31 +431,42 @@ $themeColor = $themeColors[$preferences['theme'] ?? 'parchment'] ?? '#f5f0eb';
             <input type="hidden" name="action" value="save_theme">
             <div class="settings-block">
                 <h2>Erscheinungsbild</h2>
-                <div class="theme-list">
-                    <label>
-                        <span class="theme-dot" style="background:#c8b89a;"></span>
-                        Parchment
-                        <input type="radio" name="theme" value="parchment" <?= $preferences['theme'] === 'parchment' ? 'checked' : '' ?>>
-                    </label>
-                    <label>
-                        <span class="theme-dot" style="background:#1a6090;"></span>
-                        Hafenblau
-                        <input type="radio" name="theme" value="hafenblau" <?= $preferences['theme'] === 'hafenblau' ? 'checked' : '' ?>>
-                    </label>
-                    <label>
-                        <span class="theme-dot" style="background:#162338; border-color:rgba(255,255,255,0.15);"></span>
-                        Nachtwache
-                        <input type="radio" name="theme" value="nachtwache" <?= $preferences['theme'] === 'nachtwache' ? 'checked' : '' ?>>
-                    </label>
-                    <label>
-                        <span class="theme-dot" style="background:#0f1419; border-color:rgba(255,255,255,0.15);"></span>
-                        Pier bei Nacht
-                        <input type="radio" name="theme" value="pier" <?= $preferences['theme'] === 'pier' ? 'checked' : '' ?>>
-                    </label>
+                <p class="settings-copy">In der App-Leiste schaltest du zwischen Hell, Dunkel und Auto um. Hier legst du fest, welche Themes dabei verwendet werden.</p>
+                <div class="theme-grid">
+                    <div>
+                        <h3 class="theme-group-title">Light Theme</h3>
+                        <div class="theme-list">
+                            <label>
+                                <span class="theme-dot" style="background:#c8b89a;"></span>
+                                Parchment
+                                <input type="radio" name="light_theme" value="parchment" <?= $preferences['light_theme'] === 'parchment' ? 'checked' : '' ?>>
+                            </label>
+                            <label>
+                                <span class="theme-dot" style="background:#1a6090;"></span>
+                                Hafenblau
+                                <input type="radio" name="light_theme" value="hafenblau" <?= $preferences['light_theme'] === 'hafenblau' ? 'checked' : '' ?>>
+                            </label>
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="theme-group-title">Dark Theme</h3>
+                        <div class="theme-list">
+                            <label>
+                                <span class="theme-dot" style="background:#162338; border-color:rgba(255,255,255,0.15);"></span>
+                                Nachtwache
+                                <input type="radio" name="dark_theme" value="nachtwache" <?= $preferences['dark_theme'] === 'nachtwache' ? 'checked' : '' ?>>
+                            </label>
+                            <label>
+                                <span class="theme-dot" style="background:#0f1419; border-color:rgba(255,255,255,0.15);"></span>
+                                Pier bei Nacht
+                                <input type="radio" name="dark_theme" value="pier" <?= $preferences['dark_theme'] === 'pier' ? 'checked' : '' ?>>
+                            </label>
+                        </div>
+                    </div>
                 </div>
             </div>
             <div class="settings-actions">
-                <button type="submit" class="settings-save">Speichern</button>
+                <button type="submit" class="settings-save">Themes speichern</button>
             </div>
         </form>
     </section>

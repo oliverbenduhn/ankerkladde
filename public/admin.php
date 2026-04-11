@@ -3,12 +3,13 @@ declare(strict_types=1);
 
 require dirname(__DIR__) . '/db.php';
 require dirname(__DIR__) . '/security.php';
+require __DIR__ . '/theme.php';
 
 enforceCanonicalRequest();
 $currentUserId = requireAdmin();
 
 $db = getDatabase();
-$adminPreferences = getUserPreferences($db, $currentUserId);
+$adminPreferences = getExtendedUserPreferences($db, $currentUserId);
 
 $flash      = null;
 $flashType  = 'ok';
@@ -169,19 +170,15 @@ $users = $db->query(
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 <?php
-$themeColors = [
-    'parchment'  => '#f5f0eb',
-    'hafenblau'  => '#cfe0ec',
-    'nachtwache' => '#162338',
-    'pier'       => '#0f1419',
-];
-$themeColor = $themeColors[$adminPreferences['theme'] ?? 'parchment'] ?? '#f5f0eb';
+$effectiveTheme = resolveEffectiveTheme($adminPreferences);
+$themeColor = getThemeColor($effectiveTheme);
 ?>
     <meta name="theme-color" content="<?= htmlspecialchars($themeColor, ENT_QUOTES, 'UTF-8') ?>">
+    <?= renderThemeBootScript($adminPreferences) ?>
     <title>Nutzerverwaltung — Ankerkladde</title>
-    <link rel="stylesheet" href="<?= htmlspecialchars(appPath('style.css'), ENT_QUOTES, 'UTF-8') ?>">
+    <link rel="stylesheet" href="<?= htmlspecialchars(appPath('style.css?v=28'), ENT_QUOTES, 'UTF-8') ?>">
 </head>
-<body data-theme="<?= htmlspecialchars($adminPreferences['theme'] ?? 'parchment', ENT_QUOTES, 'UTF-8') ?>">
+<body data-theme="<?= htmlspecialchars($effectiveTheme, ENT_QUOTES, 'UTF-8') ?>">
 <div class="admin-page">
 
     <div class="admin-header">

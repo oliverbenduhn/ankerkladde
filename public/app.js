@@ -34,6 +34,7 @@ const searchBar = document.getElementById('searchBar');
 const searchInput = document.getElementById('searchInput');
 const searchClose = document.getElementById('searchClose');
 const modeToggleBtns = document.querySelectorAll('.btn-mode-toggle');
+const themeModeBtns = document.querySelectorAll('.btn-theme-mode');
 const sectionTabsEl = document.getElementById('sectionTabs');
 const mehrMenuEl = document.getElementById('mehrMenu');
 const tabsToggleBtns = document.querySelectorAll('.btn-tabs-toggle');
@@ -55,6 +56,9 @@ const ICONS = {
     menu:            '<line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="18" y2="18"/>',
     search:          '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
     settings:        '<path d="M20 7h-9"/><path d="M14 17H5"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/>',
+    'theme-auto':    '<path d="M12 3v2"/><path d="M12 19v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66-1.41-1.41"/><path d="M3 12h2"/><path d="M19 12h2"/><path d="m4.93 19.07 1.41-1.41"/><path d="m17.66 6.34-1.41 1.41"/><circle cx="12" cy="12" r="4"/>',
+    'theme-light':   '<path d="M12 3v2"/><path d="M12 19v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66-1.41-1.41"/><path d="M3 12h2"/><path d="M19 12h2"/><path d="m4.93 19.07 1.41-1.41"/><path d="m17.66 6.34-1.41 1.41"/><circle cx="12" cy="12" r="4"/>',
+    'theme-dark':    '<path d="M12 3a6 6 0 1 0 9 9 7.5 7.5 0 1 1-9-9Z"/>',
     eye:             '<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>',
     pencil:          '<path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/>',
     camera:          '<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/>',
@@ -105,7 +109,20 @@ const DEFAULT_PREFERENCES = {
     category_swipe_enabled: true,
     last_category_id: null,
     install_banner_dismissed: false,
+    theme_mode: 'auto',
+    light_theme: 'parchment',
+    dark_theme: 'nachtwache',
 };
+
+const THEME_MODE_ORDER = ['light', 'dark', 'auto'];
+const THEME_COLORS = {
+    parchment: '#f5f0eb',
+    hafenblau: '#cfe0ec',
+    nachtwache: '#162338',
+    pier: '#0f1419',
+};
+
+const themeMediaQuery = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
 
 const state = {
     categories: [],
@@ -148,13 +165,87 @@ function readInitialPreferences() {
 }
 
 function normalizePreferences(preferences) {
-    return {
+    const normalized = {
         mode: preferences?.mode === 'einkaufen' ? 'einkaufen' : 'liste',
         tabs_hidden: Boolean(preferences?.tabs_hidden),
         category_swipe_enabled: !Object.prototype.hasOwnProperty.call(preferences || {}, 'category_swipe_enabled') || Boolean(preferences?.category_swipe_enabled),
         last_category_id: Number.isInteger(Number(preferences?.last_category_id)) ? Number(preferences.last_category_id) : null,
         install_banner_dismissed: Boolean(preferences?.install_banner_dismissed),
+        theme_mode: THEME_MODE_ORDER.includes(preferences?.theme_mode) ? preferences.theme_mode : 'auto',
+        light_theme: ['parchment', 'hafenblau'].includes(preferences?.light_theme) ? preferences.light_theme : 'parchment',
+        dark_theme: ['nachtwache', 'pier'].includes(preferences?.dark_theme) ? preferences.dark_theme : 'nachtwache',
     };
+
+    if (typeof preferences?.theme === 'string') {
+        if (['parchment', 'hafenblau'].includes(preferences.theme)) {
+            normalized.light_theme = preferences.theme;
+            if (!('theme_mode' in (preferences || {}))) normalized.theme_mode = 'light';
+        }
+        if (['nachtwache', 'pier'].includes(preferences.theme)) {
+            normalized.dark_theme = preferences.theme;
+            if (!('theme_mode' in (preferences || {}))) normalized.theme_mode = 'dark';
+        }
+    }
+
+    return normalized;
+}
+
+function getThemeModeLabel(themeMode = userPreferences.theme_mode) {
+    if (themeMode === 'light') return 'Hell';
+    if (themeMode === 'dark') return 'Dunkel';
+    return 'Auto';
+}
+
+function getEffectiveTheme(preferences = userPreferences) {
+    const themeMode = preferences.theme_mode || 'auto';
+    const prefersDark = Boolean(themeMediaQuery?.matches);
+
+    if (themeMode === 'light') return preferences.light_theme || 'parchment';
+    if (themeMode === 'dark') return preferences.dark_theme || 'nachtwache';
+    return prefersDark ? (preferences.dark_theme || 'nachtwache') : (preferences.light_theme || 'parchment');
+}
+
+function updateThemeModeButtons() {
+    const themeMode = userPreferences.theme_mode || 'auto';
+    const iconName = themeMode === 'dark' ? 'theme-dark' : themeMode === 'light' ? 'theme-light' : 'theme-auto';
+    const label = getThemeModeLabel(themeMode);
+
+    themeModeBtns.forEach(button => {
+        button.replaceChildren(svgIcon(iconName));
+        button.setAttribute('aria-label', `Farbschema: ${label}. Umschalten`);
+        button.title = `Farbschema: ${label}`;
+    });
+}
+
+function applyThemePreferences() {
+    const effectiveTheme = getEffectiveTheme();
+    document.documentElement.dataset.theme = effectiveTheme;
+    if (document.body) {
+        document.body.dataset.theme = effectiveTheme;
+    }
+
+    const themeColorMeta = document.querySelector('meta[name="theme-color"]');
+    if (themeColorMeta && THEME_COLORS[effectiveTheme]) {
+        themeColorMeta.setAttribute('content', THEME_COLORS[effectiveTheme]);
+    }
+
+    updateThemeModeButtons();
+}
+
+async function cycleThemeMode() {
+    const currentMode = userPreferences.theme_mode || 'auto';
+    const nextMode = THEME_MODE_ORDER[(THEME_MODE_ORDER.indexOf(currentMode) + 1) % THEME_MODE_ORDER.length];
+
+    userPreferences = { ...userPreferences, theme_mode: nextMode };
+    applyThemePreferences();
+
+    try {
+        await savePreferences({ theme_mode: nextMode });
+    } catch (error) {
+        userPreferences = { ...userPreferences, theme_mode: currentMode };
+        applyThemePreferences();
+        setMessage(error instanceof Error ? error.message : 'Farbschema konnte nicht gespeichert werden.', true);
+    }
 }
 
 function getCurrentCategory() {
@@ -412,6 +503,7 @@ async function loadCategories() {
 
     if (payload.preferences) {
         userPreferences = normalizePreferences(payload.preferences);
+        applyThemePreferences();
     }
 
     const visibleCategories = getVisibleCategories();
@@ -432,6 +524,7 @@ async function savePreferences(patch) {
     const payload = await api('preferences', { method: 'POST', body });
     if (payload.preferences) {
         userPreferences = normalizePreferences(payload.preferences);
+        applyThemePreferences();
     }
 }
 
@@ -2072,6 +2165,12 @@ modeToggleBtns.forEach(button => {
     });
 });
 
+themeModeBtns.forEach(button => {
+    button.addEventListener('click', () => {
+        void cycleThemeMode();
+    });
+});
+
 tabsToggleBtns.forEach(button => {
     button.addEventListener('click', () => {
         const hidden = !sectionTabsEl.classList.contains('tabs-hidden');
@@ -2207,6 +2306,16 @@ document.addEventListener('paste', event => {
 });
 
 window.addEventListener('online', setNetworkStatus);
+if (themeMediaQuery) {
+    const onThemeMediaChange = () => {
+        if (userPreferences.theme_mode === 'auto') applyThemePreferences();
+    };
+    if (typeof themeMediaQuery.addEventListener === 'function') {
+        themeMediaQuery.addEventListener('change', onThemeMediaChange);
+    } else if (typeof themeMediaQuery.addListener === 'function') {
+        themeMediaQuery.addListener(onThemeMediaChange);
+    }
+}
 window.addEventListener('offline', setNetworkStatus);
 document.addEventListener('keydown', event => {
     if (event.key === 'Escape' && state.search.open) {
@@ -2240,6 +2349,7 @@ document.addEventListener('keydown', event => {
 
 (async function init() {
     try {
+        applyThemePreferences();
         updateViewportHeight();
         setNetworkStatus();
         state.mode = userPreferences.mode;

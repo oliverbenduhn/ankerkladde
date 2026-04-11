@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require dirname(__DIR__) . '/db.php';
 require dirname(__DIR__) . '/security.php';
+require __DIR__ . '/theme.php';
 
 enforceCanonicalRequest();
 startAppSession();
@@ -466,7 +467,7 @@ function resolveCategoryId(array $data, PDO $db, int $userId): int
 
     $legacySection = $_GET['section'] ?? ($data['section'] ?? null);
     if (!is_string($legacySection) || trim($legacySection) === '') {
-        $preferences = getUserPreferences($db, $userId);
+        $preferences = getExtendedUserPreferences($db, $userId);
         $preferredCategoryId = filter_var($preferences['last_category_id'] ?? null, FILTER_VALIDATE_INT, [
             'options' => ['min_range' => 1],
         ]);
@@ -644,7 +645,7 @@ try {
             requireMethod('GET');
             respond(200, [
                 'categories' => loadUserCategories($db, $userId),
-                'preferences' => getUserPreferences($db, $userId),
+                'preferences' => getExtendedUserPreferences($db, $userId),
             ]);
 
         case 'categories_create':
@@ -678,7 +679,7 @@ try {
             ]);
 
             $categoryId = (int) $db->lastInsertId();
-            updateUserPreferences($db, $userId, ['last_category_id' => $categoryId]);
+            updateExtendedUserPreferences($db, $userId, ['last_category_id' => $categoryId]);
 
             respond(201, [
                 'message' => 'Kategorie erstellt.',
@@ -793,10 +794,10 @@ try {
             $db->prepare('DELETE FROM categories WHERE id = :id AND user_id = :user_id')
                 ->execute([':id' => (int) $category['id'], ':user_id' => $userId]);
 
-            $preferences = getUserPreferences($db, $userId);
+            $preferences = getExtendedUserPreferences($db, $userId);
             if ((int) ($preferences['last_category_id'] ?? 0) === (int) $category['id']) {
                 $fallback = loadUserCategories($db, $userId, false)[0]['id'] ?? null;
-                updateUserPreferences($db, $userId, ['last_category_id' => $fallback]);
+                updateExtendedUserPreferences($db, $userId, ['last_category_id' => $fallback]);
             }
 
             respond(200, ['message' => 'Kategorie gelöscht.']);
@@ -1296,7 +1297,7 @@ try {
 
         case 'preferences':
             if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-                respond(200, ['preferences' => getUserPreferences($db, $userId)]);
+                respond(200, ['preferences' => getExtendedUserPreferences($db, $userId)]);
             }
 
             requireMethod('POST');
@@ -1321,6 +1322,10 @@ try {
                 $patch['install_banner_dismissed'] = filter_var($data['install_banner_dismissed'], FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? false;
             }
 
+            if (array_key_exists('theme_mode', $data) && is_string($data['theme_mode'])) {
+                $patch['theme_mode'] = $data['theme_mode'];
+            }
+
             if (array_key_exists('last_category_id', $data)) {
                 $lastCategoryId = filter_var($data['last_category_id'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
                 if (is_int($lastCategoryId) && loadUserCategory($db, $userId, $lastCategoryId) !== null) {
@@ -1328,7 +1333,7 @@ try {
                 }
             }
 
-            $preferences = updateUserPreferences($db, $userId, $patch);
+            $preferences = updateExtendedUserPreferences($db, $userId, $patch);
             respond(200, ['preferences' => $preferences]);
 
         default:
