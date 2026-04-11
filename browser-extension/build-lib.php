@@ -1,9 +1,9 @@
 <?php
 declare(strict_types=1);
 
-function getExtensionManifestVersion(string $baseDir): string
+function getExtensionManifestVersion(string $baseDir, bool $isFirefox = false): string
 {
-    $manifestPath = $baseDir . '/manifest.json';
+    $manifestPath = $baseDir . '/' . ($isFirefox ? 'manifest-firefox.json' : 'manifest.json');
     $contents = file_get_contents($manifestPath);
     if (!is_string($contents)) {
         throw new RuntimeException('Manifest konnte nicht gelesen werden.');
@@ -17,30 +17,24 @@ function getExtensionManifestVersion(string $baseDir): string
     return trim($manifest['version']);
 }
 
-function getVersionedExtensionZipFilename(string $baseDir): string
-{
-    $version = preg_replace('/[^0-9A-Za-z._-]+/', '-', getExtensionManifestVersion($baseDir)) ?? 'unknown';
-    return sprintf('ankerkladde-extension-v%s.zip', $version);
-}
-
 function getExtensionArchiveEntries(bool $isFirefox = false): array
 {
     return [
-        $isFirefox ? 'manifest-firefox.json' : 'manifest.json',
-        'popup.html',
-        'popup.js',
-        'background.js',
-        'icon.png',
-        'icons/icon16.png',
-        'icons/icon32.png',
-        'icons/icon48.png',
-        'icons/icon128.png',
+        ['source' => $isFirefox ? 'manifest-firefox.json' : 'manifest.json', 'target' => 'manifest.json'],
+        ['source' => 'popup.html', 'target' => 'popup.html'],
+        ['source' => 'popup.js', 'target' => 'popup.js'],
+        ['source' => 'background.js', 'target' => 'background.js'],
+        ['source' => 'icon.png', 'target' => 'icon.png'],
+        ['source' => 'icons/icon16.png', 'target' => 'icons/icon16.png'],
+        ['source' => 'icons/icon32.png', 'target' => 'icons/icon32.png'],
+        ['source' => 'icons/icon48.png', 'target' => 'icons/icon48.png'],
+        ['source' => 'icons/icon128.png', 'target' => 'icons/icon128.png'],
     ];
 }
 
 function getVersionedExtensionZipFilename(string $baseDir, bool $isFirefox = false): string
 {
-    $version = preg_replace('/[^0-9A-Za-z._-]+/', '-', getExtensionManifestVersion($baseDir)) ?? 'unknown';
+    $version = preg_replace('/[^0-9A-Za-z._-]+/', '-', getExtensionManifestVersion($baseDir, $isFirefox)) ?? 'unknown';
     $browser = $isFirefox ? '-firefox' : '';
     return sprintf('ankerkladde-extension-v%s%s.zip', $version, $browser);
 }
@@ -52,18 +46,20 @@ function buildExtensionZipData(string $baseDir, bool $isFirefox = false): string
     $centralDirectory = '';
     $offset = 0;
 
-    foreach ($entries as $relativePath) {
-        $absolutePath = $baseDir . '/' . $relativePath;
+    foreach ($entries as $entry) {
+        $sourcePath = (string) ($entry['source'] ?? '');
+        $targetPath = (string) ($entry['target'] ?? $sourcePath);
+        $absolutePath = $baseDir . '/' . $sourcePath;
         if (!is_file($absolutePath)) {
-            throw new RuntimeException(sprintf('Datei fehlt: %s', $relativePath));
+            throw new RuntimeException(sprintf('Datei fehlt: %s', $sourcePath));
         }
 
         $contents = file_get_contents($absolutePath);
         if (!is_string($contents)) {
-            throw new RuntimeException(sprintf('Datei konnte nicht gelesen werden: %s', $relativePath));
+            throw new RuntimeException(sprintf('Datei konnte nicht gelesen werden: %s', $sourcePath));
         }
 
-        $normalizedPath = str_replace('\\', '/', $relativePath);
+        $normalizedPath = str_replace('\\', '/', $targetPath);
         $nameLength = strlen($normalizedPath);
         $size = strlen($contents);
         $crc = crc32($contents);
@@ -127,9 +123,9 @@ function buildExtensionZipData(string $baseDir, bool $isFirefox = false): string
     return $zipData . $centralDirectory . $endOfCentralDirectory;
 }
 
-function writeExtensionZipFile(string $baseDir, string $outputPath): void
+function writeExtensionZipFile(string $baseDir, string $outputPath, bool $isFirefox = false): void
 {
-    $zipData = buildExtensionZipData($baseDir);
+    $zipData = buildExtensionZipData($baseDir, $isFirefox);
     if (file_put_contents($outputPath, $zipData) === false) {
         throw new RuntimeException('ZIP konnte nicht geschrieben werden.');
     }

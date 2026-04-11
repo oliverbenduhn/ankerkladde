@@ -358,31 +358,29 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
         </form>
     </section>
 
-    <section class="settings-section">
-        <div class="settings-block">
-            <h2>Kategorien</h2>
-    <section class="settings-section">
-        <div class="settings-block">
-            <h2>Browser-Extension</h2>
-            <p class="settings-copy">Diesen API-Key in die Extension kopieren. Er verbindet die Erweiterung direkt mit deinem Account.</p>
-            <div class="settings-password-fields">
-                <label class="settings-field">
-                    <span>API-Key</span>
-                    <input type="text" id="api-key-value" value="<?= htmlspecialchars($apiKey, ENT_QUOTES, 'UTF-8') ?>" readonly>
-                </label>
+    <section class="settings-section settings-section-secondary">
+        <form method="post" action="<?= htmlspecialchars(appPath('settings.php'), ENT_QUOTES, 'UTF-8') ?>" class="settings-form">
+            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
+            <input type="hidden" name="action" value="save_app_preferences">
+            <div class="settings-block">
+                <h2>Anzeige</h2>
+                <div class="settings-options">
+                    <label class="settings-option">
+                        <input
+                            type="checkbox"
+                            name="category_swipe_enabled"
+                            value="1"
+                            <?= !array_key_exists('category_swipe_enabled', $preferences) || !empty($preferences['category_swipe_enabled']) ? 'checked' : '' ?>
+                        >
+                        <span>Wischgeste für Kategorien aktivieren</span>
+                    </label>
+                </div>
             </div>
-            <div class="settings-actions" style="gap: 0.75rem; flex-wrap: wrap;">
-                <button type="button" class="settings-save" id="copy-api-key">Kopieren</button>
-                <a href="<?= htmlspecialchars(appPath('extension-download.php') . '?firefox', ENT_QUOTES, 'UTF-8') ?>" class="settings-link settings-link-firefox">Firefox-Erweiterung laden</a>
-                <a href="<?= htmlspecialchars(appPath('extension-download.php'), ENT_QUOTES, 'UTF-8') ?>" class="settings-link settings-link-chrome">Chrome/Edge-Erweiterung laden</a>
-                <form method="post" action="<?= htmlspecialchars(appPath('settings.php'), ENT_QUOTES, 'UTF-8') ?>" class="settings-form" style="margin:0;">
-                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
-                    <input type="hidden" name="action" value="regenerate_api_key">
-                    <button type="submit" class="settings-link" formnovalidate>Neu erzeugen</button>
-                </form>
+
+            <div class="settings-actions">
+                <button type="submit" class="settings-save">Anzeige speichern</button>
             </div>
-            <p class="settings-copy">Wenn sich die Erweiterung spaeter aendert, hier einfach erneut herunterladen.</p>
-        </div>
+        </form>
     </section>
 
     <section class="settings-section">
@@ -438,22 +436,22 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                                     <span>Ausblenden</span>
                                 </label>
                                 <div class="settings-move-group" aria-label="Reihenfolge">
-                            <button
-                                type="submit"
-                                name="move_direction"
-                                value="up"
-                                formnovalidate
-                                class="settings-move-button"
-                                title="Nach oben"
-                            >↑</button>
-                            <button
-                                type="submit"
-                                name="move_direction"
-                                value="down"
-                                formnovalidate
-                                class="settings-move-button"
-                                title="Nach unten"
-                            >↓</button>
+                                    <button
+                                        type="submit"
+                                        name="move_direction"
+                                        value="up"
+                                        formnovalidate
+                                        class="settings-move-button"
+                                        title="Nach oben"
+                                    >↑</button>
+                                    <button
+                                        type="submit"
+                                        name="move_direction"
+                                        value="down"
+                                        formnovalidate
+                                        class="settings-move-button"
+                                        title="Nach unten"
+                                    >↓</button>
                                 </div>
                             </div>
                             <div class="settings-row-actions">
@@ -510,36 +508,31 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
             </div>
         </form>
     </section>
-
-    <section class="settings-section settings-section-secondary">
-        <form method="post" action="<?= htmlspecialchars(appPath('settings.php'), ENT_QUOTES, 'UTF-8') ?>" class="settings-form">
-            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
-            <input type="hidden" name="action" value="save_app_preferences">
-            <div class="settings-block">
-                <h2>Anzeige</h2>
-                <div class="settings-options">
-                    <label class="settings-option">
-                        <input
-                            type="checkbox"
-                            name="category_swipe_enabled"
-                            value="1"
-                            <?= !array_key_exists('category_swipe_enabled', $preferences) || !empty($preferences['category_swipe_enabled']) ? 'checked' : '' ?>
-                        >
-                        <span>Wischgeste für Kategorien aktivieren</span>
-                    </label>
-                </div>
-            </div>
-
-            <div class="settings-actions">
-                <button type="submit" class="settings-save">Anzeige speichern</button>
-            </div>
-        </form>
-    </section>
     <?php endif; ?>
 
     <?php if (($currentTab ?? 'app') === 'extension'): ?>
+    <section class="settings-section">
+        <div class="settings-block">
+            <h2>Browser-Extension</h2>
+            <p class="settings-copy">Diesen API-Key in die Extension kopieren. Er verbindet die Erweiterung direkt mit deinem Account.</p>
+            <div class="settings-password-fields">
+                <label class="settings-field">
+                    <span>API-Key</span>
+                    <input type="text" id="api-key-value" value="<?= htmlspecialchars($apiKey, ENT_QUOTES, 'UTF-8') ?>" readonly>
+                </label>
             </div>
-        </form>
+            <div class="settings-actions" style="gap: 0.75rem; flex-wrap: wrap;">
+                <button type="button" class="settings-save" id="copy-api-key">Kopieren</button>
+                <a href="<?= htmlspecialchars(appPath('extension-download.php') . '?firefox', ENT_QUOTES, 'UTF-8') ?>" class="settings-link settings-link-firefox">Firefox-Erweiterung laden</a>
+                <a href="<?= htmlspecialchars(appPath('extension-download.php'), ENT_QUOTES, 'UTF-8') ?>" class="settings-link settings-link-chrome">Chrome/Edge-Erweiterung laden</a>
+                <form method="post" action="<?= htmlspecialchars(appPath('settings.php'), ENT_QUOTES, 'UTF-8') ?>" class="settings-form" style="margin:0;">
+                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
+                    <input type="hidden" name="action" value="regenerate_api_key">
+                    <button type="submit" class="settings-link" formnovalidate>Neu erzeugen</button>
+                </form>
+            </div>
+            <p class="settings-copy">Wenn sich die Erweiterung spaeter aendert, hier einfach erneut herunterladen.</p>
+        </div>
     </section>
 
     <section class="settings-section settings-section-secondary">

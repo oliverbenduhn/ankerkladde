@@ -26,11 +26,12 @@ Browser-Erweiterung zum Speichern von Links, Bildern und Dateien direkt nach Ank
 ### ZIP bauen
 
 1. Im Projektordner `browser-extension/` öffnen.
-2. `./build-extension.sh` ausführen für Chrome/Edge.
-3. `php build-firefox.php` ausführen für Firefox.
-4. Die ZIP-Datei entsteht automatisch.
+2. Falls nötig: `php build-icons.php` ausführen, um die PNG-Icons neu zu erzeugen.
+3. `php build-extension.php` ausführen für Chrome/Edge.
+4. `php build-firefox.php` ausführen für Firefox.
+5. Die ZIP-Dateien entstehen automatisch als `ankerkladde-extension-v<version>.zip` und `ankerkladde-extension-v<version>-firefox.zip`.
 
-Das Skript erzeugt zuerst die PNG-Icons und baut danach die ZIP-Datei ohne externe `zip`-Abhängigkeit. Die Versionsnummer wird aus `manifest.json` übernommen.
+Die PHP-Build-Skripte bauen die ZIP-Dateien ohne externe `zip`-Abhängigkeit. Die Versionsnummer wird aus dem jeweiligen Manifest übernommen.
 
 ## Vorbereitung in Ankerkladde
 
@@ -58,7 +59,7 @@ Je nach gewählter Kategorie wird der aktuelle Tab gespeichert:
 
 - `links`: URL wird als Link gespeichert
 - `notes`: Seitentitel als Titel, URL als Inhalt
-- `shopping`: URL wird als Eintrag gespeichert
+- `list_quantity` / `list_due_date`: Seitentitel wird als Eintrag gespeichert
 
 ### Dateien und Bilder speichern
 
@@ -77,3 +78,4 @@ Je nach gewählter Kategorie wird der aktuelle Tab gespeichert:
 - Nach Änderungen an Dateien der Extension in `chrome://extensions` auf `Neu laden` klicken.
 - Das Quellicon liegt unter `browser-extension/icons/icon.svg`.
 - PNG-Icons werden mit `browser-extension/build-icons.php` erzeugt.
+- Die Standard-Kategorieauswahl in der Extension arbeitet mit echten `category_id`-Werten, nicht mehr mit alten Bereichsschlüsseln wie `shopping` oder `notes`.
