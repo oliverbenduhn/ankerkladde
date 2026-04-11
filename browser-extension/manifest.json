@@ -19,15 +19,24 @@
   },
   "permissions": [
     "activeTab",
-    "storage"
+    "contextMenus",
+    "storage",
+    "tabs"
   ],
   "host_permissions": [
-    "https://ankerkladde.benduhn.de/*",
-    "http://127.0.0.1:*/*",
-    "http://localhost:*/*",
-    "http://[::1]:*/*"
+    "https://*/*",
+    "http://*/*"
   ],
   "background": {
     "service_worker": "background.js"
+  },
+  "commands": {
+    "save-current-page": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+Y",
+        "mac": "Command+Shift+Y"
+      },
+      "description": "Aktuelle Seite in Ankerkladde speichern"
+    }
   }
 }

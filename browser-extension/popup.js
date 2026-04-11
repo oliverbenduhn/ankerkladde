@@ -4,6 +4,9 @@ const state = {
   apiUrl: DEFAULT_API_URL,
   apiKey: '',
   categories: [],
+  preferences: {},
+  currentTab: null,
+  busy: false,
 };
 
 function setStatus(message, type = 'ok') {
@@ -12,71 +15,16 @@ function setStatus(message, type = 'ok') {
   el.className = `status ${type}`;
 }
 
-async function loadSettings() {
-  const saved = await chrome.storage.local.get(['apiUrl', 'apiKey', 'categories']);
-  state.apiUrl = (saved.apiUrl || DEFAULT_API_URL).replace(/\/$/, '');
-  state.apiKey = saved.apiKey || '';
-  state.categories = saved.categories || [];
-
-  document.getElementById('apiUrl').value = state.apiUrl;
-  document.getElementById('apiKey').value = state.apiKey;
-  populateCategorySelect();
-
-  if (state.apiKey) {
-    await loadCategories();
-  }
-}
-
-async function saveSettings() {
-  state.apiUrl = document.getElementById('apiUrl').value.trim().replace(/\/$/, '') || DEFAULT_API_URL;
-  state.apiKey = document.getElementById('apiKey').value.trim();
-  const newKey = state.apiKey !== document.getElementById('apiKey').value.trim();
-  state.apiKey = document.getElementById('apiKey').value.trim();
-
-  await chrome.storage.local.set({
-    apiUrl: state.apiUrl,
-    apiKey: state.apiKey,
-    categories: state.categories,
+function setBusy(isBusy) {
+  state.busy = isBusy;
+  document.body.classList.toggle('is-busy', isBusy);
+  document.querySelectorAll('button, input, select, textarea').forEach(element => {
+    element.disabled = isBusy;
   });
-
-  if (newKey && state.apiKey) {
-    await loadCategories();
-  }
 }
 
 function authHeaders() {
   return state.apiKey ? { 'X-API-Key': state.apiKey } : {};
-}
-
-async function verifyKey() {
-  const apiKey = document.getElementById('apiKey').value.trim();
-  if (!apiKey) {
-    setStatus('Bitte API-Key eingeben.', 'err');
-    return;
-  }
-
-  const apiUrl = document.getElementById('apiUrl').value.trim().replace(/\/$/, '') || DEFAULT_API_URL;
-  const testHeaders = { 'X-API-Key': apiKey };
-
-  try {
-    const response = await fetch(`${apiUrl}/api.php?action=categories_list`, {
-      credentials: 'omit',
-      headers: testHeaders,
-    });
-
-    if (response.ok) {
-      setStatus('API-Key funktioniert!', 'ok');
-      state.apiKey = apiKey;
-      state.apiUrl = apiUrl;
-      await chrome.storage.local.set({ apiUrl: state.apiUrl, apiKey: state.apiKey, categories: [] });
-      await loadCategories();
-    } else {
-      const payload = await response.json().catch(() => ({}));
-      setStatus(payload.error || 'API-Key ungültig.', 'err');
-    }
-  } catch (error) {
-    setStatus('Verbindung fehlgeschlagen.', 'err');
-  }
 }
 
 async function requestJson(url, options = {}) {
@@ -91,85 +39,316 @@ async function requestJson(url, options = {}) {
 
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
+    if (response.status === 401 || response.status === 403) {
+      throw new Error(payload.error || 'API-Key ungültig oder abgelaufen.');
+    }
+
     throw new Error(payload.error || `HTTP ${response.status}`);
   }
 
   return payload;
 }
 
-async function loadCategories() {
-  if (!state.apiKey) return;
+function getVisibleCategories(categories = state.categories) {
+  return categories.filter(category => Number(category.is_hidden) !== 1);
+}
 
-  try {
-    const data = await requestJson(`${state.apiUrl}/api.php?action=categories_list`);
-    if (data.categories) {
-      state.categories = data.categories;
-      await chrome.storage.local.set({ categories: state.categories });
-      populateCategorySelect();
+function getSelectedCategory() {
+  const sectionId = document.getElementById('section').value;
+  return state.categories.find(category => String(category.id) === String(sectionId)) || null;
+}
+
+function getPreferredCategory() {
+  const preferredId = Number(state.preferences?.last_category_id);
+  if (Number.isInteger(preferredId) && preferredId > 0) {
+    const preferred = getVisibleCategories().find(category => Number(category.id) === preferredId);
+    if (preferred) {
+      return preferred;
     }
-  } catch (error) {
-    console.error('Kategorien konnten nicht geladen werden:', error);
   }
+
+  return getVisibleCategories()[0] || null;
 }
 
 function populateCategorySelect() {
   const select = document.getElementById('section');
+  const visibleCategories = getVisibleCategories();
+  const previousValue = select.value;
   select.innerHTML = '';
 
-  if (state.categories.length === 0) {
-    select.innerHTML = '<option value="">Keine Kategorien (API-Key fehlt?)</option>';
+  if (visibleCategories.length === 0) {
+    select.innerHTML = '<option value="">Keine sichtbaren Kategorien verfügbar</option>';
+    updateFieldVisibility();
     return;
   }
 
-  state.categories.forEach(cat => {
+  visibleCategories.forEach(category => {
     const option = document.createElement('option');
-    option.value = cat.id;
-    const icon = cat.icon || '';
-    option.textContent = `${icon} ${cat.name}`.trim();
+    option.value = String(category.id);
+    option.textContent = `${category.icon || ''} ${category.name}`.trim();
     select.appendChild(option);
   });
+
+  const preferredCategory = visibleCategories.find(category => String(category.id) === previousValue) || getPreferredCategory();
+  if (preferredCategory) {
+    select.value = String(preferredCategory.id);
+  }
+
+  updateFieldVisibility();
 }
 
 function getCurrentSectionFields() {
-  const sectionId = document.getElementById('section').value;
-  const category = state.categories.find(c => String(c.id) === String(sectionId));
+  const category = getSelectedCategory();
   if (!category) return ['name'];
 
-  const type = category.type;
   const fieldMap = {
-    'list_quantity': ['name', 'quantity'],
-    'list_due_date': ['name', 'due'],
-    'notes': ['name', 'content'],
-    'images': ['file'],
-    'files': ['file'],
-    'links': ['name'],
+    list_quantity: ['name', 'quantity'],
+    list_due_date: ['name', 'due'],
+    notes: ['name', 'content'],
+    images: ['file'],
+    files: ['file'],
+    links: ['name'],
   };
 
-  return fieldMap[type] || ['name'];
+  return fieldMap[category.type] || ['name'];
 }
 
 function updateFieldVisibility() {
   const visibleFields = getCurrentSectionFields();
 
-  document.querySelectorAll('.section-fields').forEach(el => {
-    el.classList.remove('visible');
+  document.querySelectorAll('.section-fields').forEach(element => {
+    element.classList.remove('visible');
   });
 
   visibleFields.forEach(field => {
-    const el = document.getElementById(`field-${field}`);
-    if (el) el.classList.add('visible');
+    const element = document.getElementById(`field-${field}`);
+    if (element) {
+      element.classList.add('visible');
+    }
+  });
+
+  applyCurrentTabDefaults();
+}
+
+function getTabTitle() {
+  return (state.currentTab?.title || 'Unbenannte Seite').slice(0, 120);
+}
+
+function getTabUrl() {
+  return state.currentTab?.url || '';
+}
+
+function setInputIfEmpty(id, value) {
+  const element = document.getElementById(id);
+  if (!element || element.value.trim() !== '' || !value) {
+    return;
+  }
+
+  element.value = value;
+}
+
+function applyCurrentTabDefaults() {
+  const category = getSelectedCategory();
+  if (!category || !state.currentTab?.url) {
+    return;
+  }
+
+  if (category.type === 'links') {
+    setInputIfEmpty('name', getTabUrl());
+  } else if (category.type === 'notes') {
+    setInputIfEmpty('name', getTabTitle());
+    setInputIfEmpty('content', getTabUrl());
+  } else if (category.type === 'list_quantity' || category.type === 'list_due_date') {
+    setInputIfEmpty('name', getTabTitle());
+  }
+}
+
+async function rememberLastCategory(categoryId) {
+  const normalizedId = Number(categoryId);
+  if (!Number.isInteger(normalizedId) || normalizedId < 1 || !state.apiKey) {
+    return;
+  }
+
+  state.preferences = { ...state.preferences, last_category_id: normalizedId };
+
+  try {
+    await requestJson(`${state.apiUrl}/api.php?action=preferences`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ last_category_id: normalizedId }),
+    });
+  } catch (error) {
+    console.error('Letzte Kategorie konnte nicht gespeichert werden:', error);
+  }
+}
+
+async function loadCurrentTab() {
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    state.currentTab = tab || null;
+  } catch (error) {
+    state.currentTab = null;
+  }
+}
+
+async function loadSettings() {
+  const saved = await chrome.storage.local.get(['apiUrl', 'apiKey', 'categories', 'preferences']);
+  state.apiUrl = (saved.apiUrl || DEFAULT_API_URL).replace(/\/$/, '');
+  state.apiKey = saved.apiKey || '';
+  state.categories = Array.isArray(saved.categories) ? saved.categories : [];
+  state.preferences = saved.preferences || {};
+
+  document.getElementById('apiUrl').value = state.apiUrl;
+  document.getElementById('apiKey').value = state.apiKey;
+  populateCategorySelect();
+}
+
+async function saveSettings() {
+  const nextApiUrl = document.getElementById('apiUrl').value.trim().replace(/\/$/, '') || DEFAULT_API_URL;
+  const nextApiKey = document.getElementById('apiKey').value.trim();
+  const changed = nextApiUrl !== state.apiUrl || nextApiKey !== state.apiKey;
+
+  state.apiUrl = nextApiUrl;
+  state.apiKey = nextApiKey;
+
+  await chrome.storage.local.set({
+    apiUrl: state.apiUrl,
+    apiKey: state.apiKey,
+    categories: state.categories,
+    preferences: state.preferences,
+  });
+
+  if (!changed) {
+    return;
+  }
+
+  state.categories = [];
+  state.preferences = {};
+  populateCategorySelect();
+
+  if (state.apiKey) {
+    await loadCategories();
+  }
+}
+
+async function verifyKey() {
+  const apiKey = document.getElementById('apiKey').value.trim();
+  if (!apiKey) {
+    setStatus('Bitte API-Key eingeben.', 'err');
+    return;
+  }
+
+  const apiUrl = document.getElementById('apiUrl').value.trim().replace(/\/$/, '') || DEFAULT_API_URL;
+
+  setBusy(true);
+  try {
+    const response = await fetch(`${apiUrl}/api.php?action=categories_list`, {
+      credentials: 'omit',
+      headers: { 'X-API-Key': apiKey },
+    });
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      setStatus(payload.error || 'API-Key ungültig.', 'err');
+      return;
+    }
+
+    state.apiUrl = apiUrl;
+    state.apiKey = apiKey;
+    state.categories = Array.isArray(payload.categories) ? payload.categories : [];
+    state.preferences = payload.preferences || {};
+
+    await chrome.storage.local.set({
+      apiUrl: state.apiUrl,
+      apiKey: state.apiKey,
+      categories: state.categories,
+      preferences: state.preferences,
+    });
+
+    populateCategorySelect();
+    setStatus('API-Key funktioniert.', 'ok');
+  } catch (error) {
+    setStatus('Server nicht erreichbar oder URL nicht erlaubt.', 'err');
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function loadCategories() {
+  if (!state.apiKey) {
+    return;
+  }
+
+  try {
+    const data = await requestJson(`${state.apiUrl}/api.php?action=categories_list`);
+    state.categories = Array.isArray(data.categories) ? data.categories : [];
+    state.preferences = data.preferences || {};
+
+    await chrome.storage.local.set({
+      categories: state.categories,
+      preferences: state.preferences,
+    });
+
+    populateCategorySelect();
+  } catch (error) {
+    console.error('Kategorien konnten nicht geladen werden:', error);
+    setStatus(error.message || 'Kategorien konnten nicht geladen werden.', 'err');
+  }
+}
+
+function clearManualFields() {
+  ['name', 'content', 'quantity', 'dueDate', 'fileInput'].forEach(id => {
+    document.getElementById(id).value = '';
   });
 }
 
+async function addItem(category, values) {
+  const formData = new FormData();
+  formData.append('name', values.name);
+  formData.append('category_id', String(category.id));
+
+  if (values.content) {
+    formData.append('content', values.content);
+  }
+  if (values.quantity) {
+    formData.append('quantity', values.quantity);
+  }
+  if (values.dueDate) {
+    formData.append('due_date', values.dueDate);
+  }
+
+  await requestJson(`${state.apiUrl}/api.php?action=add`, {
+    method: 'POST',
+    body: formData,
+  });
+
+  await rememberLastCategory(category.id);
+}
+
+async function uploadFiles(category, files) {
+  for (const file of files) {
+    const formData = new FormData();
+    formData.append('name', file.name.slice(0, 120));
+    formData.append('category_id', String(category.id));
+    formData.append('file', file);
+
+    await requestJson(`${state.apiUrl}/api.php?action=upload`, {
+      method: 'POST',
+      body: formData,
+    });
+  }
+
+  await rememberLastCategory(category.id);
+}
+
 async function saveManual() {
-  const sectionId = document.getElementById('section').value;
+  const category = getSelectedCategory();
   const name = document.getElementById('name').value.trim();
   const content = document.getElementById('content').value.trim();
   const quantity = document.getElementById('quantity').value.trim();
   const dueDate = document.getElementById('dueDate').value;
-  const fileInput = document.getElementById('fileInput');
+  const files = Array.from(document.getElementById('fileInput').files || []);
 
-  const category = state.categories.find(c => String(c.id) === String(sectionId));
   if (!category) {
     setStatus('Bitte Kategorie auswählen.', 'err');
     return;
@@ -180,135 +359,86 @@ async function saveManual() {
   const isShoppingCategory = category.type === 'list_quantity';
   const isTodoCategory = category.type === 'list_due_date';
 
-  if (isFileCategory) {
-    if (!fileInput.files.length) {
-      setStatus('Bitte eine Datei auswählen.', 'err');
-      return;
-    }
-
-    const file = fileInput.files[0];
-    const formData = new FormData();
-    formData.append('name', file.name.slice(0, 120));
-    formData.append('category_id', sectionId);
-    formData.append('file', file);
-
-    try {
-      await requestJson(`${state.apiUrl}/api.php?action=upload`, {
-        method: 'POST',
-        body: formData,
-      });
-      setStatus('Datei gespeichert.', 'ok');
-      fileInput.value = '';
-    } catch (error) {
-      setStatus(error.message, 'err');
-    }
+  if (isFileCategory && files.length === 0) {
+    setStatus('Bitte mindestens eine Datei auswählen.', 'err');
     return;
   }
 
-  if (!name && !content) {
+  if (!isFileCategory && !name && !content) {
     setStatus('Bitte einen Namen eingeben.', 'err');
     return;
   }
 
-  const formData = new FormData();
-  formData.append('name', name || content.slice(0, 120));
-
-  if (isNotesCategory && content) {
-    formData.append('content', content);
-  }
-  if (isShoppingCategory && quantity) {
-    formData.append('quantity', quantity.slice(0, 40));
-  }
-  if (isTodoCategory && dueDate) {
-    formData.append('due_date', dueDate);
-  }
-
-  formData.append('category_id', sectionId);
-
+  setBusy(true);
   try {
-    await requestJson(`${state.apiUrl}/api.php?action=add`, {
-      method: 'POST',
-      body: formData,
-    });
-    setStatus('Eintrag gespeichert.', 'ok');
-    document.getElementById('name').value = '';
-    document.getElementById('content').value = '';
-    document.getElementById('quantity').value = '';
-    document.getElementById('dueDate').value = '';
-    document.getElementById('fileInput').value = '';
+    if (isFileCategory) {
+      await uploadFiles(category, files);
+      setStatus(files.length === 1 ? 'Datei gespeichert.' : `${files.length} Dateien gespeichert.`, 'ok');
+    } else {
+      await addItem(category, {
+        name: name || content.slice(0, 120),
+        content: isNotesCategory ? content : '',
+        quantity: isShoppingCategory ? quantity.slice(0, 40) : '',
+        dueDate: isTodoCategory ? dueDate : '',
+      });
+      setStatus('Eintrag gespeichert.', 'ok');
+    }
+
+    clearManualFields();
+    applyCurrentTabDefaults();
   } catch (error) {
     setStatus(error.message, 'err');
+  } finally {
+    setBusy(false);
   }
 }
 
 async function saveCurrentPage() {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (!tab?.url) return;
-
-  const sectionId = document.getElementById('section').value;
-  const category = state.categories.find(c => String(c.id) === String(sectionId));
+  const category = getSelectedCategory();
   if (!category) {
     setStatus('Bitte Kategorie auswählen.', 'err');
     return;
   }
 
-  const title = (tab.title || 'Unbenannte Seite').slice(0, 120);
-  const isLinksCategory = category.type === 'links';
-  const isNotesCategory = category.type === 'notes';
-
-  const formData = new FormData();
-  if (isNotesCategory) {
-    formData.append('name', title);
-    formData.append('content', tab.url);
-  } else {
-    formData.append('name', isLinksCategory ? tab.url : title);
-    if (!isLinksCategory) formData.append('content', tab.url);
+  if (!state.currentTab?.url) {
+    setStatus('Aktiver Tab konnte nicht gelesen werden.', 'err');
+    return;
   }
-  formData.append('category_id', sectionId);
 
+  setBusy(true);
   try {
-    await requestJson(`${state.apiUrl}/api.php?action=add`, {
-      method: 'POST',
-      body: formData,
+    const title = getTabTitle();
+    const isLinksCategory = category.type === 'links';
+    const isNotesCategory = category.type === 'notes';
+
+    await addItem(category, {
+      name: isNotesCategory ? title : (isLinksCategory ? getTabUrl() : title),
+      content: isNotesCategory ? getTabUrl() : '',
+      quantity: '',
+      dueDate: '',
     });
+
     setStatus('Seite gespeichert.', 'ok');
   } catch (error) {
     setStatus(error.message, 'err');
+  } finally {
+    setBusy(false);
   }
 }
 
-async function uploadFile(file) {
-  const category = state.categories.find(c => c.type === 'images' || c.type === 'files');
+async function uploadDroppedFile(file) {
+  const targetType = file.type.startsWith('image/') ? 'images' : 'files';
+  const category = getVisibleCategories().find(entry => entry.type === targetType);
   if (!category) {
-    setStatus('Keine Bilder/Dateien-Kategorie vorhanden.', 'err');
-    return;
+    throw new Error(targetType === 'images' ? 'Keine sichtbare Bilder-Kategorie vorhanden.' : 'Keine sichtbare Dateien-Kategorie vorhanden.');
   }
 
-  const section = file.type.startsWith('image/') ? 'images' : 'files';
-  const targetCat = state.categories.find(c => c.type === section);
-  if (!targetCat) {
-    setStatus(`${section}-Kategorie nicht vorhanden.`, 'err');
-    return;
-  }
-
-  const formData = new FormData();
-  formData.append('name', file.name.slice(0, 120));
-  formData.append('category_id', targetCat.id);
-  formData.append('file', file);
-
-  try {
-    await requestJson(`${state.apiUrl}/api.php?action=upload`, {
-      method: 'POST',
-      body: formData,
-    });
-    setStatus(`${file.name} gespeichert.`, 'ok');
-  } catch (error) {
-    setStatus(`${file.name}: ${error.message}`, 'err');
-  }
+  await uploadFiles(category, [file]);
 }
 
 function setupDropzone() {
   const dropzone = document.getElementById('dropzone');
+
   ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
     dropzone.addEventListener(eventName, event => {
       event.preventDefault();
@@ -326,51 +456,54 @@ function setupDropzone() {
 
   dropzone.addEventListener('drop', async event => {
     const files = Array.from(event.dataTransfer?.files || []);
-    for (const file of files) {
-      await uploadFile(file);
+    if (files.length === 0) {
+      return;
     }
-  });
-}
 
-async function setupShareButton() {
-  const btn = document.getElementById('shareBtn');
-  if (!navigator.share) {
-    btn.style.display = 'none';
-    return;
-  }
-
-  btn.addEventListener('click', async () => {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab?.url) return;
-
+    setBusy(true);
     try {
-      await navigator.share({ title: tab.title, url: tab.url });
-    } catch (error) {
-      if (error?.name !== 'AbortError') {
-        setStatus('Teilen fehlgeschlagen.', 'err');
+      for (const file of files) {
+        await uploadDroppedFile(file);
       }
+      setStatus(files.length === 1 ? `${files[0].name} gespeichert.` : `${files.length} Dateien gespeichert.`, 'ok');
+    } catch (error) {
+      setStatus(error.message, 'err');
+    } finally {
+      setBusy(false);
     }
   });
 }
 
-document.getElementById('section').addEventListener('change', updateFieldVisibility);
-document.getElementById('verifyBtn').addEventListener('click', verifyKey);
+document.getElementById('section').addEventListener('change', () => {
+  updateFieldVisibility();
+  const category = getSelectedCategory();
+  if (category) {
+    void rememberLastCategory(category.id);
+  }
+});
 
-document.getElementById('saveManualBtn').addEventListener('click', saveManual);
+document.getElementById('verifyBtn').addEventListener('click', verifyKey);
+document.getElementById('saveManualBtn').addEventListener('click', async () => {
+  await saveSettings();
+  await saveManual();
+});
 document.getElementById('savePageBtn').addEventListener('click', async () => {
   await saveSettings();
   await saveCurrentPage();
 });
 
 ['apiUrl', 'apiKey'].forEach(id => {
-  document.getElementById(id).addEventListener('change', saveSettings);
+  document.getElementById(id).addEventListener('change', () => {
+    void saveSettings();
+  });
 });
 
 (async () => {
+  await loadCurrentTab();
   await loadSettings();
   if (state.apiKey) {
     await loadCategories();
   }
   setupDropzone();
-  setupShareButton();
+  applyCurrentTabDefaults();
 })();
