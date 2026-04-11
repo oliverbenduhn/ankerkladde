@@ -29,15 +29,17 @@
     .row { display: grid; gap: 6px; margin-bottom: 10px; }
     .row:last-child { margin-bottom: 0; }
     label { font-size: 12px; color: #6b7280; }
-    input, select {
+    input, select, textarea {
       width: 100%;
       border: 1px solid #d1d5db;
       border-radius: 10px;
       padding: 9px 10px;
       font-size: 13px;
       background: #fff;
+      font-family: inherit;
     }
-    input:focus, select:focus { outline: none; border-color: #3b82f6; }
+    textarea { resize: vertical; min-height: 60px; }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: #3b82f6; }
     .btn {
       width: 100%;
       border: 0;
@@ -51,6 +53,10 @@
     .btn.secondary {
       background: #e5e7eb;
       color: #111827;
+    }
+    .btn.small {
+      padding: 8px 12px;
+      font-size: 12px;
     }
     .status {
       display: none;
@@ -73,6 +79,10 @@
       background: #f8fafc;
     }
     .dropzone.dragover { border-color: #3b82f6; background: #eff6ff; color: #1d4ed8; }
+    .section-fields { display: none; }
+    .section-fields.visible { display: grid; gap: 10px; }
+    .inline-row { display: flex; gap: 8px; }
+    .inline-row > * { flex: 1; }
   </style>
 </head>
 <body>
@@ -89,18 +99,61 @@
         <label for="apiKey">API-Key</label>
         <input type="password" id="apiKey" placeholder="Aus den Einstellungen kopieren">
       </div>
-      <div class="row">
-        <label for="targetSection">Standard-Kategorie</label>
-        <select id="targetSection">
-          <option value="links">Links</option>
-          <option value="notes">Notizen</option>
-          <option value="shopping">Einkaufen</option>
-        </select>
-      </div>
-      <button class="btn" id="savePageBtn">Aktuelle Seite speichern</button>
     </div>
 
     <details class="card" open>
+      <summary>Manuell speichern</summary>
+      <div class="row" style="margin-top: 12px;">
+        <label for="section">Kategorie</label>
+        <select id="section">
+          <option value="links">Links</option>
+          <option value="shopping">Einkaufen (mit Menge)</option>
+          <option value="todo">Aufgaben</option>
+          <option value="notes">Notizen</option>
+          <option value="images">Bilder</option>
+          <option value="files">Dateien</option>
+        </select>
+      </div>
+
+      <div id="field-name" class="section-fields">
+        <div class="row">
+          <label for="name">Name / Link</label>
+          <input type="text" id="name" placeholder="https://...">
+        </div>
+      </div>
+
+      <div id="field-quantity" class="section-fields">
+        <div class="row">
+          <label for="quantity">Menge</label>
+          <input type="text" id="quantity" placeholder="1 kg, 3 Stück...">
+        </div>
+      </div>
+
+      <div id="field-due" class="section-fields">
+        <div class="row">
+          <label for="dueDate">Fällig am</label>
+          <input type="date" id="dueDate">
+        </div>
+      </div>
+
+      <div id="field-content" class="section-fields">
+        <div class="row">
+          <label for="content">Inhalt</label>
+          <textarea id="content" placeholder="Notiz-Text..."></textarea>
+        </div>
+      </div>
+
+      <div id="field-file" class="section-fields">
+        <label for="fileInput">Datei auswählen</label>
+        <input type="file" id="fileInput">
+      </div>
+
+      <button class="btn" id="saveManualBtn" style="margin-top: 12px;">Speichern</button>
+    </details>
+
+    <button class="btn" id="savePageBtn">Aktuelle Seite speichern</button>
+
+    <details class="card">
       <summary>Dateien ablegen</summary>
       <div id="dropzone" class="dropzone">Dateien hierher ziehen</div>
     </details>

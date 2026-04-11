@@ -1,9 +1,36 @@
 const DEFAULT_API_URL = 'https://ankerkladde.benduhn.de';
 
+const SECTION_CONFIG = {
+  links: {
+    name: 'Links',
+    fields: ['name'],
+  },
+  shopping: {
+    name: 'Einkaufen',
+    fields: ['name', 'quantity'],
+  },
+  todo: {
+    name: 'Aufgaben',
+    fields: ['name', 'due'],
+  },
+  notes: {
+    name: 'Notizen',
+    fields: ['name', 'content'],
+  },
+  images: {
+    name: 'Bilder',
+    fields: ['file'],
+  },
+  files: {
+    name: 'Dateien',
+    fields: ['file'],
+  },
+};
+
 const state = {
   apiUrl: DEFAULT_API_URL,
   apiKey: '',
-  targetSection: 'links',
+  section: 'links',
 };
 
 function setStatus(message, type = 'ok') {
@@ -13,25 +40,26 @@ function setStatus(message, type = 'ok') {
 }
 
 async function loadSettings() {
-  const saved = await chrome.storage.local.get(['apiUrl', 'apiKey', 'targetSection']);
+  const saved = await chrome.storage.local.get(['apiUrl', 'apiKey', 'section']);
   state.apiUrl = (saved.apiUrl || DEFAULT_API_URL).replace(/\/$/, '');
   state.apiKey = saved.apiKey || '';
-  state.targetSection = saved.targetSection || 'links';
+  state.section = saved.section || 'links';
 
   document.getElementById('apiUrl').value = state.apiUrl;
   document.getElementById('apiKey').value = state.apiKey;
-  document.getElementById('targetSection').value = state.targetSection;
+  document.getElementById('section').value = state.section;
+  updateFieldVisibility();
 }
 
 async function saveSettings() {
   state.apiUrl = document.getElementById('apiUrl').value.trim().replace(/\/$/, '') || DEFAULT_API_URL;
   state.apiKey = document.getElementById('apiKey').value.trim();
-  state.targetSection = document.getElementById('targetSection').value;
+  state.section = document.getElementById('section').value;
 
   await chrome.storage.local.set({
     apiUrl: state.apiUrl,
     apiKey: state.apiKey,
-    targetSection: state.targetSection,
+    section: state.section,
   });
 }
 
@@ -57,19 +85,110 @@ async function requestJson(url, options = {}) {
   return payload;
 }
 
+function updateFieldVisibility() {
+  const config = SECTION_CONFIG[state.section] || SECTION_CONFIG.links;
+  const visibleFields = config.fields;
+
+  document.querySelectorAll('.section-fields').forEach(el => {
+    el.classList.remove('visible');
+  });
+
+  visibleFields.forEach(field => {
+    const el = document.getElementById(`field-${field}`);
+    if (el) el.classList.add('visible');
+  });
+}
+
+async function saveManual() {
+  const name = document.getElementById('name').value.trim();
+  const content = document.getElementById('content').value.trim();
+  const quantity = document.getElementById('quantity').value.trim();
+  const dueDate = document.getElementById('dueDate').value;
+  const fileInput = document.getElementById('fileInput');
+
+  const isFileCategory = state.section === 'images' || state.section === 'files';
+  const isNotesCategory = state.section === 'notes';
+  const isTodoCategory = state.section === 'todo';
+  const isShoppingCategory = state.section === 'shopping';
+
+  if (isFileCategory) {
+    if (!fileInput.files.length) {
+      setStatus('Bitte eine Datei auswählen.', 'err');
+      return;
+    }
+
+    const file = fileInput.files[0];
+    const formData = new FormData();
+    formData.append('name', file.name.slice(0, 120));
+    formData.append('section', state.section);
+    formData.append('file', file);
+
+    try {
+      await requestJson(`${state.apiUrl}/api.php?action=upload`, {
+        method: 'POST',
+        body: formData,
+      });
+      setStatus('Datei gespeichert.', 'ok');
+      fileInput.value = '';
+    } catch (error) {
+      setStatus(error.message, 'err');
+    }
+    return;
+  }
+
+  if (!name && !content) {
+    setStatus('Bitte einen Namen eingeben.', 'err');
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append('name', name || content.slice(0, 120));
+
+  if (isNotesCategory && content) {
+    formData.append('content', content);
+  }
+  if (isShoppingCategory && quantity) {
+    formData.append('quantity', quantity.slice(0, 40));
+  }
+  if (isTodoCategory && dueDate) {
+    formData.append('due_date', dueDate);
+  }
+
+  formData.append('section', state.section);
+
+  try {
+    await requestJson(`${state.apiUrl}/api.php?action=add`, {
+      method: 'POST',
+      body: formData,
+    });
+    setStatus('Eintrag gespeichert.', 'ok');
+    document.getElementById('name').value = '';
+    document.getElementById('content').value = '';
+    document.getElementById('quantity').value = '';
+    document.getElementById('dueDate').value = '';
+    document.getElementById('fileInput').value = '';
+  } catch (error) {
+    setStatus(error.message, 'err');
+  }
+}
+
 async function saveCurrentPage() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab?.url) return;
 
   const title = (tab.title || 'Unbenannte Seite').slice(0, 120);
+  const isLinksCategory = state.section === 'links';
+  const isNotesCategory = state.section === 'notes';
+
   const formData = new FormData();
-  if (state.targetSection === 'notes') {
+  if (isNotesCategory) {
     formData.append('name', title);
     formData.append('content', tab.url);
   } else {
-    formData.append('name', tab.url);
+    formData.append('name', isLinksCategory ? tab.url : title);
+    if (!isLinksCategory) formData.append('content', tab.url);
   }
-  formData.append('section', state.targetSection);
+  formData.append('section', state.section);
 
   try {
     await requestJson(`${state.apiUrl}/api.php?action=add`, {
@@ -146,12 +265,19 @@ async function setupShareButton() {
   });
 }
 
+document.getElementById('section').addEventListener('change', () => {
+  state.section = document.getElementById('section').value;
+  saveSettings();
+  updateFieldVisibility();
+});
+
+document.getElementById('saveManualBtn').addEventListener('click', saveManual);
 document.getElementById('savePageBtn').addEventListener('click', async () => {
   await saveSettings();
   await saveCurrentPage();
 });
 
-['apiUrl', 'apiKey', 'targetSection'].forEach(id => {
+['apiUrl', 'apiKey'].forEach(id => {
   document.getElementById(id).addEventListener('change', saveSettings);
 });
 
