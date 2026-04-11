@@ -48,6 +48,12 @@ function validatePassword(string $password): void
 
 function createRegularUser(PDO $db, string $username, string $password): int
 {
+    $username = normalizeUsername($username);
+
+    if ($username === '') {
+        throw new InvalidArgumentException('Benutzername darf nicht leer sein.');
+    }
+
     $stmt = $db->prepare(
         'INSERT INTO users (username, password_hash, is_admin) VALUES (:username, :password_hash, 0)'
     );
@@ -62,7 +68,7 @@ function createRegularUser(PDO $db, string $username, string $password): int
 $db = getDatabase();
 
 $envVal = getenv('EINKAUF_USER');
-$envUser = is_string($envVal) ? trim($envVal) : '';
+$envUser = is_string($envVal) ? normalizeUsername($envVal) : '';
 $envVal = getenv('EINKAUF_PASS');
 $envPass = is_string($envVal) ? $envVal : '';
 unset($envVal);
@@ -72,7 +78,7 @@ if ($envUser !== '' && $envPass !== '') {
     $password = $envPass;
 } else {
     echo "=== Nutzer anlegen ===\n";
-    $username = promptLine('Benutzername: ');
+    $username = normalizeUsername(promptLine('Benutzername: '));
     $password = promptPassword('Passwort: ');
 }
 

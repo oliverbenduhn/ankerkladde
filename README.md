@@ -77,6 +77,7 @@ Jeder Nutzer verwaltet eigene **Kategorien** – Anzahl, Namen, Icons und Reihen
 ### Nutzer & Admin
 
 - Login mit Benutzername + Passwort, Session-basiert
+- Benutzernamen werden beim Anlegen getrimmt und ohne Steuerzeichen gespeichert
 - Admins sehen eine separate Verwaltungsseite (`admin.php`) zur Nutzerverwaltung
 - CSRF-Schutz auf allen schreibenden Aktionen
 
@@ -89,7 +90,7 @@ Jeder Nutzer verwaltet eigene **Kategorien** – Anzahl, Namen, Icons und Reihen
 | Pfad | Zweck |
 |---|---|
 | `public/index.php` | HTML-Oberfläche (App-Shell) |
-| `public/app.js` | Gesamtes Frontend (~2000 Zeilen, kein Build-Tool) |
+| `public/app.js` | Gesamtes Frontend als Single-File-JavaScript (kein Build-Tool) |
 | `public/style.css` | CSS (Design-Tokens, Layout, Komponenten) |
 | `public/api.php` | JSON-REST-API |
 | `public/media.php` | Sicheres Streamen von Anhängen |
@@ -110,7 +111,7 @@ Jeder Nutzer verwaltet eigene **Kategorien** – Anzahl, Namen, Icons und Reihen
 | `categories_create` | POST | Neue Kategorie anlegen |
 | `categories_update` | POST | Kategorie umbenennen / Icon / Sichtbarkeit |
 | `categories_reorder` | POST | Reihenfolge per ID-Array |
-| `categories_delete` | POST | Kategorie + alle Items löschen |
+| `categories_delete` | POST | Leere Kategorie löschen |
 | `list` | GET | Items einer Kategorie inkl. Anhang-Metadaten |
 | `add` | POST | Neues Item (ohne Datei) |
 | `upload` | POST | Neues Item mit Anhang; mit `item_id` → Anhang ersetzen |

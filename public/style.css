@@ -535,6 +535,50 @@ button, input { font: inherit; }
     cursor: grabbing;
 }
 
+.item-drag-handle {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    min-height: 32px;
+    padding: 0;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-muted);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    transition: color 0.15s ease, background 0.15s ease;
+}
+
+.item-drag-handle:hover {
+    color: var(--text-secondary);
+    background: rgba(200, 184, 154, 0.12);
+}
+
+.item-drag-handle .icon {
+    width: 18px;
+    height: 18px;
+    fill: currentColor;
+    stroke: none;
+}
+
+.item-card.is-dragging .item-drag-handle {
+    cursor: grabbing;
+    color: var(--text-primary);
+}
+
+[data-mode="einkaufen"] .item-drag-handle,
+.app.is-searching .item-drag-handle {
+    display: none;
+}
+
 .drag-placeholder {
     position: relative;
     background: rgba(200, 184, 154, 0.08);
@@ -924,6 +968,10 @@ button, input { font: inherit; }
     width: 100%;
     justify-content: flex-end;
     padding-left: 0;
+}
+
+.item-card.is-editing .item-drag-handle {
+    display: none;
 }
 
 .btn-item-action,

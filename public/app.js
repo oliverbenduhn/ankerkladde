@@ -67,6 +67,7 @@ const ICONS = {
     x:               '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
     check:           '<path d="M20 6 9 17l-5-5"/>',
     'rotate-ccw':    '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>',
+    grip:            '<circle cx="9" cy="6" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="18" r="1"/>',
     'arrow-left':    '<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>',
     plus:            '<path d="M5 12h14"/><path d="M12 5v14"/>',
     link:            '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
@@ -794,18 +795,16 @@ function initItemDragReorder() {
     listEl.addEventListener('pointerdown', event => {
         if (state.mode !== 'liste' || state.search.open) return;
         if (event.button !== undefined && event.button !== 0) return;
-        if (event.target.closest('.toggle, .btn-item-menu, .item-actions, a, input, textarea, select, button')) return;
+        const dragHandle = event.target.closest('.item-drag-handle');
+        if (!dragHandle) return;
 
         const li = event.target.closest('li.item-card');
         if (!li || li.classList.contains('is-editing')) return;
 
         let insertBefore = null;
         let dragging = false;
-        let longPressActivated = false;
-        let longPressTimer = null;
         const startX = event.clientX;
         const startY = event.clientY;
-        const isTouchPointer = event.pointerType === 'touch';
 
         function startDragging(moveEvent = null) {
             if (dragging) return;
@@ -817,14 +816,8 @@ function initItemDragReorder() {
                 li.setPointerCapture(event.pointerId);
             } catch {}
             triggerHapticFeedback();
+            document.body.classList.add('is-sorting');
             li.classList.add('is-dragging');
-        }
-
-        if (isTouchPointer) {
-            longPressTimer = window.setTimeout(() => {
-                longPressActivated = true;
-                startDragging();
-            }, 300);
         }
 
         function getOtherItems() {
@@ -838,10 +831,6 @@ function initItemDragReorder() {
         }
 
         function cleanup() {
-            if (longPressTimer !== null) {
-                window.clearTimeout(longPressTimer);
-                longPressTimer = null;
-            }
             document.removeEventListener('pointermove', onMove);
             document.removeEventListener('pointerup', onEnd);
             document.removeEventListener('pointercancel', onAbort);
@@ -853,16 +842,8 @@ function initItemDragReorder() {
                 const deltaY = Math.abs(moveEvent.clientY - startY);
                 const movement = Math.max(deltaX, deltaY);
 
-                if (isTouchPointer) {
-                    if (!longPressActivated && movement > 8) {
-                        cleanup();
-                        return;
-                    }
-                    if (!longPressActivated) return;
-                } else {
-                    if (movement < 6) return;
-                    startDragging(moveEvent);
-                }
+                if (movement < 4) return;
+                startDragging(moveEvent);
             }
 
             const others = getOtherItems();
@@ -886,6 +867,7 @@ function initItemDragReorder() {
         function onEnd() {
             cleanup();
             if (!dragging) return;
+            document.body.classList.remove('is-sorting');
             li.classList.remove('is-dragging');
             clearDropTargets();
 
@@ -901,10 +883,12 @@ function initItemDragReorder() {
         function onAbort() {
             cleanup();
             if (!dragging) return;
+            document.body.classList.remove('is-sorting');
             li.classList.remove('is-dragging');
             clearDropTargets();
         }
 
+        event.preventDefault();
         document.addEventListener('pointermove', onMove);
         document.addEventListener('pointerup', onEnd);
         document.addEventListener('pointercancel', onAbort);
@@ -1474,6 +1458,12 @@ function buildItemNode(item) {
     li.className = `item-card ${item.done === 1 ? 'done' : 'open'}${item.is_pinned ? ' is-pinned' : ''}`;
     li.dataset.itemId = String(item.id);
 
+    const dragHandle = document.createElement('button');
+    dragHandle.type = 'button';
+    dragHandle.className = 'item-drag-handle';
+    dragHandle.setAttribute('aria-label', `${item.name || 'Eintrag'} verschieben`);
+    dragHandle.appendChild(svgIcon('grip'));
+
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
     checkbox.className = 'toggle';
@@ -1512,11 +1502,11 @@ function buildItemNode(item) {
         actions.appendChild(menuButton);
     }
 
-    li.append(checkbox, content, actions);
+    li.append(dragHandle, checkbox, content, actions);
 
     if (item.category_type === 'notes') {
         li.addEventListener('click', event => {
-            if (event.target.closest('.toggle') || event.target.closest('.btn-item-menu')) return;
+            if (event.target.closest('.toggle') || event.target.closest('.btn-item-menu') || event.target.closest('.item-drag-handle')) return;
             void openNoteEditor(item);
         });
     }

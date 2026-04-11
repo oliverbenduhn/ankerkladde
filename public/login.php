@@ -29,7 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!hasValidCsrfToken(is_string($providedToken) ? $providedToken : null)) {
         $error = 'Ungültiges Sicherheits-Token. Bitte Seite neu laden.';
     } else {
-        $username = trim((string) ($_POST['username'] ?? ''));
+        $username = normalizeUsername((string) ($_POST['username'] ?? ''));
         $password = (string) ($_POST['password'] ?? '');
 
         if ($username === '' || $password === '') {

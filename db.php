@@ -268,6 +268,18 @@ function getCategoryIconOptions(): array
     return CATEGORY_ICON_OPTIONS;
 }
 
+function normalizeUsername(?string $value): string
+{
+    $value = trim((string) $value);
+    $value = preg_replace('/[\x00-\x1F\x7F]+/u', '', $value) ?? '';
+
+    if (function_exists('mb_substr')) {
+        return mb_substr($value, 0, 120);
+    }
+
+    return substr($value, 0, 120);
+}
+
 function rebuildSortOrder(PDO $db): void
 {
     $db->beginTransaction();
@@ -1022,6 +1034,14 @@ function getDatabase(): PDO
 
     if (!in_array('preferences_json', $userColumnNames, true)) {
         $db->exec("ALTER TABLE users ADD COLUMN preferences_json TEXT NOT NULL DEFAULT '{}'");
+    }
+
+    if (!in_array('api_key', $userColumnNames, true)) {
+        $db->exec("ALTER TABLE users ADD COLUMN api_key TEXT");
+    }
+
+    if (!in_array('api_key_created_at', $userColumnNames, true)) {
+        $db->exec("ALTER TABLE users ADD COLUMN api_key_created_at TEXT");
     }
 
     $columns = $db->query('PRAGMA table_info(items)')->fetchAll();

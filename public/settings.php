@@ -264,8 +264,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $preferences = getExtendedUserPreferences($db, $userId);
-settings_done:
-$preferences = getExtendedUserPreferences($db, $userId);
 $categories = loadUserCategories($db, $userId);
 $iconOptions = getCategoryIconOptions();
 ?>

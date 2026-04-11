@@ -37,6 +37,12 @@ function promptPassword(string $prompt): string
 
 function createUser(PDO $db, string $username, string $password, bool $isAdmin): int
 {
+    $username = normalizeUsername($username);
+
+    if ($username === '') {
+        throw new InvalidArgumentException('Benutzername darf nicht leer sein.');
+    }
+
     $stmt = $db->prepare(
         'INSERT INTO users (username, password_hash, is_admin) VALUES (:username, :password_hash, :is_admin)'
     );
@@ -59,7 +65,7 @@ if ($existingAdmin !== false) {
 
 // Non-interactive mode via env vars
 $envVal = getenv('EINKAUF_ADMIN_USER');
-$envAdminUser = is_string($envVal) ? $envVal : '';
+$envAdminUser = is_string($envVal) ? normalizeUsername($envVal) : '';
 $envVal = getenv('EINKAUF_ADMIN_PASS');
 $envAdminPass = is_string($envVal) ? $envVal : '';
 
@@ -96,7 +102,7 @@ if ($envAdminUser !== '' && $envAdminPass !== '') {
 
 // Optionally create a first regular user and assign existing items
 $envVal = getenv('EINKAUF_REGULAR_USER');
-$envRegularUser = is_string($envVal) ? $envVal : '';
+$envRegularUser = is_string($envVal) ? normalizeUsername($envVal) : '';
 $envVal = getenv('EINKAUF_REGULAR_PASS');
 $envRegularPass = is_string($envVal) ? $envVal : '';
 unset($envVal);

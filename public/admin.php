@@ -32,7 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $postAction = (string) ($_POST['action'] ?? '');
 
         if ($postAction === 'create') {
-            $newUsername = trim((string) ($_POST['username'] ?? ''));
+            $newUsername = normalizeUsername((string) ($_POST['username'] ?? ''));
             $newPassword = (string) ($_POST['password'] ?? '');
 
             if ($newUsername === '') {
