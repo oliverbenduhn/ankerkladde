@@ -1,4 +1,4 @@
-# Zettel Save Extension
+# Ankerkladde Extension
 
 Chrome-Erweiterung zum Speichern von Links, Bildern und Dateien direkt nach Ankerkladde.
 
@@ -13,7 +13,7 @@ Chrome-Erweiterung zum Speichern von Links, Bildern und Dateien direkt nach Anke
 
 1. Im Projektordner `browser-extension/` öffnen.
 2. `./build-extension.sh` ausführen.
-3. Die Datei `browser-extension/zettel-save-extension.zip` entsteht automatisch.
+3. Die Datei `browser-extension/ankerkladde-extension.zip` entsteht automatisch.
 
 Das Skript erzeugt zuerst die PNG-Icons und baut danach die ZIP-Datei ohne externe `zip`-Abhängigkeit.
 
@@ -26,7 +26,7 @@ Das Skript erzeugt zuerst die PNG-Icons und baut danach die ZIP-Datei ohne exter
 ## Einrichtung in der Extension
 
 1. Extension öffnen.
-2. `Zettel URL` eintragen.
+2. `Ankerkladde URL` eintragen.
    Beispiel lokal: `http://127.0.0.1:8000`
    Beispiel Produktion: `https://ankerkladde.benduhn.de`
 3. API-Key einfügen.

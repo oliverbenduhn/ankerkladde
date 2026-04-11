@@ -20,7 +20,7 @@ try {
 
 header('Content-Type: application/zip');
 header('Content-Length: ' . strlen($zipData));
-header('Content-Disposition: attachment; filename="zettel-save-extension.zip"');
+header('Content-Disposition: attachment; filename="ankerkladde-extension.zip"');
 header('Cache-Control: no-store');
 header('X-Content-Type-Options: nosniff');
 

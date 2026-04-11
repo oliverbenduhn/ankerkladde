@@ -4,7 +4,7 @@ declare(strict_types=1);
 require __DIR__ . '/build-lib.php';
 
 $baseDir = __DIR__;
-$outputZip = $baseDir . '/zettel-save-extension.zip';
+$outputZip = $baseDir . '/ankerkladde-extension.zip';
 
 try {
     writeExtensionZipFile($baseDir, $outputZip);

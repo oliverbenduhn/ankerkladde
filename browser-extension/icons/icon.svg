@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Zettel Save">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Ankerkladde">
   <rect width="128" height="128" rx="28" fill="#17324d"/>
   <path d="M38 26h34l18 18v50c0 4.4-3.6 8-8 8H38c-4.4 0-8-3.6-8-8V34c0-4.4 3.6-8 8-8Z" fill="#fff7ed"/>
   <path d="M72 26v18h18" fill="none" stroke="#17324d" stroke-linecap="round" stroke-linejoin="round" stroke-width="8"/>
