@@ -728,7 +728,11 @@ function migrateLegacyPreferencesToCategories(PDO $db): void
             $lastCategoryId = findLegacyCategoryId($db, $userId, $preferredSection);
         }
 
-        $normalizedPreferences = normalizeUserPreferences([
+        $normalizer = function_exists('normalizeExtendedUserPreferences')
+            ? 'normalizeExtendedUserPreferences'
+            : 'normalizeUserPreferences';
+
+        $normalizedPreferences = $normalizer([
             ...$decoded,
             'last_category_id' => $decoded['last_category_id'] ?? $lastCategoryId,
         ]);
