@@ -104,6 +104,23 @@ function authHeaders() {
   return state.apiKey ? { 'X-API-Key': state.apiKey } : {};
 }
 
+function isMaskedApiKeyValue(value) {
+  return /^\*+$/.test(String(value || '').trim());
+}
+
+function getStoredOrEditedApiKey() {
+  const apiKeyEditInput = document.getElementById('apiKeyEdit');
+  const apiKeySetupInput = document.getElementById('apiKey');
+  const editValue = apiKeyEditInput?.value.trim() || '';
+  const setupValue = apiKeySetupInput?.value.trim() || '';
+
+  if (apiKeyEditInput?.dataset.hasKey === 'true' && (editValue === '' || isMaskedApiKeyValue(editValue))) {
+    return state.apiKey || setupValue || '';
+  }
+
+  return editValue || setupValue || '';
+}
+
 function normalizeUrl(rawUrl) {
   const value = String(rawUrl || '').trim();
   if (!/^https?:\/\//i.test(value)) {
@@ -375,9 +392,7 @@ async function saveSettings() {
   const nextApiUrl = document.getElementById('apiUrlEdit')?.value.trim().replace(/\/$/, '') 
     || document.getElementById('apiUrl')?.value.trim().replace(/\/$/, '') 
     || DEFAULT_API_URL;
-  const nextApiKey = document.getElementById('apiKeyEdit')?.value.trim() 
-    || document.getElementById('apiKey')?.value.trim() 
-    || '';
+  const nextApiKey = getStoredOrEditedApiKey();
   const changed = nextApiUrl !== state.apiUrl || nextApiKey !== state.apiKey;
 
   state.apiUrl = nextApiUrl;
@@ -413,12 +428,7 @@ async function saveSettings() {
 
 async function verifyKey() {
   const apiKeyInput = document.getElementById('apiKeyEdit');
-  let apiKey = apiKeyInput?.value.trim();
-  
-  if (!apiKey && apiKeyInput?.dataset.hasKey === 'true') {
-    setStatus('API-Key ist bereits hinterlegt und funktioniert.', 'ok');
-    return;
-  }
+  let apiKey = getStoredOrEditedApiKey();
   
   if (!apiKey) {
     setStatus('Bitte API-Key eingeben.', 'err');
