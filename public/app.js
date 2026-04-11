@@ -176,21 +176,6 @@ function normalizePreferences(preferences) {
         dark_theme: ['nachtwache', 'pier'].includes(preferences?.dark_theme) ? preferences.dark_theme : 'nachtwache',
     };
 
-    const hasExplicitThemeFields = Object.prototype.hasOwnProperty.call(preferences || {}, 'light_theme')
-        || Object.prototype.hasOwnProperty.call(preferences || {}, 'dark_theme')
-        || Object.prototype.hasOwnProperty.call(preferences || {}, 'theme_mode');
-
-    if (!hasExplicitThemeFields && typeof preferences?.theme === 'string') {
-        if (['parchment', 'hafenblau'].includes(preferences.theme)) {
-            normalized.light_theme = preferences.theme;
-            normalized.theme_mode = 'light';
-        }
-        if (['nachtwache', 'pier'].includes(preferences.theme)) {
-            normalized.dark_theme = preferences.theme;
-            normalized.theme_mode = 'dark';
-        }
-    }
-
     return normalized;
 }
 

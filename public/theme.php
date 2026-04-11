@@ -38,18 +38,6 @@ function normalizeExtendedUserPreferences(array $preferences): array
         $normalized['dark_theme'] = $preferences['dark_theme'];
     }
 
-    $legacyTheme = isset($preferences['theme']) ? (string) $preferences['theme'] : '';
-    $hasExplicitThemeFields = isset($preferences['light_theme']) || isset($preferences['dark_theme']) || isset($preferences['theme_mode']);
-    if ($legacyTheme !== '' && !$hasExplicitThemeFields) {
-        if (in_array($legacyTheme, ['parchment', 'hafenblau'], true)) {
-            $normalized['light_theme'] = $legacyTheme;
-            $normalized['theme_mode'] = 'light';
-        } elseif (in_array($legacyTheme, ['nachtwache', 'pier'], true)) {
-            $normalized['dark_theme'] = $legacyTheme;
-            $normalized['theme_mode'] = 'dark';
-        }
-    }
-
     return $normalized;
 }
 

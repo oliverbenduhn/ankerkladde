@@ -661,6 +661,35 @@ function migrateLegacyCategories(PDO $db): void
 
 function migrateLegacyPreferencesToCategories(PDO $db): void
 {
+    $fallbackThemeNormalizer = static function (array $preferences): array {
+        $base = normalizeUserPreferences($preferences);
+
+        $normalized = [
+            'mode' => $base['mode'] ?? 'liste',
+            'tabs_hidden' => (bool) ($base['tabs_hidden'] ?? false),
+            'category_swipe_enabled' => (bool) ($base['category_swipe_enabled'] ?? true),
+            'last_category_id' => $base['last_category_id'] ?? null,
+            'install_banner_dismissed' => (bool) ($base['install_banner_dismissed'] ?? false),
+            'theme_mode' => 'auto',
+            'light_theme' => 'hafenblau',
+            'dark_theme' => 'nachtwache',
+        ];
+
+        if (isset($preferences['theme_mode']) && in_array($preferences['theme_mode'], ['light', 'dark', 'auto'], true)) {
+            $normalized['theme_mode'] = $preferences['theme_mode'];
+        }
+
+        if (isset($preferences['light_theme']) && in_array($preferences['light_theme'], ['parchment', 'hafenblau'], true)) {
+            $normalized['light_theme'] = $preferences['light_theme'];
+        }
+
+        if (isset($preferences['dark_theme']) && in_array($preferences['dark_theme'], ['nachtwache', 'pier'], true)) {
+            $normalized['dark_theme'] = $preferences['dark_theme'];
+        }
+
+        return $normalized;
+    };
+
     $users = $db->query('SELECT id, preferences_json FROM users')->fetchAll();
     $updateCategoryStmt = $db->prepare(
         'UPDATE categories
@@ -730,7 +759,7 @@ function migrateLegacyPreferencesToCategories(PDO $db): void
 
         $normalizer = function_exists('normalizeExtendedUserPreferences')
             ? 'normalizeExtendedUserPreferences'
-            : 'normalizeUserPreferences';
+            : $fallbackThemeNormalizer;
 
         $normalizedPreferences = $normalizer([
             ...$decoded,
