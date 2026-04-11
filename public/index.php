@@ -22,14 +22,14 @@ if ($appBasePath === '' || $appBasePath === '.') {
 } else {
     $appBasePath = rtrim($appBasePath, '/') . '/';
 }
-$assetVersion = '28';
+$assetVersion = '29';
 
 function icon(string $name): string {
     static $paths = [
         'menu'     => '<line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="18" y2="18"/>',
         'search'   => '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
         'settings' => '<path d="M20 7h-9"/><path d="M14 17H5"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/>',
-        'theme-auto' => '<path d="M12 3v2"/><path d="M12 19v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66-1.41-1.41"/><path d="M3 12h2"/><path d="M19 12h2"/><path d="m4.93 19.07 1.41-1.41"/><path d="m17.66 6.34-1.41 1.41"/><circle cx="12" cy="12" r="4"/>',
+        'theme-auto' => '<path d="M4 12a8 8 0 0 1 8-8v8Z"/><path d="M20 12a8 8 0 0 1-8 8v-8Z"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="M2 12h2"/><path d="M20 12h2"/>',
         'theme-light' => '<path d="M12 3v2"/><path d="M12 19v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66-1.41-1.41"/><path d="M3 12h2"/><path d="M19 12h2"/><path d="m4.93 19.07 1.41-1.41"/><path d="m17.66 6.34-1.41 1.41"/><circle cx="12" cy="12" r="4"/>',
         'theme-dark' => '<path d="M12 3a6 6 0 1 0 9 9 7.5 7.5 0 1 1-9-9Z"/>',
         'eye'      => '<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>',
