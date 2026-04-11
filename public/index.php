@@ -39,12 +39,21 @@ function icon(string $name): string {
     return '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true">' . $p . '</svg>';
 }
 ?>
+<?php
+$themeColors = [
+    'parchment'  => '#f5f0eb',
+    'hafenblau'  => '#cfe0ec',
+    'nachtwache' => '#162338',
+    'pier'       => '#0f1419',
+];
+$themeColor = $themeColors[$userPreferences['theme'] ?? 'parchment'] ?? '#f5f0eb';
+?>
 <!DOCTYPE html>
 <html lang="de">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <meta name="theme-color" content="#f5f0eb">
+    <meta name="theme-color" content="<?= htmlspecialchars($themeColor, ENT_QUOTES, 'UTF-8') ?>">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -55,7 +64,7 @@ function icon(string $name): string {
     <link rel="stylesheet" href="style.css?v=<?= urlencode($assetVersion) ?>">
     <title>Ankerkladde</title>
 </head>
-<body>
+<body data-theme="<?= htmlspecialchars($userPreferences['theme'] ?? 'parchment', ENT_QUOTES, 'UTF-8') ?>">
 <div class="app" id="app" data-mode="einkaufen">
 
     <div class="install-banner" id="installBanner" hidden>
