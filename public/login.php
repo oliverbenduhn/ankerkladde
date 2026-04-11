@@ -8,7 +8,7 @@ require __DIR__ . '/theme.php';
 enforceCanonicalRequest();
 startAppSession();
 $basePath = appPath();
-$assetVersion = '32';
+$assetVersion = '33';
 $defaultThemePreferences = getThemePreferenceDefaults();
 $effectiveTheme = resolveEffectiveTheme($defaultThemePreferences);
 $themeColor = getThemeColor($effectiveTheme);
@@ -113,7 +113,7 @@ $csrfToken = getCsrfToken();
     let deferredPrompt = null;
 
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register(basePath + 'sw.js?v=32').catch(() => {});
+        navigator.serviceWorker.register(basePath + 'sw.js?v=33').catch(() => {});
     }
 
     window.addEventListener('beforeinstallprompt', e => {

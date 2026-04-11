@@ -378,6 +378,6 @@ curl -fsS -b "$SUBPATH_COOKIE_JAR" "http://127.0.0.1:$SUBPATH_PORT/sub/manifest.
 grep -q '"id":"/sub/"' "$SUBPATH_MANIFEST"
 grep -q '"start_url":"/sub/"' "$SUBPATH_MANIFEST"
 grep -q '"scope":"/sub/"' "$SUBPATH_MANIFEST"
-grep -q '"src":"/sub/icon.php?size=192"' "$SUBPATH_MANIFEST"
+grep -q '"src":"/sub/icon.php?size=192&theme=hafenblau"' "$SUBPATH_MANIFEST"
 
 echo "Smoke-Test erfolgreich."

@@ -55,7 +55,7 @@ function requestedBrandTheme(): string
     $theme = filter_input(INPUT_GET, 'theme', FILTER_UNSAFE_RAW);
     $theme = is_string($theme) ? trim($theme) : '';
 
-    return in_array($theme, BRAND_LOGO_THEMES, true) ? $theme : 'parchment';
+    return in_array($theme, BRAND_LOGO_THEMES, true) ? $theme : 'hafenblau';
 }
 
 function brandLogoPath(): ?string

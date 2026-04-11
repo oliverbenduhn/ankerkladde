@@ -2369,7 +2369,7 @@ document.addEventListener('keydown', event => {
 
     if ('serviceWorker' in navigator) {
         try {
-            const reg = await navigator.serviceWorker.register(appBasePath + 'sw.js?v=32');
+            const reg = await navigator.serviceWorker.register(appBasePath + 'sw.js?v=33');
             reg.addEventListener('updatefound', () => {
                 const w = reg.installing;
                 w?.addEventListener('statechange', () => {

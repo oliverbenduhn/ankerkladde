@@ -9,9 +9,9 @@
   "background_color": "#f5f0eb",
   "theme_color": "#f5f0eb",
   "icons": [
-    { "src": "icon.php?size=192", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "icon.php?size=192", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
-    { "src": "icon.php?size=512", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "icon.php?size=512", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    { "src": "icon.php?size=192&theme=hafenblau", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon.php?size=192&theme=hafenblau", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "icon.php?size=512&theme=hafenblau", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon.php?size=512&theme=hafenblau", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }
