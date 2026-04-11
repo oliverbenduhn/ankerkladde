@@ -1,5 +1,56 @@
 const DEFAULT_API_URL = 'https://ankerkladde.benduhn.de';
 
+const THEMES = {
+  hafenblau: {
+    bg: '#dce8f0',
+    surface: '#eaf3f8',
+    surfaceWhite: '#fff',
+    border: '#b8d0e0',
+    textPrimary: '#0d3a5c',
+    textSecondary: '#3a7090',
+    textMuted: '#7aaac0',
+    accent: '#1a6090',
+    surfaceHover: '#d0e5f0',
+    error: '#c0392b',
+  },
+  parchment: {
+    bg: '#f5f0eb',
+    surface: '#faf6f0',
+    surfaceWhite: '#fff',
+    border: '#e0d8cc',
+    textPrimary: '#3d352e',
+    textSecondary: '#6b5e52',
+    textMuted: '#a89888',
+    accent: '#8b6f4e',
+    surfaceHover: '#eee5db',
+    error: '#b33a3a',
+  },
+  nachtwache: {
+    bg: '#111c2d',
+    surface: '#162338',
+    surfaceWhite: '#1a2538',
+    border: '#1e3550',
+    textPrimary: '#cce4f4',
+    textSecondary: '#4a80a8',
+    textMuted: '#2d5070',
+    accent: '#1a6090',
+    surfaceHover: '#1f2d42',
+    error: '#e05050',
+  },
+  pier: {
+    bg: '#0f1419',
+    surface: '#181410',
+    surfaceWhite: '#1c1815',
+    border: '#2a2210',
+    textPrimary: '#e8d8a8',
+    textSecondary: '#9a8568',
+    textMuted: '#5a4a38',
+    accent: '#c9a550',
+    surfaceHover: '#221d18',
+    error: '#e07050',
+  },
+};
+
 const state = {
   apiUrl: DEFAULT_API_URL,
   apiKey: '',
@@ -9,6 +60,7 @@ const state = {
   busy: false,
   defaults: {},
   recentSaves: [],
+  theme: 'hafenblau',
 };
 
 const DEFAULT_CATEGORY_KEYS = {
@@ -22,6 +74,22 @@ function setStatus(message, type = 'ok') {
   const el = document.getElementById('status');
   el.textContent = message;
   el.className = `status ${type}`;
+}
+
+function applyTheme(themeName) {
+  const theme = THEMES[themeName] || THEMES.hafenblau;
+  const root = document.documentElement;
+  root.style.setProperty('--bg', theme.bg);
+  root.style.setProperty('--surface', theme.surface);
+  root.style.setProperty('--surface-white', theme.surfaceWhite);
+  root.style.setProperty('--border', theme.border);
+  root.style.setProperty('--text-primary', theme.textPrimary);
+  root.style.setProperty('--text-secondary', theme.textSecondary);
+  root.style.setProperty('--text-muted', theme.textMuted);
+  root.style.setProperty('--accent', theme.accent);
+  root.style.setProperty('--surface-hover', theme.surfaceHover);
+  root.style.setProperty('--error', theme.error);
+  state.theme = themeName;
 }
 
 function setBusy(isBusy) {
@@ -279,6 +347,13 @@ async function loadSettings() {
   state.defaults = saved.defaults || {};
   state.recentSaves = Array.isArray(saved.recentSaves) ? saved.recentSaves : [];
 
+  const prefs = state.preferences || {};
+  const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const effectiveTheme = (prefs.theme_mode === 'dark') || (prefs.theme_mode === 'auto' && isDark)
+    ? (prefs.dark_theme || 'nachtwache')
+    : (prefs.light_theme || 'hafenblau');
+  applyTheme(effectiveTheme);
+
   const apiUrlInput = document.getElementById('apiUrlEdit');
   const apiKeyInput = document.getElementById('apiKeyEdit');
   const apiUrlSetup = document.getElementById('apiUrl');
@@ -403,6 +478,13 @@ async function loadCategories() {
       defaults: state.defaults,
       recentSaves: state.recentSaves,
     });
+
+    const prefs = state.preferences || {};
+    const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const effectiveTheme = (prefs.theme_mode === 'dark') || (prefs.theme_mode === 'auto' && isDark)
+      ? (prefs.dark_theme || 'nachtwache')
+      : (prefs.light_theme || 'hafenblau');
+    applyTheme(effectiveTheme);
 
     populateCategorySelect();
   } catch (error) {
