@@ -273,6 +273,7 @@ if ($apiKey === null) {
 }
 $categories = loadUserCategories($db, $userId);
 $iconOptions = getCategoryIconOptions();
+$currentTab = $_GET['tab'] ?? 'app';
 ?>
 <!DOCTYPE html>
 <html lang="de">
@@ -299,12 +300,18 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
         <a href="<?= htmlspecialchars(appPath('index.php'), ENT_QUOTES, 'UTF-8') ?>" class="settings-back" aria-label="Zurück zur App">←</a>
     </div>
 
+    <div class="settings-tabs">
+        <a href="?tab=app" class="settings-tab <?= ($currentTab ?? 'app') === 'app' ? 'settings-tab-active' : '' ?>">App</a>
+        <a href="?tab=extension" class="settings-tab <?= ($currentTab ?? 'app') === 'extension' ? 'settings-tab-active' : '' ?>">Erweiterung</a>
+    </div>
+
     <?php if ($flash !== null): ?>
         <div class="settings-flash settings-flash-<?= htmlspecialchars($flashType, ENT_QUOTES, 'UTF-8') ?>">
             <?= htmlspecialchars($flash, ENT_QUOTES, 'UTF-8') ?>
         </div>
     <?php endif; ?>
 
+    <?php if (($currentTab ?? 'app') === 'app'): ?>
     <section class="settings-section">
         <form method="post" action="<?= htmlspecialchars(appPath('settings.php'), ENT_QUOTES, 'UTF-8') ?>" class="settings-form">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
@@ -350,7 +357,9 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
             </div>
         </form>
     </section>
+    <?php endif; ?>
 
+    <?php if (($currentTab ?? 'app') === 'extension'): ?>
     <section class="settings-section">
         <div class="settings-block">
             <h2>Browser-Extension</h2>
@@ -559,6 +568,7 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
         <p class="settings-copy">Global gespeichert bleiben Modus, ausgeblendete Tabs, letzter aktiver Bereich und Installationshinweis. Zuletzt aktiv: <?= $preferences['last_category_id'] !== null ? (int) $preferences['last_category_id'] : 'keine' ?>.</p>
         <a href="<?= htmlspecialchars(appPath('logout.php'), ENT_QUOTES, 'UTF-8') ?>" class="settings-link">Abmelden</a>
     </section>
+    <?php endif; ?>
 </div>
 <script>
 (() => {
