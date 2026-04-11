@@ -33,6 +33,14 @@
       background: var(--accent);
       color: #fff;
       font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .topbar img {
+      width: 24px;
+      height: 24px;
+      border-radius: 4px;
     }
     .content { padding: 12px 14px 14px; display: grid; gap: 10px; }
     .card {
@@ -151,125 +159,155 @@
     }
     .inline-row { display: flex; gap: 8px; }
     .inline-row > * { flex: 1; }
+    .setup-screen { display: none; text-align: center; padding: 24px 20px; }
+    .setup-screen.visible { display: block; }
+    .setup-screen h2 { margin: 0 0 8px; font-size: 18px; }
+    .setup-screen p { margin: 0 0 16px; color: var(--text-secondary); font-size: 14px; }
+    .setup-screen .btn { margin-top: 12px; }
+    .setup-screen .api-fields { text-align: left; }
+    .setup-screen .api-fields .row { margin-bottom: 12px; }
+    .main-screen { display: none; }
+    .main-screen.visible { display: block; }
   </style>
 </head>
 <body>
-  <div class="topbar">Ankerkladde</div>
+  <div class="topbar">
+    <img src="icon.png" alt="" width="24" height="24">
+    <span>Ankerkladde</span>
+  </div>
   <div id="status" class="status"></div>
 
-  <div class="content">
-    <div class="card">
+  <div id="setupScreen" class="setup-screen">
+    <h2>Willkommen</h2>
+    <p>Gib deine Ankerkladde URL und den API-Key ein, um loszulegen.</p>
+    <div class="api-fields">
       <div class="row">
-        <label for="section">Kategorie</label>
-        <select id="section">
-          <option value="">Laden...</option>
-        </select>
-      </div>
-
-      <div id="field-name" class="section-fields" style="margin-top: 12px;">
-        <div class="row">
-          <label for="name">Name / Link</label>
-          <input type="text" id="name" placeholder="https://...">
-        </div>
-      </div>
-
-      <div id="field-quantity" class="section-fields">
-        <div class="row">
-          <label for="quantity">Menge</label>
-          <input type="text" id="quantity" placeholder="1 kg, 3 Stück...">
-        </div>
-      </div>
-
-      <div id="field-due" class="section-fields">
-        <div class="row">
-          <label for="dueDate">Fällig am</label>
-          <input type="date" id="dueDate">
-        </div>
-      </div>
-
-      <div id="field-content" class="section-fields">
-        <div class="row">
-          <label for="content">Inhalt</label>
-          <textarea id="content" placeholder="Notiz-Text..."></textarea>
-        </div>
-      </div>
-
-      <div id="field-file" class="section-fields">
-        <label for="fileInput">Datei auswählen</label>
-        <input type="file" id="fileInput" multiple>
-      </div>
-
-      <div class="row" style="margin-top: 12px;">
-        <button class="btn" id="saveManualBtn">Speichern</button>
-      </div>
-
-      <div class="row">
-        <button class="btn secondary" id="savePageBtn">Aktuelle Seite speichern</button>
-      </div>
-
-      <div class="quick-actions">
-        <button class="btn small" id="quickSaveLastBtn">Letzte</button>
-        <button class="btn small secondary" id="quickSaveLinkBtn">Link</button>
-        <button class="btn small secondary" id="quickSaveNoteBtn">Notiz</button>
-        <button class="btn small secondary" id="quickFillBtn">Füllen</button>
-      </div>
-    </div>
-
-    <details class="card">
-      <summary>Verbindung</summary>
-      <div class="row" style="margin-top: 12px;">
         <label for="apiUrl">Ankerkladde URL</label>
         <input type="url" id="apiUrl" placeholder="https://ankerkladde.benduhn.de">
       </div>
-      <div class="row-with-btn key-row">
-        <div class="row" style="flex: 1;">
-          <label for="apiKey">API-Key</label>
-          <input type="password" id="apiKey" placeholder="Aus den Einstellungen kopieren">
+      <div class="row">
+        <label for="apiKey">API-Key</label>
+        <input type="password" id="apiKey" placeholder="Aus den Einstellungen kopieren">
+      </div>
+    </div>
+    <button class="btn" id="setupBtn">Verbinden</button>
+  </div>
+
+  <div id="mainScreen" class="main-screen">
+    <div class="content">
+      <div class="card">
+        <div class="row">
+          <label for="section">Kategorie</label>
+          <select id="section">
+            <option value="">Laden...</option>
+          </select>
         </div>
-        <button type="button" class="btn small" id="verifyBtn">Prüfen</button>
-      </div>
-    </details>
 
-    <details class="card">
-      <summary>Standard-Kategorien</summary>
-      <div class="row" style="margin-top: 12px;">
-        <label for="defaultLinksCategory">Links</label>
-        <select id="defaultLinksCategory">
-          <option value="">Automatisch</option>
-        </select>
-      </div>
-      <div class="row">
-        <label for="defaultNotesCategory">Notizen</label>
-        <select id="defaultNotesCategory">
-          <option value="">Automatisch</option>
-        </select>
-      </div>
-      <div class="row">
-        <label for="defaultImagesCategory">Bilder</label>
-        <select id="defaultImagesCategory">
-          <option value="">Automatisch</option>
-        </select>
-      </div>
-      <div class="row">
-        <label for="defaultFilesCategory">Dateien</label>
-        <select id="defaultFilesCategory">
-          <option value="">Automatisch</option>
-        </select>
-      </div>
-    </details>
+        <div id="field-name" class="section-fields" style="margin-top: 12px;">
+          <div class="row">
+            <label for="name">Name / Link</label>
+            <input type="text" id="name" placeholder="https://...">
+          </div>
+        </div>
 
-    <details class="card">
-      <summary>Dateien ablegen</summary>
-      <div id="dropzone" class="dropzone">Dateien hierher ziehen</div>
-      <p class="hint">Bilder landen im Bilder-Bereich, andere Dateien im Dateien-Bereich.</p>
-    </details>
+        <div id="field-quantity" class="section-fields">
+          <div class="row">
+            <label for="quantity">Menge</label>
+            <input type="text" id="quantity" placeholder="1 kg, 3 Stück...">
+          </div>
+        </div>
 
-    <details class="card">
-      <summary>Zuletzt gespeichert</summary>
-      <div id="recentSaves" class="history-list">
-        <p class="hint">Noch keine Aktionen gespeichert.</p>
+        <div id="field-due" class="section-fields">
+          <div class="row">
+            <label for="dueDate">Fällig am</label>
+            <input type="date" id="dueDate">
+          </div>
+        </div>
+
+        <div id="field-content" class="section-fields">
+          <div class="row">
+            <label for="content">Inhalt</label>
+            <textarea id="content" placeholder="Notiz-Text..."></textarea>
+          </div>
+        </div>
+
+        <div id="field-file" class="section-fields">
+          <label for="fileInput">Datei auswählen</label>
+          <input type="file" id="fileInput" multiple>
+        </div>
+
+        <div class="row" style="margin-top: 12px;">
+          <button class="btn" id="saveManualBtn">Speichern</button>
+        </div>
+
+        <div class="row">
+          <button class="btn secondary" id="savePageBtn">Aktuelle Seite speichern</button>
+        </div>
+
+        <div class="quick-actions">
+          <button class="btn small" id="quickSaveLastBtn">Letzte</button>
+          <button class="btn small secondary" id="quickSaveLinkBtn">Link</button>
+          <button class="btn small secondary" id="quickSaveNoteBtn">Notiz</button>
+          <button class="btn small secondary" id="quickFillBtn">Füllen</button>
+        </div>
       </div>
-    </details>
+
+      <details class="card">
+        <summary>Verbindung</summary>
+        <div class="row" style="margin-top: 12px;">
+          <label for="apiUrlEdit">Ankerkladde URL</label>
+          <input type="url" id="apiUrlEdit" placeholder="https://ankerkladde.benduhn.de">
+        </div>
+        <div class="row-with-btn key-row">
+          <div class="row" style="flex: 1;">
+            <label for="apiKeyEdit">API-Key</label>
+            <input type="password" id="apiKeyEdit" placeholder="Aus den Einstellungen kopieren">
+          </div>
+          <button type="button" class="btn small" id="verifyBtn">Prüfen</button>
+        </div>
+      </details>
+
+      <details class="card">
+        <summary>Standard-Kategorien</summary>
+        <div class="row" style="margin-top: 12px;">
+          <label for="defaultLinksCategory">Links</label>
+          <select id="defaultLinksCategory">
+            <option value="">Automatisch</option>
+          </select>
+        </div>
+        <div class="row">
+          <label for="defaultNotesCategory">Notizen</label>
+          <select id="defaultNotesCategory">
+            <option value="">Automatisch</option>
+          </select>
+        </div>
+        <div class="row">
+          <label for="defaultImagesCategory">Bilder</label>
+          <select id="defaultImagesCategory">
+            <option value="">Automatisch</option>
+          </select>
+        </div>
+        <div class="row">
+          <label for="defaultFilesCategory">Dateien</label>
+          <select id="defaultFilesCategory">
+            <option value="">Automatisch</option>
+          </select>
+        </div>
+      </details>
+
+      <details class="card">
+        <summary>Dateien ablegen</summary>
+        <div id="dropzone" class="dropzone">Dateien hierher ziehen</div>
+        <p class="hint">Bilder landen im Bilder-Bereich, andere Dateien im Dateien-Bereich.</p>
+      </details>
+
+      <details class="card">
+        <summary>Zuletzt gespeichert</summary>
+        <div id="recentSaves" class="history-list">
+          <p class="hint">Noch keine Aktionen gespeichert.</p>
+        </div>
+      </details>
+    </div>
   </div>
 
   <script src="popup.js"></script>
