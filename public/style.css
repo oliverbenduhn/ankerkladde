@@ -145,15 +145,19 @@ button, input { font: inherit; }
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 20px 16px 10px;
+    gap: 10px;
+    padding: 18px 14px 10px;
     flex-shrink: 0;
 }
 
 .app-title {
     margin: 0;
-    font-size: 1.4rem;
+    font-size: 1.28rem;
     font-weight: 700;
     letter-spacing: -0.03em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .app-subtitle {
@@ -171,8 +175,9 @@ button, input { font: inherit; }
 .admin-title-group {
     display: inline-flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     min-width: 0;
+    flex: 1 1 auto;
 }
 
 .app-title-stack {
@@ -195,9 +200,9 @@ button, input { font: inherit; }
 }
 
 .brand-mark-app {
-    width: 28px;
-    height: 28px;
-    border-radius: 9px;
+    width: 26px;
+    height: 26px;
+    border-radius: 8px;
     --brand-mark-padding: 1px;
 }
 
@@ -219,14 +224,15 @@ button, input { font: inherit; }
 .header-actions {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     flex-shrink: 0;
 }
 
 .progress {
-    font-size: 0.875rem;
+    font-size: 0.82rem;
     color: var(--text-muted);
     font-weight: 500;
+    white-space: nowrap;
 }
 
 /* ===========================================
@@ -1132,9 +1138,9 @@ button, input { font: inherit; }
    HEADER ICON BUTTONS
    =========================================== */
 .header-icon-btn {
-    min-width: 40px;
-    min-height: 40px;
-    padding: 0 10px;
+    min-width: 38px;
+    min-height: 38px;
+    padding: 0 8px;
     background: var(--border);
     border: none;
     border-radius: 10px;
@@ -1150,6 +1156,66 @@ button, input { font: inherit; }
 
 .header-icon-btn:hover  { background: var(--accent); color: var(--text-primary); }
 .header-icon-btn:active { background: var(--accent); color: var(--text-primary); transform: scale(0.92); }
+
+@media (max-width: 460px) {
+    .app-header {
+        gap: 8px;
+        padding: 16px 12px 8px;
+    }
+
+    .app-title {
+        font-size: 1.12rem;
+    }
+
+    .app-subtitle {
+        font-size: 0.7rem;
+    }
+
+    .brand-mark-app {
+        width: 24px;
+        height: 24px;
+        border-radius: 7px;
+    }
+
+    .header-actions {
+        gap: 5px;
+    }
+
+    .header-icon-btn {
+        min-width: 34px;
+        min-height: 34px;
+        padding: 0 6px;
+        border-radius: 9px;
+    }
+
+    .header-icon-btn .icon,
+    .btn-tabs-toggle .icon {
+        width: 18px;
+        height: 18px;
+    }
+
+    .progress {
+        font-size: 0.76rem;
+    }
+}
+
+@media (max-width: 380px) {
+    .app-subtitle {
+        display: none;
+    }
+
+    .app-title-group {
+        gap: 7px;
+    }
+
+    .app-title {
+        font-size: 1.02rem;
+    }
+
+    .header-actions {
+        gap: 4px;
+    }
+}
 
 /* ===========================================
    MODE VISIBILITY (CSS-driven)
