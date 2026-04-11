@@ -28,6 +28,8 @@
     }
     .row { display: grid; gap: 6px; margin-bottom: 10px; }
     .row:last-child { margin-bottom: 0; }
+    .row-with-btn { display: flex; gap: 8px; align-items: flex-end; }
+    .row-with-btn > *:first-child { flex: 1; }
     label { font-size: 12px; color: #6b7280; }
     input, select, textarea {
       width: 100%;
@@ -95,9 +97,12 @@
         <label for="apiUrl">Ankerkladde URL</label>
         <input type="url" id="apiUrl" placeholder="https://ankerkladde.benduhn.de">
       </div>
-      <div class="row">
-        <label for="apiKey">API-Key</label>
-        <input type="password" id="apiKey" placeholder="Aus den Einstellungen kopieren">
+      <div class="row-with-btn">
+        <div class="row" style="margin-bottom: 0; flex: 1;">
+          <label for="apiKey">API-Key</label>
+          <input type="password" id="apiKey" placeholder="Aus den Einstellungen kopieren">
+        </div>
+        <button type="button" class="btn small" id="verifyBtn">Prüfen</button>
       </div>
     </div>
 
@@ -106,12 +111,7 @@
       <div class="row" style="margin-top: 12px;">
         <label for="section">Kategorie</label>
         <select id="section">
-          <option value="links">Links</option>
-          <option value="shopping">Einkaufen (mit Menge)</option>
-          <option value="todo">Aufgaben</option>
-          <option value="notes">Notizen</option>
-          <option value="images">Bilder</option>
-          <option value="files">Dateien</option>
+          <option value="">Laden...</option>
         </select>
       </div>
 

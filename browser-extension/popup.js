@@ -1,36 +1,9 @@
 const DEFAULT_API_URL = 'https://ankerkladde.benduhn.de';
 
-const SECTION_CONFIG = {
-  links: {
-    name: 'Links',
-    fields: ['name'],
-  },
-  shopping: {
-    name: 'Einkaufen',
-    fields: ['name', 'quantity'],
-  },
-  todo: {
-    name: 'Aufgaben',
-    fields: ['name', 'due'],
-  },
-  notes: {
-    name: 'Notizen',
-    fields: ['name', 'content'],
-  },
-  images: {
-    name: 'Bilder',
-    fields: ['file'],
-  },
-  files: {
-    name: 'Dateien',
-    fields: ['file'],
-  },
-};
-
 const state = {
   apiUrl: DEFAULT_API_URL,
   apiKey: '',
-  section: 'links',
+  categories: [],
 };
 
 function setStatus(message, type = 'ok') {
@@ -40,31 +13,70 @@ function setStatus(message, type = 'ok') {
 }
 
 async function loadSettings() {
-  const saved = await chrome.storage.local.get(['apiUrl', 'apiKey', 'section']);
+  const saved = await chrome.storage.local.get(['apiUrl', 'apiKey', 'categories']);
   state.apiUrl = (saved.apiUrl || DEFAULT_API_URL).replace(/\/$/, '');
   state.apiKey = saved.apiKey || '';
-  state.section = saved.section || 'links';
+  state.categories = saved.categories || [];
 
   document.getElementById('apiUrl').value = state.apiUrl;
   document.getElementById('apiKey').value = state.apiKey;
-  document.getElementById('section').value = state.section;
-  updateFieldVisibility();
+  populateCategorySelect();
+
+  if (state.apiKey) {
+    await loadCategories();
+  }
 }
 
 async function saveSettings() {
   state.apiUrl = document.getElementById('apiUrl').value.trim().replace(/\/$/, '') || DEFAULT_API_URL;
   state.apiKey = document.getElementById('apiKey').value.trim();
-  state.section = document.getElementById('section').value;
+  const newKey = state.apiKey !== document.getElementById('apiKey').value.trim();
+  state.apiKey = document.getElementById('apiKey').value.trim();
 
   await chrome.storage.local.set({
     apiUrl: state.apiUrl,
     apiKey: state.apiKey,
-    section: state.section,
+    categories: state.categories,
   });
+
+  if (newKey && state.apiKey) {
+    await loadCategories();
+  }
 }
 
 function authHeaders() {
   return state.apiKey ? { 'X-API-Key': state.apiKey } : {};
+}
+
+async function verifyKey() {
+  const apiKey = document.getElementById('apiKey').value.trim();
+  if (!apiKey) {
+    setStatus('Bitte API-Key eingeben.', 'err');
+    return;
+  }
+
+  const apiUrl = document.getElementById('apiUrl').value.trim().replace(/\/$/, '') || DEFAULT_API_URL;
+  const testHeaders = { 'X-API-Key': apiKey };
+
+  try {
+    const response = await fetch(`${apiUrl}/api.php?action=categories_list`, {
+      credentials: 'omit',
+      headers: testHeaders,
+    });
+
+    if (response.ok) {
+      setStatus('API-Key funktioniert!', 'ok');
+      state.apiKey = apiKey;
+      state.apiUrl = apiUrl;
+      await chrome.storage.local.set({ apiUrl: state.apiUrl, apiKey: state.apiKey, categories: [] });
+      await loadCategories();
+    } else {
+      const payload = await response.json().catch(() => ({}));
+      setStatus(payload.error || 'API-Key ungültig.', 'err');
+    }
+  } catch (error) {
+    setStatus('Verbindung fehlgeschlagen.', 'err');
+  }
 }
 
 async function requestJson(url, options = {}) {
@@ -85,9 +97,59 @@ async function requestJson(url, options = {}) {
   return payload;
 }
 
+async function loadCategories() {
+  if (!state.apiKey) return;
+
+  try {
+    const data = await requestJson(`${state.apiUrl}/api.php?action=categories_list`);
+    if (data.categories) {
+      state.categories = data.categories;
+      await chrome.storage.local.set({ categories: state.categories });
+      populateCategorySelect();
+    }
+  } catch (error) {
+    console.error('Kategorien konnten nicht geladen werden:', error);
+  }
+}
+
+function populateCategorySelect() {
+  const select = document.getElementById('section');
+  select.innerHTML = '';
+
+  if (state.categories.length === 0) {
+    select.innerHTML = '<option value="">Keine Kategorien (API-Key fehlt?)</option>';
+    return;
+  }
+
+  state.categories.forEach(cat => {
+    const option = document.createElement('option');
+    option.value = cat.id;
+    const icon = cat.icon || '';
+    option.textContent = `${icon} ${cat.name}`.trim();
+    select.appendChild(option);
+  });
+}
+
+function getCurrentSectionFields() {
+  const sectionId = document.getElementById('section').value;
+  const category = state.categories.find(c => String(c.id) === String(sectionId));
+  if (!category) return ['name'];
+
+  const type = category.type;
+  const fieldMap = {
+    'list_quantity': ['name', 'quantity'],
+    'list_due_date': ['name', 'due'],
+    'notes': ['name', 'content'],
+    'images': ['file'],
+    'files': ['file'],
+    'links': ['name'],
+  };
+
+  return fieldMap[type] || ['name'];
+}
+
 function updateFieldVisibility() {
-  const config = SECTION_CONFIG[state.section] || SECTION_CONFIG.links;
-  const visibleFields = config.fields;
+  const visibleFields = getCurrentSectionFields();
 
   document.querySelectorAll('.section-fields').forEach(el => {
     el.classList.remove('visible');
@@ -100,16 +162,23 @@ function updateFieldVisibility() {
 }
 
 async function saveManual() {
+  const sectionId = document.getElementById('section').value;
   const name = document.getElementById('name').value.trim();
   const content = document.getElementById('content').value.trim();
   const quantity = document.getElementById('quantity').value.trim();
   const dueDate = document.getElementById('dueDate').value;
   const fileInput = document.getElementById('fileInput');
 
-  const isFileCategory = state.section === 'images' || state.section === 'files';
-  const isNotesCategory = state.section === 'notes';
-  const isTodoCategory = state.section === 'todo';
-  const isShoppingCategory = state.section === 'shopping';
+  const category = state.categories.find(c => String(c.id) === String(sectionId));
+  if (!category) {
+    setStatus('Bitte Kategorie auswählen.', 'err');
+    return;
+  }
+
+  const isFileCategory = category.type === 'images' || category.type === 'files';
+  const isNotesCategory = category.type === 'notes';
+  const isShoppingCategory = category.type === 'list_quantity';
+  const isTodoCategory = category.type === 'list_due_date';
 
   if (isFileCategory) {
     if (!fileInput.files.length) {
@@ -120,7 +189,7 @@ async function saveManual() {
     const file = fileInput.files[0];
     const formData = new FormData();
     formData.append('name', file.name.slice(0, 120));
-    formData.append('section', state.section);
+    formData.append('category_id', sectionId);
     formData.append('file', file);
 
     try {
@@ -154,7 +223,7 @@ async function saveManual() {
     formData.append('due_date', dueDate);
   }
 
-  formData.append('section', state.section);
+  formData.append('category_id', sectionId);
 
   try {
     await requestJson(`${state.apiUrl}/api.php?action=add`, {
@@ -176,9 +245,16 @@ async function saveCurrentPage() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab?.url) return;
 
+  const sectionId = document.getElementById('section').value;
+  const category = state.categories.find(c => String(c.id) === String(sectionId));
+  if (!category) {
+    setStatus('Bitte Kategorie auswählen.', 'err');
+    return;
+  }
+
   const title = (tab.title || 'Unbenannte Seite').slice(0, 120);
-  const isLinksCategory = state.section === 'links';
-  const isNotesCategory = state.section === 'notes';
+  const isLinksCategory = category.type === 'links';
+  const isNotesCategory = category.type === 'notes';
 
   const formData = new FormData();
   if (isNotesCategory) {
@@ -188,7 +264,7 @@ async function saveCurrentPage() {
     formData.append('name', isLinksCategory ? tab.url : title);
     if (!isLinksCategory) formData.append('content', tab.url);
   }
-  formData.append('section', state.section);
+  formData.append('category_id', sectionId);
 
   try {
     await requestJson(`${state.apiUrl}/api.php?action=add`, {
@@ -202,10 +278,22 @@ async function saveCurrentPage() {
 }
 
 async function uploadFile(file) {
+  const category = state.categories.find(c => c.type === 'images' || c.type === 'files');
+  if (!category) {
+    setStatus('Keine Bilder/Dateien-Kategorie vorhanden.', 'err');
+    return;
+  }
+
   const section = file.type.startsWith('image/') ? 'images' : 'files';
+  const targetCat = state.categories.find(c => c.type === section);
+  if (!targetCat) {
+    setStatus(`${section}-Kategorie nicht vorhanden.`, 'err');
+    return;
+  }
+
   const formData = new FormData();
   formData.append('name', file.name.slice(0, 120));
-  formData.append('section', section);
+  formData.append('category_id', targetCat.id);
   formData.append('file', file);
 
   try {
@@ -265,11 +353,8 @@ async function setupShareButton() {
   });
 }
 
-document.getElementById('section').addEventListener('change', () => {
-  state.section = document.getElementById('section').value;
-  saveSettings();
-  updateFieldVisibility();
-});
+document.getElementById('section').addEventListener('change', updateFieldVisibility);
+document.getElementById('verifyBtn').addEventListener('click', verifyKey);
 
 document.getElementById('saveManualBtn').addEventListener('click', saveManual);
 document.getElementById('savePageBtn').addEventListener('click', async () => {
@@ -283,6 +368,9 @@ document.getElementById('savePageBtn').addEventListener('click', async () => {
 
 (async () => {
   await loadSettings();
+  if (state.apiKey) {
+    await loadCategories();
+  }
   setupDropzone();
   setupShareButton();
 })();
