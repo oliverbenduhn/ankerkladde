@@ -99,6 +99,22 @@ function isCanonicalProductionHost(string $host): bool
     return $host === EINKAUF_CANONICAL_HOST;
 }
 
+function getCanonicalAppOrigin(): string
+{
+    $host = trim(EINKAUF_CANONICAL_HOST);
+
+    if ($host === '') {
+        $requestHost = getRequestHost();
+        if ($requestHost !== '') {
+            return (isRequestHttps() ? 'https://' : 'http://') . $requestHost;
+        }
+
+        return 'http://localhost';
+    }
+
+    return 'https://' . $host;
+}
+
 function enforceCanonicalRequest(): void
 {
     $host = getRequestHost();

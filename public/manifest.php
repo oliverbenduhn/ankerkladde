@@ -17,19 +17,21 @@ if ($appBasePath === '' || $appBasePath === '.') {
     $appBasePath = rtrim($appBasePath, '/') . '/';
 }
 
+$canonicalBaseUrl = rtrim(getCanonicalAppOrigin(), '/') . $appBasePath;
+
 $manifest = [
-    'id' => $appBasePath,
+    'id' => $canonicalBaseUrl,
     'name' => 'Ankerkladde',
     'short_name' => 'Ankerkladde',
     'description' => 'Mobile Kladde für Listen, Notizen, Bilder, Dateien und Links.',
     'lang' => 'de',
-    'start_url' => $appBasePath,
-    'scope' => $appBasePath,
+    'start_url' => $canonicalBaseUrl,
+    'scope' => $canonicalBaseUrl,
     'display' => 'standalone',
     'background_color' => '#f5f0eb',
     'theme_color' => '#f5f0eb',
     'share_target' => [
-        'action'  => $appBasePath,
+        'action'  => $canonicalBaseUrl,
         'method'  => 'POST',
         'enctype' => 'multipart/form-data',
         'params'  => [
@@ -46,25 +48,25 @@ $manifest = [
     ],
     'icons' => [
         [
-            'src' => $appBasePath . 'icon.php?size=192',
+            'src' => $canonicalBaseUrl . 'icon.php?size=192',
             'sizes' => '192x192',
             'type' => 'image/png',
             'purpose' => 'any',
         ],
         [
-            'src' => $appBasePath . 'icon.php?size=192',
+            'src' => $canonicalBaseUrl . 'icon.php?size=192',
             'sizes' => '192x192',
             'type' => 'image/png',
             'purpose' => 'maskable',
         ],
         [
-            'src' => $appBasePath . 'icon.php?size=512',
+            'src' => $canonicalBaseUrl . 'icon.php?size=512',
             'sizes' => '512x512',
             'type' => 'image/png',
             'purpose' => 'any',
         ],
         [
-            'src' => $appBasePath . 'icon.php?size=512',
+            'src' => $canonicalBaseUrl . 'icon.php?size=512',
             'sizes' => '512x512',
             'type' => 'image/png',
             'purpose' => 'maskable',
