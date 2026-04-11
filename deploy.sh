@@ -1,11 +1,11 @@
 #!/bin/bash
 set -euo pipefail
-cd /var/www/projects/einkauf
+cd /var/www/projects/ankerkladde
 
-echo "[$(date)] Deploy gestartet" >> /var/log/einkauf/deploy.log
+echo "[$(date)] Deploy gestartet" >> /var/log/ankerkladde/deploy.log
 
-git pull origin main >> /var/log/einkauf/deploy.log 2>&1
+git pull origin main >> /var/log/ankerkladde/deploy.log 2>&1
 
-rc-service php-fpm83 reload >> /var/log/einkauf/deploy.log 2>&1
+rc-service php-fpm83 reload >> /var/log/ankerkladde/deploy.log 2>&1
 
-echo "[$(date)] Deploy abgeschlossen" >> /var/log/einkauf/deploy.log
+echo "[$(date)] Deploy abgeschlossen" >> /var/log/ankerkladde/deploy.log

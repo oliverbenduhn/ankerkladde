@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Zettel** is a mobile-friendly PHP web app for shopping lists, todos, notes, images, files, and links — backed by SQLite. Production: [zettel.benduhn.de](https://zettel.benduhn.de)
+**Zettel** is a mobile-friendly PHP web app for shopping lists, todos, notes, images, files, and links — backed by SQLite. Production: [ankerkladde.benduhn.de](https://ankerkladde.benduhn.de)
 
 No build tool. No framework. Vanilla JS frontend, PHP 8.1+ backend.
 
@@ -36,10 +36,10 @@ Both scripts spin up their own `php -S` instances with isolated temp data dirs v
 
 ```bash
 # Manual deploy via SSH
-ssh ansible@web "sudo /var/www/projects/einkauf/deploy.sh"
+ssh ansible@web "sudo /var/www/projects/ankerkladde/deploy.sh"
 
 # Deploy logs
-ssh ansible@web "tail -f /var/log/einkauf/deploy.log"
+ssh ansible@web "tail -f /var/log/ankerkladde/deploy.log"
 ```
 
 Production deploy: Git push → GitHub Webhook → `deploy.sh` → `git pull` + PHP-FPM reload.
@@ -90,7 +90,7 @@ The notes section opens a full TipTap rich-text editor (loaded from CDN at esm.s
 ### Security Notes
 
 - CSRF: session token validated on every POST; token passed as `X-CSRF-Token` header
-- Canonical host redirect in `enforceCanonicalRequest()` — non-prod hosts redirect to `zettel.benduhn.de` (bypassed for localhost)
+- Canonical host redirect in `enforceCanonicalRequest()` — non-prod hosts redirect to `ankerkladde.benduhn.de` (bypassed for localhost)
 - Attachment file paths built server-side only from DB records, never from user input
 - Upload limits: 20 MB images, 5 GB files (set in `public/.user.ini` and nginx config)
 

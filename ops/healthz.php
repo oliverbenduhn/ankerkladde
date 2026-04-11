@@ -13,14 +13,14 @@ try {
     http_response_code(200);
     echo json_encode([
         'status' => 'ok',
-        'service' => 'einkauf',
+        'service' => 'ankerkladde',
         'items' => $itemCount,
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 } catch (Throwable $exception) {
     http_response_code(500);
     echo json_encode([
         'status' => 'error',
-        'service' => 'einkauf',
+        'service' => 'ankerkladde',
         'message' => $exception->getMessage(),
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 }
