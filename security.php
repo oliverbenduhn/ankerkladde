@@ -291,13 +291,3 @@ function isApiKeyAuthRequest(): bool
 {
     return (string) ($_SERVER['ANKERKLADDE_API_AUTH_KIND'] ?? '') === 'key';
 }
-
-function getCurrentUserIdFromSession(): ?int
-{
-    if (session_status() !== PHP_SESSION_ACTIVE) {
-        return null;
-    }
-
-    $id = $_SESSION['user_id'] ?? null;
-    return is_int($id) ? $id : null;
-}

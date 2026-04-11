@@ -14,7 +14,7 @@ Mobile-freundliche PHP-Webanwendung für Einkaufslisten, Todos, Notizen, Bilder,
 
 ### Bereiche
 
-Jeder Nutzer verwaltet eigene **Kategorien** – Anzahl, Namen, Icons und Reihenfolge sind frei konfigurierbar. Fünf Typen stehen zur Wahl:
+Jeder Nutzer verwaltet eigene **Kategorien** – Anzahl, Namen, Icons und Reihenfolge sind frei konfigurierbar. Sechs Typen stehen zur Wahl:
 
 | Typ | Zweites Feld | Besonderheit |
 |---|---|---|
@@ -73,6 +73,7 @@ Jeder Nutzer verwaltet eigene **Kategorien** – Anzahl, Namen, Icons und Reihen
 - Kategorien anlegen, umbenennen, Icon wählen, ausblenden, umsortieren, löschen
 - Wischnavigation aktivieren/deaktivieren
 - Freier Speicherplatz wird angezeigt
+- API-Key und Download-Links für die Browser-Erweiterung
 
 ### Nutzer & Admin
 
@@ -99,6 +100,7 @@ Jeder Nutzer verwaltet eigene **Kategorien** – Anzahl, Namen, Icons und Reihen
 | `public/admin.php` | Admin-Nutzerverwaltung |
 | `public/sw.js` | Service Worker |
 | `public/manifest.php` | Web App Manifest |
+| `public/extension-download.php` | Baut Browser-Extension-ZIP on demand für Chrome/Edge oder Firefox |
 | `public/.user.ini` | PHP-Upload-Limits (20 MB Bild, 5 GB Datei) |
 | `db.php` | SQLite-Init + automatische Migrationen |
 | `security.php` | Session, CSRF, kanonische Host-Weiterleitung |
@@ -123,6 +125,8 @@ Jeder Nutzer verwaltet eigene **Kategorien** – Anzahl, Namen, Icons und Reihen
 | `reorder` | POST | Reihenfolge per ID-Array |
 | `search` | GET | Volltextsuche (FTS5) über alle Kategorien |
 | `preferences` | GET/POST | Nutzer-Präferenzen lesen/schreiben |
+
+Browser-Erweiterung: Der API-Key in den Einstellungen authentifiziert Requests direkt gegen `public/api.php` über den Header `X-API-Key`. Kategorien werden dabei per `category_id` angesprochen.
 
 ### Datenbank
 
@@ -205,7 +209,18 @@ php scripts/create-user.php   # EINKAUF_USER / EINKAUF_PASS für nicht-interakti
 ```bash
 bash scripts/smoke-test.sh        # Uploads, Streaming, CSRF, Anhang-Ersetzung, Fehlerfälle
 bash scripts/test-db-migration.sh # Migrationen auf frischer DB
+find . -path './.git' -prune -o -path './.worktrees' -prune -o -path './data' -prune -o -name '*.php' -print | sort | xargs -r -n1 php -l
 ```
+
+### Browser-Erweiterung
+
+```bash
+php browser-extension/build-icons.php    # nur wenn PNG-Icons neu erzeugt werden sollen
+php browser-extension/build-extension.php
+php browser-extension/build-firefox.php
+```
+
+Die Builds erzeugen versionierte ZIP-Dateien direkt im Ordner `browser-extension/`. In der App stehen unter `Einstellungen -> Browser-Extension` zusätzlich direkte Download-Links und der zugehörige API-Key bereit.
 
 ---
 
