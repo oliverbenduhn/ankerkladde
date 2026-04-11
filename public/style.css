@@ -15,6 +15,8 @@
     --font-family:      system-ui, -apple-system, sans-serif;
 }
 
+/* THEME OVERRIDES */
+
 [data-theme="hafenblau"] {
     --bg:                #dce8f0;
     --surface:           #eaf3f8;
@@ -26,7 +28,6 @@
     --accent:            #1a6090;
     --done-bg:           #d0e5f0;
     --error:             #c0392b;
-    --font-family:       system-ui, -apple-system, sans-serif;
 }
 
 [data-theme="nachtwache"] {
@@ -40,7 +41,6 @@
     --accent:            #1a6090;
     --done-bg:           #0d1828;
     --error:             #e05050;
-    --font-family:       system-ui, -apple-system, sans-serif;
 }
 
 [data-theme="pier"] {
@@ -2369,10 +2369,10 @@ button, input { font: inherit; }
     padding: 10px 12px;
     border-radius: 10px;
     cursor: pointer;
-    transition: background 0.12s ease;
+    transition: background 0.15s ease;
 }
 
-.theme-list label:hover { background: rgba(0,0,0,0.04); }
+.theme-list label:hover { background: rgba(128,128,128,0.08); }
 
 .theme-dot {
     width: 18px;
