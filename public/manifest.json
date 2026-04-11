@@ -2,16 +2,16 @@
   "name": "Ankerkladde",
   "short_name": "Ankerkladde",
   "lang": "de",
-  "id": "https://ankerkladde.benduhn.de/",
-  "start_url": "https://ankerkladde.benduhn.de/",
-  "scope": "https://ankerkladde.benduhn.de/",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#f5f0eb",
   "theme_color": "#f5f0eb",
   "icons": [
-    { "src": "https://ankerkladde.benduhn.de/icon.php?size=192", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "https://ankerkladde.benduhn.de/icon.php?size=192", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
-    { "src": "https://ankerkladde.benduhn.de/icon.php?size=512", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "https://ankerkladde.benduhn.de/icon.php?size=512", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    { "src": "icon.php?size=192", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon.php?size=192", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "icon.php?size=512", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon.php?size=512", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }

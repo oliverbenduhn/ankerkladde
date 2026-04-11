@@ -17,21 +17,24 @@ if ($appBasePath === '' || $appBasePath === '.') {
     $appBasePath = rtrim($appBasePath, '/') . '/';
 }
 
-$canonicalBaseUrl = rtrim(getCanonicalAppOrigin(), '/') . $appBasePath;
+$requestHost = getRequestHost();
+$manifestBase = isCanonicalProductionHost($requestHost)
+    ? rtrim(getCanonicalAppOrigin(), '/') . $appBasePath
+    : $appBasePath;
 
 $manifest = [
-    'id' => $canonicalBaseUrl,
+    'id' => $manifestBase,
     'name' => 'Ankerkladde',
     'short_name' => 'Ankerkladde',
     'description' => 'Mobile Kladde für Listen, Notizen, Bilder, Dateien und Links.',
     'lang' => 'de',
-    'start_url' => $canonicalBaseUrl,
-    'scope' => $canonicalBaseUrl,
+    'start_url' => $manifestBase,
+    'scope' => $manifestBase,
     'display' => 'standalone',
     'background_color' => '#f5f0eb',
     'theme_color' => '#f5f0eb',
     'share_target' => [
-        'action'  => $canonicalBaseUrl,
+        'action'  => $manifestBase,
         'method'  => 'POST',
         'enctype' => 'multipart/form-data',
         'params'  => [
@@ -48,25 +51,25 @@ $manifest = [
     ],
     'icons' => [
         [
-            'src' => $canonicalBaseUrl . 'icon.php?size=192',
+            'src' => $manifestBase . 'icon.php?size=192',
             'sizes' => '192x192',
             'type' => 'image/png',
             'purpose' => 'any',
         ],
         [
-            'src' => $canonicalBaseUrl . 'icon.php?size=192',
+            'src' => $manifestBase . 'icon.php?size=192',
             'sizes' => '192x192',
             'type' => 'image/png',
             'purpose' => 'maskable',
         ],
         [
-            'src' => $canonicalBaseUrl . 'icon.php?size=512',
+            'src' => $manifestBase . 'icon.php?size=512',
             'sizes' => '512x512',
             'type' => 'image/png',
             'purpose' => 'any',
         ],
         [
-            'src' => $canonicalBaseUrl . 'icon.php?size=512',
+            'src' => $manifestBase . 'icon.php?size=512',
             'sizes' => '512x512',
             'type' => 'image/png',
             'purpose' => 'maskable',
