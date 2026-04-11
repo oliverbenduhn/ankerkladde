@@ -285,7 +285,10 @@ async function loadSettings() {
   const apiKeySetup = document.getElementById('apiKey');
   
   if (apiUrlInput) apiUrlInput.value = state.apiUrl;
-  if (apiKeyInput) apiKeyInput.value = state.apiKey;
+  if (apiKeyInput) {
+    apiKeyInput.value = state.apiKey ? '*'.repeat(Math.min(32, state.apiKey.length)) : '';
+    apiKeyInput.dataset.hasKey = state.apiKey ? 'true' : 'false';
+  }
   if (apiUrlSetup) apiUrlSetup.value = state.apiUrl;
   if (apiKeySetup) apiKeySetup.value = state.apiKey;
   
@@ -294,8 +297,12 @@ async function loadSettings() {
 }
 
 async function saveSettings() {
-  const nextApiUrl = document.getElementById('apiUrl').value.trim().replace(/\/$/, '') || DEFAULT_API_URL;
-  const nextApiKey = document.getElementById('apiKey').value.trim();
+  const nextApiUrl = document.getElementById('apiUrlEdit')?.value.trim().replace(/\/$/, '') 
+    || document.getElementById('apiUrl')?.value.trim().replace(/\/$/, '') 
+    || DEFAULT_API_URL;
+  const nextApiKey = document.getElementById('apiKeyEdit')?.value.trim() 
+    || document.getElementById('apiKey')?.value.trim() 
+    || '';
   const changed = nextApiUrl !== state.apiUrl || nextApiKey !== state.apiKey;
 
   state.apiUrl = nextApiUrl;
@@ -309,6 +316,12 @@ async function saveSettings() {
     defaults: state.defaults,
     recentSaves: state.recentSaves,
   });
+
+  const apiKeyEditInput = document.getElementById('apiKeyEdit');
+  if (apiKeyEditInput) {
+    apiKeyEditInput.value = state.apiKey ? '*'.repeat(Math.min(32, state.apiKey.length)) : '';
+    apiKeyEditInput.dataset.hasKey = state.apiKey ? 'true' : 'false';
+  }
 
   if (!changed) {
     return;
@@ -358,6 +371,12 @@ async function verifyKey() {
       defaults: state.defaults,
       recentSaves: state.recentSaves,
     });
+
+    const apiKeyEditInput = document.getElementById('apiKeyEdit');
+    if (apiKeyEditInput) {
+      apiKeyEditInput.value = '*'.repeat(Math.min(32, state.apiKey.length));
+      apiKeyEditInput.dataset.hasKey = 'true';
+    }
 
     populateCategorySelect();
     setStatus('API-Key funktioniert.', 'ok');

@@ -89,6 +89,15 @@
     input::placeholder { color: var(--text-muted); }
     textarea { resize: vertical; min-height: 60px; }
     input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
+    input[data-has-key="true"]::after {
+      content: "✓";
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--success);
+      font-size: 14px;
+    }
     .btn {
       width: 100%;
       border: 0;
