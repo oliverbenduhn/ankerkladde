@@ -8,10 +8,11 @@ enforceCanonicalRequest();
 requireAuth();
 
 $extensionDir = dirname(__DIR__) . '/browser-extension';
+$isFirefox = isset($_GET['firefox']);
 
 try {
-    $zipData = buildExtensionZipData($extensionDir);
-    $downloadFilename = getVersionedExtensionZipFilename($extensionDir);
+    $zipData = buildExtensionZipData($extensionDir, $isFirefox);
+    $downloadFilename = getVersionedExtensionZipFilename($extensionDir, $isFirefox);
 } catch (Throwable $exception) {
     http_response_code(500);
     header('Content-Type: text/plain; charset=utf-8');

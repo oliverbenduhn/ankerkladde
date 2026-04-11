@@ -23,10 +23,10 @@ function getVersionedExtensionZipFilename(string $baseDir): string
     return sprintf('ankerkladde-extension-v%s.zip', $version);
 }
 
-function getExtensionArchiveEntries(): array
+function getExtensionArchiveEntries(bool $isFirefox = false): array
 {
     return [
-        'manifest.json',
+        $isFirefox ? 'manifest-firefox.json' : 'manifest.json',
         'popup.html',
         'popup.js',
         'background.js',
@@ -38,9 +38,16 @@ function getExtensionArchiveEntries(): array
     ];
 }
 
-function buildExtensionZipData(string $baseDir): string
+function getVersionedExtensionZipFilename(string $baseDir, bool $isFirefox = false): string
 {
-    $entries = getExtensionArchiveEntries();
+    $version = preg_replace('/[^0-9A-Za-z._-]+/', '-', getExtensionManifestVersion($baseDir)) ?? 'unknown';
+    $browser = $isFirefox ? '-firefox' : '';
+    return sprintf('ankerkladde-extension-v%s%s.zip', $version, $browser);
+}
+
+function buildExtensionZipData(string $baseDir, bool $isFirefox = false): string
+{
+    $entries = getExtensionArchiveEntries($isFirefox);
     $zipData = '';
     $centralDirectory = '';
     $offset = 0;
