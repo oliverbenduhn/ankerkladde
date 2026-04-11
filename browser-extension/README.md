@@ -1,21 +1,36 @@
 # Ankerkladde Extension
 
-Chrome-Erweiterung zum Speichern von Links, Bildern und Dateien direkt nach Ankerkladde.
+Browser-Erweiterung zum Speichern von Links, Bildern und Dateien direkt nach Ankerkladde.
+
+## Unterstützte Browser
+
+- **Chrome** - Diese Extension
+- **Edge** - Die gleiche Chrome-Extension funktioniert auch (Edge basiert auf Chromium)
+- **Firefox** - Separate Firefox-Version (`ankerkladde-extension-firefox.zip`)
 
 ## Installation
 
-1. In Chrome `chrome://extensions` öffnen.
+### Chrome / Edge
+
+1. In Chrome/Edge `chrome://extensions` öffnen.
 2. Oben rechts `Entwicklermodus` aktivieren.
 3. `Entpackte Erweiterung laden` klicken.
 4. Den Ordner `browser-extension/` in diesem Projekt auswählen.
 
+### Firefox
+
+1. In Firefox `about:addons` öffnen.
+2. Das Zahnrad-Symbol klicken → `Add-on aus Datei installieren`.
+3. Die Datei `browser-extension/ankerkladde-extension-firefox.zip` auswählen.
+
 ### ZIP bauen
 
 1. Im Projektordner `browser-extension/` öffnen.
-2. `./build-extension.sh` ausführen.
-3. Die Datei `browser-extension/ankerkladde-extension.zip` entsteht automatisch.
+2. `./build-extension.sh` ausführen für Chrome/Edge.
+3. `php build-firefox.php` ausführen für Firefox.
+4. Die ZIP-Datei entsteht automatisch.
 
-Das Skript erzeugt zuerst die PNG-Icons und baut danach die ZIP-Datei ohne externe `zip`-Abhängigkeit.
+Das Skript erzeugt zuerst die PNG-Icons und baut danach die ZIP-Datei ohne externe `zip`-Abhängigkeit. Die Versionsnummer wird aus `manifest.json` übernommen.
 
 ## Vorbereitung in Ankerkladde
 

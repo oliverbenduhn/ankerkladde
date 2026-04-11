@@ -363,14 +363,14 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
             </div>
             <div class="settings-actions" style="gap: 0.75rem; flex-wrap: wrap;">
                 <button type="button" class="settings-save" id="copy-api-key">Kopieren</button>
-                <a href="<?= htmlspecialchars(appPath('extension-download.php'), ENT_QUOTES, 'UTF-8') ?>" class="settings-link">Chrome-Erweiterung laden</a>
+                <a href="<?= htmlspecialchars(appPath('extension-download.php'), ENT_QUOTES, 'UTF-8') ?>" class="settings-link">Chrome/Edge-Erweiterung laden</a>
                 <form method="post" action="<?= htmlspecialchars(appPath('settings.php'), ENT_QUOTES, 'UTF-8') ?>" class="settings-form" style="margin:0;">
                     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
                     <input type="hidden" name="action" value="regenerate_api_key">
                     <button type="submit" class="settings-link" formnovalidate>Neu erzeugen</button>
                 </form>
             </div>
-            <p class="settings-copy">Wenn sich die Erweiterung spaeter aendert, hier einfach erneut herunterladen und in Chrome neu laden.</p>
+            <p class="settings-copy">Wenn sich die Erweiterung spaeter aendert, hier einfach erneut herunterladen und in Chrome/Edge neu laden.</p>
         </div>
     </section>
 

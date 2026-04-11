@@ -11,6 +11,7 @@ $extensionDir = dirname(__DIR__) . '/browser-extension';
 
 try {
     $zipData = buildExtensionZipData($extensionDir);
+    $downloadFilename = getVersionedExtensionZipFilename($extensionDir);
 } catch (Throwable $exception) {
     http_response_code(500);
     header('Content-Type: text/plain; charset=utf-8');
@@ -20,7 +21,7 @@ try {
 
 header('Content-Type: application/zip');
 header('Content-Length: ' . strlen($zipData));
-header('Content-Disposition: attachment; filename="ankerkladde-extension.zip"');
+header('Content-Disposition: attachment; filename="' . $downloadFilename . '"');
 header('Cache-Control: no-store');
 header('X-Content-Type-Options: nosniff');
 

@@ -4,7 +4,7 @@ declare(strict_types=1);
 require __DIR__ . '/build-lib.php';
 
 $baseDir = __DIR__;
-$outputZip = $baseDir . '/ankerkladde-extension.zip';
+$outputZip = $baseDir . '/' . getVersionedExtensionZipFilename($baseDir);
 
 try {
     writeExtensionZipFile($baseDir, $outputZip);
