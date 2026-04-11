@@ -729,9 +729,7 @@ function migrateLegacyPreferencesToCategories(PDO $db): void
         }
 
         $normalizedPreferences = normalizeUserPreferences([
-            'mode' => $decoded['mode'] ?? null,
-            'tabs_hidden' => $decoded['tabs_hidden'] ?? false,
-            'install_banner_dismissed' => $decoded['install_banner_dismissed'] ?? false,
+            ...$decoded,
             'last_category_id' => $decoded['last_category_id'] ?? $lastCategoryId,
         ]);
 
