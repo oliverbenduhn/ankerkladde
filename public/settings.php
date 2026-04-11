@@ -302,6 +302,52 @@ $themeColor = getThemeColor($effectiveTheme);
     <section class="settings-section">
         <form method="post" action="<?= htmlspecialchars(appPath('settings.php'), ENT_QUOTES, 'UTF-8') ?>" class="settings-form">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
+            <input type="hidden" name="action" value="save_theme">
+            <div class="settings-block">
+                <h2>Erscheinungsbild</h2>
+                <p class="settings-copy">In der App-Leiste schaltest du zwischen Hell, Dunkel und Auto um. Hier legst du fest, welche Themes dabei verwendet werden.</p>
+                <div class="theme-grid">
+                    <div>
+                        <h3 class="theme-group-title">Light Theme</h3>
+                        <div class="theme-list">
+                            <label>
+                                <span class="theme-dot" style="background:#1a6090;"></span>
+                                Hafenblau
+                                <input type="radio" name="light_theme" value="hafenblau" <?= $preferences['light_theme'] === 'hafenblau' ? 'checked' : '' ?>>
+                            </label>
+                            <label>
+                                <span class="theme-dot" style="background:#c8b89a;"></span>
+                                Parchment
+                                <input type="radio" name="light_theme" value="parchment" <?= $preferences['light_theme'] === 'parchment' ? 'checked' : '' ?>>
+                            </label>
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="theme-group-title">Dark Theme</h3>
+                        <div class="theme-list">
+                            <label>
+                                <span class="theme-dot" style="background:#162338; border-color:rgba(255,255,255,0.15);"></span>
+                                Nachtwache
+                                <input type="radio" name="dark_theme" value="nachtwache" <?= $preferences['dark_theme'] === 'nachtwache' ? 'checked' : '' ?>>
+                            </label>
+                            <label>
+                                <span class="theme-dot" style="background:#0f1419; border-color:rgba(255,255,255,0.15);"></span>
+                                Pier bei Nacht
+                                <input type="radio" name="dark_theme" value="pier" <?= $preferences['dark_theme'] === 'pier' ? 'checked' : '' ?>>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="settings-actions">
+                <button type="submit" class="settings-save">Themes speichern</button>
+            </div>
+        </form>
+    </section>
+
+    <section class="settings-section">
+        <form method="post" action="<?= htmlspecialchars(appPath('settings.php'), ENT_QUOTES, 'UTF-8') ?>" class="settings-form">
+            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
             <input type="hidden" name="action" value="create_category">
             <div class="settings-block">
                 <h2>Neue Kategorie</h2>
@@ -423,52 +469,6 @@ $themeColor = getThemeColor($effectiveTheme);
                 <?php endforeach; ?>
             </div>
         </div>
-    </section>
-
-    <section class="settings-section">
-        <form method="post" action="<?= htmlspecialchars(appPath('settings.php'), ENT_QUOTES, 'UTF-8') ?>" class="settings-form">
-            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
-            <input type="hidden" name="action" value="save_theme">
-            <div class="settings-block">
-                <h2>Erscheinungsbild</h2>
-                <p class="settings-copy">In der App-Leiste schaltest du zwischen Hell, Dunkel und Auto um. Hier legst du fest, welche Themes dabei verwendet werden.</p>
-                <div class="theme-grid">
-                    <div>
-                        <h3 class="theme-group-title">Light Theme</h3>
-                        <div class="theme-list">
-                            <label>
-                                <span class="theme-dot" style="background:#c8b89a;"></span>
-                                Parchment
-                                <input type="radio" name="light_theme" value="parchment" <?= $preferences['light_theme'] === 'parchment' ? 'checked' : '' ?>>
-                            </label>
-                            <label>
-                                <span class="theme-dot" style="background:#1a6090;"></span>
-                                Hafenblau
-                                <input type="radio" name="light_theme" value="hafenblau" <?= $preferences['light_theme'] === 'hafenblau' ? 'checked' : '' ?>>
-                            </label>
-                        </div>
-                    </div>
-                    <div>
-                        <h3 class="theme-group-title">Dark Theme</h3>
-                        <div class="theme-list">
-                            <label>
-                                <span class="theme-dot" style="background:#162338; border-color:rgba(255,255,255,0.15);"></span>
-                                Nachtwache
-                                <input type="radio" name="dark_theme" value="nachtwache" <?= $preferences['dark_theme'] === 'nachtwache' ? 'checked' : '' ?>>
-                            </label>
-                            <label>
-                                <span class="theme-dot" style="background:#0f1419; border-color:rgba(255,255,255,0.15);"></span>
-                                Pier bei Nacht
-                                <input type="radio" name="dark_theme" value="pier" <?= $preferences['dark_theme'] === 'pier' ? 'checked' : '' ?>>
-                            </label>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="settings-actions">
-                <button type="submit" class="settings-save">Themes speichern</button>
-            </div>
-        </form>
     </section>
 
     <section class="settings-section settings-section-secondary">

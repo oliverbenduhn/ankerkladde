@@ -110,7 +110,7 @@ const DEFAULT_PREFERENCES = {
     last_category_id: null,
     install_banner_dismissed: false,
     theme_mode: 'auto',
-    light_theme: 'parchment',
+    light_theme: 'hafenblau',
     dark_theme: 'nachtwache',
 };
 
@@ -172,7 +172,7 @@ function normalizePreferences(preferences) {
         last_category_id: Number.isInteger(Number(preferences?.last_category_id)) ? Number(preferences.last_category_id) : null,
         install_banner_dismissed: Boolean(preferences?.install_banner_dismissed),
         theme_mode: THEME_MODE_ORDER.includes(preferences?.theme_mode) ? preferences.theme_mode : 'auto',
-        light_theme: ['parchment', 'hafenblau'].includes(preferences?.light_theme) ? preferences.light_theme : 'parchment',
+        light_theme: ['parchment', 'hafenblau'].includes(preferences?.light_theme) ? preferences.light_theme : 'hafenblau',
         dark_theme: ['nachtwache', 'pier'].includes(preferences?.dark_theme) ? preferences.dark_theme : 'nachtwache',
     };
 
@@ -204,9 +204,9 @@ function getEffectiveTheme(preferences = userPreferences) {
     const themeMode = preferences.theme_mode || 'auto';
     const prefersDark = Boolean(themeMediaQuery?.matches);
 
-    if (themeMode === 'light') return preferences.light_theme || 'parchment';
+    if (themeMode === 'light') return preferences.light_theme || 'hafenblau';
     if (themeMode === 'dark') return preferences.dark_theme || 'nachtwache';
-    return prefersDark ? (preferences.dark_theme || 'nachtwache') : (preferences.light_theme || 'parchment');
+    return prefersDark ? (preferences.dark_theme || 'nachtwache') : (preferences.light_theme || 'hafenblau');
 }
 
 function updateThemeModeButtons() {

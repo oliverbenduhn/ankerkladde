@@ -5,7 +5,7 @@ function getThemePreferenceDefaults(): array
 {
     return [
         'theme_mode' => 'auto',
-        'light_theme' => 'parchment',
+        'light_theme' => 'hafenblau',
         'dark_theme' => 'nachtwache',
     ];
 }
