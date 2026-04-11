@@ -357,9 +357,10 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
             </div>
         </form>
     </section>
-    <?php endif; ?>
 
-    <?php if (($currentTab ?? 'app') === 'extension'): ?>
+    <section class="settings-section">
+        <div class="settings-block">
+            <h2>Kategorien</h2>
     <section class="settings-section">
         <div class="settings-block">
             <h2>Browser-Extension</h2>
@@ -531,6 +532,12 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
 
             <div class="settings-actions">
                 <button type="submit" class="settings-save">Anzeige speichern</button>
+            </div>
+        </form>
+    </section>
+    <?php endif; ?>
+
+    <?php if (($currentTab ?? 'app') === 'extension'): ?>
             </div>
         </form>
     </section>
