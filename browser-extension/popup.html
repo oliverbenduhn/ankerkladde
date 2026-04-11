@@ -315,22 +315,5 @@
   </div>
 
   <script src="popup.js"></script>
-  <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      const tabs = document.querySelectorAll('.tab-btn');
-      const contents = document.querySelectorAll('.tab-content');
-      
-      tabs.forEach(btn => {
-        btn.addEventListener('click', () => {
-          tabs.forEach(t => t.classList.remove('active'));
-          contents.forEach(c => c.classList.remove('active'));
-          btn.classList.add('active');
-          const tabId = 'tab-' + btn.dataset.tab;
-          const content = document.getElementById(tabId);
-          if (content) content.classList.add('active');
-        });
-      });
-    });
-  </script>
 </body>
 </html>

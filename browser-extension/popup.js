@@ -851,6 +851,16 @@ document.getElementById('savePageBtn').addEventListener('click', async () => {
 const setupScreen = document.getElementById('setupScreen');
 const mainContent = document.querySelector('.content');
 
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    btn.classList.add('active');
+    const content = document.getElementById('tab-' + btn.dataset.tab);
+    if (content) content.classList.add('active');
+  });
+});
+
 Object.entries(DEFAULT_CATEGORY_KEYS).forEach(([type, elementId]) => {
   document.getElementById(elementId).addEventListener('change', event => {
     void saveDefaultCategory(type, event.target.value);
