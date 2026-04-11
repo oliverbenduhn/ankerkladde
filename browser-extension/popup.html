@@ -87,7 +87,40 @@
     .section-fields.visible { display: grid; gap: 10px; }
     .inline-row { display: flex; gap: 8px; }
     .inline-row > * { flex: 1; }
+    .quick-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
     .hint { margin: 0; font-size: 12px; color: #6b7280; }
+    .history-list { display: grid; gap: 8px; margin-top: 10px; }
+    .history-item {
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      padding: 8px 10px;
+      background: #f8fafc;
+      font-size: 12px;
+      color: #334155;
+    }
+    .history-item strong {
+      display: block;
+      margin-bottom: 4px;
+      color: #0f172a;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .history-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .history-text {
+      min-width: 0;
+      flex: 1;
+    }
+    .history-item .btn.small {
+      width: auto;
+      min-width: 74px;
+      flex-shrink: 0;
+    }
   </style>
 </head>
 <body>
@@ -106,6 +139,18 @@
           <input type="password" id="apiKey" placeholder="Aus den Einstellungen kopieren">
         </div>
         <button type="button" class="btn small" id="verifyBtn">Prüfen</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row" style="margin-bottom: 8px;">
+        <label>Schnell speichern</label>
+      </div>
+      <div class="quick-actions">
+        <button class="btn small" id="quickSaveLastBtn">In letzte Kategorie</button>
+        <button class="btn small secondary" id="quickSaveLinkBtn">Als Link</button>
+        <button class="btn small secondary" id="quickSaveNoteBtn">Als Notiz</button>
+        <button class="btn small secondary" id="quickFillBtn">Tab-Daten einfüllen</button>
       </div>
     </div>
 
@@ -154,12 +199,47 @@
       <button class="btn" id="saveManualBtn" style="margin-top: 12px;">Speichern</button>
     </details>
 
+    <details class="card">
+      <summary>Standard-Kategorien</summary>
+      <div class="row" style="margin-top: 12px;">
+        <label for="defaultLinksCategory">Links</label>
+        <select id="defaultLinksCategory">
+          <option value="">Automatisch</option>
+        </select>
+      </div>
+      <div class="row">
+        <label for="defaultNotesCategory">Notizen</label>
+        <select id="defaultNotesCategory">
+          <option value="">Automatisch</option>
+        </select>
+      </div>
+      <div class="row">
+        <label for="defaultImagesCategory">Bilder</label>
+        <select id="defaultImagesCategory">
+          <option value="">Automatisch</option>
+        </select>
+      </div>
+      <div class="row">
+        <label for="defaultFilesCategory">Dateien</label>
+        <select id="defaultFilesCategory">
+          <option value="">Automatisch</option>
+        </select>
+      </div>
+    </details>
+
     <button class="btn" id="savePageBtn">Aktuelle Seite speichern</button>
 
     <details class="card">
       <summary>Dateien ablegen</summary>
       <div id="dropzone" class="dropzone">Dateien hierher ziehen</div>
       <p class="hint">Bilder landen im Bilder-Bereich, andere Dateien im Dateien-Bereich.</p>
+    </details>
+
+    <details class="card">
+      <summary>Zuletzt gespeichert</summary>
+      <div id="recentSaves" class="history-list">
+        <p class="hint">Noch keine Aktionen gespeichert.</p>
+      </div>
     </details>
   </div>
 

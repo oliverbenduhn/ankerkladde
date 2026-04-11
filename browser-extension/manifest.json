@@ -20,10 +20,17 @@
   "permissions": [
     "activeTab",
     "contextMenus",
+    "notifications",
     "storage",
     "tabs"
   ],
   "host_permissions": [
+    "https://ankerkladde.benduhn.de/*",
+    "http://127.0.0.1:*/*",
+    "http://localhost:*/*",
+    "http://[::1]:*/*"
+  ],
+  "optional_host_permissions": [
     "https://*/*",
     "http://*/*"
   ],

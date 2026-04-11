@@ -47,11 +47,73 @@ function createContextMenus() {
   });
 }
 
+function notify(title, message) {
+  chrome.notifications.create({
+    type: 'basic',
+    iconUrl: 'icons/icon128.png',
+    title,
+    message,
+  });
+}
+
+function normalizeUrl(rawUrl) {
+  const value = String(rawUrl || '').trim();
+  if (!/^https?:\/\//i.test(value)) {
+    return value;
+  }
+
+  try {
+    const url = new URL(value);
+    const trackingParams = [
+      'fbclid',
+      'gclid',
+      'mc_cid',
+      'mc_eid',
+      'ref',
+      'ref_src',
+      'si',
+    ];
+
+    for (const key of [...url.searchParams.keys()]) {
+      if (key.toLowerCase().startsWith('utm_') || trackingParams.includes(key.toLowerCase())) {
+        url.searchParams.delete(key);
+      }
+    }
+
+    url.hash = '';
+
+    const normalized = url.toString();
+    return normalized.endsWith('/') && url.pathname === '/' && !url.search ? normalized.slice(0, -1) : normalized;
+  } catch (error) {
+    return value;
+  }
+}
+
+function originPatternForUrl(rawUrl) {
+  const url = new URL(rawUrl);
+  return `${url.origin}/*`;
+}
+
+async function ensureOriginAccess(rawUrl) {
+  const originPattern = originPatternForUrl(rawUrl);
+  const alreadyGranted = await chrome.permissions.contains({ origins: [originPattern] });
+  if (alreadyGranted) {
+    return;
+  }
+
+  const granted = await chrome.permissions.request({ origins: [originPattern] });
+  if (!granted) {
+    throw new Error('Zugriff auf die Bildquelle wurde nicht erlaubt.');
+  }
+}
+
 async function getSettings() {
-  const result = await chrome.storage.local.get(['apiUrl', 'apiKey']);
+  const result = await chrome.storage.local.get(['apiUrl', 'apiKey', 'defaults', 'recentSaves']);
   return {
     apiUrl: (result.apiUrl || DEFAULT_API_URL).replace(/\/$/, ''),
     apiKey: result.apiKey || '',
+    defaults: result.defaults || {},
+    recentSaves: Array.isArray(result.recentSaves) ? result.recentSaves : [],
   };
 }
 
@@ -82,7 +144,7 @@ async function requestJson(apiUrl, apiKey, action, options = {}) {
 }
 
 async function loadContext() {
-  const { apiUrl, apiKey } = await getSettings();
+  const { apiUrl, apiKey, defaults, recentSaves } = await getSettings();
   const payload = await requestJson(apiUrl, apiKey, 'categories_list');
   const categories = Array.isArray(payload.categories) ? payload.categories : [];
   const visibleCategories = categories.filter(category => Number(category.is_hidden) !== 1);
@@ -93,6 +155,8 @@ async function loadContext() {
     categories,
     visibleCategories,
     preferences: payload.preferences || {},
+    defaults,
+    recentSaves,
   };
 }
 
@@ -110,10 +174,30 @@ function chooseCategory(categories, preferences, type) {
   }
 
   if (type) {
+    const defaults = preferences.__defaults || {};
+    const configuredId = Number(defaults[type]);
+    if (Number.isInteger(configuredId) && configuredId > 0) {
+      const configured = categories.find(category => Number(category.id) === configuredId && category.type === type);
+      if (configured) {
+        return configured;
+      }
+    }
+
     return categories.find(category => category.type === type) || null;
   }
 
   return categories[0] || null;
+}
+
+async function recordRecentSave(context, entry) {
+  const stampedEntry = {
+    ...entry,
+    at: new Date().toISOString(),
+  };
+
+  const nextRecent = [stampedEntry, ...(context.recentSaves || [])].slice(0, 5);
+  await chrome.storage.local.set({ recentSaves: nextRecent });
+  context.recentSaves = nextRecent;
 }
 
 async function rememberLastCategory(apiUrl, apiKey, categoryId) {
@@ -125,9 +209,20 @@ async function rememberLastCategory(apiUrl, apiKey, categoryId) {
 }
 
 async function addItem(apiUrl, apiKey, categoryId, values) {
+  const normalizedName = /^https?:\/\//i.test(String(values.name || ''))
+    ? normalizeUrl(values.name)
+    : values.name;
+
+  if (/^https?:\/\//i.test(String(normalizedName || ''))) {
+    const duplicate = await findDuplicateLink(apiUrl, apiKey, categoryId, normalizedName);
+    if (duplicate) {
+      throw new Error('Link ist in dieser Kategorie bereits vorhanden.');
+    }
+  }
+
   const formData = new FormData();
   formData.append('category_id', String(categoryId));
-  formData.append('name', values.name);
+  formData.append('name', normalizedName);
 
   if (values.content) {
     formData.append('content', values.content);
@@ -145,7 +240,23 @@ async function addItem(apiUrl, apiKey, categoryId, values) {
   });
 }
 
+async function findDuplicateLink(apiUrl, apiKey, categoryId, url) {
+  const normalizedUrl = String(url || '').trim();
+  if (normalizedUrl.length < 8) {
+    return null;
+  }
+
+  const payload = await requestJson(apiUrl, apiKey, `search&q=${encodeURIComponent(normalizedUrl)}`);
+  const items = Array.isArray(payload.items) ? payload.items : [];
+  return items.find(item =>
+    Number(item.category_id) === Number(categoryId) &&
+    String(item.name || '').trim() === normalizedUrl
+  ) || null;
+}
+
 async function uploadRemoteFile(apiUrl, apiKey, categoryId, url, fallbackName) {
+  await ensureOriginAccess(url);
+
   const response = await fetch(url);
   if (!response.ok) {
     throw new Error('Datei konnte nicht geladen werden.');
@@ -169,9 +280,18 @@ async function uploadRemoteFile(apiUrl, apiKey, categoryId, url, fallbackName) {
 async function handleContextMenuClick(info, tab) {
   try {
     const context = await loadContext();
+    context.preferences = { ...context.preferences, __defaults: context.defaults };
 
     if (info.menuItemId === MENU_IDS.savePage) {
       await saveCurrentPage(context, tab);
+      await recordRecentSave(context, {
+        kind: 'Seite',
+        actionType: 'page',
+        title: (tab?.title || 'Unbenannte Seite').slice(0, 120),
+        categoryId: chooseCategory(context.visibleCategories, context.preferences, null)?.id || null,
+        categoryName: chooseCategory(context.visibleCategories, context.preferences, null)?.name || '',
+      });
+      notify('Ankerkladde', 'Seite gespeichert.');
       return;
     }
 
@@ -182,10 +302,18 @@ async function handleContextMenuClick(info, tab) {
       }
 
       await addItem(context.apiUrl, context.apiKey, category.id, {
-        name: info.linkUrl,
+        name: normalizeUrl(info.linkUrl),
         content: '',
       });
       await rememberLastCategory(context.apiUrl, context.apiKey, category.id);
+      await recordRecentSave(context, {
+        kind: 'Link',
+        actionType: 'link',
+        title: normalizeUrl(info.linkUrl),
+        categoryId: category.id,
+        categoryName: category.name,
+      });
+      notify('Ankerkladde', 'Link gespeichert.');
       return;
     }
 
@@ -197,6 +325,14 @@ async function handleContextMenuClick(info, tab) {
 
       await uploadRemoteFile(context.apiUrl, context.apiKey, category.id, info.srcUrl, 'bild');
       await rememberLastCategory(context.apiUrl, context.apiKey, category.id);
+      await recordRecentSave(context, {
+        kind: 'Bild',
+        actionType: 'image',
+        title: 'Bild aus Browser',
+        categoryId: category.id,
+        categoryName: category.name,
+      });
+      notify('Ankerkladde', 'Bild gespeichert.');
       return;
     }
 
@@ -207,15 +343,25 @@ async function handleContextMenuClick(info, tab) {
       }
 
       const pageUrl = tab?.url || '';
-      const content = pageUrl ? `${info.selectionText}\n\nQuelle: ${pageUrl}` : info.selectionText;
+      const normalizedPageUrl = normalizeUrl(pageUrl);
+      const content = normalizedPageUrl ? `${info.selectionText}\n\nQuelle: ${normalizedPageUrl}` : info.selectionText;
       await addItem(context.apiUrl, context.apiKey, category.id, {
         name: (tab?.title || 'Markierter Text').slice(0, 120),
         content,
       });
       await rememberLastCategory(context.apiUrl, context.apiKey, category.id);
+      await recordRecentSave(context, {
+        kind: 'Notiz',
+        actionType: 'note',
+        title: (tab?.title || 'Markierter Text').slice(0, 120),
+        categoryId: category.id,
+        categoryName: category.name,
+      });
+      notify('Ankerkladde', 'Notiz gespeichert.');
     }
   } catch (error) {
     console.error('Kontextmenü-Aktion fehlgeschlagen:', error);
+    notify('Ankerkladde', error instanceof Error ? error.message : 'Speichern fehlgeschlagen.');
   }
 }
 
@@ -235,8 +381,8 @@ async function saveCurrentPage(context, tab) {
   const isLinksCategory = category.type === 'links';
 
   await addItem(context.apiUrl, context.apiKey, category.id, {
-    name: isNotesCategory ? title : (isLinksCategory ? targetTab.url : title),
-    content: isNotesCategory ? targetTab.url : '',
+    name: isNotesCategory ? title : (isLinksCategory ? normalizeUrl(targetTab.url) : title),
+    content: isNotesCategory ? normalizeUrl(targetTab.url) : '',
   });
   await rememberLastCategory(context.apiUrl, context.apiKey, category.id);
 }
@@ -244,8 +390,19 @@ async function saveCurrentPage(context, tab) {
 async function saveCurrentPageFromActiveTab() {
   try {
     const context = await loadContext();
+    context.preferences = { ...context.preferences, __defaults: context.defaults };
+    const targetCategory = chooseCategory(context.visibleCategories, context.preferences, null);
     await saveCurrentPage(context, null);
+    await recordRecentSave(context, {
+      kind: 'Seite',
+      actionType: 'page',
+      title: 'Aktuelle Seite',
+      categoryId: targetCategory?.id || null,
+      categoryName: targetCategory?.name || '',
+    });
+    notify('Ankerkladde', 'Seite gespeichert.');
   } catch (error) {
     console.error('Shortcut-Speicherung fehlgeschlagen:', error);
+    notify('Ankerkladde', error instanceof Error ? error.message : 'Speichern fehlgeschlagen.');
   }
 }

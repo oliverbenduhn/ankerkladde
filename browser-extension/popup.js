@@ -7,6 +7,15 @@ const state = {
   preferences: {},
   currentTab: null,
   busy: false,
+  defaults: {},
+  recentSaves: [],
+};
+
+const DEFAULT_CATEGORY_KEYS = {
+  links: 'defaultLinksCategory',
+  notes: 'defaultNotesCategory',
+  images: 'defaultImagesCategory',
+  files: 'defaultFilesCategory',
 };
 
 function setStatus(message, type = 'ok') {
@@ -25,6 +34,39 @@ function setBusy(isBusy) {
 
 function authHeaders() {
   return state.apiKey ? { 'X-API-Key': state.apiKey } : {};
+}
+
+function normalizeUrl(rawUrl) {
+  const value = String(rawUrl || '').trim();
+  if (!/^https?:\/\//i.test(value)) {
+    return value;
+  }
+
+  try {
+    const url = new URL(value);
+    const trackingParams = [
+      'fbclid',
+      'gclid',
+      'mc_cid',
+      'mc_eid',
+      'ref',
+      'ref_src',
+      'si',
+    ];
+
+    for (const key of [...url.searchParams.keys()]) {
+      if (key.toLowerCase().startsWith('utm_') || trackingParams.includes(key.toLowerCase())) {
+        url.searchParams.delete(key);
+      }
+    }
+
+    url.hash = '';
+
+    const normalized = url.toString();
+    return normalized.endsWith('/') && url.pathname === '/' && !url.search ? normalized.slice(0, -1) : normalized;
+  } catch (error) {
+    return value;
+  }
 }
 
 async function requestJson(url, options = {}) {
@@ -70,6 +112,18 @@ function getPreferredCategory() {
   return getVisibleCategories()[0] || null;
 }
 
+function getVisibleCategoryByType(type) {
+  const configuredId = Number(state.defaults?.[type]);
+  if (Number.isInteger(configuredId) && configuredId > 0) {
+    const configured = getVisibleCategories().find(category => Number(category.id) === configuredId && category.type === type);
+    if (configured) {
+      return configured;
+    }
+  }
+
+  return getVisibleCategories().find(category => category.type === type) || null;
+}
+
 function populateCategorySelect() {
   const select = document.getElementById('section');
   const visibleCategories = getVisibleCategories();
@@ -95,6 +149,31 @@ function populateCategorySelect() {
   }
 
   updateFieldVisibility();
+  populateDefaultCategorySelects();
+}
+
+function populateDefaultCategorySelects() {
+  Object.entries(DEFAULT_CATEGORY_KEYS).forEach(([type, elementId]) => {
+    const select = document.getElementById(elementId);
+    if (!select) {
+      return;
+    }
+
+    const currentValue = String(state.defaults?.[type] || '');
+    select.innerHTML = '<option value="">Automatisch</option>';
+
+    getVisibleCategories()
+      .filter(category => category.type === type)
+      .forEach(category => {
+        const option = document.createElement('option');
+        option.value = String(category.id);
+        option.textContent = `${category.icon || ''} ${category.name}`.trim();
+        if (String(category.id) === currentValue) {
+          option.selected = true;
+        }
+        select.appendChild(option);
+      });
+  });
 }
 
 function getCurrentSectionFields() {
@@ -135,7 +214,7 @@ function getTabTitle() {
 }
 
 function getTabUrl() {
-  return state.currentTab?.url || '';
+  return normalizeUrl(state.currentTab?.url || '');
 }
 
 function setInputIfEmpty(id, value) {
@@ -192,15 +271,18 @@ async function loadCurrentTab() {
 }
 
 async function loadSettings() {
-  const saved = await chrome.storage.local.get(['apiUrl', 'apiKey', 'categories', 'preferences']);
+  const saved = await chrome.storage.local.get(['apiUrl', 'apiKey', 'categories', 'preferences', 'defaults', 'recentSaves']);
   state.apiUrl = (saved.apiUrl || DEFAULT_API_URL).replace(/\/$/, '');
   state.apiKey = saved.apiKey || '';
   state.categories = Array.isArray(saved.categories) ? saved.categories : [];
   state.preferences = saved.preferences || {};
+  state.defaults = saved.defaults || {};
+  state.recentSaves = Array.isArray(saved.recentSaves) ? saved.recentSaves : [];
 
   document.getElementById('apiUrl').value = state.apiUrl;
   document.getElementById('apiKey').value = state.apiKey;
   populateCategorySelect();
+  renderRecentSaves();
 }
 
 async function saveSettings() {
@@ -216,6 +298,8 @@ async function saveSettings() {
     apiKey: state.apiKey,
     categories: state.categories,
     preferences: state.preferences,
+    defaults: state.defaults,
+    recentSaves: state.recentSaves,
   });
 
   if (!changed) {
@@ -263,6 +347,8 @@ async function verifyKey() {
       apiKey: state.apiKey,
       categories: state.categories,
       preferences: state.preferences,
+      defaults: state.defaults,
+      recentSaves: state.recentSaves,
     });
 
     populateCategorySelect();
@@ -287,6 +373,8 @@ async function loadCategories() {
     await chrome.storage.local.set({
       categories: state.categories,
       preferences: state.preferences,
+      defaults: state.defaults,
+      recentSaves: state.recentSaves,
     });
 
     populateCategorySelect();
@@ -302,9 +390,136 @@ function clearManualFields() {
   });
 }
 
+function isRepeatableRecentSave(entry) {
+  return ['page', 'link', 'note', 'item'].includes(String(entry?.actionType || ''));
+}
+
+async function recordRecentSave(entry) {
+  const stampedEntry = {
+    ...entry,
+    at: new Date().toISOString(),
+  };
+
+  state.recentSaves = [stampedEntry, ...state.recentSaves].slice(0, 5);
+  await chrome.storage.local.set({ recentSaves: state.recentSaves });
+  renderRecentSaves();
+}
+
+function renderRecentSaves() {
+  const list = document.getElementById('recentSaves');
+  if (!list) {
+    return;
+  }
+
+  list.innerHTML = '';
+  if (state.recentSaves.length === 0) {
+    list.innerHTML = '<p class="hint">Noch keine Aktionen gespeichert.</p>';
+    return;
+  }
+
+  state.recentSaves.forEach(entry => {
+    const item = document.createElement('div');
+    item.className = 'history-item';
+    const title = document.createElement('strong');
+    title.textContent = entry.title || 'Unbenannt';
+    const meta = document.createElement('div');
+    meta.className = 'history-meta';
+    const text = document.createElement('div');
+    text.className = 'history-text';
+    text.textContent = `${entry.kind || 'Eintrag'} in ${entry.categoryName || 'Unbekannt'} • ${new Date(entry.at).toLocaleString('de-DE')}`;
+    meta.appendChild(text);
+
+    if (isRepeatableRecentSave(entry)) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'btn small secondary';
+      button.textContent = 'Nochmal';
+      button.addEventListener('click', () => {
+        void repeatRecentSave(entry);
+      });
+      meta.appendChild(button);
+    }
+
+    item.appendChild(title);
+    item.appendChild(meta);
+    list.appendChild(item);
+  });
+}
+
+async function saveDefaultCategory(type, categoryId) {
+  const normalizedId = Number(categoryId);
+  if (Number.isInteger(normalizedId) && normalizedId > 0) {
+    state.defaults = { ...state.defaults, [type]: normalizedId };
+  } else {
+    const nextDefaults = { ...state.defaults };
+    delete nextDefaults[type];
+    state.defaults = nextDefaults;
+  }
+
+  await chrome.storage.local.set({ defaults: state.defaults });
+}
+
+function selectCategory(categoryId) {
+  if (!categoryId) {
+    return null;
+  }
+
+  const category = getVisibleCategories().find(entry => Number(entry.id) === Number(categoryId)) || null;
+  if (!category) {
+    return null;
+  }
+
+  document.getElementById('section').value = String(category.id);
+  updateFieldVisibility();
+  return category;
+}
+
+async function repeatRecentSave(entry) {
+  const category = selectCategory(entry.categoryId);
+  if (!category) {
+    setStatus('Kategorie aus dem Verlauf ist nicht mehr verfügbar.', 'err');
+    return;
+  }
+
+  if (!state.currentTab?.url) {
+    setStatus('Aktiver Tab konnte nicht gelesen werden.', 'err');
+    return;
+  }
+
+  setBusy(true);
+  try {
+    const title = getTabTitle();
+    const url = getTabUrl();
+
+    if (entry.actionType === 'link') {
+      await addItem(category, { name: url, content: '', quantity: '', dueDate: '' });
+      setStatus('Link erneut gespeichert.', 'ok');
+    } else if (entry.actionType === 'note') {
+      await addItem(category, { name: title, content: url, quantity: '', dueDate: '' });
+      setStatus('Notiz erneut gespeichert.', 'ok');
+    } else {
+      await addItem(category, { name: title, content: '', quantity: '', dueDate: '' });
+      setStatus('Eintrag erneut gespeichert.', 'ok');
+    }
+  } catch (error) {
+    setStatus(error.message, 'err');
+  } finally {
+    setBusy(false);
+  }
+}
+
 async function addItem(category, values) {
+  const normalizedName = category.type === 'links' ? normalizeUrl(values.name) : values.name;
+
+  if (category.type === 'links') {
+    const duplicate = await findDuplicateLink(normalizedName, category.id);
+    if (duplicate) {
+      throw new Error('Link ist in dieser Kategorie bereits vorhanden.');
+    }
+  }
+
   const formData = new FormData();
-  formData.append('name', values.name);
+  formData.append('name', normalizedName);
   formData.append('category_id', String(category.id));
 
   if (values.content) {
@@ -323,6 +538,27 @@ async function addItem(category, values) {
   });
 
   await rememberLastCategory(category.id);
+  await recordRecentSave({
+    kind: category.type === 'links' ? 'Link' : category.type === 'notes' ? 'Notiz' : 'Eintrag',
+    actionType: category.type === 'links' ? 'link' : category.type === 'notes' ? 'note' : 'item',
+    title: normalizedName,
+    categoryId: category.id,
+    categoryName: category.name,
+  });
+}
+
+async function findDuplicateLink(url, categoryId) {
+  const normalizedUrl = String(url || '').trim();
+  if (normalizedUrl.length < 8) {
+    return null;
+  }
+
+  const payload = await requestJson(`${state.apiUrl}/api.php?action=search&q=${encodeURIComponent(normalizedUrl)}`);
+  const items = Array.isArray(payload.items) ? payload.items : [];
+  return items.find(item =>
+    Number(item.category_id) === Number(categoryId) &&
+    String(item.name || '').trim() === normalizedUrl
+  ) || null;
 }
 
 async function uploadFiles(category, files) {
@@ -339,6 +575,13 @@ async function uploadFiles(category, files) {
   }
 
   await rememberLastCategory(category.id);
+  await recordRecentSave({
+    kind: category.type === 'images' ? 'Bild' : 'Datei',
+    actionType: category.type === 'images' ? 'image' : 'file',
+    title: files.length === 1 ? files[0].name : `${files.length} Dateien`,
+    categoryId: category.id,
+    categoryName: category.name,
+  });
 }
 
 async function saveManual() {
@@ -426,6 +669,42 @@ async function saveCurrentPage() {
   }
 }
 
+async function quickSaveToCategory(category) {
+  if (!category) {
+    setStatus('Keine passende sichtbare Kategorie vorhanden.', 'err');
+    return;
+  }
+
+  if (!state.currentTab?.url) {
+    setStatus('Aktiver Tab konnte nicht gelesen werden.', 'err');
+    return;
+  }
+
+  setBusy(true);
+  try {
+    const title = getTabTitle();
+    const url = getTabUrl();
+
+    if (category.type === 'links') {
+      await addItem(category, { name: url, content: '', quantity: '', dueDate: '' });
+      setStatus('Link gespeichert.', 'ok');
+    } else if (category.type === 'notes') {
+      await addItem(category, { name: title, content: url, quantity: '', dueDate: '' });
+      setStatus('Notiz gespeichert.', 'ok');
+    } else {
+      await addItem(category, { name: title, content: '', quantity: '', dueDate: '' });
+      setStatus('Seite gespeichert.', 'ok');
+    }
+
+    document.getElementById('section').value = String(category.id);
+    updateFieldVisibility();
+  } catch (error) {
+    setStatus(error.message, 'err');
+  } finally {
+    setBusy(false);
+  }
+}
+
 async function uploadDroppedFile(file) {
   const targetType = file.type.startsWith('image/') ? 'images' : 'files';
   const category = getVisibleCategories().find(entry => entry.type === targetType);
@@ -483,6 +762,22 @@ document.getElementById('section').addEventListener('change', () => {
 });
 
 document.getElementById('verifyBtn').addEventListener('click', verifyKey);
+document.getElementById('quickSaveLastBtn').addEventListener('click', async () => {
+  await saveSettings();
+  await quickSaveToCategory(getPreferredCategory());
+});
+document.getElementById('quickSaveLinkBtn').addEventListener('click', async () => {
+  await saveSettings();
+  await quickSaveToCategory(getVisibleCategoryByType('links'));
+});
+document.getElementById('quickSaveNoteBtn').addEventListener('click', async () => {
+  await saveSettings();
+  await quickSaveToCategory(getVisibleCategoryByType('notes'));
+});
+document.getElementById('quickFillBtn').addEventListener('click', () => {
+  applyCurrentTabDefaults();
+  setStatus('Tab-Daten eingefüllt.', 'ok');
+});
 document.getElementById('saveManualBtn').addEventListener('click', async () => {
   await saveSettings();
   await saveManual();
@@ -495,6 +790,12 @@ document.getElementById('savePageBtn').addEventListener('click', async () => {
 ['apiUrl', 'apiKey'].forEach(id => {
   document.getElementById(id).addEventListener('change', () => {
     void saveSettings();
+  });
+});
+
+Object.entries(DEFAULT_CATEGORY_KEYS).forEach(([type, elementId]) => {
+  document.getElementById(elementId).addEventListener('change', event => {
+    void saveDefaultCategory(type, event.target.value);
   });
 });
 
