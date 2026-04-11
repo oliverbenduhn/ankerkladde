@@ -412,13 +412,21 @@ async function saveSettings() {
 }
 
 async function verifyKey() {
-  const apiKey = document.getElementById('apiKey').value.trim();
+  const apiKeyInput = document.getElementById('apiKeyEdit');
+  let apiKey = apiKeyInput?.value.trim();
+  
+  if (!apiKey && apiKeyInput?.dataset.hasKey === 'true') {
+    setStatus('API-Key ist bereits hinterlegt und funktioniert.', 'ok');
+    return;
+  }
+  
   if (!apiKey) {
     setStatus('Bitte API-Key eingeben.', 'err');
     return;
   }
 
-  const apiUrl = document.getElementById('apiUrl').value.trim().replace(/\/$/, '') || DEFAULT_API_URL;
+  const apiUrlInput = document.getElementById('apiUrlEdit');
+  const apiUrl = (apiUrlInput?.value.trim().replace(/\/$/, '') || DEFAULT_API_URL);
 
   setBusy(true);
   try {
@@ -447,14 +455,13 @@ async function verifyKey() {
       recentSaves: state.recentSaves,
     });
 
-    const apiKeyEditInput = document.getElementById('apiKeyEdit');
-    if (apiKeyEditInput) {
-      apiKeyEditInput.value = '*'.repeat(Math.min(32, state.apiKey.length));
-      apiKeyEditInput.dataset.hasKey = 'true';
+    if (apiKeyInput) {
+      apiKeyInput.value = '*'.repeat(Math.min(32, state.apiKey.length));
+      apiKeyInput.dataset.hasKey = 'true';
     }
 
+    setStatus('API-Key funktioniert!', 'ok');
     populateCategorySelect();
-    setStatus('API-Key funktioniert.', 'ok');
   } catch (error) {
     setStatus('Server nicht erreichbar oder URL nicht erlaubt.', 'err');
   } finally {
@@ -893,11 +900,20 @@ document.getElementById('setupBtn')?.addEventListener('click', async () => {
     if (response.ok) {
       const data = await response.json();
       state.categories = data.categories || [];
+      state.preferences = data.preferences || {};
       await chrome.storage.local.set({
         apiUrl: state.apiUrl,
         apiKey: state.apiKey,
         categories: state.categories,
+        preferences: state.preferences,
       });
+      
+      const apiKeyEditInput = document.getElementById('apiKeyEdit');
+      if (apiKeyEditInput) {
+        apiKeyEditInput.value = '*'.repeat(Math.min(32, state.apiKey.length));
+        apiKeyEditInput.dataset.hasKey = 'true';
+      }
+      
       document.getElementById('setupScreen').classList.remove('visible');
       document.querySelector('.content').style.display = 'grid';
       document.querySelector('[data-tab="save"]').classList.add('active');
