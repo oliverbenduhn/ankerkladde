@@ -2460,7 +2460,7 @@ button, input { font: inherit; }
 .theme-list {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 8px;
 }
 
 .theme-list label {
@@ -2468,18 +2468,31 @@ button, input { font: inherit; }
     align-items: center;
     gap: 10px;
     padding: 10px 12px;
+    border: 1px solid var(--border);
     border-radius: 10px;
+    background: var(--surface);
+    color: var(--text-primary);
+    font-weight: 500;
     cursor: pointer;
-    transition: background 0.15s ease;
+    transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
 }
 
-.theme-list label:hover { background: rgba(128,128,128,0.08); }
+.theme-list label:hover {
+    background: var(--done-bg);
+    border-color: var(--accent);
+}
+
+.theme-list label:has(input:checked) {
+    background: var(--done-bg);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px rgba(26, 96, 144, 0.14);
+}
 
 .theme-dot {
     width: 18px;
     height: 18px;
     border-radius: 50%;
-    border: 1.5px solid rgba(0,0,0,0.12);
+    border: 1.5px solid rgba(0, 0, 0, 0.24);
     flex-shrink: 0;
 }
 
