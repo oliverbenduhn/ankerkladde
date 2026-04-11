@@ -762,6 +762,48 @@ document.getElementById('section').addEventListener('change', () => {
 });
 
 document.getElementById('verifyBtn').addEventListener('click', verifyKey);
+document.getElementById('setupBtn')?.addEventListener('click', async () => {
+  const apiUrlInput = document.getElementById('apiUrl');
+  const apiKeyInput = document.getElementById('apiKey');
+  
+  if (!apiUrlInput?.value?.trim() || !apiKeyInput?.value?.trim()) {
+    setStatus('Bitte URL und API-Key eingeben.', 'err');
+    return;
+  }
+
+  state.apiUrl = apiUrlInput.value.trim().replace(/\/$/, '') || DEFAULT_API_URL;
+  state.apiKey = apiKeyInput.value.trim();
+  
+  setBusy(true);
+  try {
+    const response = await fetch(`${state.apiUrl}/api.php?action=categories_list`, {
+      credentials: 'omit',
+      headers: { 'X-API-Key': state.apiKey },
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      state.categories = data.categories || [];
+      await chrome.storage.local.set({
+        apiUrl: state.apiUrl,
+        apiKey: state.apiKey,
+        categories: state.categories,
+      });
+      document.getElementById('setupScreen').classList.remove('visible');
+      document.getElementById('mainScreen').classList.add('visible');
+      populateCategorySelect();
+      setStatus('Verbunden!', 'ok');
+    } else {
+      const payload = await response.json().catch(() => ({}));
+      setStatus(payload.error || 'Verbindung fehlgeschlagen.', 'err');
+    }
+  } catch (error) {
+    setStatus('Verbindung fehlgeschlagen.', 'err');
+  } finally {
+    setBusy(false);
+  }
+});
+
 document.getElementById('quickSaveLastBtn').addEventListener('click', async () => {
   await saveSettings();
   await quickSaveToCategory(getPreferredCategory());
