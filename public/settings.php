@@ -267,11 +267,20 @@ $iconOptions = getCategoryIconOptions();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#f5f0eb">
+<?php
+$themeColors = [
+    'parchment'  => '#f5f0eb',
+    'hafenblau'  => '#cfe0ec',
+    'nachtwache' => '#162338',
+    'pier'       => '#0f1419',
+];
+$themeColor = $themeColors[$preferences['theme'] ?? 'parchment'] ?? '#f5f0eb';
+?>
+    <meta name="theme-color" content="<?= htmlspecialchars($themeColor, ENT_QUOTES, 'UTF-8') ?>">
     <title>Einstellungen — Ankerkladde</title>
     <link rel="stylesheet" href="<?= htmlspecialchars(appPath('style.css'), ENT_QUOTES, 'UTF-8') ?>">
 </head>
-<body class="settings-page">
+<body class="settings-page" data-theme="<?= htmlspecialchars($preferences['theme'] ?? 'parchment', ENT_QUOTES, 'UTF-8') ?>">
 <div class="settings-card">
     <div class="settings-header">
         <div class="settings-title-group">
