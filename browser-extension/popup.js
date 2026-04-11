@@ -279,8 +279,16 @@ async function loadSettings() {
   state.defaults = saved.defaults || {};
   state.recentSaves = Array.isArray(saved.recentSaves) ? saved.recentSaves : [];
 
-  document.getElementById('apiUrl').value = state.apiUrl;
-  document.getElementById('apiKey').value = state.apiKey;
+  const apiUrlInput = document.getElementById('apiUrlEdit');
+  const apiKeyInput = document.getElementById('apiKeyEdit');
+  const apiUrlSetup = document.getElementById('apiUrl');
+  const apiKeySetup = document.getElementById('apiKey');
+  
+  if (apiUrlInput) apiUrlInput.value = state.apiUrl;
+  if (apiKeyInput) apiKeyInput.value = state.apiKey;
+  if (apiUrlSetup) apiUrlSetup.value = state.apiUrl;
+  if (apiKeySetup) apiKeySetup.value = state.apiKey;
+  
   populateCategorySelect();
   renderRecentSaves();
 }
@@ -790,7 +798,11 @@ document.getElementById('setupBtn')?.addEventListener('click', async () => {
         categories: state.categories,
       });
       document.getElementById('setupScreen').classList.remove('visible');
-      document.getElementById('mainScreen').classList.add('visible');
+      document.querySelector('.content').style.display = 'grid';
+      document.querySelector('[data-tab="save"]').classList.add('active');
+      document.querySelector('[data-tab="settings"]').classList.remove('active');
+      document.getElementById('tab-save').classList.add('active');
+      document.getElementById('tab-settings').classList.remove('active');
       populateCategorySelect();
       setStatus('Verbunden!', 'ok');
     } else {
@@ -829,11 +841,15 @@ document.getElementById('savePageBtn').addEventListener('click', async () => {
   await saveCurrentPage();
 });
 
-['apiUrl', 'apiKey'].forEach(id => {
-  document.getElementById(id).addEventListener('change', () => {
+['apiUrlEdit', 'apiKeyEdit'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('change', () => {
     void saveSettings();
   });
 });
+
+const setupScreen = document.getElementById('setupScreen');
+const mainContent = document.querySelector('.content');
 
 Object.entries(DEFAULT_CATEGORY_KEYS).forEach(([type, elementId]) => {
   document.getElementById(elementId).addEventListener('change', event => {
@@ -844,9 +860,15 @@ Object.entries(DEFAULT_CATEGORY_KEYS).forEach(([type, elementId]) => {
 (async () => {
   await loadCurrentTab();
   await loadSettings();
-  if (state.apiKey) {
+  
+  if (!state.apiKey) {
+    setupScreen.classList.add('visible');
+    if (mainContent) mainContent.style.display = 'none';
+  } else {
     await loadCategories();
+    if (setupScreen) setupScreen.style.display = 'none';
   }
+  
   setupDropzone();
   applyCurrentTabDefaults();
 })();

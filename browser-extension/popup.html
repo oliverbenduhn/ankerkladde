@@ -15,6 +15,7 @@
       --text-secondary: #3a7090;
       --text-muted: #7aaac0;
       --accent: #1a6090;
+      --accent-light: #2a7ab0;
       --surface-hover: #d0e5f0;
       --error: #c0392b;
       --success: #2e7d32;
@@ -32,26 +33,40 @@
       padding: 12px 14px;
       background: var(--accent);
       color: #fff;
-      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .topbar-left {
       display: flex;
       align-items: center;
       gap: 8px;
     }
-    .topbar img {
-      width: 24px;
-      height: 24px;
-      border-radius: 4px;
+    .topbar img { width: 24px; height: 24px; border-radius: 4px; }
+    .topbar-title { font-weight: 600; }
+    .tabs { display: flex; gap: 4px; }
+    .tab-btn {
+      padding: 6px 12px;
+      border: none;
+      border-radius: 6px;
+      background: transparent;
+      color: rgba(255,255,255,0.7);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
     }
+    .tab-btn:hover { color: #fff; }
+    .tab-btn.active { background: rgba(255,255,255,0.2); color: #fff; }
     .content { padding: 12px 14px 14px; display: grid; gap: 10px; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
     .card {
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 12px;
       padding: 10px;
     }
-    .card > details > summary {
-      color: var(--text-primary);
-    }
+    .card > details > summary { color: var(--text-primary); }
     .row { display: grid; gap: 5px; margin-bottom: 8px; }
     .row:last-child { margin-bottom: 0; }
     .row-with-btn { display: flex; gap: 8px; align-items: flex-end; }
@@ -91,10 +106,7 @@
       border: 1px solid var(--border);
     }
     .btn.secondary:hover { background: var(--surface-hover); }
-    .btn.small {
-      padding: 8px 10px;
-      font-size: 12px;
-    }
+    .btn.small { padding: 8px 10px; font-size: 12px; }
     .status {
       display: none;
       margin: 0 14px;
@@ -142,23 +154,9 @@
       overflow: hidden;
       text-overflow: ellipsis;
     }
-    .history-meta {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-    }
-    .history-text {
-      min-width: 0;
-      flex: 1;
-    }
-    .history-item .btn.small {
-      width: auto;
-      min-width: 74px;
-      flex-shrink: 0;
-    }
-    .inline-row { display: flex; gap: 8px; }
-    .inline-row > * { flex: 1; }
+    .history-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .history-text { min-width: 0; flex: 1; }
+    .history-item .btn.small { width: auto; min-width: 74px; flex-shrink: 0; }
     .setup-screen { display: none; text-align: center; padding: 24px 20px; }
     .setup-screen.visible { display: block; }
     .setup-screen h2 { margin: 0 0 8px; font-size: 18px; }
@@ -166,14 +164,18 @@
     .setup-screen .btn { margin-top: 12px; }
     .setup-screen .api-fields { text-align: left; }
     .setup-screen .api-fields .row { margin-bottom: 12px; }
-    .main-screen { display: none; }
-    .main-screen.visible { display: block; }
   </style>
 </head>
 <body>
   <div class="topbar">
-    <img src="icon.png" alt="" width="24" height="24">
-    <span>Ankerkladde</span>
+    <div class="topbar-left">
+      <img src="icon.png" alt="" width="24" height="24">
+      <span class="topbar-title">Ankerkladde</span>
+    </div>
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="save">Neu</button>
+      <button class="tab-btn" data-tab="settings">Einstellungen</button>
+    </div>
   </div>
   <div id="status" class="status"></div>
 
@@ -193,8 +195,8 @@
     <button class="btn" id="setupBtn">Verbinden</button>
   </div>
 
-  <div id="mainScreen" class="main-screen">
-    <div class="content">
+  <div class="content">
+    <div id="tab-save" class="tab-content active">
       <div class="card">
         <div class="row">
           <label for="section">Kategorie</label>
@@ -253,6 +255,21 @@
       </div>
 
       <details class="card">
+        <summary>Dateien ablegen</summary>
+        <div id="dropzone" class="dropzone">Dateien hierher ziehen</div>
+        <p class="hint">Bilder landen im Bilder-Bereich, andere Dateien im Dateien-Bereich.</p>
+      </details>
+
+      <details class="card">
+        <summary>Zuletzt gespeichert</summary>
+        <div id="recentSaves" class="history-list">
+          <p class="hint">Noch keine Aktionen gespeichert.</p>
+        </div>
+      </details>
+    </div>
+
+    <div id="tab-settings" class="tab-content">
+      <details class="card" open>
         <summary>Verbindung</summary>
         <div class="row" style="margin-top: 12px;">
           <label for="apiUrlEdit">Ankerkladde URL</label>
@@ -294,22 +311,26 @@
           </select>
         </div>
       </details>
-
-      <details class="card">
-        <summary>Dateien ablegen</summary>
-        <div id="dropzone" class="dropzone">Dateien hierher ziehen</div>
-        <p class="hint">Bilder landen im Bilder-Bereich, andere Dateien im Dateien-Bereich.</p>
-      </details>
-
-      <details class="card">
-        <summary>Zuletzt gespeichert</summary>
-        <div id="recentSaves" class="history-list">
-          <p class="hint">Noch keine Aktionen gespeichert.</p>
-        </div>
-      </details>
     </div>
   </div>
 
   <script src="popup.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const tabs = document.querySelectorAll('.tab-btn');
+      const contents = document.querySelectorAll('.tab-content');
+      
+      tabs.forEach(btn => {
+        btn.addEventListener('click', () => {
+          tabs.forEach(t => t.classList.remove('active'));
+          contents.forEach(c => c.classList.remove('active'));
+          btn.classList.add('active');
+          const tabId = 'tab-' + btn.dataset.tab;
+          const content = document.getElementById(tabId);
+          if (content) content.classList.add('active');
+        });
+      });
+    });
+  </script>
 </body>
 </html>
