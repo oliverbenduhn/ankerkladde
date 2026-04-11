@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION = 'v27';
+const VERSION = 'v31';
 const STATIC_CACHE = `ankerkladde-static-${VERSION}`;
 const RUNTIME_CACHE = `ankerkladde-runtime-${VERSION}`;
 const SHARE_CACHE = 'ankerkladde-share-target';
@@ -10,9 +10,9 @@ const API_URL = new URL('api.php', APP_SCOPE_URL);
 
 const APP_SHELL_ASSET_URLS = [
     'offline.html',
-    'style.css?v=26',
-    'app.js?v=26',
-    'manifest.php?v=26',
+    'style.css?v=31',
+    'app.js?v=31',
+    'manifest.php?v=31',
     'icon.php?size=192',
     'icon.php?size=512',
     'icons/icon.svg',

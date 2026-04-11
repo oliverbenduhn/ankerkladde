@@ -241,10 +241,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
         } elseif ($action === 'save_theme') {
-            $lightTheme = (string) ($_POST['light_theme'] ?? 'parchment');
+            $lightTheme = (string) ($_POST['light_theme'] ?? 'hafenblau');
             $darkTheme = (string) ($_POST['dark_theme'] ?? 'nachtwache');
             if (!in_array($lightTheme, ['parchment', 'hafenblau'], true)) {
-                $lightTheme = 'parchment';
+                $lightTheme = 'hafenblau';
             }
             if (!in_array($darkTheme, ['nachtwache', 'pier'], true)) {
                 $darkTheme = 'nachtwache';

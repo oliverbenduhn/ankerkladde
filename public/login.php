@@ -112,7 +112,7 @@ $csrfToken = getCsrfToken();
     let deferredPrompt = null;
 
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register(basePath + 'sw.js?v=30').catch(() => {});
+        navigator.serviceWorker.register(basePath + 'sw.js?v=31').catch(() => {});
     }
 
     window.addEventListener('beforeinstallprompt', e => {

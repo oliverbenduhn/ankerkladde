@@ -129,10 +129,11 @@ function resolveEffectiveTheme(array $preferences, ?bool $prefersDark = null): s
 
 function renderThemeBootScript(array $preferences): string
 {
+    $defaults = getThemePreferenceDefaults();
     $payload = [
-        'theme_mode' => $preferences['theme_mode'] ?? 'auto',
-        'light_theme' => $preferences['light_theme'] ?? 'parchment',
-        'dark_theme' => $preferences['dark_theme'] ?? 'nachtwache',
+        'theme_mode' => $preferences['theme_mode'] ?? $defaults['theme_mode'],
+        'light_theme' => $preferences['light_theme'] ?? $defaults['light_theme'],
+        'dark_theme' => $preferences['dark_theme'] ?? $defaults['dark_theme'],
         'theme_colors' => [
             'parchment' => getThemeColor('parchment'),
             'hafenblau' => getThemeColor('hafenblau'),
@@ -143,5 +144,5 @@ function renderThemeBootScript(array $preferences): string
 
     $json = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
 
-    return "<script>(function(){var p=" . $json . ";var m=p.theme_mode===\"dark\"?\"dark\":(p.theme_mode===\"light\"?\"light\":\"auto\");var d=m===\"dark\"||(m===\"auto\"&&window.matchMedia&&window.matchMedia(\"(prefers-color-scheme: dark)\").matches);var t=d?(p.dark_theme||\"nachtwache\"):(p.light_theme||\"parchment\");document.documentElement.dataset.theme=t;var meta=document.querySelector(\'meta[name=\"theme-color\"]\');if(meta&&p.theme_colors&&p.theme_colors[t])meta.setAttribute(\"content\",p.theme_colors[t]);window.__ANKERKLADDE_THEME__={mode:m,effectiveTheme:t};})();</script>";
+    return "<script>(function(){var p=" . $json . ";var m=p.theme_mode===\"dark\"?\"dark\":(p.theme_mode===\"light\"?\"light\":\"auto\");var d=m===\"dark\"||(m===\"auto\"&&window.matchMedia&&window.matchMedia(\"(prefers-color-scheme: dark)\").matches);var t=d?(p.dark_theme||\"nachtwache\"):(p.light_theme||\"hafenblau\");document.documentElement.dataset.theme=t;var meta=document.querySelector(\'meta[name=\"theme-color\"]\');if(meta&&p.theme_colors&&p.theme_colors[t])meta.setAttribute(\"content\",p.theme_colors[t]);window.__ANKERKLADDE_THEME__={mode:m,effectiveTheme:t};})();</script>";
 }
