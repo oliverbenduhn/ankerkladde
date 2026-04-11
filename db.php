@@ -448,6 +448,37 @@ function updateUserPreferences(PDO $db, int $userId, array $patch): array
     return $preferences;
 }
 
+function getUserApiKey(PDO $db, int $userId): ?string
+{
+    $stmt = $db->prepare('SELECT api_key FROM users WHERE id = :id LIMIT 1');
+    $stmt->execute([':id' => $userId]);
+    $row = $stmt->fetch();
+    return is_string($row['api_key'] ?? null) && $row['api_key'] !== '' ? $row['api_key'] : null;
+}
+
+function setUserApiKey(PDO $db, int $userId): string
+{
+    $apiKey = bin2hex(random_bytes(32));
+    $stmt = $db->prepare('UPDATE users SET api_key = :api_key, api_key_created_at = CURRENT_TIMESTAMP WHERE id = :id');
+    $stmt->execute([':api_key' => $apiKey, ':id' => $userId]);
+    return $apiKey;
+}
+
+function deleteUserApiKey(PDO $db, int $userId): void
+{
+    $stmt = $db->prepare('UPDATE users SET api_key = NULL, api_key_created_at = NULL WHERE id = :id');
+    $stmt->execute([':id' => $userId]);
+}
+
+function findUserByApiKey(PDO $db, string $apiKey): ?int
+{
+    $stmt = $db->prepare('SELECT id FROM users WHERE api_key = :api_key LIMIT 1');
+    $stmt->execute([':api_key' => $apiKey]);
+    $userId = $stmt->fetchColumn();
+
+    return is_numeric($userId) ? (int) $userId : null;
+}
+
 function loadUserCategories(PDO $db, int $userId, bool $includeHidden = true): array
 {
     $sql = 'SELECT id, user_id, name, type, icon, legacy_key, sort_order, is_hidden, created_at, updated_at
@@ -1024,6 +1055,8 @@ function getDatabase(): PDO
             username TEXT NOT NULL UNIQUE,
             password_hash TEXT NOT NULL,
             is_admin INTEGER NOT NULL DEFAULT 0 CHECK(is_admin IN (0, 1)),
+            api_key TEXT,
+            api_key_created_at TEXT,
             preferences_json TEXT NOT NULL DEFAULT '{}',
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         )"
@@ -1043,6 +1076,8 @@ function getDatabase(): PDO
     if (!in_array('api_key_created_at', $userColumnNames, true)) {
         $db->exec("ALTER TABLE users ADD COLUMN api_key_created_at TEXT");
     }
+
+    $db->exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_api_key ON users(api_key)');
 
     $columns = $db->query('PRAGMA table_info(items)')->fetchAll();
     $columnNames = array_map(static fn(array $column): string => $column['name'], $columns);

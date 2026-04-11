@@ -637,7 +637,7 @@ function fetchItemForUser(PDO $db, int $userId, int $itemId): ?array
 
 $action = $_GET['action'] ?? 'list';
 $db = getDatabase();
-$userId = requireApiAuth();
+$userId = requireApiAuthWithKey($db);
 
 try {
     switch ($action) {
@@ -651,7 +651,9 @@ try {
         case 'categories_create':
             requireMethod('POST');
             $data = requestData();
-            requireCsrfToken($data);
+            if (!isApiKeyAuthRequest()) {
+                requireCsrfToken($data);
+            }
 
             $name = normalizeName($data['name'] ?? null);
             $type = trim((string) ($data['type'] ?? ''));
@@ -689,7 +691,9 @@ try {
         case 'categories_update':
             requireMethod('POST');
             $data = requestData();
-            requireCsrfToken($data);
+            if (!isApiKeyAuthRequest()) {
+                requireCsrfToken($data);
+            }
 
             $categoryId = filter_var($data['category_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
             if (!is_int($categoryId)) {
@@ -741,7 +745,9 @@ try {
         case 'categories_reorder':
             requireMethod('POST');
             $data = requestData();
-            requireCsrfToken($data);
+            if (!isApiKeyAuthRequest()) {
+                requireCsrfToken($data);
+            }
 
             $ids = normalizeIdList($data['ids'] ?? ($data['ids[]'] ?? null));
             if ($ids === []) {
@@ -781,7 +787,9 @@ try {
         case 'categories_delete':
             requireMethod('POST');
             $data = requestData();
-            requireCsrfToken($data);
+            if (!isApiKeyAuthRequest()) {
+                requireCsrfToken($data);
+            }
 
             $category = requireCategory($data, $db, $userId);
 
@@ -852,7 +860,9 @@ try {
         case 'add':
             requireMethod('POST');
             $data = requestData();
-            requireCsrfToken($data);
+            if (!isApiKeyAuthRequest()) {
+                requireCsrfToken($data);
+            }
 
             $category = requireCategory($data, $db, $userId);
             $name = normalizeName($data['name'] ?? null);
@@ -907,7 +917,9 @@ try {
         case 'upload':
             requireMethod('POST');
             $data = requestData();
-            requireCsrfToken($data);
+            if (!isApiKeyAuthRequest()) {
+                requireCsrfToken($data);
+            }
 
             $category = requireCategory($data, $db, $userId);
             validateCategoryType($category, ['images', 'files'], 'Uploads sind nur in Kategorien vom Typ Bilder oder Dateien erlaubt.');
@@ -1053,7 +1065,9 @@ try {
         case 'toggle':
             requireMethod('POST');
             $data = requestData();
-            requireCsrfToken($data);
+            if (!isApiKeyAuthRequest()) {
+                requireCsrfToken($data);
+            }
 
             $id = filter_var($data['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
             $done = filter_var($data['done'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 0, 'max_range' => 1]]);
@@ -1074,7 +1088,9 @@ try {
         case 'update':
             requireMethod('POST');
             $data = requestData();
-            requireCsrfToken($data);
+            if (!isApiKeyAuthRequest()) {
+                requireCsrfToken($data);
+            }
 
             $id = filter_var($data['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
             if (!is_int($id)) {
@@ -1125,7 +1141,9 @@ try {
         case 'delete':
             requireMethod('POST');
             $data = requestData();
-            requireCsrfToken($data);
+            if (!isApiKeyAuthRequest()) {
+                requireCsrfToken($data);
+            }
 
             $id = filter_var($data['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
             if (!is_int($id)) {
@@ -1156,7 +1174,9 @@ try {
         case 'clear':
             requireMethod('POST');
             $data = requestData();
-            requireCsrfToken($data);
+            if (!isApiKeyAuthRequest()) {
+                requireCsrfToken($data);
+            }
 
             $category = requireCategory($data, $db, $userId);
 
@@ -1188,7 +1208,9 @@ try {
         case 'reorder':
             requireMethod('POST');
             $data = requestData();
-            requireCsrfToken($data);
+            if (!isApiKeyAuthRequest()) {
+                requireCsrfToken($data);
+            }
 
             $category = requireCategory($data, $db, $userId);
             $orderedIds = normalizeIdList($data['ids'] ?? ($data['ids[]'] ?? null));
@@ -1230,7 +1252,9 @@ try {
         case 'pin':
             requireMethod('POST');
             $data = requestData();
-            requireCsrfToken($data);
+            if (!isApiKeyAuthRequest()) {
+                requireCsrfToken($data);
+            }
 
             $id = filter_var($data['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
             $isPinned = filter_var($data['is_pinned'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 0, 'max_range' => 1]]);
@@ -1302,7 +1326,9 @@ try {
 
             requireMethod('POST');
             $data = requestData();
-            requireCsrfToken($data);
+            if (!isApiKeyAuthRequest()) {
+                requireCsrfToken($data);
+            }
 
             $patch = [];
 

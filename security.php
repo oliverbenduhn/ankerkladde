@@ -247,3 +247,57 @@ function requireApiAuth(): int
 
     return $userId;
 }
+
+function requireApiAuthWithKey(PDO $db): int
+{
+    startAppSession();
+
+    $userId = getCurrentUserId();
+    if ($userId !== null) {
+        $_SERVER['ANKERKLADDE_API_AUTH_KIND'] = 'session';
+        return $userId;
+    }
+
+    $authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['HTTP_X_API_KEY'] ?? null;
+    if (!is_string($authHeader) || trim($authHeader) === '') {
+        http_response_code(401);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['error' => 'Nicht authentifiziert. Bitte API-Key verwenden.'], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    $apiKey = preg_replace('/^Bearer\s+/i', '', trim($authHeader)) ?? '';
+    if ($apiKey === '') {
+        http_response_code(401);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['error' => 'Ungültiger API-Key.'], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    $userId = findUserByApiKey($db, $apiKey);
+    if ($userId === null) {
+        http_response_code(401);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['error' => 'Ungültiger API-Key.'], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    $_SERVER['ANKERKLADDE_API_AUTH_KIND'] = 'key';
+
+    return $userId;
+}
+
+function isApiKeyAuthRequest(): bool
+{
+    return (string) ($_SERVER['ANKERKLADDE_API_AUTH_KIND'] ?? '') === 'key';
+}
+
+function getCurrentUserIdFromSession(): ?int
+{
+    if (session_status() !== PHP_SESSION_ACTIVE) {
+        return null;
+    }
+
+    $id = $_SESSION['user_id'] ?? null;
+    return is_int($id) ? $id : null;
+}

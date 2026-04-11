@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Zettel Save">
+  <rect width="128" height="128" rx="28" fill="#17324d"/>
+  <path d="M38 26h34l18 18v50c0 4.4-3.6 8-8 8H38c-4.4 0-8-3.6-8-8V34c0-4.4 3.6-8 8-8Z" fill="#fff7ed"/>
+  <path d="M72 26v18h18" fill="none" stroke="#17324d" stroke-linecap="round" stroke-linejoin="round" stroke-width="8"/>
+  <path d="M45 63c0-6.6 5.4-12 12-12 4 0 7.6 1.9 9.8 5 1.9-1.4 4.2-2.2 6.7-2.2 6.2 0 11.3 5.1 11.3 11.3S79.7 76.4 73.5 76.4H57" fill="none" stroke="#17324d" stroke-linecap="round" stroke-linejoin="round" stroke-width="8"/>
+  <path d="M57 93V69" fill="none" stroke="#cc4b2c" stroke-linecap="round" stroke-width="8"/>
+  <path d="m46 80 11 13 11-13" fill="none" stroke="#cc4b2c" stroke-linecap="round" stroke-linejoin="round" stroke-width="8"/>
+</svg>

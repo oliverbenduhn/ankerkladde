@@ -259,11 +259,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'category_swipe_enabled' => isset($_POST['category_swipe_enabled']),
             ]);
             $flash = 'Anzeige-Einstellungen gespeichert.';
+        } elseif ($action === 'regenerate_api_key') {
+            setUserApiKey($db, $userId);
+            $flash = 'API-Key neu erzeugt.';
         }
     }
 }
 
 $preferences = getExtendedUserPreferences($db, $userId);
+$apiKey = getUserApiKey($db, $userId);
+if ($apiKey === null) {
+    $apiKey = setUserApiKey($db, $userId);
+}
 $categories = loadUserCategories($db, $userId);
 $iconOptions = getCategoryIconOptions();
 ?>
@@ -342,6 +349,29 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                 <button type="submit" class="settings-save">Themes speichern</button>
             </div>
         </form>
+    </section>
+
+    <section class="settings-section">
+        <div class="settings-block">
+            <h2>Browser-Extension</h2>
+            <p class="settings-copy">Diesen API-Key in die Extension kopieren. Er verbindet die Erweiterung direkt mit deinem Account.</p>
+            <div class="settings-password-fields">
+                <label class="settings-field">
+                    <span>API-Key</span>
+                    <input type="text" id="api-key-value" value="<?= htmlspecialchars($apiKey, ENT_QUOTES, 'UTF-8') ?>" readonly>
+                </label>
+            </div>
+            <div class="settings-actions" style="gap: 0.75rem; flex-wrap: wrap;">
+                <button type="button" class="settings-save" id="copy-api-key">Kopieren</button>
+                <a href="<?= htmlspecialchars(appPath('extension-download.php'), ENT_QUOTES, 'UTF-8') ?>" class="settings-link">Chrome-Erweiterung laden</a>
+                <form method="post" action="<?= htmlspecialchars(appPath('settings.php'), ENT_QUOTES, 'UTF-8') ?>" class="settings-form" style="margin:0;">
+                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
+                    <input type="hidden" name="action" value="regenerate_api_key">
+                    <button type="submit" class="settings-link" formnovalidate>Neu erzeugen</button>
+                </form>
+            </div>
+            <p class="settings-copy">Wenn sich die Erweiterung spaeter aendert, hier einfach erneut herunterladen und in Chrome neu laden.</p>
+        </div>
     </section>
 
     <section class="settings-section">
@@ -532,6 +562,8 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
 <script>
 (() => {
     const scrollKey = 'einkauf-settings-scroll-y';
+    const copyButton = document.getElementById('copy-api-key');
+    const apiKeyInput = document.getElementById('api-key-value');
     const saved = window.sessionStorage.getItem(scrollKey);
 
     if (saved !== null) {
@@ -546,6 +578,20 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
             window.sessionStorage.setItem(scrollKey, String(window.scrollY || window.pageYOffset || 0));
         });
     });
+
+    if (copyButton && apiKeyInput) {
+        copyButton.addEventListener('click', async () => {
+            try {
+                await navigator.clipboard.writeText(apiKeyInput.value);
+                copyButton.textContent = 'Kopiert';
+                window.setTimeout(() => {
+                    copyButton.textContent = 'Kopieren';
+                }, 1500);
+            } catch (error) {
+                copyButton.textContent = 'Nicht kopierbar';
+            }
+        });
+    }
 })();
 </script>
 </body>
