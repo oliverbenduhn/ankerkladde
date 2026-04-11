@@ -239,6 +239,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 }
             }
+        } elseif ($action === 'save_theme') {
+            $validThemes = ['parchment', 'hafenblau', 'nachtwache', 'pier'];
+            $newTheme = (string) ($_POST['theme'] ?? 'parchment');
+            if (!in_array($newTheme, $validThemes, true)) {
+                $newTheme = 'parchment';
+            }
+            updateUserPreferences($db, $userId, ['theme' => $newTheme]);
+            $flash = 'Theme gespeichert.';
         } elseif ($action === 'save_app_preferences') {
             $preferences = updateUserPreferences($db, $userId, [
                 'category_swipe_enabled' => isset($_POST['category_swipe_enabled']),
@@ -403,6 +411,41 @@ $iconOptions = getCategoryIconOptions();
                 <?php endforeach; ?>
             </div>
         </div>
+    </section>
+
+    <section class="settings-section">
+        <form method="post" action="<?= htmlspecialchars(appPath('settings.php'), ENT_QUOTES, 'UTF-8') ?>" class="settings-form">
+            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
+            <input type="hidden" name="action" value="save_theme">
+            <div class="settings-block">
+                <h2>Erscheinungsbild</h2>
+                <div class="theme-list">
+                    <label>
+                        <span class="theme-dot" style="background:#c8b89a;"></span>
+                        Parchment
+                        <input type="radio" name="theme" value="parchment" <?= $preferences['theme'] === 'parchment' ? 'checked' : '' ?>>
+                    </label>
+                    <label>
+                        <span class="theme-dot" style="background:#1a6090;"></span>
+                        Hafenblau
+                        <input type="radio" name="theme" value="hafenblau" <?= $preferences['theme'] === 'hafenblau' ? 'checked' : '' ?>>
+                    </label>
+                    <label>
+                        <span class="theme-dot" style="background:#162338; border-color:rgba(255,255,255,0.15);"></span>
+                        Nachtwache
+                        <input type="radio" name="theme" value="nachtwache" <?= $preferences['theme'] === 'nachtwache' ? 'checked' : '' ?>>
+                    </label>
+                    <label>
+                        <span class="theme-dot" style="background:#0f1419; border-color:rgba(255,255,255,0.15);"></span>
+                        Pier bei Nacht
+                        <input type="radio" name="theme" value="pier" <?= $preferences['theme'] === 'pier' ? 'checked' : '' ?>>
+                    </label>
+                </div>
+            </div>
+            <div class="settings-actions">
+                <button type="submit" class="settings-save">Speichern</button>
+            </div>
+        </form>
     </section>
 
     <section class="settings-section settings-section-secondary">
