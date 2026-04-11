@@ -22,7 +22,7 @@ if ($appBasePath === '' || $appBasePath === '.') {
 } else {
     $appBasePath = rtrim($appBasePath, '/') . '/';
 }
-$assetVersion = '29';
+$assetVersion = '31';
 
 function icon(string $name): string {
     static $paths = [

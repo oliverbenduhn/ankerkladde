@@ -8,7 +8,7 @@ require __DIR__ . '/theme.php';
 enforceCanonicalRequest();
 startAppSession();
 $basePath = appPath();
-$assetVersion = '30';
+$assetVersion = '31';
 $defaultThemePreferences = getThemePreferenceDefaults();
 $effectiveTheme = resolveEffectiveTheme($defaultThemePreferences);
 $themeColor = getThemeColor($effectiveTheme);

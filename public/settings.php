@@ -281,7 +281,7 @@ $themeColor = getThemeColor($effectiveTheme);
     <meta name="theme-color" content="<?= htmlspecialchars($themeColor, ENT_QUOTES, 'UTF-8') ?>">
     <?= renderThemeBootScript($preferences) ?>
     <title>Einstellungen — Ankerkladde</title>
-    <link rel="stylesheet" href="<?= htmlspecialchars(appPath('style.css?v=28'), ENT_QUOTES, 'UTF-8') ?>">
+    <link rel="stylesheet" href="<?= htmlspecialchars(appPath('style.css?v=31'), ENT_QUOTES, 'UTF-8') ?>">
 </head>
 <body class="settings-page" data-theme="<?= htmlspecialchars($effectiveTheme, ENT_QUOTES, 'UTF-8') ?>">
 <div class="settings-card">
