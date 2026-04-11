@@ -19,10 +19,7 @@
   },
   "permissions": [
     "activeTab",
-    "contextMenus",
-    "notifications",
-    "storage",
-    "tabs"
+    "storage"
   ],
   "host_permissions": [
     "https://ankerkladde.benduhn.de/*",
@@ -30,20 +27,14 @@
     "http://localhost:*/*",
     "http://[::1]:*/*"
   ],
-  "optional_host_permissions": [
-    "https://*/*",
-    "http://*/*"
-  ],
   "background": {
-    "service_worker": "background.js"
+    "scripts": ["background.js"],
+    "persistent": false
   },
-  "commands": {
-    "save-current-page": {
-      "suggested_key": {
-        "default": "Ctrl+Shift+Y",
-        "mac": "Command+Shift+Y"
-      },
-      "description": "Aktuelle Seite in Ankerkladde speichern"
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "ankerkladde@benduhn.de",
+      "strict_min_version": "109.0"
     }
   }
 }

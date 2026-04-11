@@ -283,12 +283,12 @@ $currentTab = $_GET['tab'] ?? 'app';
 <?php
 $effectiveTheme = resolveEffectiveTheme($preferences);
 $themeColor = getThemeColor($effectiveTheme);
-$brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme) . '&v=33');
+$brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme) . '&v=2.0.0');
 ?>
     <meta name="theme-color" content="<?= htmlspecialchars($themeColor, ENT_QUOTES, 'UTF-8') ?>">
     <?= renderThemeBootScript($preferences) ?>
     <title>Einstellungen — Ankerkladde</title>
-    <link rel="stylesheet" href="<?= htmlspecialchars(appPath('style.css?v=33'), ENT_QUOTES, 'UTF-8') ?>">
+    <link rel="stylesheet" href="<?= htmlspecialchars(appPath('style.css?v=2.0.0'), ENT_QUOTES, 'UTF-8') ?>">
 </head>
 <body class="settings-page" data-theme="<?= htmlspecialchars($effectiveTheme, ENT_QUOTES, 'UTF-8') ?>">
 <div class="settings-card">
@@ -572,10 +572,64 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
 </div>
 <script>
 (() => {
+    const themePreferences = <?= json_encode([
+        'theme_mode' => $preferences['theme_mode'] ?? 'auto',
+        'light_theme' => $preferences['light_theme'] ?? 'hafenblau',
+        'dark_theme' => $preferences['dark_theme'] ?? 'nachtwache',
+        'theme_colors' => [
+            'parchment' => getThemeColor('parchment'),
+            'hafenblau' => getThemeColor('hafenblau'),
+            'nachtwache' => getThemeColor('nachtwache'),
+            'pier' => getThemeColor('pier'),
+        ],
+    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
     const scrollKey = 'einkauf-settings-scroll-y';
     const copyButton = document.getElementById('copy-api-key');
     const apiKeyInput = document.getElementById('api-key-value');
     const saved = window.sessionStorage.getItem(scrollKey);
+    const themeMediaQuery = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+
+    function getEffectiveTheme() {
+        const mode = themePreferences.theme_mode === 'dark'
+            ? 'dark'
+            : (themePreferences.theme_mode === 'light' ? 'light' : 'auto');
+        const prefersDark = Boolean(themeMediaQuery?.matches);
+
+        if (mode === 'dark') {
+            return themePreferences.dark_theme || 'nachtwache';
+        }
+
+        if (mode === 'light') {
+            return themePreferences.light_theme || 'hafenblau';
+        }
+
+        return prefersDark
+            ? (themePreferences.dark_theme || 'nachtwache')
+            : (themePreferences.light_theme || 'hafenblau');
+    }
+
+    function applySettingsTheme() {
+        const theme = getEffectiveTheme();
+        document.documentElement.dataset.theme = theme;
+        if (document.body) {
+            document.body.dataset.theme = theme;
+        }
+
+        const themeColorMeta = document.querySelector('meta[name="theme-color"]');
+        if (themeColorMeta && themePreferences.theme_colors?.[theme]) {
+            themeColorMeta.setAttribute('content', themePreferences.theme_colors[theme]);
+        }
+
+        document.querySelectorAll('img.brand-mark').forEach(image => {
+            try {
+                const url = new URL(image.src, window.location.href);
+                url.searchParams.set('theme', theme);
+                image.src = url.toString();
+            } catch (error) {}
+        });
+    }
+
+    applySettingsTheme();
 
     if (saved !== null) {
         window.sessionStorage.removeItem(scrollKey);
@@ -602,6 +656,20 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                 copyButton.textContent = 'Nicht kopierbar';
             }
         });
+    }
+
+    if (themeMediaQuery) {
+        const onThemeChange = () => {
+            if (themePreferences.theme_mode === 'auto') {
+                applySettingsTheme();
+            }
+        };
+
+        if (typeof themeMediaQuery.addEventListener === 'function') {
+            themeMediaQuery.addEventListener('change', onThemeChange);
+        } else if (typeof themeMediaQuery.addListener === 'function') {
+            themeMediaQuery.addListener(onThemeChange);
+        }
     }
 })();
 </script>

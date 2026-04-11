@@ -45,6 +45,7 @@
     .topbar img { width: 24px; height: 24px; border-radius: 4px; }
     .topbar-title { font-weight: 600; }
     .tabs { display: flex; gap: 4px; }
+    .tabs.hidden { display: none; }
     .tab-btn {
       padding: 6px 12px;
       border: none;
@@ -168,6 +169,18 @@
     .history-item .btn.small { width: auto; min-width: 74px; flex-shrink: 0; }
     .setup-screen { display: none; text-align: center; padding: 24px 20px; }
     .setup-screen.visible { display: block; }
+    .setup-brand {
+      display: grid;
+      justify-items: center;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+    .setup-brand img {
+      width: 88px;
+      height: 88px;
+      border-radius: 22px;
+      box-shadow: 0 10px 24px rgba(13, 58, 92, 0.18);
+    }
     .setup-screen h2 { margin: 0 0 8px; font-size: 18px; }
     .setup-screen p { margin: 0 0 16px; color: var(--text-secondary); font-size: 14px; }
     .setup-screen .btn { margin-top: 12px; }
@@ -181,7 +194,7 @@
       <img src="icon.png" alt="" width="24" height="24">
       <span class="topbar-title">Ankerkladde</span>
     </div>
-    <div class="tabs">
+    <div class="tabs" id="topTabs">
       <button class="tab-btn active" data-tab="save">Neu</button>
       <button class="tab-btn" data-tab="settings">Einstellungen</button>
     </div>
@@ -189,6 +202,9 @@
   <div id="status" class="status"></div>
 
   <div id="setupScreen" class="setup-screen visible">
+    <div class="setup-brand">
+      <img src="icon.png" alt="Ankerkladde Logo" width="88" height="88">
+    </div>
     <h2>Willkommen</h2>
     <p>Gib deine Ankerkladde URL und den API-Key ein, um loszulegen.</p>
     <div class="api-fields">
