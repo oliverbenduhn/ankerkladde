@@ -1128,10 +1128,11 @@ async function addItemFromBarcode(barcode) {
     }
 
     const product = await lookupProductByBarcode(barcode);
-    const name = [
-        product?.product_name,
-        product?.brands,
-    ].find(value => typeof value === 'string' && value.trim() !== '')?.trim() || `Artikel ${barcode}`;
+    const productName = typeof product?.product_name === 'string' ? product.product_name.trim() : '';
+    const brandName = typeof product?.brands === 'string' ? product.brands.trim() : '';
+    const name = productName !== ''
+        ? (brandName !== '' ? `${productName} (${brandName})` : productName)
+        : (brandName !== '' ? brandName : `Artikel ${barcode}`);
     const body = new URLSearchParams({
         category_id: String(category.id),
         name,
