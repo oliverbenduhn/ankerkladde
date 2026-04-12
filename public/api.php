@@ -317,6 +317,25 @@ function normalizeOriginalFilename(?string $filename): string
     return truncateText($filename, 255);
 }
 
+function getProductCatalogDatasets(): array
+{
+    return ['food', 'beauty', 'petfood', 'products'];
+}
+
+function getProductCatalogTableName(string $dataset): string
+{
+    if (!in_array($dataset, getProductCatalogDatasets(), true)) {
+        throw new InvalidArgumentException('Ungültiges Produkt-Dataset.');
+    }
+
+    return 'product_catalog_' . $dataset;
+}
+
+function quoteSqlIdentifier(string $identifier): string
+{
+    return '"' . str_replace('"', '""', $identifier) . '"';
+}
+
 function normalizeStoredExtension(string $extension): string
 {
     $extension = strtolower(trim($extension));
@@ -578,6 +597,7 @@ function formatListItem(array $item): array
         'category_name' => (string) ($item['category_name'] ?? ''),
         'category_type' => (string) ($item['category_type'] ?? ''),
         'name' => (string) ($item['name'] ?? ''),
+        'barcode' => (string) ($item['barcode'] ?? ''),
         'quantity' => (string) ($item['quantity'] ?? ''),
         'due_date' => (string) ($item['due_date'] ?? ''),
         'is_pinned' => (int) ($item['is_pinned'] ?? 0),
@@ -608,6 +628,7 @@ function fetchItemForUser(PDO $db, int $userId, int $itemId): ?array
             categories.name AS category_name,
             categories.type AS category_type,
             items.name,
+            items.barcode,
             items.quantity,
             items.due_date,
             items.is_pinned,
@@ -821,6 +842,7 @@ try {
                     categories.name AS category_name,
                     categories.type AS category_type,
                     items.name,
+                    items.barcode,
                     items.quantity,
                     items.due_date,
                     items.is_pinned,
@@ -866,6 +888,8 @@ try {
 
             $category = requireCategory($data, $db, $userId);
             $name = normalizeName($data['name'] ?? null);
+            $barcode = preg_replace('/\D+/', '', (string) ($data['barcode'] ?? '')) ?? '';
+            $barcode = truncateText($barcode, 64);
             $quantity = normalizeQuantity($data['quantity'] ?? null);
             $dueDate = normalizeDueDate($data['due_date'] ?? null);
             $content = normalizeContent($data['content'] ?? null);
@@ -878,28 +902,33 @@ try {
 
             if ($type === 'list_due_date') {
                 $quantity = '';
+                $barcode = '';
             } elseif ($type === 'list_quantity') {
                 $dueDate = '';
                 $content = '';
             } elseif ($type === 'notes') {
                 $quantity = '';
                 $dueDate = '';
+                $barcode = '';
             } elseif ($type === 'links') {
                 $quantity = '';
                 $dueDate = '';
                 $content = '';
+                $barcode = '';
             } else {
                 $quantity = '';
                 $dueDate = '';
                 $content = '';
+                $barcode = '';
             }
 
             $stmt = $db->prepare(
-                'INSERT INTO items (name, quantity, due_date, content, section, category_id, sort_order, user_id)
-                 VALUES (:name, :quantity, :due_date, :content, :section, :category_id, :sort_order, :user_id)'
+                'INSERT INTO items (name, barcode, quantity, due_date, content, section, category_id, sort_order, user_id)
+                 VALUES (:name, :barcode, :quantity, :due_date, :content, :section, :category_id, :sort_order, :user_id)'
             );
             $stmt->execute([
                 ':name' => $name,
+                ':barcode' => $barcode,
                 ':quantity' => $quantity,
                 ':due_date' => $dueDate,
                 ':content' => $content,
@@ -1104,6 +1133,8 @@ try {
 
             $type = (string) $item['category_type'];
             $name = normalizeName($data['name'] ?? null);
+            $barcode = preg_replace('/\D+/', '', (string) ($data['barcode'] ?? ($item['barcode'] ?? ''))) ?? '';
+            $barcode = truncateText($barcode, 64);
             $quantity = normalizeQuantity($data['quantity'] ?? null);
             $dueDate = normalizeDueDate($data['due_date'] ?? null);
             $content = normalizeContent($data['content'] ?? null);
@@ -1114,6 +1145,7 @@ try {
 
             if ($type !== 'list_quantity') {
                 $quantity = '';
+                $barcode = '';
             }
             if ($type !== 'list_due_date') {
                 $dueDate = '';
@@ -1124,12 +1156,13 @@ try {
 
             $stmt = $db->prepare(
                 'UPDATE items
-                 SET name = :name, quantity = :quantity, due_date = :due_date, content = :content, updated_at = CURRENT_TIMESTAMP
+                 SET name = :name, barcode = :barcode, quantity = :quantity, due_date = :due_date, content = :content, updated_at = CURRENT_TIMESTAMP
                  WHERE id = :id AND user_id = :user_id'
             );
             $stmt->execute([
                 ':id' => $id,
                 ':name' => $name,
+                ':barcode' => $barcode,
                 ':quantity' => $quantity,
                 ':due_date' => $dueDate,
                 ':content' => $content,
@@ -1291,6 +1324,7 @@ try {
                     categories.name AS category_name,
                     categories.type AS category_type,
                     items.name,
+                    items.barcode,
                     items.quantity,
                     items.due_date,
                     items.is_pinned,
@@ -1318,6 +1352,104 @@ try {
 
             $items = array_map(static fn(array $item): array => formatListItem($item), $stmt->fetchAll());
             respond(200, ['items' => $items]);
+
+        case 'product_lookup':
+            requireMethod('GET');
+            $barcode = preg_replace('/\D+/', '', (string) ($_GET['barcode'] ?? '')) ?? '';
+            $barcode = truncateText($barcode, 64);
+
+            if ($barcode === '') {
+                respond(422, ['error' => 'Ungültiger Barcode.']);
+            }
+
+            $stmt = $db->prepare(
+                'SELECT barcode, product_name, brands, quantity, source
+                 FROM product_catalog
+                 WHERE barcode = :barcode
+                 LIMIT 1'
+            );
+            $stmt->execute([':barcode' => $barcode]);
+            $product = $stmt->fetch();
+
+            if (!is_array($product)) {
+                respond(404, ['error' => 'Produkt nicht gefunden.']);
+            }
+
+            respond(200, [
+                'product' => [
+                    'barcode' => (string) ($product['barcode'] ?? ''),
+                    'product_name' => (string) ($product['product_name'] ?? ''),
+                    'brands' => (string) ($product['brands'] ?? ''),
+                    'quantity' => (string) ($product['quantity'] ?? ''),
+                    'source' => (string) ($product['source'] ?? ''),
+                ],
+            ]);
+
+        case 'product_details':
+            requireMethod('GET');
+            $barcode = preg_replace('/\D+/', '', (string) ($_GET['barcode'] ?? '')) ?? '';
+            $barcode = truncateText($barcode, 64);
+
+            if ($barcode === '') {
+                respond(422, ['error' => 'Ungültiger Barcode.']);
+            }
+
+            $summaryStmt = $db->prepare(
+                'SELECT barcode, product_name, brands, quantity, source
+                 FROM product_catalog
+                 WHERE barcode = :barcode
+                 LIMIT 1'
+            );
+            $summaryStmt->execute([':barcode' => $barcode]);
+            $summary = $summaryStmt->fetch();
+
+            if (!is_array($summary)) {
+                respond(404, ['error' => 'Produkt nicht gefunden.']);
+            }
+
+            $sources = [];
+            $sourceNames = array_values(array_filter(array_map('trim', explode(',', (string) ($summary['source'] ?? '')))));
+
+            foreach ($sourceNames as $dataset) {
+                try {
+                    $tableName = getProductCatalogTableName($dataset);
+                } catch (InvalidArgumentException) {
+                    continue;
+                }
+
+                $tableIdentifier = quoteSqlIdentifier($tableName);
+                $exists = (bool) $db->query(
+                    "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = " . $db->quote($tableName)
+                )->fetchColumn();
+
+                if (!$exists) {
+                    continue;
+                }
+
+                $stmt = $db->prepare("SELECT * FROM {$tableIdentifier} WHERE code = :barcode LIMIT 1");
+                $stmt->execute([':barcode' => $barcode]);
+                $row = $stmt->fetch();
+
+                if (!is_array($row)) {
+                    continue;
+                }
+
+                $sources[] = [
+                    'dataset' => $dataset,
+                    'fields' => $row,
+                ];
+            }
+
+            respond(200, [
+                'product' => [
+                    'barcode' => (string) ($summary['barcode'] ?? ''),
+                    'product_name' => (string) ($summary['product_name'] ?? ''),
+                    'brands' => (string) ($summary['brands'] ?? ''),
+                    'quantity' => (string) ($summary['quantity'] ?? ''),
+                    'source' => (string) ($summary['source'] ?? ''),
+                ],
+                'sources' => $sources,
+            ]);
 
         case 'preferences':
             if ($_SERVER['REQUEST_METHOD'] === 'GET') {

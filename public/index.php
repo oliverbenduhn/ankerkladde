@@ -35,6 +35,7 @@ function icon(string $name): string {
         'eye'      => '<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>',
         'pencil'   => '<path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/>',
         'camera'   => '<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/>',
+        'scan'     => '<path d="M4 7V5a1 1 0 0 1 1-1h2"/><path d="M20 7V5a1 1 0 0 0-1-1h-2"/><path d="M4 17v2a1 1 0 0 0 1 1h2"/><path d="M20 17v2a1 1 0 0 1-1 1h-2"/><path d="M7 12h10"/><path d="M8 9v6"/><path d="M11 9v6"/><path d="M14 9v6"/><path d="M16 9v6"/>',
         'x'        => '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
         'plus'     => '<path d="M5 12h14"/><path d="M12 5v14"/>',
         'link'     => '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
@@ -92,6 +93,7 @@ $brandMarkSrc = 'icon.php?size=96&theme=' . rawurlencode($effectiveTheme) . '&v=
             </div>
         </div>
         <div class="header-actions">
+            <a href="<?= htmlspecialchars(appPath('barcode.php'), ENT_QUOTES, 'UTF-8') ?>" class="header-icon-btn" aria-label="Produktscanner öffnen"><?= icon('scan') ?></a>
             <button type="button" id="searchBtn" class="header-icon-btn btn-search" aria-label="Suchen"><?= icon('search') ?></button>
             <a href="<?= htmlspecialchars(appPath('settings.php'), ENT_QUOTES, 'UTF-8') ?>" class="header-icon-btn btn-settings" aria-label="Einstellungen"><?= icon('settings') ?></a>
             <button type="button" class="header-icon-btn btn-theme-mode" aria-label="Farbschema umschalten" title="Farbschema umschalten"><?= icon('theme-auto') ?></button>
@@ -117,6 +119,8 @@ $brandMarkSrc = 'icon.php?size=96&theme=' . rawurlencode($effectiveTheme) . '&v=
         </div>
         <div class="header-actions">
             <span class="progress" id="progress" aria-live="polite">0 / 0</span>
+            <a href="<?= htmlspecialchars(appPath('barcode.php'), ENT_QUOTES, 'UTF-8') ?>" class="header-icon-btn" aria-label="Produktscanner öffnen"><?= icon('scan') ?></a>
+            <button type="button" id="scanShoppingBtn" class="header-icon-btn btn-scan shopping-only" aria-label="Barcode scannen"><?= icon('scan') ?></button>
             <a href="<?= htmlspecialchars(appPath('settings.php'), ENT_QUOTES, 'UTF-8') ?>" class="header-icon-btn btn-settings" aria-label="Einstellungen"><?= icon('settings') ?></a>
             <button type="button" class="header-icon-btn btn-theme-mode" aria-label="Farbschema umschalten" title="Farbschema umschalten"><?= icon('theme-auto') ?></button>
             <button type="button" class="header-icon-btn btn-mode-toggle" data-nav="liste" aria-label="Liste bearbeiten"><?= icon('pencil') ?></button>
@@ -138,6 +142,7 @@ $brandMarkSrc = 'icon.php?size=96&theme=' . rawurlencode($effectiveTheme) . '&v=
             </div>
             <input type="text" id="quantityInput" name="quantity"
                    placeholder="Menge" maxlength="40" autocomplete="off" enterkeyhint="done">
+            <button type="button" class="btn-add btn-scan-input" id="scanAddBtn" aria-label="Barcode scannen"><?= icon('scan') ?></button>
             <button type="submit" class="btn-add" aria-label="Artikel hinzufügen"><?= icon('plus') ?></button>
         </form>
         <p class="input-hint" id="inputHint" hidden></p>
@@ -165,6 +170,27 @@ $brandMarkSrc = 'icon.php?size=96&theme=' . rawurlencode($effectiveTheme) . '&v=
 
     <div class="upload-progress" id="uploadProgress" hidden>
         <div class="upload-progress-bar" id="uploadProgressBar"></div>
+    </div>
+
+    <div class="scanner-overlay" id="scannerOverlay" hidden>
+        <div class="scanner-sheet" role="dialog" aria-modal="true" aria-labelledby="scannerTitle">
+            <div class="scanner-header">
+                <div>
+                    <h2 class="scanner-title" id="scannerTitle">Barcode scannen</h2>
+                    <p class="scanner-subtitle" id="scannerSubtitle">Kamera wird vorbereitet…</p>
+                </div>
+                <button type="button" id="scannerCloseBtn" class="header-icon-btn" aria-label="Scanner schließen"><?= icon('x') ?></button>
+            </div>
+            <div class="scanner-viewport">
+                <video id="scannerVideo" class="scanner-video" autoplay playsinline muted></video>
+                <div class="scanner-frame" aria-hidden="true"></div>
+            </div>
+            <div class="scanner-status" id="scannerStatus" aria-live="polite"></div>
+            <form class="scanner-manual-form" id="scannerManualForm" novalidate>
+                <input type="text" id="scannerManualInput" inputmode="numeric" autocomplete="off" placeholder="Barcode manuell eingeben" maxlength="64">
+                <button type="submit" class="btn-add" aria-label="Barcode übernehmen"><?= icon('check') ?></button>
+            </form>
+        </div>
     </div>
 
     <div class="note-editor" id="noteEditor" hidden>

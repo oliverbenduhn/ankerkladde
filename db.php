@@ -998,6 +998,13 @@ function getDatabase(): PDO
         $db->exec("ALTER TABLE items ADD COLUMN is_pinned INTEGER NOT NULL DEFAULT 0 CHECK(is_pinned IN (0, 1))");
     }
 
+    $columns = $db->query('PRAGMA table_info(items)')->fetchAll();
+    $columnNames = array_map(static fn(array $column): string => $column['name'], $columns);
+
+    if (!in_array('barcode', $columnNames, true)) {
+        $db->exec("ALTER TABLE items ADD COLUMN barcode TEXT NOT NULL DEFAULT ''");
+    }
+
     $hasFts = (bool) $db->query(
         "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = 'items_fts'"
     )->fetchColumn();
@@ -1130,6 +1137,22 @@ function getDatabase(): PDO
     $db->exec('CREATE INDEX IF NOT EXISTS idx_categories_user_id ON categories(user_id)');
     $db->exec('CREATE INDEX IF NOT EXISTS idx_categories_user_sort ON categories(user_id, sort_order)');
     $db->exec('CREATE INDEX IF NOT EXISTS idx_items_category_id ON items(category_id)');
+    $db->exec(
+        "CREATE TABLE IF NOT EXISTS product_catalog (
+            barcode TEXT PRIMARY KEY,
+            product_name TEXT NOT NULL DEFAULT '',
+            brands TEXT NOT NULL DEFAULT '',
+            quantity TEXT NOT NULL DEFAULT '',
+            source TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )"
+    );
+    $productCatalogColumns = $db->query('PRAGMA table_info(product_catalog)')->fetchAll();
+    $productCatalogColumnNames = array_map(static fn(array $column): string => $column['name'], $productCatalogColumns);
+    if (!in_array('source', $productCatalogColumnNames, true)) {
+        $db->exec("ALTER TABLE product_catalog ADD COLUMN source TEXT NOT NULL DEFAULT ''");
+    }
 
     $categoryColumns = $db->query('PRAGMA table_info(categories)')->fetchAll();
     $categoryColumnNames = array_map(static fn(array $column): string => $column['name'], $categoryColumns);

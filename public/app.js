@@ -16,6 +16,8 @@ const listSwipePreviewListEl = document.getElementById('listSwipePreviewList');
 const itemForm = document.getElementById('itemForm');
 const itemInput = document.getElementById('itemInput');
 const quantityInput = document.getElementById('quantityInput');
+const scanAddBtn = document.getElementById('scanAddBtn');
+const scanShoppingBtn = document.getElementById('scanShoppingBtn');
 const fileInput = document.getElementById('fileInput');
 const fileInputGroup = document.getElementById('fileInputGroup');
 const filePickerButton = document.getElementById('filePickerButton');
@@ -50,6 +52,13 @@ const noteTitleInput = document.getElementById('noteTitleInput');
 const noteSaveStatus = document.getElementById('noteSaveStatus');
 const noteEditorBody = document.getElementById('noteEditorEl');
 const noteToolbar = document.getElementById('noteToolbar');
+const scannerOverlay = document.getElementById('scannerOverlay');
+const scannerCloseBtn = document.getElementById('scannerCloseBtn');
+const scannerVideo = document.getElementById('scannerVideo');
+const scannerSubtitle = document.getElementById('scannerSubtitle');
+const scannerStatus = document.getElementById('scannerStatus');
+const scannerManualForm = document.getElementById('scannerManualForm');
+const scannerManualInput = document.getElementById('scannerManualInput');
 const userPreferencesScript = document.getElementById('userPreferences');
 const brandMarkEls = document.querySelectorAll('.brand-mark');
 
@@ -70,6 +79,7 @@ const ICONS = {
     grip:            '<circle cx="9" cy="6" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="18" r="1"/>',
     'arrow-left':    '<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>',
     plus:            '<path d="M5 12h14"/><path d="M12 5v14"/>',
+    scan:            '<path d="M4 7V5a1 1 0 0 1 1-1h2"/><path d="M20 7V5a1 1 0 0 0-1-1h-2"/><path d="M4 17v2a1 1 0 0 0 1 1h2"/><path d="M20 17v2a1 1 0 0 1-1 1h-2"/><path d="M7 12h10"/><path d="M8 9v6"/><path d="M11 9v6"/><path d="M14 9v6"/><path d="M16 9v6"/>',
     link:            '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
     'more-horizontal': '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
 };
@@ -133,7 +143,7 @@ const state = {
     itemsByCategoryId: new Map(),
     mode: 'liste',
     editingId: null,
-    editDraft: { name: '', quantity: '', due_date: '' },
+    editDraft: { name: '', barcode: '', quantity: '', due_date: '' },
     search: { open: false, query: '', results: [] },
     noteEditorId: null,
     diskFreeBytes: null,
@@ -149,6 +159,19 @@ let swipeTransitionActive = false;
 const NOTE_SAVE_DEBOUNCE_MS = 800;
 const TAB_REORDER_LONG_PRESS_MS = 400;
 const CATEGORY_SWIPE_THRESHOLD_PX = 72;
+const SCANNER_COOLDOWN_MS = 1800;
+const BARCODE_FORMATS = ['ean_13', 'ean_8', 'upc_a', 'upc_e'];
+
+const scannerState = {
+    open: false,
+    action: 'add',
+    stream: null,
+    detector: null,
+    rafId: 0,
+    processing: false,
+    lastValue: '',
+    lastHandledAt: 0,
+};
 
 function appUrl(path) {
     return new URL(path, `${window.location.origin}${appBasePath}`).toString();
@@ -268,6 +291,18 @@ function isAttachmentCategory(type = getCurrentType()) {
 
 function isNotesCategory(type = getCurrentType()) {
     return type === 'notes';
+}
+
+function isBarcodeCategory(category = getCurrentCategory()) {
+    return category?.type === 'list_quantity';
+}
+
+function isScannerSupported() {
+    return Boolean(window.isSecureContext && navigator.mediaDevices?.getUserMedia);
+}
+
+function normalizeBarcodeValue(value) {
+    return String(value || '').replace(/\D+/g, '').trim();
 }
 
 function setMessage(text, isError = false) {
@@ -440,6 +475,7 @@ function normalizeItem(item) {
         ...item,
         id: Number(item.id),
         category_id: Number(item.category_id),
+        barcode: item.barcode || '',
         done: Number(item.done),
         sort_order: Number(item.sort_order),
         is_pinned: Number(item.is_pinned || 0),
@@ -963,6 +999,7 @@ function updateUploadUi() {
     const type = getCurrentType();
     const uploadCategory = isAttachmentCategory(type);
     const imageCategory = type === 'images';
+    const barcodeCategory = type === 'list_quantity';
 
     if (fileInputGroup) fileInputGroup.hidden = !uploadCategory;
     if (inputHintEl) {
@@ -972,6 +1009,8 @@ function updateUploadUi() {
 
     const submitBtn = itemForm?.querySelector('[type="submit"]');
     if (submitBtn) submitBtn.hidden = uploadCategory;
+    if (scanAddBtn) scanAddBtn.hidden = !barcodeCategory || uploadCategory;
+    if (scanShoppingBtn) scanShoppingBtn.hidden = !barcodeCategory;
 
     if (filePickerButton) filePickerButton.textContent = imageCategory ? 'Bild wählen' : 'Datei wählen';
     if (fileInput) {
@@ -1003,6 +1042,255 @@ function updateFilePickerLabel() {
     filePickerName.textContent = attachment ? attachment.name : 'Keine Datei ausgewählt';
 }
 
+function setScannerStatus(text, isError = false) {
+    if (!scannerStatus) return;
+    scannerStatus.textContent = text;
+    scannerStatus.classList.toggle('is-error', Boolean(isError));
+}
+
+function getScannerActionLabel() {
+    return scannerState.action === 'toggle' ? 'Eintrag abhaken' : 'Artikel hinzufügen';
+}
+
+function updateScannerSubtitle() {
+    if (!scannerSubtitle) return;
+    scannerSubtitle.textContent = scannerState.action === 'toggle'
+        ? 'Barcode scannt offene Einträge der aktuellen Liste und hakt sie ab.'
+        : 'Barcode scannt Produkte und legt sie direkt in der aktuellen Liste an.';
+}
+
+function stopScannerLoop() {
+    if (scannerState.rafId) {
+        window.cancelAnimationFrame(scannerState.rafId);
+        scannerState.rafId = 0;
+    }
+}
+
+function stopScannerStream() {
+    const stream = scannerState.stream;
+    scannerState.stream = null;
+
+    if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+    }
+
+    if (scannerVideo) {
+        scannerVideo.pause();
+        scannerVideo.srcObject = null;
+    }
+}
+
+function closeScanner() {
+    stopScannerLoop();
+    stopScannerStream();
+    scannerState.detector = null;
+    scannerState.processing = false;
+    scannerState.open = false;
+    if (scannerOverlay) scannerOverlay.hidden = true;
+}
+
+async function createBarcodeDetector() {
+    if (typeof window.BarcodeDetector !== 'function') {
+        return null;
+    }
+
+    let formats = BARCODE_FORMATS;
+    if (typeof window.BarcodeDetector.getSupportedFormats === 'function') {
+        try {
+            const supported = await window.BarcodeDetector.getSupportedFormats();
+            const filtered = BARCODE_FORMATS.filter(format => supported.includes(format));
+            if (filtered.length > 0) {
+                formats = filtered;
+            }
+        } catch {}
+    }
+
+    try {
+        return new window.BarcodeDetector({ formats });
+    } catch {
+        return null;
+    }
+}
+
+async function lookupProductByBarcode(barcode) {
+    try {
+        const payload = await api(`product_lookup&barcode=${encodeURIComponent(barcode)}`);
+        return payload?.product || null;
+    } catch {
+        return null;
+    }
+}
+
+async function addItemFromBarcode(barcode) {
+    const category = getCurrentCategory();
+    if (!isBarcodeCategory(category)) {
+        throw new Error('Barcode-Scan ist nur in Einkaufslisten verfügbar.');
+    }
+
+    const product = await lookupProductByBarcode(barcode);
+    const name = [
+        product?.product_name,
+        product?.brands,
+    ].find(value => typeof value === 'string' && value.trim() !== '')?.trim() || `Artikel ${barcode}`;
+    const body = new URLSearchParams({
+        category_id: String(category.id),
+        name,
+        barcode,
+    });
+
+    const quantity = quantityInput?.value.trim() || product?.quantity?.trim() || '';
+    if (quantity !== '') {
+        body.set('quantity', quantity);
+    }
+
+    await api('add', { method: 'POST', body });
+    itemForm?.reset();
+    syncAutoHeight(itemInput);
+    updateFilePickerLabel();
+    invalidateCategoryCache(category.id);
+    await loadItems();
+    setMessage(`${name} hinzugefügt.`);
+}
+
+async function toggleItemFromBarcode(barcode) {
+    const category = getCurrentCategory();
+    if (!isBarcodeCategory(category)) {
+        throw new Error('Barcode-Scan ist nur in Einkaufslisten verfügbar.');
+    }
+
+    const openItem = state.items.find(item => item.barcode === barcode && item.done !== 1) || null;
+    if (openItem) {
+        await handleToggle(openItem.id, 1);
+        setMessage(`${openItem.name} abgehakt.`);
+        return;
+    }
+
+    const doneItem = state.items.find(item => item.barcode === barcode) || null;
+    if (doneItem) {
+        throw new Error(`${doneItem.name} ist bereits abgehakt.`);
+    }
+
+    throw new Error('Kein offener Eintrag mit diesem Barcode in der aktuellen Liste gefunden.');
+}
+
+async function handleScannedBarcode(rawValue) {
+    const barcode = normalizeBarcodeValue(rawValue);
+    if (barcode.length < 8) return;
+
+    const now = Date.now();
+    if (barcode === scannerState.lastValue && now - scannerState.lastHandledAt < SCANNER_COOLDOWN_MS) {
+        return;
+    }
+
+    scannerState.lastValue = barcode;
+    scannerState.lastHandledAt = now;
+    scannerState.processing = true;
+    setScannerStatus(`${getScannerActionLabel()}: ${barcode}`);
+
+    try {
+        if (scannerState.action === 'toggle') {
+            await toggleItemFromBarcode(barcode);
+        } else {
+            await addItemFromBarcode(barcode);
+        }
+        triggerHapticFeedback();
+        setScannerStatus(`Erfolgreich: ${barcode}`);
+        window.setTimeout(() => {
+            if (scannerState.open) {
+                closeScanner();
+            }
+        }, 180);
+    } catch (error) {
+        setScannerStatus(error instanceof Error ? error.message : 'Barcode konnte nicht verarbeitet werden.', true);
+    } finally {
+        window.setTimeout(() => {
+            scannerState.processing = false;
+        }, 350);
+    }
+}
+
+function scheduleScannerLoop() {
+    stopScannerLoop();
+
+    const scanFrame = async () => {
+        if (!scannerState.open) return;
+        scannerState.rafId = window.requestAnimationFrame(scanFrame);
+
+        if (scannerState.processing || !scannerState.detector || !scannerVideo || scannerVideo.readyState < 2) {
+            return;
+        }
+
+        try {
+            const barcodes = await scannerState.detector.detect(scannerVideo);
+            const rawValue = barcodes?.[0]?.rawValue || '';
+            if (rawValue) {
+                await handleScannedBarcode(rawValue);
+            }
+        } catch {}
+    };
+
+    scannerState.rafId = window.requestAnimationFrame(scanFrame);
+}
+
+async function openScanner(action = state.mode === 'einkaufen' ? 'toggle' : 'add') {
+    if (scannerState.open) {
+        return;
+    }
+    const category = getCurrentCategory();
+    if (!isBarcodeCategory(category)) {
+        setMessage('Barcode-Scan ist nur in Einkaufslisten verfügbar.', true);
+        return;
+    }
+    if (state.noteEditorId !== null || state.search.open) {
+        setMessage('Scanner ist während Suche oder Notizbearbeitung nicht verfügbar.', true);
+        return;
+    }
+
+    scannerState.action = action;
+    scannerState.processing = false;
+    scannerState.lastValue = '';
+    scannerState.lastHandledAt = 0;
+    scannerState.open = true;
+    updateScannerSubtitle();
+    setScannerStatus('Kamera wird vorbereitet…');
+    if (scannerOverlay) scannerOverlay.hidden = false;
+    if (scannerManualInput) scannerManualInput.value = '';
+
+    if (!isScannerSupported()) {
+        setScannerStatus('Kamera-Scan braucht HTTPS oder localhost. Manueller Barcode-Eintrag bleibt verfügbar.', true);
+        scannerManualInput?.focus();
+        return;
+    }
+
+    try {
+        scannerState.stream = await navigator.mediaDevices.getUserMedia({
+            audio: false,
+            video: {
+                facingMode: { ideal: 'environment' },
+            },
+        });
+
+        if (scannerVideo) {
+            scannerVideo.srcObject = scannerState.stream;
+            await scannerVideo.play();
+        }
+
+        scannerState.detector = await createBarcodeDetector();
+        if (!scannerState.detector) {
+            setScannerStatus('BarcodeDetector fehlt in diesem Browser. Manueller Barcode-Eintrag ist aktiv.', true);
+            scannerManualInput?.focus();
+            return;
+        }
+
+        setScannerStatus('Kamera aktiv. Barcode in den Rahmen halten.');
+        scheduleScannerLoop();
+    } catch (error) {
+        stopScannerStream();
+        setScannerStatus(error instanceof Error ? error.message : 'Kamera konnte nicht gestartet werden.', true);
+        scannerManualInput?.focus();
+    }
+}
+
 function formatBytes(sizeBytes) {
     const size = Number(sizeBytes);
     if (!Number.isFinite(size) || size < 0) return 'Unbekannt';
@@ -1023,6 +1311,9 @@ function formatBytes(sizeBytes) {
 }
 
 async function setCategory(categoryId) {
+    if (scannerState.open) {
+        closeScanner();
+    }
     if (state.noteEditorId !== null) {
         await closeNoteEditor();
     }
@@ -1228,7 +1519,12 @@ function openItemMenu(item) {
     } else {
         appendAction('Bearbeiten', async () => {
             state.editingId = item.id;
-            state.editDraft = { name: item.name || '', quantity: item.quantity || '', due_date: item.due_date || '' };
+            state.editDraft = {
+                name: item.name || '',
+                barcode: item.barcode || '',
+                quantity: item.quantity || '',
+                due_date: item.due_date || '',
+            };
             renderItems();
         });
     }
@@ -1416,6 +1712,9 @@ function buildReadOnlyContent(item, content) {
 }
 
 function buildEditContent(item, content) {
+    const fields = document.createElement('div');
+    fields.className = 'item-edit-fields';
+
     const nameInput = document.createElement('textarea');
     nameInput.className = 'item-edit-input item-edit-textarea edit-name-input';
     nameInput.rows = 5;
@@ -1426,9 +1725,22 @@ function buildEditContent(item, content) {
         syncAutoHeight(nameInput);
     });
     syncAutoHeight(nameInput);
-    content.appendChild(nameInput);
+    fields.appendChild(nameInput);
 
     if (item.category_type === 'list_quantity') {
+        const barcodeInput = document.createElement('input');
+        barcodeInput.type = 'text';
+        barcodeInput.inputMode = 'numeric';
+        barcodeInput.className = 'item-edit-input';
+        barcodeInput.maxLength = 64;
+        barcodeInput.placeholder = 'Barcode';
+        barcodeInput.value = state.editDraft.barcode;
+        barcodeInput.addEventListener('input', event => {
+            state.editDraft.barcode = normalizeBarcodeValue(event.target.value);
+            barcodeInput.value = state.editDraft.barcode;
+        });
+        fields.appendChild(barcodeInput);
+
         const quantity = document.createElement('input');
         quantity.type = 'text';
         quantity.className = 'item-edit-input';
@@ -1438,7 +1750,7 @@ function buildEditContent(item, content) {
         quantity.addEventListener('input', event => {
             state.editDraft.quantity = event.target.value;
         });
-        content.appendChild(quantity);
+        fields.appendChild(quantity);
     }
 
     if (item.category_type === 'list_due_date') {
@@ -1449,8 +1761,10 @@ function buildEditContent(item, content) {
         dueDate.addEventListener('input', event => {
             state.editDraft.due_date = event.target.value;
         });
-        content.appendChild(dueDate);
+        fields.appendChild(dueDate);
     }
+
+    content.appendChild(fields);
 }
 
 function buildItemNode(item) {
@@ -1830,6 +2144,7 @@ async function handleEditSave(id) {
     const body = new URLSearchParams({
         id: String(id),
         name: state.editDraft.name.trim(),
+        barcode: state.editDraft.barcode.trim(),
         quantity: state.editDraft.quantity.trim(),
         due_date: state.editDraft.due_date.trim(),
     });
@@ -2147,8 +2462,41 @@ clearDoneBtn?.addEventListener('click', () => {
     });
 });
 
+scanAddBtn?.addEventListener('click', () => {
+    void openScanner('add').catch(error => {
+        setScannerStatus(error instanceof Error ? error.message : 'Scanner konnte nicht gestartet werden.', true);
+    });
+});
+
+scanShoppingBtn?.addEventListener('click', () => {
+    void openScanner('toggle').catch(error => {
+        setScannerStatus(error instanceof Error ? error.message : 'Scanner konnte nicht gestartet werden.', true);
+    });
+});
+
+scannerCloseBtn?.addEventListener('click', closeScanner);
+scannerOverlay?.addEventListener('click', event => {
+    if (event.target === scannerOverlay) {
+        closeScanner();
+    }
+});
+
+scannerManualForm?.addEventListener('submit', event => {
+    event.preventDefault();
+    const barcode = normalizeBarcodeValue(scannerManualInput?.value || '');
+    if (barcode === '') {
+        setScannerStatus('Bitte Barcode eingeben.', true);
+        return;
+    }
+
+    void handleScannedBarcode(barcode);
+});
+
 modeToggleBtns.forEach(button => {
     button.addEventListener('click', () => {
+        if (scannerState.open) {
+            closeScanner();
+        }
         state.mode = button.dataset.nav === 'einkaufen' ? 'einkaufen' : 'liste';
         appEl.dataset.mode = state.mode;
         void savePreferences({ mode: state.mode });
@@ -2196,8 +2544,13 @@ window.visualViewport?.addEventListener('resize', () => {
     renderCategoryTabs();
 });
 
-searchBtn?.addEventListener('click', openSearch);
-searchClose?.addEventListener('click', closeSearch);
+searchBtn?.addEventListener('click', () => {
+    if (scannerState.open) closeScanner();
+    openSearch();
+});
+searchClose?.addEventListener('click', () => {
+    closeSearch();
+});
 searchInput?.addEventListener('input', () => {
     void doSearch(searchInput.value);
 });
@@ -2309,8 +2662,18 @@ if (themeMediaQuery) {
 }
 window.addEventListener('offline', setNetworkStatus);
 document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && scannerState.open) {
+        closeScanner();
+        return;
+    }
     if (event.key === 'Escape' && state.search.open) {
         closeSearch();
+    }
+});
+
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden && scannerState.open) {
+        closeScanner();
     }
 });
 
