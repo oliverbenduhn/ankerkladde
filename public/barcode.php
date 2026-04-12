@@ -11,7 +11,7 @@ $db = getDatabase();
 $csrfToken = getCsrfToken();
 $userPreferences = getExtendedUserPreferences($db, $userId);
 $effectiveTheme = resolveEffectiveTheme($userPreferences);
-$assetVersion = '2.0.0';
+$assetVersion = '2.0.1';
 $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme) . '&v=' . rawurlencode($assetVersion));
 
 function icon(string $name): string {

@@ -913,7 +913,6 @@ try {
             } elseif ($type === 'links') {
                 $quantity = '';
                 $dueDate = '';
-                $content = '';
                 $barcode = '';
             } else {
                 $quantity = '';
@@ -1150,7 +1149,7 @@ try {
             if ($type !== 'list_due_date') {
                 $dueDate = '';
             }
-            if ($type !== 'notes') {
+            if ($type !== 'notes' && $type !== 'links') {
                 $content = '';
             }
 

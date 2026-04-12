@@ -172,12 +172,12 @@ $users = $db->query(
 <?php
 $effectiveTheme = resolveEffectiveTheme($adminPreferences);
 $themeColor = getThemeColor($effectiveTheme);
-$brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme) . '&v=2.0.0');
+$brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme) . '&v=2.0.1');
 ?>
     <meta name="theme-color" content="<?= htmlspecialchars($themeColor, ENT_QUOTES, 'UTF-8') ?>">
     <?= renderThemeBootScript($adminPreferences) ?>
     <title>Nutzerverwaltung — Ankerkladde</title>
-    <link rel="stylesheet" href="<?= htmlspecialchars(appPath('style.css?v=2.0.0'), ENT_QUOTES, 'UTF-8') ?>">
+    <link rel="stylesheet" href="<?= htmlspecialchars(appPath('style.css?v=2.0.1'), ENT_QUOTES, 'UTF-8') ?>">
 </head>
 <body data-theme="<?= htmlspecialchars($effectiveTheme, ENT_QUOTES, 'UTF-8') ?>">
 <div class="admin-page">

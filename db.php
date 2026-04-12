@@ -122,6 +122,34 @@ function canGenerateImageThumbnail(): bool
         && function_exists('imagejpeg');
 }
 
+function applyImageExifOrientation($image, string $sourcePath)
+{
+    if (!function_exists('exif_read_data') || !function_exists('imagerotate') || !is_file($sourcePath)) {
+        return $image;
+    }
+
+    $exif = @exif_read_data($sourcePath);
+    $orientation = (int) ($exif['Orientation'] ?? 1);
+    $angle = match ($orientation) {
+        3 => 180,
+        6 => -90,
+        8 => 90,
+        default => 0,
+    };
+
+    if ($angle === 0) {
+        return $image;
+    }
+
+    $rotated = @imagerotate($image, $angle, 0);
+    if ($rotated === false) {
+        return $image;
+    }
+
+    imagedestroy($image);
+    return $rotated;
+}
+
 function generateImageThumbnailFile(
     string $sourcePath,
     string $targetPath,
@@ -143,6 +171,7 @@ function generateImageThumbnailFile(
         return false;
     }
 
+    $sourceImage = applyImageExifOrientation($sourceImage, $sourcePath);
     $sourceWidth = imagesx($sourceImage);
     $sourceHeight = imagesy($sourceImage);
     if ($sourceWidth < 1 || $sourceHeight < 1) {
