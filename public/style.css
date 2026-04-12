@@ -716,6 +716,10 @@ button, input { font: inherit; }
     gap: 2px;
 }
 
+.item-link-meta .item-name {
+    flex: none;
+}
+
 .item-link-description {
     color: var(--text-secondary);
     font-size: 0.82rem;
