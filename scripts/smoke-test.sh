@@ -26,7 +26,7 @@ trap cleanup EXIT
 
 mkdir -p "$TEST_DATA_DIR"
 
-EINKAUF_DATA_DIR="$TEST_DATA_DIR" EINKAUF_TRUST_PROXY_HEADERS=0 php -S "127.0.0.1:$PORT" -t "$ROOT_DIR/public" >"$SERVER_LOG" 2>&1 &
+EINKAUF_DATA_DIR="$TEST_DATA_DIR" EINKAUF_TRUST_PROXY_HEADERS=0 php -S "127.0.0.1:$PORT" -t "$ROOT_DIR/public" "$ROOT_DIR/public/router.php" >"$SERVER_LOG" 2>&1 &
 SERVER_PID=$!
 
 for _ in $(seq 1 40); do
@@ -344,7 +344,7 @@ fi
 mkdir -p "$SUBPATH_ROOT"
 ln -s "$ROOT_DIR/public" "$SUBPATH_ROOT/sub"
 
-EINKAUF_DATA_DIR="$TEST_DATA_DIR" EINKAUF_TRUST_PROXY_HEADERS=0 php -S "127.0.0.1:$SUBPATH_PORT" -t "$SUBPATH_ROOT" >"$SERVER_LOG.subpath" 2>&1 &
+EINKAUF_DATA_DIR="$TEST_DATA_DIR" EINKAUF_TRUST_PROXY_HEADERS=0 php -S "127.0.0.1:$SUBPATH_PORT" -t "$SUBPATH_ROOT" "$ROOT_DIR/public/router.php" >"$SERVER_LOG.subpath" 2>&1 &
 SUBPATH_SERVER_PID=$!
 
 SUBPATH_COOKIE_JAR="$TMP_DIR/subpath-cookies.txt"
@@ -378,6 +378,6 @@ curl -fsS -b "$SUBPATH_COOKIE_JAR" "http://127.0.0.1:$SUBPATH_PORT/sub/manifest.
 grep -q '"id":"/sub/"' "$SUBPATH_MANIFEST"
 grep -q '"start_url":"/sub/"' "$SUBPATH_MANIFEST"
 grep -q '"scope":"/sub/"' "$SUBPATH_MANIFEST"
-grep -q '"src":"/sub/icon.php?size=192&theme=hafenblau"' "$SUBPATH_MANIFEST"
+grep -Eq '"src":"/sub/icon\.php\?size=192&theme=hafenblau(&v=[^"]+)?"' "$SUBPATH_MANIFEST"
 
 echo "Smoke-Test erfolgreich."
