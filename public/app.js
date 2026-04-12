@@ -193,6 +193,17 @@ function appUrl(path) {
     return new URL(path, `${window.location.origin}${appBasePath}`).toString();
 }
 
+async function fetchLinkMetadata(url) {
+    try {
+        const response = await fetch(appUrl(`api.php?action=fetch_metadata&url=${encodeURIComponent(url)}`));
+        if (!response.ok) return null;
+        const data = await response.json();
+        return data;
+    } catch {
+        return null;
+    }
+}
+
 function updateBrandMarks(themeName) {
     brandMarkEls.forEach(image => {
         if (!(image instanceof HTMLImageElement)) return;
@@ -2133,10 +2144,21 @@ async function handleSharedLink(url, title = '', text = '') {
         return;
     }
     await setCategory(category.id);
+
+    let description = buildSharedLinkDescription(title, text, url);
+
+    if (!description.trim()) {
+        setMessage('Lade Seiten-Infos...');
+        const meta = await fetchLinkMetadata(url);
+        if (meta?.title || meta?.description) {
+            description = [meta.title, meta.description].filter(Boolean).join('\n\n');
+        }
+    }
+
     const body = new URLSearchParams({
         category_id: String(category.id),
         name: url,
-        content: buildSharedLinkDescription(title, text, url),
+        content: description,
     });
     await api('add', { method: 'POST', body });
     invalidateCategoryCache(category.id);
@@ -2225,8 +2247,17 @@ async function addItem(event) {
         name: itemInput.value.trim(),
     });
 
-    if (category.type === 'links' && linkDescriptionInput?.value.trim()) {
-        body.set('content', linkDescriptionInput.value.trim());
+    if (category.type === 'links') {
+        const manualDescription = linkDescriptionInput?.value.trim();
+        if (manualDescription) {
+            body.set('content', manualDescription);
+        } else {
+            setMessage('Lade Seiten-Infos...');
+            const meta = await fetchLinkMetadata(itemInput.value.trim());
+            if (meta?.title || meta?.description) {
+                body.set('content', [meta.title, meta.description].filter(Boolean).join('\n\n'));
+            }
+        }
     }
 
     if (category.type === 'list_quantity' && quantityInput.value.trim() !== '') {

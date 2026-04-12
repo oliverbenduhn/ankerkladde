@@ -1381,7 +1381,64 @@ try {
                     'brands' => (string) ($product['brands'] ?? ''),
                     'quantity' => (string) ($product['quantity'] ?? ''),
                     'source' => (string) ($product['source'] ?? ''),
+                    ],
+                ]);
+
+        case 'fetch_metadata':
+            requireMethod('GET');
+            $url = trim((string) ($_GET['url'] ?? ''));
+            if ($url === '' || !filter_var($url, FILTER_VALIDATE_URL)) {
+                respond(422, ['error' => 'Ungültige URL.']);
+            }
+
+            $context = stream_context_create([
+                'http' => [
+                    'timeout' => 8,
+                    'user_agent' => 'Mozilla/5.0 (compatible; Ankerkladde/1.0)',
+                    'follow_location' => 1,
+                    'max_redirects' => 3,
                 ],
+                'ssl' => [
+                    'verify_peer' => true,
+                ],
+            ]);
+
+            $html = @file_get_contents($url, false, $context);
+            if ($html === false) {
+                respond(200, ['title' => '', 'description' => '', 'image' => '']);
+            }
+
+            $title = '';
+            $description = '';
+            $image = '';
+
+            if (preg_match('/<meta\s+property=["\']og:title["\']\s+content=["\']([^"\']*)["\']/i', $html, $m)) {
+                $title = html_entity_decode($m[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            }
+            if ($title === '' && preg_match('/<title[^>]*>([^<]*)<\/title>/i', $html, $m)) {
+                $title = html_entity_decode($m[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            }
+
+            if (preg_match('/<meta\s+property=["\']og:description["\']\s+content=["\']([^"\']*)["\']/i', $html, $m)) {
+                $description = html_entity_decode($m[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            }
+            if ($description === '' && preg_match('/<meta\s+name=["\']description["\']\s+content=["\']([^"\']*)["\']/i', $html, $m)) {
+                $description = html_entity_decode($m[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            }
+
+            if (preg_match('/<meta\s+property=["\']og:image["\']\s+content=["\']([^"\']*)["\']/i', $html, $m)) {
+                $imageUrl = $m[1];
+                if (!str_starts_with($imageUrl, 'http')) {
+                    $parsed = parse_url($url);
+                    $imageUrl = ($parsed['scheme'] ?? 'https') . '://' . ($parsed['host'] ?? '') . ($imageUrl[0] === '/' ? '' : '/') . $imageUrl;
+                }
+                $image = $imageUrl;
+            }
+
+            respond(200, [
+                'title' => truncateText($title, 200),
+                'description' => truncateText($description, 500),
+                'image' => $image,
             ]);
 
         case 'product_details':
