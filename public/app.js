@@ -1767,25 +1767,33 @@ function buildReadOnlyContent(item, content) {
     if (type === 'links') {
         content.classList.add('item-content-link');
 
-        const meta = document.createElement('div');
-        meta.className = 'item-link-meta';
-
-        const link = document.createElement('a');
-        link.className = 'item-name item-link';
-        link.href = item.name;
-        link.target = '_blank';
-        link.rel = 'noopener noreferrer';
-        link.textContent = item.name;
-        meta.appendChild(link);
-
         if (item.content) {
+            const meta = document.createElement('div');
+            meta.className = 'item-link-meta';
+
+            const link = document.createElement('a');
+            link.className = 'item-name item-link';
+            link.href = item.name;
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            link.textContent = item.name;
+            meta.appendChild(link);
+
             const description = document.createElement('span');
             description.className = 'item-link-description';
             description.textContent = item.content;
             meta.appendChild(description);
-        }
 
-        content.appendChild(meta);
+            content.appendChild(meta);
+        } else {
+            const link = document.createElement('a');
+            link.className = 'item-name item-link';
+            link.href = item.name;
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            link.textContent = item.name;
+            content.appendChild(link);
+        }
     } else {
         const nameEl = document.createElement('span');
         nameEl.className = 'item-name';
