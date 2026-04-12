@@ -507,6 +507,9 @@ async function startScanner() {
         scannerState.mode = engine.mode;
         scannerState.detector = engine.detector;
 
+        const modeLabel = engine.mode === 'zxing' ? 'ZXing' : 'nativ';
+        setStatus(`Starte ${modeLabel}-Scanner...`);
+
         if (engine.mode === 'zxing') {
             setStatus('ZXing: Starte Kamera...');
             try {
