@@ -1328,29 +1328,22 @@ async function openScanner(action = state.mode === 'einkaufen' ? 'toggle' : 'add
         scannerState.detector = engine.detector;
 
         if (engine.mode === 'zxing') {
-            console.log('ZXing mode aktiv, starte decodeFromVideoDevice...');
+            setScannerStatus('ZXing: Starte Kamera...');
             try {
                 scannerState.controls = await scannerState.detector.decodeFromVideoDevice(
                     undefined,
                     scannerVideo,
                     (result, error) => {
-                        console.log('ZXing callback:', result, error);
-                        if (error) {
-                            console.log('ZXing error:', error);
-                            return;
-                        }
+                        if (error) return;
                         const rawValue = typeof result?.getText === 'function' ? result.getText() : '';
-                        console.log('ZXing rawValue:', rawValue);
                         if (rawValue) {
                             void handleScannedBarcode(rawValue);
                         }
                     }
                 );
-                console.log('ZXing controls:', scannerState.controls);
                 setScannerStatus('Kamera aktiv. Barcode in den Rahmen halten.');
             } catch (err) {
-                console.error('ZXing start error:', err);
-                setScannerStatus('ZXing-Scan fehlgeschlagen: ' + err.message, true);
+                setScannerStatus('ZXing-Fehler: ' + err.message, true);
             }
             return;
         }
