@@ -22,7 +22,7 @@ if ($appBasePath === '' || $appBasePath === '.') {
 } else {
     $appBasePath = rtrim($appBasePath, '/') . '/';
 }
-$assetVersion = '2.0.1';
+$assetVersion = '2.0.2';
 
 function icon(string $name): string {
     static $paths = [
@@ -230,6 +230,7 @@ $brandMarkSrc = 'icon.php?size=96&theme=' . rawurlencode($effectiveTheme) . '&v=
 </div>
 
 <script id="userPreferences" type="application/json"><?= json_encode($userPreferences, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
+<script src="https://unpkg.com/@zxing/browser@0.1.5"></script>
 <script src="app.js?v=<?= urlencode($assetVersion) ?>"></script>
 <script type="module">
 import { Editor } from 'https://esm.sh/@tiptap/core@2';

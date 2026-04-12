@@ -88,6 +88,8 @@ const FIELD_LABELS = {
 const scannerState = {
     stream: null,
     detector: null,
+    controls: null,
+    mode: 'native',
     rafId: 0,
     processing: false,
     running: false,
@@ -158,8 +160,15 @@ function stopStream() {
 
 function stopScanner() {
     stopLoop();
+
+    if (scannerState.controls && typeof scannerState.controls.stop === 'function') {
+        scannerState.controls.stop();
+        scannerState.controls = null;
+    }
+
     stopStream();
     scannerState.detector = null;
+    scannerState.mode = 'native';
     scannerState.processing = false;
     scannerState.running = false;
     updateCameraButtons();
@@ -167,24 +176,26 @@ function stopScanner() {
 }
 
 async function createBarcodeDetector() {
-    if (typeof window.BarcodeDetector !== 'function') {
-        return null;
-    }
+    if (typeof window.BarcodeDetector === 'function') {
+        let formats = BARCODE_FORMATS;
+        if (typeof window.BarcodeDetector.getSupportedFormats === 'function') {
+            try {
+                const supported = await window.BarcodeDetector.getSupportedFormats();
+                const filtered = BARCODE_FORMATS.filter(format => supported.includes(format));
+                if (filtered.length > 0) formats = filtered;
+            } catch {}
+        }
 
-    let formats = BARCODE_FORMATS;
-    if (typeof window.BarcodeDetector.getSupportedFormats === 'function') {
         try {
-            const supported = await window.BarcodeDetector.getSupportedFormats();
-            const filtered = BARCODE_FORMATS.filter(format => supported.includes(format));
-            if (filtered.length > 0) formats = filtered;
+            return { mode: 'native', detector: new window.BarcodeDetector({ formats }) };
         } catch {}
     }
 
-    try {
-        return new window.BarcodeDetector({ formats });
-    } catch {
-        return null;
+    if (window.ZXingBrowser?.BrowserMultiFormatReader) {
+        return { mode: 'zxing', detector: new window.ZXingBrowser.BrowserMultiFormatReader() };
     }
+
+    return null;
 }
 
 function humanizeKey(key) {
@@ -486,6 +497,32 @@ async function startScanner() {
     }
 
     try {
+        const engine = await createBarcodeDetector();
+        if (!engine) {
+            setStatus('Automatischer Barcode-Scan wird in diesem Browser nicht unterstützt. Manueller Barcode-Eintrag ist aktiv.', true);
+            pageManualInput?.focus();
+            return;
+        }
+
+        scannerState.mode = engine.mode;
+        scannerState.detector = engine.detector;
+
+        if (engine.mode === 'zxing') {
+            scannerState.controls = await scannerState.detector.decodeFromConstraints({
+                audio: false,
+                video: { facingMode: { ideal: 'environment' } },
+            }, pageVideo, (result) => {
+                const rawValue = typeof result?.getText === 'function' ? result.getText() : '';
+                if (rawValue) {
+                    void handleBarcode(rawValue);
+                }
+            });
+            scannerState.running = true;
+            updateCameraButtons();
+            setStatus('Kamera aktiv. Barcode in den Rahmen halten.');
+            return;
+        }
+
         scannerState.stream = await navigator.mediaDevices.getUserMedia({
             audio: false,
             video: { facingMode: { ideal: 'environment' } },
@@ -496,21 +533,12 @@ async function startScanner() {
             await pageVideo.play();
         }
 
-        scannerState.detector = await createBarcodeDetector();
-        if (!scannerState.detector) {
-            setStatus('BarcodeDetector fehlt in diesem Browser. Manueller Barcode-Eintrag ist aktiv.', true);
-            pageManualInput?.focus();
-            return;
-        }
-
         scannerState.running = true;
         updateCameraButtons();
         setStatus('Kamera aktiv. Barcode in den Rahmen halten.');
         scheduleLoop();
     } catch (error) {
-        stopStream();
-        scannerState.running = false;
-        updateCameraButtons();
+        stopScanner();
         setStatus(error instanceof Error ? error.message : 'Kamera konnte nicht gestartet werden.', true);
         pageManualInput?.focus();
     }

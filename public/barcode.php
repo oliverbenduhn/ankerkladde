@@ -11,7 +11,7 @@ $db = getDatabase();
 $csrfToken = getCsrfToken();
 $userPreferences = getExtendedUserPreferences($db, $userId);
 $effectiveTheme = resolveEffectiveTheme($userPreferences);
-$assetVersion = '2.0.1';
+$assetVersion = '2.0.2';
 $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme) . '&v=' . rawurlencode($assetVersion));
 
 function icon(string $name): string {
@@ -76,6 +76,7 @@ function icon(string $name): string {
         </section>
     </main>
 </div>
+<script src="https://unpkg.com/@zxing/browser@0.1.5"></script>
 <script src="<?= htmlspecialchars(appPath('barcode-page.js?v=' . $assetVersion), ENT_QUOTES, 'UTF-8') ?>"></script>
 </body>
 </html>

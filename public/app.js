@@ -181,6 +181,8 @@ const scannerState = {
     action: 'add',
     stream: null,
     detector: null,
+    controls: null,
+    mode: 'native',
     rafId: 0,
     processing: false,
     lastValue: '',
@@ -1108,6 +1110,12 @@ function stopScannerLoop() {
 }
 
 function stopScannerStream() {
+    const controls = scannerState.controls;
+    scannerState.controls = null;
+    if (controls && typeof controls.stop === 'function') {
+        controls.stop();
+    }
+
     const stream = scannerState.stream;
     scannerState.stream = null;
 
@@ -1125,32 +1133,35 @@ function closeScanner() {
     stopScannerLoop();
     stopScannerStream();
     scannerState.detector = null;
+    scannerState.mode = 'native';
     scannerState.processing = false;
     scannerState.open = false;
     if (scannerOverlay) scannerOverlay.hidden = true;
 }
 
 async function createBarcodeDetector() {
-    if (typeof window.BarcodeDetector !== 'function') {
-        return null;
-    }
+    if (typeof window.BarcodeDetector === 'function') {
+        let formats = BARCODE_FORMATS;
+        if (typeof window.BarcodeDetector.getSupportedFormats === 'function') {
+            try {
+                const supported = await window.BarcodeDetector.getSupportedFormats();
+                const filtered = BARCODE_FORMATS.filter(format => supported.includes(format));
+                if (filtered.length > 0) {
+                    formats = filtered;
+                }
+            } catch {}
+        }
 
-    let formats = BARCODE_FORMATS;
-    if (typeof window.BarcodeDetector.getSupportedFormats === 'function') {
         try {
-            const supported = await window.BarcodeDetector.getSupportedFormats();
-            const filtered = BARCODE_FORMATS.filter(format => supported.includes(format));
-            if (filtered.length > 0) {
-                formats = filtered;
-            }
+            return { mode: 'native', detector: new window.BarcodeDetector({ formats }) };
         } catch {}
     }
 
-    try {
-        return new window.BarcodeDetector({ formats });
-    } catch {
-        return null;
+    if (window.ZXingBrowser?.BrowserMultiFormatReader) {
+        return { mode: 'zxing', detector: new window.ZXingBrowser.BrowserMultiFormatReader() };
     }
+
+    return null;
 }
 
 async function lookupProductByBarcode(barcode) {
@@ -1292,6 +1303,7 @@ async function openScanner(action = state.mode === 'einkaufen' ? 'toggle' : 'add
     scannerState.processing = false;
     scannerState.lastValue = '';
     scannerState.lastHandledAt = 0;
+    scannerState.controls = null;
     scannerState.open = true;
     updateScannerSubtitle();
     setScannerStatus('Kamera wird vorbereitet…');
@@ -1305,6 +1317,32 @@ async function openScanner(action = state.mode === 'einkaufen' ? 'toggle' : 'add
     }
 
     try {
+        const engine = await createBarcodeDetector();
+        if (!engine) {
+            setScannerStatus('Automatischer Barcode-Scan wird in diesem Browser nicht unterstützt. Manueller Barcode-Eintrag ist aktiv.', true);
+            scannerManualInput?.focus();
+            return;
+        }
+
+        scannerState.mode = engine.mode;
+        scannerState.detector = engine.detector;
+
+        if (engine.mode === 'zxing') {
+            scannerState.controls = await scannerState.detector.decodeFromConstraints({
+                audio: false,
+                video: {
+                    facingMode: { ideal: 'environment' },
+                },
+            }, scannerVideo, (result) => {
+                const rawValue = typeof result?.getText === 'function' ? result.getText() : '';
+                if (rawValue) {
+                    void handleScannedBarcode(rawValue);
+                }
+            });
+            setScannerStatus('Kamera aktiv. Barcode in den Rahmen halten.');
+            return;
+        }
+
         scannerState.stream = await navigator.mediaDevices.getUserMedia({
             audio: false,
             video: {
@@ -1315,13 +1353,6 @@ async function openScanner(action = state.mode === 'einkaufen' ? 'toggle' : 'add
         if (scannerVideo) {
             scannerVideo.srcObject = scannerState.stream;
             await scannerVideo.play();
-        }
-
-        scannerState.detector = await createBarcodeDetector();
-        if (!scannerState.detector) {
-            setScannerStatus('BarcodeDetector fehlt in diesem Browser. Manueller Barcode-Eintrag ist aktiv.', true);
-            scannerManualInput?.focus();
-            return;
         }
 
         setScannerStatus('Kamera aktiv. Barcode in den Rahmen halten.');
@@ -2844,7 +2875,7 @@ document.addEventListener('visibilitychange', () => {
 
     if ('serviceWorker' in navigator) {
         try {
-            const reg = await navigator.serviceWorker.register(appBasePath + 'sw.js?v=2.0.1');
+            const reg = await navigator.serviceWorker.register(appBasePath + 'sw.js?v=2.0.2');
             reg.addEventListener('updatefound', () => {
                 const w = reg.installing;
                 w?.addEventListener('statechange', () => {
