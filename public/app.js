@@ -1344,7 +1344,7 @@ async function openScanner(action = state.mode === 'einkaufen' ? 'toggle' : 'add
                         }
                     }
                 );
-                setScannerStatus('Kamera aktiv. Barcode in den Rahmen halten.');
+                setScannerStatus('Kamera aktiv (ZXing). Barcode in den Rahmen halten.');
             } catch (err) {
                 setScannerStatus('ZXing-Fehler: ' + err.message, true);
             }
@@ -1363,7 +1363,7 @@ async function openScanner(action = state.mode === 'einkaufen' ? 'toggle' : 'add
             await scannerVideo.play();
         }
 
-        setScannerStatus('Kamera aktiv. Barcode in den Rahmen halten.');
+        setScannerStatus('Kamera aktiv (nativ). Barcode in den Rahmen halten.');
         scheduleScannerLoop();
     } catch (error) {
         stopScannerStream();

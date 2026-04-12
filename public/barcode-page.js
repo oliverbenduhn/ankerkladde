@@ -526,7 +526,7 @@ async function startScanner() {
                 );
                 scannerState.running = true;
                 updateCameraButtons();
-                setStatus('Kamera aktiv. Barcode in den Rahmen halten.');
+                setStatus('Kamera aktiv (ZXing). Barcode in den Rahmen halten.');
             } catch (err) {
                 setStatus('ZXing-Fehler: ' + err.message, true);
             }
@@ -545,7 +545,7 @@ async function startScanner() {
 
         scannerState.running = true;
         updateCameraButtons();
-        setStatus('Kamera aktiv. Barcode in den Rahmen halten.');
+        setStatus('Kamera aktiv (nativ). Barcode in den Rahmen halten.');
         scheduleLoop();
     } catch (error) {
         stopScanner();
