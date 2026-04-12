@@ -552,3 +552,4 @@ document.addEventListener('keydown', event => {
 
 setStatus('Bereit zum Scannen.');
 updateCameraButtons();
+void startScanner();
