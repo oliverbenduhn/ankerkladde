@@ -21,6 +21,10 @@ RUN a2enmod rewrite headers
 # DocumentRoot → public/
 COPY deploy/docker/ankerkladde.conf /etc/apache2/sites-available/000-default.conf
 
+# Entrypoint: korrigiert Volume-Rechte beim Start
+COPY deploy/docker/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
 # Datenpfad für SQLite (wird als Volume gemountet)
 ENV EINKAUF_DATA_DIR=/data
 RUN mkdir -p /data && chown www-data:www-data /data
@@ -31,6 +35,9 @@ COPY . /var/www/html/
 
 # Berechtigungen setzen
 RUN chown -R www-data:www-data /var/www/html     && chmod -R 755 /var/www/html
+
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["apache2-foreground"]
 
 EXPOSE 80
 
