@@ -212,6 +212,18 @@ bash scripts/test-db-migration.sh # Migrationen auf frischer DB
 find . -path './.git' -prune -o -path './.worktrees' -prune -o -path './data' -prune -o -name '*.php' -print | sort | xargs -r -n1 php -l
 ```
 
+### Barcode-Scanner & Produktkatalog
+
+Der eingebaute Barcode-Scanner funktioniert ohne lokalen Produktkatalog. Wird ein Barcode nicht erkannt, legt die App einen Eintrag mit der Barcode-Nummer als Namen an — das reicht für den Alltag vollständig aus.
+
+Wer beim Scan automatisch **Produktnamen und Marken** eingetragen haben möchte, kann den Open-Food-Facts-Katalog importieren:
+
+```bash
+bash scripts/update-openfoodfacts.sh
+```
+
+> **Achtung: Der Import ist optional und benötigt viel Speicherplatz.** Die komprimierten CSV-Dateien sind ~3 GB groß; die resultierende SQLite-Datenbank wächst auf **~35 GB**. Nur ausführen, wenn der Speicherplatz vorhanden ist und Produktnamen beim Scannen gewünscht werden.
+
 ### Browser-Erweiterung
 
 ```bash
