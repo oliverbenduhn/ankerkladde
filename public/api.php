@@ -97,6 +97,246 @@ function truncateText(string $value, int $length): string
     return substr($value, 0, $length);
 }
 
+function normalizeWhitespace(string $value): string
+{
+    return trim(preg_replace('/\s+/u', ' ', $value) ?? '');
+}
+
+function isPublicIpAddress(string $ip): bool
+{
+    return filter_var(
+        $ip,
+        FILTER_VALIDATE_IP,
+        FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE
+    ) !== false;
+}
+
+function isAllowedRemoteUrl(string $url): bool
+{
+    $parts = parse_url($url);
+    if (!is_array($parts)) {
+        return false;
+    }
+
+    $scheme = strtolower((string) ($parts['scheme'] ?? ''));
+    $host = strtolower((string) ($parts['host'] ?? ''));
+
+    if (!in_array($scheme, ['http', 'https'], true) || $host === '') {
+        return false;
+    }
+
+    if (in_array($host, ['localhost', 'localhost.localdomain'], true)) {
+        return false;
+    }
+
+    if (filter_var($host, FILTER_VALIDATE_IP) !== false) {
+        return isPublicIpAddress($host);
+    }
+
+    if (function_exists('gethostbynamel')) {
+        $ipv4Hosts = @gethostbynamel($host);
+        if (is_array($ipv4Hosts) && $ipv4Hosts !== []) {
+            foreach ($ipv4Hosts as $resolvedIp) {
+                if (!isPublicIpAddress($resolvedIp)) {
+                    return false;
+                }
+            }
+        }
+    }
+
+    if (function_exists('dns_get_record')) {
+        $ipv6Records = @dns_get_record($host, DNS_AAAA);
+        if (is_array($ipv6Records) && $ipv6Records !== []) {
+            foreach ($ipv6Records as $record) {
+                $resolvedIp = (string) ($record['ipv6'] ?? '');
+                if ($resolvedIp !== '' && !isPublicIpAddress($resolvedIp)) {
+                    return false;
+                }
+            }
+        }
+    }
+
+    return true;
+}
+
+function parseHttpResponseHeaders(array $headers): array
+{
+    $parsed = [
+        'status' => 0,
+        'content_type' => '',
+    ];
+
+    foreach ($headers as $headerLine) {
+        if (!is_string($headerLine) || $headerLine === '') {
+            continue;
+        }
+
+        if (preg_match('#^HTTP/\S+\s+(\d{3})#i', $headerLine, $match)) {
+            $parsed['status'] = (int) $match[1];
+            continue;
+        }
+
+        $separatorPos = strpos($headerLine, ':');
+        if ($separatorPos === false) {
+            continue;
+        }
+
+        $headerName = strtolower(trim(substr($headerLine, 0, $separatorPos)));
+        $headerValue = trim(substr($headerLine, $separatorPos + 1));
+
+        if ($headerName === 'content-type') {
+            $parsed['content_type'] = strtolower($headerValue);
+        }
+    }
+
+    return $parsed;
+}
+
+function isHtmlContentType(string $contentType): bool
+{
+    if ($contentType === '') {
+        return true;
+    }
+
+    return str_contains($contentType, 'text/html') || str_contains($contentType, 'application/xhtml+xml');
+}
+
+function fetchRemoteHtml(string $url): array
+{
+    $headers = [
+        'Accept: text/html,application/xhtml+xml',
+        'Accept-Language: de-DE,de;q=0.9,en;q=0.8',
+        'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+    ];
+
+    if (extension_loaded('curl')) {
+        $ch = curl_init($url);
+        if ($ch === false) {
+            return ['html' => null, 'error' => 'cURL konnte nicht initialisiert werden.'];
+        }
+
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_MAXREDIRS => 5,
+            CURLOPT_TIMEOUT => 10,
+            CURLOPT_CONNECTTIMEOUT => 5,
+            CURLOPT_HTTPHEADER => $headers,
+            CURLOPT_ENCODING => '',
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_SSL_VERIFYHOST => 2,
+        ]);
+
+        if (defined('CURLOPT_PROTOCOLS')) {
+            curl_setopt($ch, CURLOPT_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS);
+        }
+
+        if (defined('CURLOPT_REDIR_PROTOCOLS')) {
+            curl_setopt($ch, CURLOPT_REDIR_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS);
+        }
+
+        $body = curl_exec($ch);
+        $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+        $contentType = strtolower((string) curl_getinfo($ch, CURLINFO_CONTENT_TYPE));
+        $error = curl_errno($ch) !== 0 ? curl_error($ch) : '';
+        curl_close($ch);
+
+        if (!is_string($body) || $body === '') {
+            return ['html' => null, 'error' => $error !== '' ? $error : 'Seite nicht abrufbar.'];
+        }
+
+        if ($status >= 400) {
+            return ['html' => null, 'error' => 'HTTP ' . $status];
+        }
+
+        if (!isHtmlContentType($contentType)) {
+            return ['html' => null, 'error' => 'Ziel liefert kein HTML.'];
+        }
+
+        return ['html' => truncateText($body, 512000), 'error' => null];
+    }
+
+    $context = stream_context_create([
+        'http' => [
+            'timeout' => 10,
+            'follow_location' => 1,
+            'max_redirects' => 5,
+            'ignore_errors' => true,
+            'header' => implode("\r\n", $headers) . "\r\n",
+        ],
+        'ssl' => [
+            'verify_peer' => true,
+            'verify_peer_name' => true,
+        ],
+    ]);
+
+    $body = @file_get_contents($url, false, $context);
+    $responseHeaders = parseHttpResponseHeaders($http_response_header ?? []);
+
+    if (!is_string($body) || $body === '') {
+        $error = error_get_last();
+        return ['html' => null, 'error' => is_array($error) ? (string) ($error['message'] ?? 'Seite nicht abrufbar.') : 'Seite nicht abrufbar.'];
+    }
+
+    if (($responseHeaders['status'] ?? 0) >= 400) {
+        return ['html' => null, 'error' => 'HTTP ' . $responseHeaders['status']];
+    }
+
+    if (!isHtmlContentType((string) ($responseHeaders['content_type'] ?? ''))) {
+        return ['html' => null, 'error' => 'Ziel liefert kein HTML.'];
+    }
+
+    return ['html' => truncateText($body, 512000), 'error' => null];
+}
+
+function extractMetaContent(string $html, string $attributeName, string $attributeValue): string
+{
+    $quotedAttributeValue = preg_quote($attributeValue, '/');
+    $pattern = '/<meta\b(?=[^>]*\b' . preg_quote($attributeName, '/') . '\s*=\s*([\'"])' . $quotedAttributeValue . '\1)(?=[^>]*\bcontent\s*=\s*([\'"])(.*?)\2)[^>]*>/is';
+
+    if (preg_match($pattern, $html, $match) === 1) {
+        return normalizeWhitespace(html_entity_decode((string) ($match[3] ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+    }
+
+    return '';
+}
+
+function absolutizeUrl(string $baseUrl, string $candidate): string
+{
+    $candidate = trim($candidate);
+    if ($candidate === '') {
+        return '';
+    }
+
+    if (preg_match('#^https?://#i', $candidate) === 1) {
+        return $candidate;
+    }
+
+    $baseParts = parse_url($baseUrl);
+    if (!is_array($baseParts)) {
+        return $candidate;
+    }
+
+    $scheme = (string) ($baseParts['scheme'] ?? 'https');
+    $host = (string) ($baseParts['host'] ?? '');
+    if ($host === '') {
+        return $candidate;
+    }
+
+    if (str_starts_with($candidate, '//')) {
+        return $scheme . ':' . $candidate;
+    }
+
+    $path = (string) ($baseParts['path'] ?? '/');
+    $directory = preg_replace('#/[^/]*$#', '/', $path) ?? '/';
+
+    if (str_starts_with($candidate, '/')) {
+        return $scheme . '://' . $host . $candidate;
+    }
+
+    return $scheme . '://' . $host . $directory . $candidate;
+}
+
 function requireCsrfToken(array $data): void
 {
     $providedToken = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? ($data['csrf_token'] ?? null);
@@ -1391,48 +1631,45 @@ try {
                 respond(422, ['error' => 'Ungültige URL.']);
             }
 
-            $context = stream_context_create([
-                'http' => [
-                    'timeout' => 8,
-                    'user_agent' => 'Mozilla/5.0 (compatible; Ankerkladde/1.0)',
-                    'follow_location' => 1,
-                    'max_redirects' => 3,
-                ],
-                'ssl' => [
-                    'verify_peer' => true,
-                ],
-            ]);
-
-            $html = @file_get_contents($url, false, $context);
-            if ($html === false) {
-                respond(200, ['title' => '', 'description' => '', 'image' => '']);
+            if (!isAllowedRemoteUrl($url)) {
+                respond(422, ['error' => 'Nur externe HTTP(S)-Links sind erlaubt.']);
             }
 
-            $title = '';
-            $description = '';
-            $image = '';
-
-            if (preg_match('/<meta\s+property=["\']og:title["\']\s+content=["\']([^"\']*)["\']/i', $html, $m)) {
-                $title = html_entity_decode($m[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
-            }
-            if ($title === '' && preg_match('/<title[^>]*>([^<]*)<\/title>/i', $html, $m)) {
-                $title = html_entity_decode($m[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
-            }
-
-            if (preg_match('/<meta\s+property=["\']og:description["\']\s+content=["\']([^"\']*)["\']/i', $html, $m)) {
-                $description = html_entity_decode($m[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
-            }
-            if ($description === '' && preg_match('/<meta\s+name=["\']description["\']\s+content=["\']([^"\']*)["\']/i', $html, $m)) {
-                $description = html_entity_decode($m[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            $remote = fetchRemoteHtml($url);
+            if (!is_string($remote['html'] ?? null)) {
+                respond(200, [
+                    'title' => '',
+                    'description' => '',
+                    'image' => '',
+                    'error' => (string) ($remote['error'] ?? 'Seite nicht abrufbar.'),
+                ]);
             }
 
-            if (preg_match('/<meta\s+property=["\']og:image["\']\s+content=["\']([^"\']*)["\']/i', $html, $m)) {
-                $imageUrl = $m[1];
-                if (!str_starts_with($imageUrl, 'http')) {
-                    $parsed = parse_url($url);
-                    $imageUrl = ($parsed['scheme'] ?? 'https') . '://' . ($parsed['host'] ?? '') . ($imageUrl[0] === '/' ? '' : '/') . $imageUrl;
-                }
-                $image = $imageUrl;
+            $html = (string) $remote['html'];
+            $title = extractMetaContent($html, 'property', 'og:title');
+            if ($title === '') {
+                $title = extractMetaContent($html, 'name', 'twitter:title');
+            }
+            if ($title === '' && preg_match('/<title[^>]*>(.*?)<\/title>/is', $html, $m) === 1) {
+                $title = normalizeWhitespace(html_entity_decode((string) ($m[1] ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+            }
+
+            $description = extractMetaContent($html, 'property', 'og:description');
+            if ($description === '') {
+                $description = extractMetaContent($html, 'name', 'description');
+            }
+            if ($description === '') {
+                $description = extractMetaContent($html, 'name', 'twitter:description');
+            }
+
+            $image = extractMetaContent($html, 'property', 'og:image');
+            if ($image === '') {
+                $image = extractMetaContent($html, 'name', 'twitter:image');
+            }
+            $image = absolutizeUrl($url, $image);
+
+            if ($image !== '' && !filter_var($image, FILTER_VALIDATE_URL)) {
+                $image = '';
             }
 
             respond(200, [

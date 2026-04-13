@@ -91,6 +91,7 @@ const scannerState = {
     controls: null,
     mode: 'native',
     rafId: 0,
+    watchdogId: 0,
     processing: false,
     running: false,
     lastValue: '',
@@ -139,6 +140,13 @@ function updateCameraButtons() {
     }
 }
 
+function isIosWebKit() {
+    const userAgent = navigator.userAgent || '';
+    const platform = navigator.platform || '';
+    const touchMac = platform === 'MacIntel' && navigator.maxTouchPoints > 1;
+    return /iPad|iPhone|iPod/.test(userAgent) || touchMac;
+}
+
 function stopLoop() {
     if (scannerState.rafId) {
         cancelAnimationFrame(scannerState.rafId);
@@ -146,7 +154,16 @@ function stopLoop() {
     }
 }
 
+function stopWatchdog() {
+    if (scannerState.watchdogId) {
+        clearTimeout(scannerState.watchdogId);
+        scannerState.watchdogId = 0;
+    }
+}
+
 function stopStream() {
+    stopWatchdog();
+
     const stream = scannerState.stream;
     scannerState.stream = null;
     if (stream) {
@@ -192,10 +209,81 @@ async function createBarcodeDetector() {
     }
 
     if (window.ZXingBrowser?.BrowserMultiFormatReader) {
-        return { mode: 'zxing', detector: new window.ZXingBrowser.BrowserMultiFormatReader() };
+        const hints = new Map();
+        const zxing = window.ZXing || {};
+        const barcodeFormat = zxing.BarcodeFormat || {};
+        const decodeHintType = zxing.DecodeHintType || {};
+        const formats = [
+            barcodeFormat.EAN_13,
+            barcodeFormat.EAN_8,
+            barcodeFormat.UPC_A,
+            barcodeFormat.UPC_E,
+        ].filter(Boolean);
+
+        if (decodeHintType.POSSIBLE_FORMATS && formats.length > 0) {
+            hints.set(decodeHintType.POSSIBLE_FORMATS, formats);
+        }
+        if (decodeHintType.TRY_HARDER) {
+            hints.set(decodeHintType.TRY_HARDER, true);
+        }
+
+        return { mode: 'zxing', detector: new window.ZXingBrowser.BrowserMultiFormatReader(hints) };
     }
 
     return null;
+}
+
+function waitForVideoReady(video, timeoutMs = 5000) {
+    if (!video) {
+        return Promise.reject(new Error('Videovorschau fehlt.'));
+    }
+
+    if (video.readyState >= 2 && video.videoWidth > 0) {
+        return Promise.resolve();
+    }
+
+    return new Promise((resolve, reject) => {
+        const timeoutId = setTimeout(() => {
+            cleanup();
+            reject(new Error('Kamerabild wurde nicht rechtzeitig bereit.'));
+        }, timeoutMs);
+
+        const onReady = () => {
+            if (video.readyState < 2 || video.videoWidth === 0) {
+                return;
+            }
+            cleanup();
+            resolve();
+        };
+
+        const cleanup = () => {
+            clearTimeout(timeoutId);
+            video.removeEventListener('loadedmetadata', onReady);
+            video.removeEventListener('canplay', onReady);
+            video.removeEventListener('playing', onReady);
+        };
+
+        video.addEventListener('loadedmetadata', onReady);
+        video.addEventListener('canplay', onReady);
+        video.addEventListener('playing', onReady);
+    });
+}
+
+function scheduleWatchdog() {
+    stopWatchdog();
+
+    scannerState.watchdogId = setTimeout(() => {
+        if (!scannerState.running || scannerState.processing) {
+            return;
+        }
+
+        if (scannerState.mode === 'zxing' && isIosWebKit()) {
+            setStatus('Kamera aktiv. Auf iPad/iPhone erkennt WebKit Barcodes nicht immer zuverlässig. Falls nichts passiert, Barcode manuell eingeben.', true);
+            return;
+        }
+
+        setStatus('Kamera aktiv. Falls kein Scan erkannt wird, Barcode manuell eingeben.', true);
+    }, 7000);
 }
 
 function humanizeKey(key) {
@@ -451,6 +539,7 @@ async function handleBarcode(rawValue) {
     scannerState.lastValue = barcode;
     scannerState.lastHandledAt = now;
     scannerState.processing = true;
+    stopWatchdog();
     setStatus(`Lade ${barcode}...`);
 
     try {
@@ -461,6 +550,9 @@ async function handleBarcode(rawValue) {
     } finally {
         window.setTimeout(() => {
             scannerState.processing = false;
+            if (scannerState.running) {
+                scheduleWatchdog();
+            }
         }, 300);
     }
 }
@@ -526,7 +618,11 @@ async function startScanner() {
                 );
                 scannerState.running = true;
                 updateCameraButtons();
-                setStatus('Kamera aktiv (ZXing). Barcode in den Rahmen halten.');
+                await waitForVideoReady(pageVideo);
+                setStatus(isIosWebKit()
+                    ? 'Kamera aktiv (ZXing). Auf dem iPad/iPhone bitte ruhig halten; alternativ Barcode manuell eingeben.'
+                    : 'Kamera aktiv (ZXing). Barcode in den Rahmen halten.');
+                scheduleWatchdog();
             } catch (err) {
                 setStatus('ZXing-Fehler: ' + err.message, true);
             }
@@ -541,11 +637,13 @@ async function startScanner() {
         if (pageVideo) {
             pageVideo.srcObject = scannerState.stream;
             await pageVideo.play();
+            await waitForVideoReady(pageVideo);
         }
 
         scannerState.running = true;
         updateCameraButtons();
         setStatus('Kamera aktiv (nativ). Barcode in den Rahmen halten.');
+        scheduleWatchdog();
         scheduleLoop();
     } catch (error) {
         stopScanner();

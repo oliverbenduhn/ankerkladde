@@ -1,7 +1,18 @@
 FROM php:8.3-apache
 
 # PHP-Extensions
-RUN apt-get update     && apt-get install -y libsqlite3-dev libpng-dev libjpeg-dev libwebp-dev     && docker-php-ext-configure gd --with-jpeg --with-webp     && docker-php-ext-install pdo pdo_sqlite gd mbstring     && rm -rf /var/lib/apt/lists/*
+RUN apt-get update \
+    && apt-get install -y \
+        ca-certificates \
+        curl \
+        libcurl4-openssl-dev \
+        libsqlite3-dev \
+        libpng-dev \
+        libjpeg-dev \
+        libwebp-dev \
+    && docker-php-ext-configure gd --with-jpeg --with-webp \
+    && docker-php-ext-install curl pdo pdo_sqlite gd mbstring \
+    && rm -rf /var/lib/apt/lists/*
 
 # Apache-Module aktivieren
 RUN a2enmod rewrite headers
