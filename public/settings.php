@@ -274,6 +274,9 @@ if ($apiKey === null) {
 $categories = loadUserCategories($db, $userId);
 $iconOptions = getCategoryIconOptions();
 $currentTab = $_GET['tab'] ?? 'app';
+$isEmbedded = isset($_GET['embed']) && $_GET['embed'] === '1';
+$settingsAction = appPath('settings.php' . ($isEmbedded ? '?embed=1&tab=' . rawurlencode((string) $currentTab) : ''));
+$assetVersion = '2.0.4';
 ?>
 <!DOCTYPE html>
 <html lang="de">
@@ -283,15 +286,16 @@ $currentTab = $_GET['tab'] ?? 'app';
 <?php
 $effectiveTheme = resolveEffectiveTheme($preferences);
 $themeColor = getThemeColor($effectiveTheme);
-$brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme) . '&v=2.0.2');
+$brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme) . '&v=' . rawurlencode($assetVersion));
 ?>
     <meta name="theme-color" content="<?= htmlspecialchars($themeColor, ENT_QUOTES, 'UTF-8') ?>">
     <?= renderThemeBootScript($preferences) ?>
     <title>Einstellungen — Ankerkladde</title>
-    <link rel="stylesheet" href="<?= htmlspecialchars(appPath('style.css?v=2.0.2'), ENT_QUOTES, 'UTF-8') ?>">
+    <link rel="stylesheet" href="<?= htmlspecialchars(appPath('style.css?v=' . rawurlencode($assetVersion)), ENT_QUOTES, 'UTF-8') ?>">
 </head>
-<body class="settings-page" data-theme="<?= htmlspecialchars($effectiveTheme, ENT_QUOTES, 'UTF-8') ?>">
-<div class="settings-card">
+<body class="settings-page<?= $isEmbedded ? ' settings-page-embedded' : '' ?>" data-theme="<?= htmlspecialchars($effectiveTheme, ENT_QUOTES, 'UTF-8') ?>">
+<div class="settings-card<?= $isEmbedded ? ' settings-card-embedded' : '' ?>">
+    <?php if (!$isEmbedded): ?>
     <div class="settings-header">
         <div class="settings-title-group">
             <img src="<?= htmlspecialchars($brandMarkSrc, ENT_QUOTES, 'UTF-8') ?>" alt="" class="brand-mark brand-mark-settings" aria-hidden="true">
@@ -299,10 +303,14 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
         </div>
         <a href="<?= htmlspecialchars(appPath('index.php'), ENT_QUOTES, 'UTF-8') ?>" class="settings-back" aria-label="Zurück zur App">←</a>
     </div>
+    <?php endif; ?>
 
     <div class="settings-tabs">
-        <a href="?tab=app" class="settings-tab <?= ($currentTab ?? 'app') === 'app' ? 'settings-tab-active' : '' ?>">App</a>
-        <a href="?tab=extension" class="settings-tab <?= ($currentTab ?? 'app') === 'extension' ? 'settings-tab-active' : '' ?>">Erweiterung</a>
+        <?php if ($isEmbedded): ?>
+        <button type="button" class="settings-close-inline" id="settings-close-btn" aria-label="Einstellungen schließen">✕</button>
+        <?php endif; ?>
+        <a href="<?= htmlspecialchars(appPath('settings.php' . ($isEmbedded ? '?embed=1&tab=app' : '?tab=app')), ENT_QUOTES, 'UTF-8') ?>" class="settings-tab <?= ($currentTab ?? 'app') === 'app' ? 'settings-tab-active' : '' ?>">App</a>
+        <a href="<?= htmlspecialchars(appPath('settings.php' . ($isEmbedded ? '?embed=1&tab=extension' : '?tab=extension')), ENT_QUOTES, 'UTF-8') ?>" class="settings-tab <?= ($currentTab ?? 'app') === 'extension' ? 'settings-tab-active' : '' ?>">Erweiterung</a>
     </div>
 
     <?php if ($flash !== null): ?>
@@ -313,7 +321,7 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
 
     <?php if (($currentTab ?? 'app') === 'app'): ?>
     <section class="settings-section">
-        <form method="post" action="<?= htmlspecialchars(appPath('settings.php'), ENT_QUOTES, 'UTF-8') ?>" class="settings-form">
+        <form method="post" action="<?= htmlspecialchars($settingsAction, ENT_QUOTES, 'UTF-8') ?>" class="settings-form">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
             <input type="hidden" name="action" value="save_theme">
             <div class="settings-block">
@@ -359,7 +367,7 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
     </section>
 
     <section class="settings-section settings-section-secondary">
-        <form method="post" action="<?= htmlspecialchars(appPath('settings.php'), ENT_QUOTES, 'UTF-8') ?>" class="settings-form">
+        <form method="post" action="<?= htmlspecialchars($settingsAction, ENT_QUOTES, 'UTF-8') ?>" class="settings-form">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
             <input type="hidden" name="action" value="save_app_preferences">
             <div class="settings-block">
@@ -396,7 +404,7 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                         array_unshift($categoryIconOptions, $categoryIcon);
                     }
                     ?>
-                    <form method="post" action="<?= htmlspecialchars(appPath('settings.php'), ENT_QUOTES, 'UTF-8') ?>" class="settings-option settings-category-row">
+                    <form method="post" action="<?= htmlspecialchars($settingsAction, ENT_QUOTES, 'UTF-8') ?>" class="settings-option settings-category-row">
                         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
                         <input type="hidden" name="action" value="save_category">
                         <input type="hidden" name="category_id" value="<?= (int) $category['id'] ?>">
@@ -472,7 +480,7 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
     </section>
 
     <section class="settings-section">
-        <form method="post" action="<?= htmlspecialchars(appPath('settings.php'), ENT_QUOTES, 'UTF-8') ?>" class="settings-form">
+        <form method="post" action="<?= htmlspecialchars($settingsAction, ENT_QUOTES, 'UTF-8') ?>" class="settings-form">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
             <input type="hidden" name="action" value="create_category">
             <div class="settings-block">
@@ -525,7 +533,7 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                 <button type="button" class="settings-save" id="copy-api-key">Kopieren</button>
                 <a href="<?= htmlspecialchars(appPath('extension-download.php') . '?firefox', ENT_QUOTES, 'UTF-8') ?>" class="settings-link settings-link-firefox">Firefox-Erweiterung laden</a>
                 <a href="<?= htmlspecialchars(appPath('extension-download.php'), ENT_QUOTES, 'UTF-8') ?>" class="settings-link settings-link-chrome">Chrome/Edge-Erweiterung laden</a>
-                <form method="post" action="<?= htmlspecialchars(appPath('settings.php'), ENT_QUOTES, 'UTF-8') ?>" class="settings-form" style="margin:0;">
+                <form method="post" action="<?= htmlspecialchars($settingsAction, ENT_QUOTES, 'UTF-8') ?>" class="settings-form" style="margin:0;">
                     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
                     <input type="hidden" name="action" value="regenerate_api_key">
                     <button type="submit" class="settings-link" formnovalidate>Neu erzeugen</button>
@@ -536,7 +544,7 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
     </section>
 
     <section class="settings-section settings-section-secondary">
-        <form method="post" action="<?= htmlspecialchars(appPath('settings.php'), ENT_QUOTES, 'UTF-8') ?>" class="settings-form">
+        <form method="post" action="<?= htmlspecialchars($settingsAction, ENT_QUOTES, 'UTF-8') ?>" class="settings-form">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
             <input type="hidden" name="action" value="change_password">
             <div class="settings-block">
@@ -586,6 +594,7 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
     const scrollKey = 'einkauf-settings-scroll-y';
     const copyButton = document.getElementById('copy-api-key');
     const apiKeyInput = document.getElementById('api-key-value');
+    const closeButton = document.getElementById('settings-close-btn');
     const saved = window.sessionStorage.getItem(scrollKey);
     const themeMediaQuery = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
 
@@ -654,6 +663,14 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                 }, 1500);
             } catch (error) {
                 copyButton.textContent = 'Nicht kopierbar';
+            }
+        });
+    }
+
+    if (closeButton) {
+        closeButton.addEventListener('click', () => {
+            if (window.parent && window.parent !== window) {
+                window.parent.postMessage({ type: 'ankerkladde-settings-close' }, window.location.origin);
             }
         });
     }

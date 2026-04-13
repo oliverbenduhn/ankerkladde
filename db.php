@@ -10,13 +10,12 @@ const CATEGORY_ICON_OPTIONS = [
 ];
 const LEGACY_CATEGORY_DEFINITIONS = [
     'shopping' => ['name' => 'Einkauf', 'type' => 'list_quantity', 'sort_order' => 1, 'icon' => '🛒'],
-    'meds' => ['name' => 'Medizin', 'type' => 'list_quantity', 'sort_order' => 2, 'icon' => '💊'],
-    'todo_private' => ['name' => 'Privat', 'type' => 'list_due_date', 'sort_order' => 3, 'icon' => '✅'],
-    'todo_work' => ['name' => 'Arbeit', 'type' => 'list_due_date', 'sort_order' => 4, 'icon' => '💼'],
-    'notes' => ['name' => 'Notizen', 'type' => 'notes', 'sort_order' => 5, 'icon' => '📝'],
-    'images' => ['name' => 'Bilder', 'type' => 'images', 'sort_order' => 6, 'icon' => '🖼️'],
-    'files' => ['name' => 'Dateien', 'type' => 'files', 'sort_order' => 7, 'icon' => '📁'],
-    'links' => ['name' => 'Links', 'type' => 'links', 'sort_order' => 8, 'icon' => '🔗'],
+    'todo_private' => ['name' => 'Privat', 'type' => 'list_due_date', 'sort_order' => 2, 'icon' => '✅'],
+    'todo_work' => ['name' => 'Arbeit', 'type' => 'list_due_date', 'sort_order' => 3, 'icon' => '💼'],
+    'notes' => ['name' => 'Notizen', 'type' => 'notes', 'sort_order' => 4, 'icon' => '📝'],
+    'images' => ['name' => 'Bilder', 'type' => 'images', 'sort_order' => 5, 'icon' => '🖼️'],
+    'files' => ['name' => 'Dateien', 'type' => 'files', 'sort_order' => 6, 'icon' => '📁'],
+    'links' => ['name' => 'Links', 'type' => 'links', 'sort_order' => 7, 'icon' => '🔗'],
 ];
 
 function getDataDirectory(): string

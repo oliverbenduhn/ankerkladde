@@ -38,6 +38,7 @@ const searchInput = document.getElementById('searchInput');
 const searchClose = document.getElementById('searchClose');
 const modeToggleBtns = document.querySelectorAll('.btn-mode-toggle');
 const themeModeBtns = document.querySelectorAll('.btn-theme-mode');
+const settingsBtns = document.querySelectorAll('.btn-settings');
 const sectionTabsEl = document.getElementById('sectionTabs');
 const mehrMenuEl = document.getElementById('mehrMenu');
 const tabsToggleBtns = document.querySelectorAll('.btn-tabs-toggle');
@@ -62,6 +63,8 @@ const scannerManualForm = document.getElementById('scannerManualForm');
 const scannerManualInput = document.getElementById('scannerManualInput');
 const userPreferencesScript = document.getElementById('userPreferences');
 const brandMarkEls = document.querySelectorAll('.brand-mark');
+const settingsEmbedEl = document.getElementById('settingsEmbed');
+const settingsFrameEl = document.getElementById('settingsFrame');
 
 const ICONS = {
     menu:            '<line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="18" y2="18"/>',
@@ -155,6 +158,8 @@ const state = {
     categoryId: null,
     items: [],
     itemsByCategoryId: new Map(),
+    view: 'list',
+    settingsTab: 'app',
     mode: 'liste',
     editingId: null,
     editDraft: { name: '', barcode: '', quantity: '', due_date: '', content: '' },
@@ -190,8 +195,292 @@ const scannerState = {
     lastHandledAt: 0,
 };
 
+let appHistoryIndex = 0;
+let suppressHistorySync = false;
+
 function appUrl(path) {
     return new URL(path, `${window.location.origin}${appBasePath}`).toString();
+}
+
+function settingsUrl(tab = 'app') {
+    const resolvedTab = tab === 'extension' ? 'extension' : 'app';
+    return appUrl(`settings.php?embed=1&tab=${encodeURIComponent(resolvedTab)}`);
+}
+
+function normalizeRouteState(route = {}) {
+    const screen = ['list', 'settings', 'search', 'note', 'scanner'].includes(route?.screen)
+        ? route.screen
+        : 'list';
+
+    if (screen === 'settings') {
+        return {
+            screen,
+            tab: route?.tab === 'extension' ? 'extension' : 'app',
+        };
+    }
+
+    if (screen === 'search') {
+        return {
+            screen,
+            query: typeof route?.query === 'string' ? route.query : '',
+        };
+    }
+
+    if (screen === 'note') {
+        const noteId = Number(route?.noteId);
+        return {
+            screen,
+            noteId: Number.isInteger(noteId) && noteId > 0 ? noteId : null,
+            categoryId: Number.isInteger(Number(route?.categoryId)) ? Number(route.categoryId) : null,
+        };
+    }
+
+    if (screen === 'scanner') {
+        return {
+            screen,
+            action: route?.action === 'toggle' ? 'toggle' : 'add',
+            categoryId: Number.isInteger(Number(route?.categoryId)) ? Number(route.categoryId) : null,
+        };
+    }
+
+    return { screen: 'list' };
+}
+
+function getCurrentRouteState() {
+    if (scannerState.open) {
+        return normalizeRouteState({
+            screen: 'scanner',
+            action: scannerState.action,
+            categoryId: state.categoryId,
+        });
+    }
+
+    if (state.noteEditorId !== null) {
+        return normalizeRouteState({
+            screen: 'note',
+            noteId: state.noteEditorId,
+            categoryId: state.categoryId,
+        });
+    }
+
+    if (state.view === 'settings') {
+        return normalizeRouteState({
+            screen: 'settings',
+            tab: state.settingsTab,
+        });
+    }
+
+    if (state.search.open) {
+        return normalizeRouteState({
+            screen: 'search',
+            query: state.search.query,
+        });
+    }
+
+    return normalizeRouteState({ screen: 'list' });
+}
+
+function buildUrlForRoute(route) {
+    const normalized = normalizeRouteState(route);
+    const url = new URL(window.location.href);
+
+    url.searchParams.delete('view');
+    url.searchParams.delete('tab');
+    url.searchParams.delete('note');
+    url.searchParams.delete('scanner_action');
+    url.searchParams.delete('q');
+    url.searchParams.delete('category_id');
+
+    if (normalized.screen === 'settings') {
+        url.searchParams.set('view', 'settings');
+        url.searchParams.set('tab', normalized.tab);
+    } else if (normalized.screen === 'search') {
+        url.searchParams.set('view', 'search');
+        if (normalized.query.trim() !== '') {
+            url.searchParams.set('q', normalized.query);
+        }
+    } else if (normalized.screen === 'note' && normalized.noteId) {
+        url.searchParams.set('view', 'note');
+        url.searchParams.set('note', String(normalized.noteId));
+        if (normalized.categoryId !== null) {
+            url.searchParams.set('category_id', String(normalized.categoryId));
+        }
+    } else if (normalized.screen === 'scanner') {
+        url.searchParams.set('view', 'scanner');
+        url.searchParams.set('scanner_action', normalized.action);
+        if (normalized.categoryId !== null) {
+            url.searchParams.set('category_id', String(normalized.categoryId));
+        }
+    }
+
+    return `${url.pathname}${url.search}${url.hash}`;
+}
+
+function writeHistoryState(mode, route, index = appHistoryIndex) {
+    const normalized = normalizeRouteState(route);
+    const statePayload = {
+        appManaged: true,
+        appIndex: index,
+        appRoute: normalized,
+    };
+    const url = buildUrlForRoute(normalized);
+
+    if (mode === 'push') {
+        history.pushState(statePayload, '', url);
+    } else {
+        history.replaceState(statePayload, '', url);
+    }
+}
+
+function replaceCurrentHistoryState(route = getCurrentRouteState()) {
+    if (suppressHistorySync) return;
+    writeHistoryState('replace', route, appHistoryIndex);
+}
+
+function pushHistoryState(route) {
+    if (suppressHistorySync) return;
+    appHistoryIndex += 1;
+    writeHistoryState('push', route, appHistoryIndex);
+}
+
+function navigateBackOrReplace(fallbackRoute = { screen: 'list' }) {
+    if (appHistoryIndex > 0) {
+        history.back();
+        return;
+    }
+
+    void applyRouteState(fallbackRoute).then(() => {
+        replaceCurrentHistoryState(fallbackRoute);
+    }).catch(() => {});
+}
+
+function readInitialRouteFromUrl() {
+    const params = new URLSearchParams(window.location.search);
+    const view = params.get('view');
+    const categoryId = Number(params.get('category_id'));
+
+    if (view === 'settings') {
+        return normalizeRouteState({ screen: 'settings', tab: params.get('tab') });
+    }
+
+    if (view === 'search') {
+        return normalizeRouteState({ screen: 'search', query: params.get('q') || '' });
+    }
+
+    if (view === 'note') {
+        return normalizeRouteState({
+            screen: 'note',
+            noteId: Number(params.get('note')),
+            categoryId: Number.isInteger(categoryId) ? categoryId : null,
+        });
+    }
+
+    if (view === 'scanner') {
+        return normalizeRouteState({
+            screen: 'scanner',
+            action: params.get('scanner_action'),
+            categoryId: Number.isInteger(categoryId) ? categoryId : null,
+        });
+    }
+
+    return normalizeRouteState({ screen: 'list' });
+}
+
+function applyViewState() {
+    const inSettings = state.view === 'settings';
+    appEl?.classList.toggle('settings-view', inSettings);
+    if (settingsEmbedEl) {
+        settingsEmbedEl.hidden = !inSettings;
+    }
+}
+
+async function openSettings(tab = 'app') {
+    if (scannerState.open) {
+        closeScanner();
+    }
+    if (state.noteEditorId !== null) {
+        await closeNoteEditor();
+    }
+    if (state.search.open) {
+        closeSearch();
+    }
+
+    state.view = 'settings';
+    state.settingsTab = tab === 'extension' ? 'extension' : 'app';
+    applyViewState();
+    updateHeaders();
+
+    const nextSrc = settingsUrl(state.settingsTab);
+    if (settingsFrameEl && settingsFrameEl.src !== nextSrc) {
+        settingsFrameEl.src = nextSrc;
+    }
+}
+
+function closeSettings() {
+    if (state.view !== 'settings') return;
+    state.view = 'list';
+    applyViewState();
+    updateHeaders();
+}
+
+async function applyRouteState(route) {
+    const target = normalizeRouteState(route);
+    const previousSuppression = suppressHistorySync;
+    suppressHistorySync = true;
+
+    try {
+        if (scannerState.open && target.screen !== 'scanner') {
+            closeScanner();
+        }
+
+        if (state.noteEditorId !== null && target.screen !== 'note') {
+            await closeNoteEditor();
+        }
+
+        if (state.search.open && target.screen !== 'search') {
+            closeSearch();
+        }
+
+        if (state.view === 'settings' && target.screen !== 'settings') {
+            closeSettings();
+        }
+
+        if (target.screen === 'settings') {
+            await openSettings(target.tab);
+            return;
+        }
+
+        if (target.screen === 'search') {
+            openSearch();
+            if (searchInput) {
+                searchInput.value = target.query;
+            }
+            await doSearch(target.query);
+            return;
+        }
+
+        if (target.screen === 'note') {
+            if (target.categoryId !== null && Number(target.categoryId) !== Number(state.categoryId)) {
+                await setCategory(target.categoryId);
+            }
+
+            const item = getItemById(target.noteId);
+            if (item) {
+                await openNoteEditor(item);
+            }
+            return;
+        }
+
+        if (target.screen === 'scanner') {
+            if (target.categoryId !== null && Number(target.categoryId) !== Number(state.categoryId)) {
+                await setCategory(target.categoryId);
+            }
+            await openScanner(target.action);
+            return;
+        }
+    } finally {
+        suppressHistorySync = previousSuppression;
+    }
 }
 
 async function fetchLinkMetadata(url) {
@@ -994,6 +1283,15 @@ async function persistItemOrder() {
 }
 
 function updateHeaders() {
+    if (state.view === 'settings') {
+        const titleListe = document.getElementById('titleListe');
+        const titleShopping = document.getElementById('titleShopping');
+        if (titleListe) titleListe.textContent = 'Einstellungen';
+        if (titleShopping) titleShopping.textContent = 'Einstellungen';
+        document.title = 'Ankerkladde - Einstellungen';
+        return;
+    }
+
     const category = getCurrentCategory();
     if (!category) return;
 
@@ -1350,7 +1648,7 @@ async function handleScannedBarcode(rawValue) {
         setScannerStatus(`Erfolgreich: ${barcode}`);
         window.setTimeout(() => {
             if (scannerState.open) {
-                closeScanner();
+                navigateBackOrReplace({ screen: 'list' });
             }
         }, 180);
     } catch (error) {
@@ -1507,6 +1805,7 @@ async function setCategory(categoryId) {
     if (state.noteEditorId !== null) {
         await closeNoteEditor();
     }
+    closeSettings();
 
     state.categoryId = Number(categoryId);
     renderCategoryTabs();
@@ -1604,6 +1903,9 @@ function closeSearch() {
 
 async function doSearch(query) {
     state.search.query = query;
+    if (state.search.open) {
+        replaceCurrentHistoryState({ screen: 'search', query: state.search.query });
+    }
 
     if (query.trim().length < 2) {
         state.search.results = [];
@@ -1705,7 +2007,7 @@ function openItemMenu(item) {
     }
 
     if (item.category_type === 'notes') {
-        appendAction('Notiz öffnen', () => openNoteEditor(item));
+        appendAction('Notiz öffnen', () => openNoteEditorWithNavigation(item));
     } else {
         appendAction('Bearbeiten', async () => {
             state.editingId = item.id;
@@ -2057,7 +2359,7 @@ function buildItemNode(item) {
     if (item.category_type === 'notes') {
         li.addEventListener('click', event => {
             if (event.target.closest('.toggle') || event.target.closest('.btn-item-menu') || event.target.closest('.item-drag-handle')) return;
-            void openNoteEditor(item);
+            void openNoteEditorWithNavigation(item);
         });
     }
 
@@ -2122,7 +2424,7 @@ function renderSearchResults() {
             if (item.category_type === 'notes') {
                 const current = getItemById(item.id);
                 if (current) {
-                    await openNoteEditor(current);
+                    await openNoteEditorWithNavigation(current);
                 }
             }
         });
@@ -2288,7 +2590,7 @@ async function handleSharedText(title, text) {
 
     const item = getItemById(payload.id);
     if (item) {
-        await openNoteEditor(item);
+        await openNoteEditorWithNavigation(item);
     } else {
         setMessage('Notiz gespeichert.');
     }
@@ -2330,7 +2632,7 @@ async function addItem(event) {
         await loadItems();
         const item = getItemById(payload.id);
         if (item) {
-            await openNoteEditor(item);
+            await openNoteEditorWithNavigation(item);
         }
         return;
     }
@@ -2673,6 +2975,17 @@ async function openNoteEditor(item) {
     setNoteSaveStatus('');
 }
 
+async function openNoteEditorWithNavigation(item) {
+    await openNoteEditor(item);
+    if (state.noteEditorId !== null) {
+        pushHistoryState({
+            screen: 'note',
+            noteId: state.noteEditorId,
+            categoryId: state.categoryId,
+        });
+    }
+}
+
 async function closeNoteEditor() {
     clearTimeout(noteSaveTimer);
 
@@ -2742,21 +3055,29 @@ clearDoneBtn?.addEventListener('click', () => {
 });
 
 scanAddBtn?.addEventListener('click', () => {
-    void openScanner('add').catch(error => {
+    void openScanner('add').then(() => {
+        if (scannerState.open) {
+            pushHistoryState({ screen: 'scanner', action: scannerState.action, categoryId: state.categoryId });
+        }
+    }).catch(error => {
         setScannerStatus(error instanceof Error ? error.message : 'Scanner konnte nicht gestartet werden.', true);
     });
 });
 
 scanShoppingBtn?.addEventListener('click', () => {
-    void openScanner('toggle').catch(error => {
+    void openScanner('toggle').then(() => {
+        if (scannerState.open) {
+            pushHistoryState({ screen: 'scanner', action: scannerState.action, categoryId: state.categoryId });
+        }
+    }).catch(error => {
         setScannerStatus(error instanceof Error ? error.message : 'Scanner konnte nicht gestartet werden.', true);
     });
 });
 
-scannerCloseBtn?.addEventListener('click', closeScanner);
+scannerCloseBtn?.addEventListener('click', () => navigateBackOrReplace({ screen: 'list' }));
 scannerOverlay?.addEventListener('click', event => {
     if (event.target === scannerOverlay) {
-        closeScanner();
+        navigateBackOrReplace({ screen: 'list' });
     }
 });
 
@@ -2786,6 +3107,50 @@ modeToggleBtns.forEach(button => {
 themeModeBtns.forEach(button => {
     button.addEventListener('click', () => {
         void cycleThemeMode();
+    });
+});
+
+settingsBtns.forEach(button => {
+    button.addEventListener('click', event => {
+        event.preventDefault();
+        const targetTab = button.dataset.settingsTab || 'app';
+        if (state.view === 'settings' && state.settingsTab === targetTab) {
+            navigateBackOrReplace({ screen: 'list' });
+            return;
+        }
+        void openSettings(targetTab).then(() => {
+            pushHistoryState({ screen: 'settings', tab: state.settingsTab });
+        }).catch(() => {});
+    });
+});
+
+settingsFrameEl?.addEventListener('load', () => {
+    try {
+        const frameUrl = new URL(settingsFrameEl.contentWindow?.location.href || settingsFrameEl.src, window.location.href);
+        state.settingsTab = frameUrl.searchParams.get('tab') === 'extension' ? 'extension' : 'app';
+        if (state.view === 'settings') {
+            replaceCurrentHistoryState({ screen: 'settings', tab: state.settingsTab });
+            void loadCategories()
+                .then(() => updateHeaders())
+                .catch(() => {});
+        }
+    } catch {
+        // same-origin expected; ignore if unavailable
+    }
+});
+
+window.addEventListener('message', event => {
+    if (event.origin !== window.location.origin) return;
+    if (event.data?.type === 'ankerkladde-settings-close') {
+        navigateBackOrReplace({ screen: 'list' });
+    }
+});
+
+window.addEventListener('popstate', event => {
+    if (!event.state?.appManaged) return;
+    appHistoryIndex = Number.isInteger(Number(event.state.appIndex)) ? Number(event.state.appIndex) : 0;
+    void applyRouteState(event.state.appRoute).catch(error => {
+        setMessage(error instanceof Error ? error.message : 'Navigation konnte nicht wiederhergestellt werden.', true);
     });
 });
 
@@ -2843,11 +3208,17 @@ linkDescriptionInput?.addEventListener('input', () => {
 });
 
 searchBtn?.addEventListener('click', () => {
+    if (state.view === 'settings' || state.noteEditorId !== null) return;
+    if (state.search.open) {
+        searchInput?.focus();
+        return;
+    }
     if (scannerState.open) closeScanner();
     openSearch();
+    pushHistoryState({ screen: 'search', query: state.search.query });
 });
 searchClose?.addEventListener('click', () => {
-    closeSearch();
+    navigateBackOrReplace({ screen: 'list' });
 });
 searchInput?.addEventListener('input', () => {
     void doSearch(searchInput.value);
@@ -2859,9 +3230,7 @@ searchInput?.addEventListener('keydown', event => {
 });
 
 noteEditorBack?.addEventListener('click', () => {
-    void closeNoteEditor().catch(error => {
-        setMessage(error instanceof Error ? error.message : 'Notiz konnte nicht geschlossen werden.', true);
-    });
+    navigateBackOrReplace({ screen: 'list' });
 });
 
 noteTitleInput?.addEventListener('input', scheduleNoteSave);
@@ -2961,17 +3330,25 @@ if (themeMediaQuery) {
 window.addEventListener('offline', setNetworkStatus);
 document.addEventListener('keydown', event => {
     if (event.key === 'Escape' && scannerState.open) {
-        closeScanner();
+        navigateBackOrReplace({ screen: 'list' });
         return;
     }
     if (event.key === 'Escape' && state.search.open) {
-        closeSearch();
+        navigateBackOrReplace({ screen: 'list' });
+        return;
+    }
+    if (event.key === 'Escape' && state.noteEditorId !== null) {
+        navigateBackOrReplace({ screen: 'list' });
+        return;
+    }
+    if (event.key === 'Escape' && state.view === 'settings') {
+        navigateBackOrReplace({ screen: 'list' });
     }
 });
 
 document.addEventListener('visibilitychange', () => {
     if (document.hidden && scannerState.open) {
-        closeScanner();
+        navigateBackOrReplace({ screen: 'list' });
     }
 });
 
@@ -3004,6 +3381,7 @@ document.addEventListener('visibilitychange', () => {
         applyThemePreferences();
         updateViewportHeight();
         setNetworkStatus();
+        applyViewState();
         state.mode = userPreferences.mode;
         appEl.dataset.mode = state.mode;
         initCategoryTabReorder();
@@ -3012,15 +3390,21 @@ document.addEventListener('visibilitychange', () => {
         await loadCategories();
         updateHeaders();
         await loadItems();
+        const initialRoute = readInitialRouteFromUrl();
+        if (initialRoute.screen !== 'list') {
+            await applyRouteState(initialRoute);
+        }
+        replaceCurrentHistoryState(getCurrentRouteState());
         prefetchAdjacentCategories();
         await handleIncomingShare();
+        replaceCurrentHistoryState(getCurrentRouteState());
     } catch (error) {
         setMessage(error instanceof Error ? error.message : 'App konnte nicht geladen werden.', true);
     }
 
     if ('serviceWorker' in navigator) {
         try {
-            const reg = await navigator.serviceWorker.register(appBasePath + 'sw.js?v=2.0.2');
+            const reg = await navigator.serviceWorker.register(appBasePath + 'sw.js?v=2.0.4');
             reg.addEventListener('updatefound', () => {
                 const w = reg.installing;
                 w?.addEventListener('statechange', () => {

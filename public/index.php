@@ -22,7 +22,7 @@ if ($appBasePath === '' || $appBasePath === '.') {
 } else {
     $appBasePath = rtrim($appBasePath, '/') . '/';
 }
-$assetVersion = '2.0.2';
+$assetVersion = '2.0.4';
 
 function icon(string $name): string {
     static $paths = [
@@ -96,7 +96,7 @@ $brandMarkSrc = 'icon.php?size=96&theme=' . rawurlencode($effectiveTheme) . '&v=
         <div class="header-actions">
             <a href="<?= htmlspecialchars(appPath('barcode.php'), ENT_QUOTES, 'UTF-8') ?>" class="header-icon-btn" aria-label="Produktinfos per Scan öffnen"><?= icon('scan-info') ?></a>
             <button type="button" id="searchBtn" class="header-icon-btn btn-search" aria-label="Suchen"><?= icon('search') ?></button>
-            <a href="<?= htmlspecialchars(appPath('settings.php'), ENT_QUOTES, 'UTF-8') ?>" class="header-icon-btn btn-settings" aria-label="Einstellungen"><?= icon('settings') ?></a>
+            <a href="<?= htmlspecialchars(appPath('index.php?view=settings&tab=app'), ENT_QUOTES, 'UTF-8') ?>" class="header-icon-btn btn-settings" data-settings-tab="app" aria-label="Einstellungen"><?= icon('settings') ?></a>
             <button type="button" class="header-icon-btn btn-theme-mode" aria-label="Farbschema umschalten" title="Farbschema umschalten"><?= icon('theme-auto') ?></button>
             <button type="button" class="header-icon-btn btn-mode-toggle" data-nav="einkaufen" aria-label="Einkaufs-Modus starten"><?= icon('eye') ?></button>
         </div>
@@ -122,7 +122,7 @@ $brandMarkSrc = 'icon.php?size=96&theme=' . rawurlencode($effectiveTheme) . '&v=
             <span class="progress" id="progress" aria-live="polite">0 / 0</span>
             <a href="<?= htmlspecialchars(appPath('barcode.php'), ENT_QUOTES, 'UTF-8') ?>" class="header-icon-btn" aria-label="Produktinfos per Scan öffnen"><?= icon('scan-info') ?></a>
             <button type="button" id="scanShoppingBtn" class="header-icon-btn btn-scan shopping-only" aria-label="Barcode scannen"><?= icon('scan') ?></button>
-            <a href="<?= htmlspecialchars(appPath('settings.php'), ENT_QUOTES, 'UTF-8') ?>" class="header-icon-btn btn-settings" aria-label="Einstellungen"><?= icon('settings') ?></a>
+            <a href="<?= htmlspecialchars(appPath('index.php?view=settings&tab=app'), ENT_QUOTES, 'UTF-8') ?>" class="header-icon-btn btn-settings" data-settings-tab="app" aria-label="Einstellungen"><?= icon('settings') ?></a>
             <button type="button" class="header-icon-btn btn-theme-mode" aria-label="Farbschema umschalten" title="Farbschema umschalten"><?= icon('theme-auto') ?></button>
             <button type="button" class="header-icon-btn btn-mode-toggle" data-nav="liste" aria-label="Liste bearbeiten"><?= icon('pencil') ?></button>
         </div>
@@ -165,6 +165,15 @@ $brandMarkSrc = 'icon.php?size=96&theme=' . rawurlencode($effectiveTheme) . '&v=
             <div class="list-swipe-preview-header" id="listSwipePreviewHeader"></div>
             <ul class="list-swipe-preview-list" id="listSwipePreviewList"></ul>
         </div>
+        <section class="settings-embed" id="settingsEmbed" hidden aria-label="Einstellungen">
+            <iframe
+                id="settingsFrame"
+                class="settings-embed-frame"
+                title="Einstellungen"
+                loading="lazy"
+                referrerpolicy="same-origin"
+            ></iframe>
+        </section>
     </main>
 
     <nav class="section-tabs" id="sectionTabs" aria-label="Bereich wählen"></nav>
