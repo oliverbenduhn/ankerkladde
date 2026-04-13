@@ -130,6 +130,7 @@ function applyImageExifOrientation($image, string $sourcePath)
 
     $exif = @exif_read_data($sourcePath);
     $orientation = (int) ($exif['Orientation'] ?? 1);
+
     $angle = match ($orientation) {
         3 => 180,
         6 => -90,
@@ -167,11 +168,11 @@ function generateImageThumbnailFile(
     }
 
     $sourceImage = @imagecreatefromstring($sourceBytes);
+    unset($sourceBytes);
     if ($sourceImage === false) {
         return false;
     }
 
-    $sourceImage = applyImageExifOrientation($sourceImage, $sourcePath);
     $sourceWidth = imagesx($sourceImage);
     $sourceHeight = imagesy($sourceImage);
     if ($sourceWidth < 1 || $sourceHeight < 1) {
@@ -205,15 +206,18 @@ function generateImageThumbnailFile(
         $sourceHeight
     );
 
+    imagedestroy($sourceImage);
+
     if ($copied === false) {
         imagedestroy($thumbnail);
-        imagedestroy($sourceImage);
         return false;
     }
 
+    // Rotate only the small thumbnail — avoids memory exhaustion on large originals
+    $thumbnail = applyImageExifOrientation($thumbnail, $sourcePath);
+
     $saved = imagejpeg($thumbnail, $targetPath, $jpegQuality);
     imagedestroy($thumbnail);
-    imagedestroy($sourceImage);
 
     return $saved;
 }
