@@ -9,8 +9,10 @@ services:
     restart: unless-stopped
     environment:
       EINKAUF_DATA_DIR: /data
-      # Eigene Domain setzen (leer lassen für lokalen Betrieb auf localhost)
+      # Leer = alle Hosts akzeptiert (Standard für Docker-Betrieb)
+      # Für Produktionsbetrieb mit eigener Domain auf HTTPS-Weiterleitung setzen:
       # ANKERKLADDE_CANONICAL_HOST: meine-domain.de
+      ANKERKLADDE_CANONICAL_HOST: ""
       # Proxy-Header vertrauen (true wenn hinter Reverse Proxy wie Caddy/Nginx/Traefik)
       # EINKAUF_TRUST_PROXY_HEADERS: 'true'
 

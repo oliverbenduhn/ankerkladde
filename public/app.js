@@ -389,6 +389,7 @@ function readInitialRouteFromUrl() {
 function applyViewState() {
     const inSettings = state.view === 'settings';
     appEl?.classList.toggle('settings-view', inSettings);
+    settingsBtns.forEach(button => button.classList.toggle('is-active', inSettings));
     if (settingsEmbedEl) {
         settingsEmbedEl.hidden = !inSettings;
     }

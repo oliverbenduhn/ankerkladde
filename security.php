@@ -1,7 +1,9 @@
 <?php
 declare(strict_types=1);
 
-define('EINKAUF_CANONICAL_HOST', (string)(getenv('ANKERKLADDE_CANONICAL_HOST') ?: 'ankerkladde.benduhn.de'));
+$_envCanonicalHost = getenv('ANKERKLADDE_CANONICAL_HOST');
+define('EINKAUF_CANONICAL_HOST', $_envCanonicalHost !== false ? (string)$_envCanonicalHost : 'ankerkladde.benduhn.de');
+unset($_envCanonicalHost);
 
 function getEnvBool(string $name): ?bool
 {
@@ -117,6 +119,10 @@ function getCanonicalAppOrigin(): string
 
 function enforceCanonicalRequest(): void
 {
+    if (EINKAUF_CANONICAL_HOST === '') {
+        return;
+    }
+
     $host = getRequestHost();
 
     if (isLocalDevelopmentHost($host)) {

@@ -36,10 +36,10 @@ Both scripts spin up their own `php -S` instances with isolated temp data dirs v
 
 ```bash
 # Manual deploy via SSH
-ssh ansible@web "sudo /var/www/projects/ankerkladde/deploy.sh"
+ssh user@your-server "sudo /path/to/ankerkladde/deploy.sh"
 
 # Deploy logs
-ssh ansible@web "tail -f /var/log/ankerkladde/deploy.log"
+ssh user@your-server "tail -f /var/log/ankerkladde/deploy.log"
 ```
 
 Production deploy: Git push → GitHub Webhook → `deploy.sh` → `git pull` + PHP-FPM reload.

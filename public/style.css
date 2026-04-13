@@ -2217,6 +2217,7 @@ button, input { font: inherit; }
    SEARCH BUTTON
    =========================================== */
 .btn-search.is-active { background: var(--accent); color: var(--text-primary); }
+.btn-settings.is-active { background: var(--accent); color: var(--text-primary); }
 
 /* ===========================================
    SEARCH BAR
@@ -2747,10 +2748,18 @@ button, input { font: inherit; }
 }
 
 .settings-flash {
-    margin-bottom: 16px;
+    position: fixed;
+    left: 50%;
+    bottom: calc(env(safe-area-inset-bottom, 8px) + 20px);
+    transform: translateX(-50%);
+    width: min(420px, calc(100vw - 32px));
     padding: 12px 14px;
-    border-radius: 10px;
+    border-radius: 14px;
     font-size: 0.95rem;
+    text-align: center;
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.18);
+    z-index: 250;
+    pointer-events: none;
 }
 
 .settings-flash-ok {

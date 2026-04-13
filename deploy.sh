@@ -1,11 +1,19 @@
 #!/bin/bash
+# Production deploy script — called by the server after git push.
+# Adjust APP_ROOT and LOG_FILE to match your server setup.
 set -euo pipefail
-cd /var/www/projects/ankerkladde
 
-echo "[$(date)] Deploy gestartet" >> /var/log/ankerkladde/deploy.log
+APP_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LOG_FILE="/var/log/ankerkladde/deploy.log"
 
-git pull origin main >> /var/log/ankerkladde/deploy.log 2>&1
+echo "[$(date)] Deploy gestartet" >> "$LOG_FILE"
 
-rc-service php-fpm83 reload >> /var/log/ankerkladde/deploy.log 2>&1
+git -C "$APP_ROOT" pull origin main >> "$LOG_FILE" 2>&1
 
-echo "[$(date)] Deploy abgeschlossen" >> /var/log/ankerkladde/deploy.log
+# Reload PHP-FPM — adjust service name to match your system:
+#   Alpine (OpenRC):  rc-service php-fpm83 reload
+#   Debian/Ubuntu:    systemctl reload php8.3-fpm
+#   Docker:           no reload needed (handled by the container)
+rc-service php-fpm83 reload >> "$LOG_FILE" 2>&1
+
+echo "[$(date)] Deploy abgeschlossen" >> "$LOG_FILE"

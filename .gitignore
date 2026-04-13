@@ -4,3 +4,11 @@
 /*.zip
 /*.bundle
 /browser-extension/*.zip
+
+# Lokale Entwicklungsnotizen und interne Werkzeuge
+/plan.md
+/barcode.md
+/test-meta.php
+/docs/Ideen.md
+/docs/Symbolleiste.png
+/docs/superpowers/
