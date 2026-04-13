@@ -10,6 +10,7 @@ RUN apt-get update \
         libpng-dev \
         libjpeg-dev \
         libwebp-dev \
+        libonig-dev \
     && docker-php-ext-configure gd --with-jpeg --with-webp \
     && docker-php-ext-install curl pdo pdo_sqlite gd mbstring \
     && rm -rf /var/lib/apt/lists/*
