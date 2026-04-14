@@ -53,7 +53,7 @@ Production deploy: Git push → GitHub Webhook → `deploy.sh` → `git pull` + 
 | `public/index.php` | HTML shell — renders tabs, form, meta tags (CSRF token, base path) |
 | `public/api.php` | JSON REST API — all reads/writes go through here |
 | `public/media.php` | Secure streaming of attachment files (never serves from webroot) |
-| `public/js/main.js` | Frontend entry point, ESM module orchestration |
+| `public/js/main.js` | Minimal frontend entry point |
 | `public/sw.js` | Service Worker — caches app shell, offline page, handles share targets |
 | `public/login.php` | Login page (incl. PWA install banner) |
 | `public/settings.php` | User settings: password, categories, preferences, API key, extension download |
@@ -71,7 +71,11 @@ ESM modules in `public/js/` (structured via `createXxxController(deps)` pattern)
 
 | Module | Responsibility |
 |--------|----------------|
-| `main.js` | App initialization, controller composition, event bindings |
+| `main.js` | Minimal entry that starts the app |
+| `app-entry.js` | Top-level startup wiring between runtime, events, and init |
+| `app-runtime.js` | Controller composition and shared runtime functions |
+| `app-init.js` | App bootstrap, initial route handling, service worker wiring |
+| `app-events.js` | DOM/global event binding |
 | `state.js` | Global state, constants, preferences, preferences normalization |
 | `api.js` | HTTP client, CSRF token handling, URL building, item normalization, `persistPreferences` |
 | `ui.js` | DOM element references, SVG icons, viewport height helper |
@@ -83,6 +87,9 @@ ESM modules in `public/js/` (structured via `createXxxController(deps)` pattern)
 | `items-actions.js` | Item CRUD, file uploads, shared link/text handling |
 | `item-menu.js` | Item action menu overlay |
 | `lightbox.js` | Image preview overlay |
+| `app-ui.js` | Header, banner, upload, scanner and shared UI updates |
+| `tabs-view.js` | Category tabs and overflow menu |
+| `helpers.js` | Small shared helper/controller functions |
 | `scanner.js` | Barcode scanning (native + ZXing), product lookup |
 | `editor.js` | TipTap rich-text editor for notes |
 | `swipe.js` | Category swipe gesture handling |
@@ -92,7 +99,7 @@ ESM modules in `public/js/` (structured via `createXxxController(deps)` pattern)
 ### Data Flow
 
 1. `index.php` calls `getCsrfToken()` (starts session, emits token into `<meta>` tag)
-2. `app.js` reads the token from DOM and sends it as `X-CSRF-Token` header on every mutating request
+2. `api.js` reads the token from DOM and sends it as `X-CSRF-Token` header on every mutating request
 3. `api.php` validates the token via `requireCsrfToken()` before any write
 4. Attachment file paths are always derived from DB records via `db.php` helpers (`getAttachmentAbsolutePath` etc.) — never from request data
 

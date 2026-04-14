@@ -91,8 +91,8 @@ Jeder Nutzer verwaltet eigene **Kategorien** – Anzahl, Namen, Icons und Reihen
 | Pfad | Zweck |
 |---|---|
 | `public/index.php` | HTML-Oberfläche (App-Shell) |
-| `public/js/main.js` | Frontend-Entry-Point (ESM-Modul-Orchestrierung) |
-| `public/js/*.js` | ESM-Module: `state`, `api`, `ui`, `theme`, `navigation`, `router`, `items`, `items-view`, `items-actions`, `item-menu`, `lightbox`, `scanner`, `editor`, `swipe`, `reorder`, `utils` |
+| `public/js/main.js` | Minimaler Frontend-Entry-Point |
+| `public/js/*.js` | ESM-Module: `app-entry`, `app-runtime`, `app-init`, `app-events`, `state`, `api`, `ui`, `theme`, `navigation`, `router`, `items`, `items-view`, `items-actions`, `item-menu`, `lightbox`, `scanner`, `editor`, `swipe`, `reorder`, `helpers`, `app-ui`, `tabs-view`, `utils` |
 | `public/style.css` | CSS (Design-Tokens, Layout, Komponenten) |
 | `public/api.php` | JSON-REST-API |
 | `public/media.php` | Sicheres Streamen von Anhängen |
