@@ -379,6 +379,29 @@ function rebuildSortOrder(PDO $db): void
     }
 }
 
+function hasDatabaseMetaFlag(PDO $db, string $key): bool
+{
+    $stmt = $db->prepare('SELECT 1 FROM database_meta WHERE meta_key = :meta_key LIMIT 1');
+    $stmt->execute([':meta_key' => $key]);
+
+    return $stmt->fetchColumn() !== false;
+}
+
+function setDatabaseMetaFlag(PDO $db, string $key): void
+{
+    $stmt = $db->prepare(
+        'INSERT INTO database_meta (meta_key, meta_value, updated_at)
+         VALUES (:meta_key, :meta_value, CURRENT_TIMESTAMP)
+         ON CONFLICT(meta_key) DO UPDATE SET
+            meta_value = excluded.meta_value,
+            updated_at = CURRENT_TIMESTAMP'
+    );
+    $stmt->execute([
+        ':meta_key' => $key,
+        ':meta_value' => '1',
+    ]);
+}
+
 function hasInvalidSortOrder(PDO $db, string $whereClause = '', array $params = []): bool
 {
     $sql = 'SELECT
@@ -941,6 +964,14 @@ function getDatabase(): PDO
     $db->exec('PRAGMA foreign_keys = ON');
 
     $db->exec(
+        "CREATE TABLE IF NOT EXISTS database_meta (
+            meta_key TEXT PRIMARY KEY,
+            meta_value TEXT NOT NULL DEFAULT '',
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )"
+    );
+
+    $db->exec(
         "CREATE TABLE IF NOT EXISTS items (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
@@ -1213,9 +1244,13 @@ function getDatabase(): PDO
         }
     }
 
-    $orphanItems = (int) $db->query('SELECT COUNT(*) FROM items WHERE user_id IS NOT NULL AND category_id IS NULL')->fetchColumn();
-    if ($orphanItems > 0) {
-        rebuildSortOrder($db);
+    $orphanSortOrderMigrationKey = 'orphan_sort_order_rebuilt_v1';
+    if (!hasDatabaseMetaFlag($db, $orphanSortOrderMigrationKey)) {
+        $orphanItems = (int) $db->query('SELECT COUNT(*) FROM items WHERE user_id IS NOT NULL AND category_id IS NULL')->fetchColumn();
+        if ($orphanItems > 0) {
+            rebuildSortOrder($db);
+        }
+        setDatabaseMetaFlag($db, $orphanSortOrderMigrationKey);
     }
 
     return $db;
