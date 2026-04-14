@@ -1,6 +1,7 @@
 import { appUrl, api, apiUpload } from './api.js';
 import { createAppUiController } from './app-ui.js';
 import { registerAppEventHandlers } from './app-events.js';
+import { initApp, registerServiceWorker, registerUpdateReloadHandler } from './app-init.js';
 import { createHelpersController } from './helpers.js';
 import { createItemsActionsController } from './items-actions.js';
 import { createItemsController } from './items.js';
@@ -8,7 +9,7 @@ import { createItemsViewController } from './items-view.js';
 import { createNavigation } from './navigation.js';
 import { createEditorController } from './editor.js';
 import { createReorderController } from './reorder.js';
-import { applyViewState, createRouter } from './router.js';
+import { createRouter } from './router.js';
 import { createScannerController } from './scanner.js';
 import { createSwipeController } from './swipe.js';
 import { createTabsViewController } from './tabs-view.js';
@@ -30,11 +31,8 @@ import {
 } from './state.js';
 import { applyThemePreferences } from './theme.js';
 import {
-    appEl,
     modeToggleBtns,
     settingsFrameEl,
-    updateBannerEl,
-    updateViewportHeight,
 } from './ui.js';
 
 let userPreferences = readInitialPreferences();
@@ -268,50 +266,24 @@ registerAppEventHandlers({
 });
 
 (async function init() {
-    try {
-        applyThemePreferences(userPreferences);
-        updateViewportHeight();
-        setNetworkStatus();
-        applyViewState();
-        state.mode = userPreferences.mode;
-        appEl.dataset.mode = state.mode;
-        reorderController.initCategoryTabReorder();
-        reorderController.initItemDragReorder();
-        swipeController.initCategorySwipe();
-        await loadCategories();
-        updateHeaders();
-        await loadItems();
-        const initialRoute = navigation.readInitialRouteFromUrl();
-        if (initialRoute.screen !== 'list') {
-            await router.applyRouteState(initialRoute, route => route);
-        }
-        navigation.replaceCurrentHistoryState();
-        prefetchAdjacentCategories();
-        await handleIncomingShare();
-        navigation.replaceCurrentHistoryState();
-    } catch (error) {
-        setMessage(error instanceof Error ? error.message : 'App konnte nicht geladen werden.', true);
-    }
-
-    if ('serviceWorker' in navigator) {
-        try {
-            const reg = await navigator.serviceWorker.register(appBasePath + 'sw.js?v=2.0.42');
-            reg.addEventListener('updatefound', () => {
-                const w = reg.installing;
-                w?.addEventListener('statechange', () => {
-                    if (w.state === 'installed' && navigator.serviceWorker.controller) {
-                        if (updateBannerEl) updateBannerEl.hidden = false;
-                    }
-                });
-            });
-        } catch {
-            // SW registration failure is non-fatal
-        }
-    }
-
-    document.getElementById('updateReloadBtn')?.addEventListener('click', async () => {
-        const reg = await navigator.serviceWorker.getRegistration();
-        reg?.waiting?.postMessage({ type: 'SKIP_WAITING' });
-        window.location.reload();
+    await initApp({
+        applyThemePreferences,
+        getUserPreferences: () => userPreferences,
+        handleIncomingShare,
+        loadCategories,
+        loadItems,
+        navigation,
+        prefetchAdjacentCategories,
+        renderInitialError: error => {
+            setMessage(error instanceof Error ? error.message : 'App konnte nicht geladen werden.', true);
+        },
+        reorderController,
+        router,
+        setNetworkStatus,
+        swipeController,
+        updateHeaders,
     });
+
+    await registerServiceWorker('2.0.43');
+    registerUpdateReloadHandler();
 })();
