@@ -26,10 +26,9 @@ import {
     settingsBtns,
     settingsFrameEl,
     tabsToggleBtns,
-    themeModeBtns,
     updateViewportHeight,
 } from './ui.js';
-import { applyThemePreferences, cycleThemeMode } from './theme.js';
+import { applyThemePreferences } from './theme.js';
 import { normalizeBarcodeValue, syncAutoHeight } from './utils.js';
 
 export function registerAppEventHandlers(deps) {
@@ -155,14 +154,6 @@ export function registerAppEventHandlers(deps) {
             appEl.dataset.mode = state.mode;
             void savePreferences({ mode: state.mode });
             renderItems();
-        });
-    });
-
-    themeModeBtns.forEach(button => {
-        button.addEventListener('click', () => {
-            void cycleThemeMode(userPreferencesRef(), setUserPreferences, setMessage).then(() => {
-                syncSettingsFrameTheme();
-            });
         });
     });
 

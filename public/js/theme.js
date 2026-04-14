@@ -1,6 +1,6 @@
 import { api, persistPreferences } from './api.js';
 import { THEME_COLORS, THEME_MODE_ORDER, themeMediaQuery } from './state.js';
-import { brandMarkEls, svgIcon, themeModeBtns } from './ui.js';
+import { brandMarkEls, svgIcon } from './ui.js';
 
 function updateBrandMarks(themeName) {
     brandMarkEls.forEach(image => {
@@ -31,24 +31,6 @@ export function applyThemePreferences(userPreferences) {
     }
 
     updateBrandMarks(effectiveTheme);
-    updateThemeModeButtons(userPreferences);
-}
-
-export async function cycleThemeMode(userPreferences, setUserPreferences, setMessage) {
-    const currentMode = userPreferences.theme_mode || 'auto';
-    const nextMode = THEME_MODE_ORDER[(THEME_MODE_ORDER.indexOf(currentMode) + 1) % THEME_MODE_ORDER.length];
-
-    const nextPreferences = { ...userPreferences, theme_mode: nextMode };
-    setUserPreferences(nextPreferences);
-    applyThemePreferences(nextPreferences);
-
-    try {
-        await persistPreferences({ theme_mode: nextMode }, setUserPreferences, applyThemePreferences);
-    } catch (error) {
-        setUserPreferences(userPreferences);
-        applyThemePreferences(userPreferences);
-        setMessage(error instanceof Error ? error.message : 'Farbschema konnte nicht gespeichert werden.', true);
-    }
 }
 
 export function getEffectiveTheme(preferences) {
@@ -58,16 +40,4 @@ export function getEffectiveTheme(preferences) {
     if (themeMode === 'light') return preferences.light_theme || 'hafenblau';
     if (themeMode === 'dark') return preferences.dark_theme || 'nachtwache';
     return prefersDark ? (preferences.dark_theme || 'nachtwache') : (preferences.light_theme || 'hafenblau');
-}
-
-export function updateThemeModeButtons(userPreferences) {
-    const themeMode = userPreferences.theme_mode || 'auto';
-    const iconName = themeMode === 'dark' ? 'theme-dark' : themeMode === 'light' ? 'theme-light' : 'theme-auto';
-    const label = getThemeModeLabel(themeMode);
-
-    themeModeBtns.forEach(button => {
-        button.replaceChildren(svgIcon(iconName));
-        button.setAttribute('aria-label', `Farbschema: ${label}. Umschalten`);
-        button.title = `Farbschema: ${label}`;
-    });
 }
