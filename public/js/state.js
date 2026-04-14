@@ -1,4 +1,10 @@
-import { userPreferencesScript } from './ui.js';
+const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+if (!csrfMeta) throw new Error('csrf-token meta tag missing');
+const appBasePathMeta = document.querySelector('meta[name="app-base-path"]');
+const userPreferencesScript = document.getElementById('userPreferences');
+
+export const basePath = appBasePathMeta?.content || '/';
+export const csrfToken = csrfMeta.content;
 
 export const TYPE_CONFIG = {
     list_quantity: { icon: '🛒', title: name => name, shoppingTitle: name => name, placeholder: 'Artikel...', quantityMode: 'text' },
