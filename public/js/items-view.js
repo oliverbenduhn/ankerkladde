@@ -1,6 +1,7 @@
 import { isNotesCategory, state } from './state.js';
 import { clearDoneBtn, listEl, progressEl, svgIcon } from './ui.js';
 import { normalizeBarcodeValue, syncAutoHeight } from './utils.js';
+import { createLightboxController } from './lightbox.js';
 
 export function createItemsViewController(deps) {
     const {
@@ -18,46 +19,10 @@ export function createItemsViewController(deps) {
         setCategory,
     } = deps;
 
+const lightbox = createLightboxController();
+
     function getAttachmentTitle(item) {
         return item.name || item.attachmentOriginalName || 'Anhang';
-    }
-
-    function openLightbox(src, alt) {
-        const overlay = document.createElement('div');
-        overlay.className = 'lightbox-overlay';
-        overlay.setAttribute('role', 'dialog');
-        overlay.setAttribute('aria-modal', 'true');
-        overlay.setAttribute('aria-label', alt);
-
-        const img = document.createElement('img');
-        img.className = 'lightbox-img';
-        img.src = src;
-        img.alt = alt;
-
-        const closeBtn = document.createElement('button');
-        closeBtn.type = 'button';
-        closeBtn.className = 'lightbox-close';
-        closeBtn.setAttribute('aria-label', 'Schließen');
-        closeBtn.textContent = '×';
-
-        function close() {
-            overlay.remove();
-            document.removeEventListener('keydown', onKey);
-        }
-
-        function onKey(event) {
-            if (event.key === 'Escape') close();
-        }
-
-        closeBtn.addEventListener('click', close);
-        overlay.addEventListener('click', event => {
-            if (event.target === overlay) close();
-        });
-        document.addEventListener('keydown', onKey);
-
-        overlay.append(img, closeBtn);
-        document.body.appendChild(overlay);
-        closeBtn.focus();
     }
 
     function openItemMenu(item) {
@@ -171,7 +136,7 @@ export function createItemsViewController(deps) {
             previewLink.setAttribute('aria-label', `${getAttachmentTitle(item)} öffnen`);
             previewLink.addEventListener('click', event => {
                 event.stopPropagation();
-                openLightbox(item.attachmentOriginalUrl || item.attachmentDownloadUrl || item.attachmentUrl, getAttachmentTitle(item));
+                lightbox.open(item.attachmentOriginalUrl || item.attachmentDownloadUrl || item.attachmentUrl, getAttachmentTitle(item));
             });
 
             const preview = document.createElement('img');
