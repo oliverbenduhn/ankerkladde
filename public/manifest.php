@@ -51,25 +51,25 @@ $manifest = [
     ],
     'icons' => [
         [
-            'src' => $manifestBase . 'icon.php?size=192&theme=hafenblau&v=2.0.17',
+            'src' => $manifestBase . 'icon.php?size=192&theme=hafenblau&v=2.0.18',
             'sizes' => '192x192',
             'type' => 'image/png',
             'purpose' => 'any',
         ],
         [
-            'src' => $manifestBase . 'icon.php?size=192&theme=hafenblau&v=2.0.17',
+            'src' => $manifestBase . 'icon.php?size=192&theme=hafenblau&v=2.0.18',
             'sizes' => '192x192',
             'type' => 'image/png',
             'purpose' => 'maskable',
         ],
         [
-            'src' => $manifestBase . 'icon.php?size=512&theme=hafenblau&v=2.0.17',
+            'src' => $manifestBase . 'icon.php?size=512&theme=hafenblau&v=2.0.18',
             'sizes' => '512x512',
             'type' => 'image/png',
             'purpose' => 'any',
         ],
         [
-            'src' => $manifestBase . 'icon.php?size=512&theme=hafenblau&v=2.0.17',
+            'src' => $manifestBase . 'icon.php?size=512&theme=hafenblau&v=2.0.18',
             'sizes' => '512x512',
             'type' => 'image/png',
             'purpose' => 'maskable',
