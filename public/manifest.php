@@ -2,6 +2,8 @@
 declare(strict_types=1);
 
 require dirname(__DIR__) . '/security.php';
+/** @var string $assetVersion */
+$assetVersion = require __DIR__ . '/version.php';
 
 enforceCanonicalRequest();
 
@@ -51,25 +53,25 @@ $manifest = [
     ],
     'icons' => [
         [
-            'src' => $manifestBase . 'icon.php?size=192&theme=hafenblau&v=2.0.24',
+            'src' => $manifestBase . 'icon.php?size=192&theme=hafenblau&v=' . $assetVersion,
             'sizes' => '192x192',
             'type' => 'image/png',
             'purpose' => 'any',
         ],
         [
-            'src' => $manifestBase . 'icon.php?size=192&theme=hafenblau&v=2.0.24',
+            'src' => $manifestBase . 'icon.php?size=192&theme=hafenblau&v=' . $assetVersion,
             'sizes' => '192x192',
             'type' => 'image/png',
             'purpose' => 'maskable',
         ],
         [
-            'src' => $manifestBase . 'icon.php?size=512&theme=hafenblau&v=2.0.24',
+            'src' => $manifestBase . 'icon.php?size=512&theme=hafenblau&v=' . $assetVersion,
             'sizes' => '512x512',
             'type' => 'image/png',
             'purpose' => 'any',
         ],
         [
-            'src' => $manifestBase . 'icon.php?size=512&theme=hafenblau&v=2.0.24',
+            'src' => $manifestBase . 'icon.php?size=512&theme=hafenblau&v=' . $assetVersion,
             'sizes' => '512x512',
             'type' => 'image/png',
             'purpose' => 'maskable',
