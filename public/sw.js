@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION = 'v2.0.21';
+const VERSION = 'v2.0.22';
 const STATIC_CACHE = `ankerkladde-static-${VERSION}`;
 const RUNTIME_CACHE = `ankerkladde-runtime-${VERSION}`;
 const SHARE_CACHE = 'ankerkladde-share-target';
@@ -10,25 +10,26 @@ const API_URL = new URL('api.php', APP_SCOPE_URL);
 
 const APP_SHELL_ASSET_URLS = [
     'offline.html',
-    'style.css?v=2.0.21',
-    'js/main.js?v=2.0.21',
-    'js/api.js?v=2.0.21',
-    'js/state.js?v=2.0.21',
-    'js/ui.js?v=2.0.21',
-    'js/utils.js?v=2.0.21',
-    'js/shared.js?v=2.0.21',
-    'js/theme.js?v=2.0.21',
-    'js/navigation.js?v=2.0.21',
-    'js/router.js?v=2.0.21',
-    'js/items.js?v=2.0.21',
-    'js/scanner.js?v=2.0.21',
-    'js/editor.js?v=2.0.21',
-    'js/swipe.js?v=2.0.21',
-    'js/reorder.js?v=2.0.21',
-    'js/app-ui.js?v=2.0.21',
-    'manifest.php?v=2.0.21',
-    'icon.php?size=192&theme=hafenblau&v=2.0.21',
-    'icon.php?size=512&theme=hafenblau&v=2.0.21',
+    'style.css?v=2.0.22',
+    'js/main.js?v=2.0.22',
+    'js/api.js?v=2.0.22',
+    'js/state.js?v=2.0.22',
+    'js/ui.js?v=2.0.22',
+    'js/utils.js?v=2.0.22',
+    'js/shared.js?v=2.0.22',
+    'js/theme.js?v=2.0.22',
+    'js/navigation.js?v=2.0.22',
+    'js/router.js?v=2.0.22',
+    'js/items.js?v=2.0.22',
+    'js/scanner.js?v=2.0.22',
+    'js/editor.js?v=2.0.22',
+    'js/swipe.js?v=2.0.22',
+    'js/reorder.js?v=2.0.22',
+    'js/app-ui.js?v=2.0.22',
+    'js/items-view.js?v=2.0.22',
+    'manifest.php?v=2.0.22',
+    'icon.php?size=192&theme=hafenblau&v=2.0.22',
+    'icon.php?size=512&theme=hafenblau&v=2.0.22',
     'icons/icon.svg',
     'icons/icon-192.png',
     'icons/icon-512.png',
