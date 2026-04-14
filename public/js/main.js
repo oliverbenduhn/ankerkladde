@@ -1,14 +1,13 @@
-import { appUrl, api, apiUpload, normalizeItem, settingsUrl } from './api.js';
+import { appUrl, api, apiUpload, normalizeItem } from './api.js';
+import { createNavigation } from './navigation.js';
+import { createRouter } from './router.js';
+import { persistPreferences } from './shared.js';
 import {
     BARCODE_FORMATS,
     CATEGORY_SWIPE_THRESHOLD_PX,
-    DEFAULT_PREFERENCES,
     NOTE_SAVE_DEBOUNCE_MS,
     SCANNER_COOLDOWN_MS,
     TAB_REORDER_LONG_PRESS_MS,
-    THEME_COLORS,
-    THEME_MODE_ORDER,
-    TYPE_CONFIG,
     getCurrentCategory,
     getCurrentType,
     getTypeConfig,
@@ -23,9 +22,9 @@ import {
     state,
     themeMediaQuery,
 } from './state.js';
+import { applyThemePreferences, cycleThemeMode } from './theme.js';
 import {
     appEl,
-    brandMarkEls,
     cameraBtn,
     cameraInput,
     clearDoneBtn,
@@ -72,7 +71,6 @@ import {
     searchInput,
     sectionTabsEl,
     settingsBtns,
-    settingsEmbedEl,
     settingsFrameEl,
     svgIcon,
     tabsToggleBtns,
@@ -101,285 +99,11 @@ let tiptapEditor = null;
 let tabDragJustFinished = false;
 let swipeState = null;
 let swipeTransitionActive = false;
+let navigation = null;
+let router = null;
 
-let appHistoryIndex = 0;
-let suppressHistorySync = false;
-
-function normalizeRouteState(route = {}) {
-    const screen = ['list', 'settings', 'search', 'note', 'scanner'].includes(route?.screen)
-        ? route.screen
-        : 'list';
-
-    if (screen === 'settings') {
-        return {
-            screen,
-            tab: route?.tab === 'extension' ? 'extension' : 'app',
-        };
-    }
-
-    if (screen === 'search') {
-        return {
-            screen,
-            query: typeof route?.query === 'string' ? route.query : '',
-        };
-    }
-
-    if (screen === 'note') {
-        const noteId = Number(route?.noteId);
-        return {
-            screen,
-            noteId: Number.isInteger(noteId) && noteId > 0 ? noteId : null,
-            categoryId: Number.isInteger(Number(route?.categoryId)) ? Number(route.categoryId) : null,
-        };
-    }
-
-    if (screen === 'scanner') {
-        return {
-            screen,
-            action: route?.action === 'toggle' ? 'toggle' : 'add',
-            categoryId: Number.isInteger(Number(route?.categoryId)) ? Number(route.categoryId) : null,
-        };
-    }
-
-    return { screen: 'list' };
-}
-
-function getCurrentRouteState() {
-    if (scannerState.open) {
-        return normalizeRouteState({
-            screen: 'scanner',
-            action: scannerState.action,
-            categoryId: state.categoryId,
-        });
-    }
-
-    if (state.noteEditorId !== null) {
-        return normalizeRouteState({
-            screen: 'note',
-            noteId: state.noteEditorId,
-            categoryId: state.categoryId,
-        });
-    }
-
-    if (state.view === 'settings') {
-        return normalizeRouteState({
-            screen: 'settings',
-            tab: state.settingsTab,
-        });
-    }
-
-    if (state.search.open) {
-        return normalizeRouteState({
-            screen: 'search',
-            query: state.search.query,
-        });
-    }
-
-    return normalizeRouteState({ screen: 'list' });
-}
-
-function buildUrlForRoute(route) {
-    const normalized = normalizeRouteState(route);
-    const url = new URL(window.location.href);
-
-    url.searchParams.delete('view');
-    url.searchParams.delete('tab');
-    url.searchParams.delete('note');
-    url.searchParams.delete('scanner_action');
-    url.searchParams.delete('q');
-    url.searchParams.delete('category_id');
-
-    if (normalized.screen === 'settings') {
-        url.searchParams.set('view', 'settings');
-        url.searchParams.set('tab', normalized.tab);
-    } else if (normalized.screen === 'search') {
-        url.searchParams.set('view', 'search');
-        if (normalized.query.trim() !== '') {
-            url.searchParams.set('q', normalized.query);
-        }
-    } else if (normalized.screen === 'note' && normalized.noteId) {
-        url.searchParams.set('view', 'note');
-        url.searchParams.set('note', String(normalized.noteId));
-        if (normalized.categoryId !== null) {
-            url.searchParams.set('category_id', String(normalized.categoryId));
-        }
-    } else if (normalized.screen === 'scanner') {
-        url.searchParams.set('view', 'scanner');
-        url.searchParams.set('scanner_action', normalized.action);
-        if (normalized.categoryId !== null) {
-            url.searchParams.set('category_id', String(normalized.categoryId));
-        }
-    }
-
-    return `${url.pathname}${url.search}${url.hash}`;
-}
-
-function writeHistoryState(mode, route, index = appHistoryIndex) {
-    const normalized = normalizeRouteState(route);
-    const statePayload = {
-        appManaged: true,
-        appIndex: index,
-        appRoute: normalized,
-    };
-    const url = buildUrlForRoute(normalized);
-
-    if (mode === 'push') {
-        history.pushState(statePayload, '', url);
-    } else {
-        history.replaceState(statePayload, '', url);
-    }
-}
-
-function replaceCurrentHistoryState(route = getCurrentRouteState()) {
-    if (suppressHistorySync) return;
-    writeHistoryState('replace', route, appHistoryIndex);
-}
-
-function pushHistoryState(route) {
-    if (suppressHistorySync) return;
-    appHistoryIndex += 1;
-    writeHistoryState('push', route, appHistoryIndex);
-}
-
-function navigateBackOrReplace(fallbackRoute = { screen: 'list' }) {
-    if (appHistoryIndex > 0) {
-        history.back();
-        return;
-    }
-
-    void applyRouteState(fallbackRoute).then(() => {
-        replaceCurrentHistoryState(fallbackRoute);
-    }).catch(() => {});
-}
-
-function readInitialRouteFromUrl() {
-    const params = new URLSearchParams(window.location.search);
-    const view = params.get('view');
-    const categoryId = Number(params.get('category_id'));
-
-    if (view === 'settings') {
-        return normalizeRouteState({ screen: 'settings', tab: params.get('tab') });
-    }
-
-    if (view === 'search') {
-        return normalizeRouteState({ screen: 'search', query: params.get('q') || '' });
-    }
-
-    if (view === 'note') {
-        return normalizeRouteState({
-            screen: 'note',
-            noteId: Number(params.get('note')),
-            categoryId: Number.isInteger(categoryId) ? categoryId : null,
-        });
-    }
-
-    if (view === 'scanner') {
-        return normalizeRouteState({
-            screen: 'scanner',
-            action: params.get('scanner_action'),
-            categoryId: Number.isInteger(categoryId) ? categoryId : null,
-        });
-    }
-
-    return normalizeRouteState({ screen: 'list' });
-}
-
-function applyViewState() {
-    const inSettings = state.view === 'settings';
-    appEl?.classList.toggle('settings-view', inSettings);
-    settingsBtns.forEach(button => button.classList.toggle('is-active', inSettings));
-    if (settingsEmbedEl) {
-        settingsEmbedEl.hidden = !inSettings;
-    }
-}
-
-async function openSettings(tab = 'app') {
-    if (scannerState.open) {
-        closeScanner();
-    }
-    if (state.noteEditorId !== null) {
-        await closeNoteEditor();
-    }
-    if (state.search.open) {
-        closeSearch();
-    }
-
-    state.view = 'settings';
-    state.settingsTab = tab === 'extension' ? 'extension' : 'app';
-    applyViewState();
-    updateHeaders();
-
-    const nextSrc = settingsUrl(state.settingsTab);
-    if (settingsFrameEl && settingsFrameEl.src !== nextSrc) {
-        settingsFrameEl.src = nextSrc;
-    }
-}
-
-function closeSettings() {
-    if (state.view !== 'settings') return;
-    state.view = 'list';
-    applyViewState();
-    updateHeaders();
-}
-
-async function applyRouteState(route) {
-    const target = normalizeRouteState(route);
-    const previousSuppression = suppressHistorySync;
-    suppressHistorySync = true;
-
-    try {
-        if (scannerState.open && target.screen !== 'scanner') {
-            closeScanner();
-        }
-
-        if (state.noteEditorId !== null && target.screen !== 'note') {
-            await closeNoteEditor();
-        }
-
-        if (state.search.open && target.screen !== 'search') {
-            closeSearch();
-        }
-
-        if (state.view === 'settings' && target.screen !== 'settings') {
-            closeSettings();
-        }
-
-        if (target.screen === 'settings') {
-            await openSettings(target.tab);
-            return;
-        }
-
-        if (target.screen === 'search') {
-            openSearch();
-            if (searchInput) {
-                searchInput.value = target.query;
-            }
-            await doSearch(target.query);
-            return;
-        }
-
-        if (target.screen === 'note') {
-            if (target.categoryId !== null && Number(target.categoryId) !== Number(state.categoryId)) {
-                await setCategory(target.categoryId);
-            }
-
-            const item = getItemById(target.noteId);
-            if (item) {
-                await openNoteEditor(item);
-            }
-            return;
-        }
-
-        if (target.screen === 'scanner') {
-            if (target.categoryId !== null && Number(target.categoryId) !== Number(state.categoryId)) {
-                await setCategory(target.categoryId);
-            }
-            await openScanner(target.action);
-            return;
-        }
-    } finally {
-        suppressHistorySync = previousSuppression;
-    }
+function setUserPreferences(nextPreferences) {
+    userPreferences = nextPreferences;
 }
 
 async function fetchLinkMetadata(url) {
@@ -390,75 +114,6 @@ async function fetchLinkMetadata(url) {
         return data;
     } catch {
         return null;
-    }
-}
-
-function updateBrandMarks(themeName) {
-    brandMarkEls.forEach(image => {
-        if (!(image instanceof HTMLImageElement)) return;
-        const url = new URL(image.getAttribute('src') || '', window.location.href);
-        if (!url.pathname.endsWith('/icon.php') && !url.pathname.endsWith('icon.php')) return;
-        url.searchParams.set('theme', themeName);
-        image.src = url.toString();
-    });
-}
-
-function getThemeModeLabel(themeMode = userPreferences.theme_mode) {
-    if (themeMode === 'light') return 'Hell';
-    if (themeMode === 'dark') return 'Dunkel';
-    return 'Auto';
-}
-
-function getEffectiveTheme(preferences = userPreferences) {
-    const themeMode = preferences.theme_mode || 'auto';
-    const prefersDark = Boolean(themeMediaQuery?.matches);
-
-    if (themeMode === 'light') return preferences.light_theme || 'hafenblau';
-    if (themeMode === 'dark') return preferences.dark_theme || 'nachtwache';
-    return prefersDark ? (preferences.dark_theme || 'nachtwache') : (preferences.light_theme || 'hafenblau');
-}
-
-function updateThemeModeButtons() {
-    const themeMode = userPreferences.theme_mode || 'auto';
-    const iconName = themeMode === 'dark' ? 'theme-dark' : themeMode === 'light' ? 'theme-light' : 'theme-auto';
-    const label = getThemeModeLabel(themeMode);
-
-    themeModeBtns.forEach(button => {
-        button.replaceChildren(svgIcon(iconName));
-        button.setAttribute('aria-label', `Farbschema: ${label}. Umschalten`);
-        button.title = `Farbschema: ${label}`;
-    });
-}
-
-function applyThemePreferences() {
-    const effectiveTheme = getEffectiveTheme();
-    document.documentElement.dataset.theme = effectiveTheme;
-    if (document.body) {
-        document.body.dataset.theme = effectiveTheme;
-    }
-
-    const themeColorMeta = document.querySelector('meta[name="theme-color"]');
-    if (themeColorMeta && THEME_COLORS[effectiveTheme]) {
-        themeColorMeta.setAttribute('content', THEME_COLORS[effectiveTheme]);
-    }
-
-    updateBrandMarks(effectiveTheme);
-    updateThemeModeButtons();
-}
-
-async function cycleThemeMode() {
-    const currentMode = userPreferences.theme_mode || 'auto';
-    const nextMode = THEME_MODE_ORDER[(THEME_MODE_ORDER.indexOf(currentMode) + 1) % THEME_MODE_ORDER.length];
-
-    userPreferences = { ...userPreferences, theme_mode: nextMode };
-    applyThemePreferences();
-
-    try {
-        await savePreferences({ theme_mode: nextMode });
-    } catch (error) {
-        userPreferences = { ...userPreferences, theme_mode: currentMode };
-        applyThemePreferences();
-        setMessage(error instanceof Error ? error.message : 'Farbschema konnte nicht gespeichert werden.', true);
     }
 }
 
@@ -627,16 +282,7 @@ async function loadCategories() {
 }
 
 async function savePreferences(patch) {
-    const body = new URLSearchParams();
-    Object.entries(patch).forEach(([key, value]) => {
-        body.set(key, String(value));
-    });
-
-    const payload = await api('preferences', { method: 'POST', body });
-    if (payload.preferences) {
-        userPreferences = normalizePreferences(payload.preferences);
-        applyThemePreferences();
-    }
+    await persistPreferences(patch, setUserPreferences, applyThemePreferences);
 }
 
 function makeCategoryTab(category) {
@@ -1397,7 +1043,7 @@ async function handleScannedBarcode(rawValue) {
         setScannerStatus(`Erfolgreich: ${barcode}`);
         window.setTimeout(() => {
             if (scannerState.open) {
-                navigateBackOrReplace({ screen: 'list' });
+                navigation.navigateBackOrReplace({ screen: 'list' });
             }
         }, 180);
     } catch (error) {
@@ -1554,7 +1200,7 @@ async function setCategory(categoryId) {
     if (state.noteEditorId !== null) {
         await closeNoteEditor();
     }
-    closeSettings();
+    router.closeSettings();
 
     state.categoryId = Number(categoryId);
     renderCategoryTabs();
@@ -1653,7 +1299,7 @@ function closeSearch() {
 async function doSearch(query) {
     state.search.query = query;
     if (state.search.open) {
-        replaceCurrentHistoryState({ screen: 'search', query: state.search.query });
+        navigation.replaceCurrentHistoryState({ screen: 'search', query: state.search.query });
     }
 
     if (query.trim().length < 2) {
@@ -2727,7 +2373,7 @@ async function openNoteEditor(item) {
 async function openNoteEditorWithNavigation(item) {
     await openNoteEditor(item);
     if (state.noteEditorId !== null) {
-        pushHistoryState({
+        navigation.pushHistoryState({
             screen: 'note',
             noteId: state.noteEditorId,
             categoryId: state.categoryId,
@@ -2747,6 +2393,25 @@ async function closeNoteEditor() {
     appEl.classList.remove('note-editor-open');
     if (noteEditorEl) noteEditorEl.hidden = true;
 }
+
+router = createRouter({
+    closeNoteEditor,
+    closeScanner,
+    closeSearch,
+    doSearch,
+    getItemById,
+    openNoteEditor,
+    openScanner,
+    openSearch,
+    scannerState,
+    setCategory,
+    updateHeaders,
+});
+
+navigation = createNavigation({
+    applyRouteState: router.applyRouteState,
+    getCurrentRouteState: router.getCurrentRouteState,
+});
 
 function setNetworkStatus() {
     if (!networkStatusEl) return;
@@ -2806,7 +2471,7 @@ clearDoneBtn?.addEventListener('click', () => {
 scanAddBtn?.addEventListener('click', () => {
     void openScanner('add').then(() => {
         if (scannerState.open) {
-            pushHistoryState({ screen: 'scanner', action: scannerState.action, categoryId: state.categoryId });
+            navigation.pushHistoryState({ screen: 'scanner', action: scannerState.action, categoryId: state.categoryId });
         }
     }).catch(error => {
         setScannerStatus(error instanceof Error ? error.message : 'Scanner konnte nicht gestartet werden.', true);
@@ -2816,17 +2481,17 @@ scanAddBtn?.addEventListener('click', () => {
 scanShoppingBtn?.addEventListener('click', () => {
     void openScanner('toggle').then(() => {
         if (scannerState.open) {
-            pushHistoryState({ screen: 'scanner', action: scannerState.action, categoryId: state.categoryId });
+            navigation.pushHistoryState({ screen: 'scanner', action: scannerState.action, categoryId: state.categoryId });
         }
     }).catch(error => {
         setScannerStatus(error instanceof Error ? error.message : 'Scanner konnte nicht gestartet werden.', true);
     });
 });
 
-scannerCloseBtn?.addEventListener('click', () => navigateBackOrReplace({ screen: 'list' }));
+scannerCloseBtn?.addEventListener('click', () => navigation.navigateBackOrReplace({ screen: 'list' }));
 scannerOverlay?.addEventListener('click', event => {
     if (event.target === scannerOverlay) {
-        navigateBackOrReplace({ screen: 'list' });
+        navigation.navigateBackOrReplace({ screen: 'list' });
     }
 });
 
@@ -2855,7 +2520,7 @@ modeToggleBtns.forEach(button => {
 
 themeModeBtns.forEach(button => {
     button.addEventListener('click', () => {
-        void cycleThemeMode();
+        void cycleThemeMode(userPreferences, setUserPreferences, setMessage);
     });
 });
 
@@ -2864,11 +2529,11 @@ settingsBtns.forEach(button => {
         event.preventDefault();
         const targetTab = button.dataset.settingsTab || 'app';
         if (state.view === 'settings' && state.settingsTab === targetTab) {
-            navigateBackOrReplace({ screen: 'list' });
+            navigation.navigateBackOrReplace({ screen: 'list' });
             return;
         }
-        void openSettings(targetTab).then(() => {
-            pushHistoryState({ screen: 'settings', tab: state.settingsTab });
+        void router.openSettings(targetTab).then(() => {
+            navigation.pushHistoryState({ screen: 'settings', tab: state.settingsTab });
         }).catch(() => {});
     });
 });
@@ -2878,7 +2543,7 @@ settingsFrameEl?.addEventListener('load', () => {
         const frameUrl = new URL(settingsFrameEl.contentWindow?.location.href || settingsFrameEl.src, window.location.href);
         state.settingsTab = frameUrl.searchParams.get('tab') === 'extension' ? 'extension' : 'app';
         if (state.view === 'settings') {
-            replaceCurrentHistoryState({ screen: 'settings', tab: state.settingsTab });
+            navigation.replaceCurrentHistoryState({ screen: 'settings', tab: state.settingsTab });
             void loadCategories()
                 .then(() => updateHeaders())
                 .catch(() => {});
@@ -2891,16 +2556,12 @@ settingsFrameEl?.addEventListener('load', () => {
 window.addEventListener('message', event => {
     if (event.origin !== window.location.origin) return;
     if (event.data?.type === 'ankerkladde-settings-close') {
-        navigateBackOrReplace({ screen: 'list' });
+        navigation.navigateBackOrReplace({ screen: 'list' });
     }
 });
 
 window.addEventListener('popstate', event => {
-    if (!event.state?.appManaged) return;
-    appHistoryIndex = Number.isInteger(Number(event.state.appIndex)) ? Number(event.state.appIndex) : 0;
-    void applyRouteState(event.state.appRoute).catch(error => {
-        setMessage(error instanceof Error ? error.message : 'Navigation konnte nicht wiederhergestellt werden.', true);
-    });
+    void navigation.handlePopState(event, setMessage);
 });
 
 tabsToggleBtns.forEach(button => {
@@ -2964,10 +2625,10 @@ searchBtn?.addEventListener('click', () => {
     }
     if (scannerState.open) closeScanner();
     openSearch();
-    pushHistoryState({ screen: 'search', query: state.search.query });
+    navigation.pushHistoryState({ screen: 'search', query: state.search.query });
 });
 searchClose?.addEventListener('click', () => {
-    navigateBackOrReplace({ screen: 'list' });
+    navigation.navigateBackOrReplace({ screen: 'list' });
 });
 searchInput?.addEventListener('input', () => {
     void doSearch(searchInput.value);
@@ -2979,7 +2640,7 @@ searchInput?.addEventListener('keydown', event => {
 });
 
 noteEditorBack?.addEventListener('click', () => {
-    navigateBackOrReplace({ screen: 'list' });
+    navigation.navigateBackOrReplace({ screen: 'list' });
 });
 
 noteTitleInput?.addEventListener('input', scheduleNoteSave);
@@ -3068,7 +2729,7 @@ document.addEventListener('paste', event => {
 window.addEventListener('online', setNetworkStatus);
 if (themeMediaQuery) {
     const onThemeMediaChange = () => {
-        if (userPreferences.theme_mode === 'auto') applyThemePreferences();
+        if (userPreferences.theme_mode === 'auto') applyThemePreferences(userPreferences);
     };
     if (typeof themeMediaQuery.addEventListener === 'function') {
         themeMediaQuery.addEventListener('change', onThemeMediaChange);
@@ -3079,25 +2740,25 @@ if (themeMediaQuery) {
 window.addEventListener('offline', setNetworkStatus);
 document.addEventListener('keydown', event => {
     if (event.key === 'Escape' && scannerState.open) {
-        navigateBackOrReplace({ screen: 'list' });
+        navigation.navigateBackOrReplace({ screen: 'list' });
         return;
     }
     if (event.key === 'Escape' && state.search.open) {
-        navigateBackOrReplace({ screen: 'list' });
+        navigation.navigateBackOrReplace({ screen: 'list' });
         return;
     }
     if (event.key === 'Escape' && state.noteEditorId !== null) {
-        navigateBackOrReplace({ screen: 'list' });
+        navigation.navigateBackOrReplace({ screen: 'list' });
         return;
     }
     if (event.key === 'Escape' && state.view === 'settings') {
-        navigateBackOrReplace({ screen: 'list' });
+        navigation.navigateBackOrReplace({ screen: 'list' });
     }
 });
 
 document.addEventListener('visibilitychange', () => {
     if (document.hidden && scannerState.open) {
-        navigateBackOrReplace({ screen: 'list' });
+        navigation.navigateBackOrReplace({ screen: 'list' });
     }
 });
 
@@ -3127,7 +2788,7 @@ document.addEventListener('visibilitychange', () => {
 
 (async function init() {
     try {
-        applyThemePreferences();
+        applyThemePreferences(userPreferences);
         updateViewportHeight();
         setNetworkStatus();
         applyViewState();
@@ -3139,21 +2800,21 @@ document.addEventListener('visibilitychange', () => {
         await loadCategories();
         updateHeaders();
         await loadItems();
-        const initialRoute = readInitialRouteFromUrl();
+        const initialRoute = navigation.readInitialRouteFromUrl();
         if (initialRoute.screen !== 'list') {
-            await applyRouteState(initialRoute);
+            await router.applyRouteState(initialRoute, route => route);
         }
-        replaceCurrentHistoryState(getCurrentRouteState());
+        navigation.replaceCurrentHistoryState();
         prefetchAdjacentCategories();
         await handleIncomingShare();
-        replaceCurrentHistoryState(getCurrentRouteState());
+        navigation.replaceCurrentHistoryState();
     } catch (error) {
         setMessage(error instanceof Error ? error.message : 'App konnte nicht geladen werden.', true);
     }
 
     if ('serviceWorker' in navigator) {
         try {
-            const reg = await navigator.serviceWorker.register(appBasePath + 'sw.js?v=2.0.5');
+            const reg = await navigator.serviceWorker.register(appBasePath + 'sw.js?v=2.0.6');
             reg.addEventListener('updatefound', () => {
                 const w = reg.installing;
                 w?.addEventListener('statechange', () => {
