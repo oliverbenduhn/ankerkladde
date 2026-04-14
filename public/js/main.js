@@ -1,6 +1,7 @@
 import { appUrl, api, apiUpload } from './api.js';
 import { createItemsController } from './items.js';
 import { createNavigation } from './navigation.js';
+import { createEditorController } from './editor.js';
 import { applyViewState, createRouter } from './router.js';
 import { createScannerController } from './scanner.js';
 import {
@@ -104,6 +105,7 @@ let navigation = null;
 let router = null;
 let itemsController = null;
 let scannerController = null;
+let editorController = null;
 
 function setUserPreferences(nextPreferences) {
     userPreferences = nextPreferences;
@@ -1749,120 +1751,10 @@ function formatDate(value) {
     }
 }
 
-async function waitForTipTap() {
-    return new Promise(resolve => {
-        if (window.TipTap) {
-            resolve(window.TipTap);
-            return;
-        }
-
-        window.addEventListener('tiptap-ready', () => resolve(window.TipTap), { once: true });
-    });
-}
-
-function destroyTipTap() {
-    if (tiptapEditor) {
-        tiptapEditor.destroy();
-        tiptapEditor = null;
-    }
-}
-
-function setNoteSaveStatus(text) {
-    if (noteSaveStatus) noteSaveStatus.textContent = text;
-}
-
-async function saveNoteContent(id, title, htmlContent) {
-    await api('update', {
-        method: 'POST',
-        body: new URLSearchParams({ id: String(id), name: title || 'Ohne Titel', content: htmlContent }),
-    });
-    const item = getItemById(id);
-    if (item) {
-        item.name = title || 'Ohne Titel';
-        item.content = htmlContent;
-    }
-    cacheCurrentCategoryItems();
-    setNoteSaveStatus('Gespeichert');
-}
-
-function scheduleNoteSave() {
-    clearTimeout(noteSaveTimer);
-    setNoteSaveStatus('...');
-    noteSaveTimer = setTimeout(() => {
-        if (state.noteEditorId === null || !tiptapEditor) return;
-        void saveNoteContent(state.noteEditorId, noteTitleInput?.value || '', tiptapEditor.getHTML());
-    }, NOTE_SAVE_DEBOUNCE_MS);
-}
-
-function updateNoteToolbar() {
-    if (!tiptapEditor || !noteToolbar) return;
-
-    noteToolbar.querySelectorAll('button[data-cmd]').forEach(button => {
-        const cmd = button.dataset.cmd;
-        const level = button.dataset.level ? Number(button.dataset.level) : undefined;
-        let active = false;
-
-        if (cmd === 'heading' && level) {
-            active = tiptapEditor.isActive('heading', { level });
-        } else if (cmd === 'link') {
-            active = tiptapEditor.isActive('link');
-        } else if (cmd !== 'undo' && cmd !== 'redo') {
-            active = tiptapEditor.isActive(cmd);
-        }
-
-        button.classList.toggle('is-active', active);
-    });
-}
-
-async function openNoteEditor(item) {
-    await closeNoteEditor();
-
-    state.noteEditorId = item.id;
-    if (noteTitleInput) noteTitleInput.value = item.name || '';
-    if (noteEditorEl) noteEditorEl.hidden = false;
-    appEl.classList.add('note-editor-open');
-
-    const { Editor, StarterKit, Link } = await waitForTipTap();
-    if (noteEditorBody) noteEditorBody.innerHTML = '';
-
-    tiptapEditor = new Editor({
-        element: noteEditorBody,
-        extensions: [StarterKit, Link.configure({ openOnClick: false })],
-        content: item.content || '',
-        onUpdate: () => {
-            updateNoteToolbar();
-            scheduleNoteSave();
-        },
-        onSelectionUpdate: updateNoteToolbar,
-    });
-
-    updateNoteToolbar();
-    setNoteSaveStatus('');
-}
-
-async function openNoteEditorWithNavigation(item) {
-    await openNoteEditor(item);
-    if (state.noteEditorId !== null) {
-        navigation.pushHistoryState({
-            screen: 'note',
-            noteId: state.noteEditorId,
-            categoryId: state.categoryId,
-        });
-    }
-}
-
-async function closeNoteEditor() {
-    clearTimeout(noteSaveTimer);
-
-    if (tiptapEditor && state.noteEditorId !== null) {
-        await saveNoteContent(state.noteEditorId, noteTitleInput?.value || '', tiptapEditor.getHTML());
-    }
-
-    destroyTipTap();
-    state.noteEditorId = null;
-    appEl.classList.remove('note-editor-open');
-    if (noteEditorEl) noteEditorEl.hidden = true;
-}
+async function openNoteEditor(item) { await editorController.openNoteEditor(item); }
+async function openNoteEditorWithNavigation(item) { await editorController.openNoteEditorWithNavigation(item); }
+async function closeNoteEditor() { await editorController.closeNoteEditor(); }
+function scheduleNoteSave() { editorController.scheduleNoteSave(); }
 
 router = createRouter({
     closeNoteEditor,
@@ -1914,6 +1806,16 @@ scannerController = createScannerController({
     setScannerStatus,
     triggerHapticFeedback,
     updateFilePickerLabel,
+});
+
+editorController = createEditorController({
+    cacheCurrentCategoryItems,
+    getItemById,
+    getNoteSaveTimer: () => noteSaveTimer,
+    navigation,
+    setNoteSaveTimer: value => { noteSaveTimer = value; },
+    setTiptapEditor: value => { tiptapEditor = value; },
+    getTiptapEditor: () => tiptapEditor,
 });
 
 function setNetworkStatus() {
@@ -2159,38 +2061,7 @@ noteEditorBack?.addEventListener('click', () => {
 noteTitleInput?.addEventListener('input', scheduleNoteSave);
 
 noteToolbar?.addEventListener('click', event => {
-    const button = event.target.closest('button[data-cmd]');
-    if (!button || !tiptapEditor) return;
-
-    const cmd = button.dataset.cmd;
-    const level = button.dataset.level ? Number(button.dataset.level) : undefined;
-    const chain = tiptapEditor.chain().focus();
-
-    switch (cmd) {
-        case 'heading': chain.toggleHeading({ level }).run(); break;
-        case 'bold': chain.toggleBold().run(); break;
-        case 'italic': chain.toggleItalic().run(); break;
-        case 'strike': chain.toggleStrike().run(); break;
-        case 'bulletList': chain.toggleBulletList().run(); break;
-        case 'orderedList': chain.toggleOrderedList().run(); break;
-        case 'blockquote': chain.toggleBlockquote().run(); break;
-        case 'codeBlock': chain.toggleCodeBlock().run(); break;
-        case 'undo': chain.undo().run(); break;
-        case 'redo': chain.redo().run(); break;
-        case 'link': {
-            const previous = tiptapEditor.isActive('link') ? tiptapEditor.getAttributes('link').href : '';
-            const url = prompt('URL:', previous);
-            if (url === null) break;
-            if (url === '') {
-                chain.unsetLink().run();
-                break;
-            }
-            chain.setLink({ href: url }).run();
-            break;
-        }
-    }
-
-    updateNoteToolbar();
+    editorController.handleToolbarClick(event);
 });
 
 dropZoneEl?.addEventListener('dragover', event => {
@@ -2327,7 +2198,7 @@ document.addEventListener('visibilitychange', () => {
 
     if ('serviceWorker' in navigator) {
         try {
-            const reg = await navigator.serviceWorker.register(appBasePath + 'sw.js?v=2.0.15');
+            const reg = await navigator.serviceWorker.register(appBasePath + 'sw.js?v=2.0.16');
             reg.addEventListener('updatefound', () => {
                 const w = reg.installing;
                 w?.addEventListener('statechange', () => {
