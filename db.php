@@ -1117,7 +1117,7 @@ function getDatabase(): PDO
             FOREIGN KEY (item_id) REFERENCES items(id) ON DELETE CASCADE
         )"
     );
-    $db->exec('CREATE INDEX IF NOT EXISTS idx_attachments_item_id ON attachments(item_id)');
+    $db->exec('DROP INDEX IF EXISTS idx_attachments_item_id');
 
     $db->exec(
         "CREATE TABLE IF NOT EXISTS users (
