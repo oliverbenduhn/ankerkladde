@@ -1291,7 +1291,11 @@ try {
                     $db->commit();
 
                     if ($oldAttachment !== null) {
-                        deleteAttachmentStorageFile($oldAttachment);
+                        try {
+                            deleteAttachmentStorageFile($oldAttachment);
+                        } catch (Throwable $cleanupException) {
+                            error_log(sprintf('Einkauf attachment cleanup error [replace:%d]: %s', $replaceItemId, $cleanupException->getMessage()));
+                        }
                     }
                 } catch (Throwable $exception) {
                     if ($db->inTransaction()) {

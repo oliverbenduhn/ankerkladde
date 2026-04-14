@@ -106,8 +106,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     foreach ($attachments as $att) {
                         try {
                             deleteAttachmentStorageFile($att);
-                        } catch (Throwable) {
-                            // best-effort file cleanup
+                        } catch (Throwable $e) {
+                            error_log(sprintf('Einkauf attachment cleanup error [user_delete:%d]: %s', $targetId, $e->getMessage()));
                         }
                     }
 
