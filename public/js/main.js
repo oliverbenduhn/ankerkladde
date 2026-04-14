@@ -2620,7 +2620,7 @@ linkDescriptionInput?.addEventListener('input', () => {
 searchBtn?.addEventListener('click', () => {
     if (state.view === 'settings' || state.noteEditorId !== null) return;
     if (state.search.open) {
-        searchInput?.focus();
+        navigation.navigateBackOrReplace({ screen: 'list' });
         return;
     }
     if (scannerState.open) closeScanner();
@@ -2814,7 +2814,7 @@ document.addEventListener('visibilitychange', () => {
 
     if ('serviceWorker' in navigator) {
         try {
-            const reg = await navigator.serviceWorker.register(appBasePath + 'sw.js?v=2.0.10');
+            const reg = await navigator.serviceWorker.register(appBasePath + 'sw.js?v=2.0.11');
             reg.addEventListener('updatefound', () => {
                 const w = reg.installing;
                 w?.addEventListener('statechange', () => {
