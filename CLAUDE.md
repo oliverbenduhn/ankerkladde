@@ -53,7 +53,7 @@ Production deploy: Git push → GitHub Webhook → `deploy.sh` → `git pull` + 
 | `public/index.php` | HTML shell — renders tabs, form, meta tags (CSRF token, base path) |
 | `public/api.php` | JSON REST API — all reads/writes go through here |
 | `public/media.php` | Secure streaming of attachment files (never serves from webroot) |
-| `public/app.js` | Entire frontend (~2000 lines), no bundler, no framework |
+| `public/js/main.js` | Frontend entry point, ESM module orchestration |
 | `public/sw.js` | Service Worker — caches app shell, offline page, handles share targets |
 | `public/login.php` | Login page (incl. PWA install banner) |
 | `public/settings.php` | User settings: password, categories, preferences, API key, extension download |
@@ -61,8 +61,33 @@ Production deploy: Git push → GitHub Webhook → `deploy.sh` → `git pull` + 
 | `public/theme.php` | Theme/preference helpers (`getExtendedUserPreferences`, `renderThemeBootScript`) |
 | `public/manifest.php` | Web App Manifest (dynamic, uses user icon/color) |
 | `public/extension-download.php` | Builds browser extension ZIP on demand (Chrome/Edge or Firefox) |
+| `public/version.php` | Single source of truth for app version (used by all PHP pages) |
 | `db.php` | SQLite init + auto-migrations on every boot (additive only); category/item DB helpers |
 | `security.php` | Session management, CSRF token generation/validation, canonical host enforcement, auth helpers |
+
+### Frontend Modules
+
+ESM modules in `public/js/` (structured via `createXxxController(deps)` pattern):
+
+| Module | Responsibility |
+|--------|----------------|
+| `main.js` | App initialization, controller composition, event bindings |
+| `state.js` | Global state, constants, preferences, preferences normalization |
+| `api.js` | HTTP client, CSRF token handling, URL building, item normalization, `persistPreferences` |
+| `ui.js` | DOM element references, SVG icons, viewport height helper |
+| `theme.js` | Theme application, theme mode cycling, theme mode buttons |
+| `navigation.js` | History state management, route normalization, popstate handling |
+| `router.js` | View state management (settings, search, note, scanner), route application |
+| `items.js` | Items controller: category loading, item loading, caching, search |
+| `items-view.js` | Item rendering, search results, buildItemNode, buildEditContent |
+| `items-actions.js` | Item CRUD, file uploads, shared link/text handling |
+| `item-menu.js` | Item action menu overlay |
+| `lightbox.js` | Image preview overlay |
+| `scanner.js` | Barcode scanning (native + ZXing), product lookup |
+| `editor.js` | TipTap rich-text editor for notes |
+| `swipe.js` | Category swipe gesture handling |
+| `reorder.js` | Drag-and-drop reordering |
+| `utils.js` | Helper functions: `escapeRegExp`, `syncAutoHeight`, `normalizeBarcodeValue` |
 
 ### Data Flow
 
@@ -99,7 +124,13 @@ Each user manages their own categories — count, names, icons, and order are fr
 
 ### Frontend State
 
-`app.js` uses a plain `state` object (no reactive framework). The active category and view mode (`liste`/`einkaufen`) persist in `localStorage` (and via the `preferences` API). Items are also cached in localStorage for offline display. Category type configuration lives in the `TYPE_CONFIG` constant in `app.js`.
+Frontend uses a modular ESM architecture with `createXxxController(deps)` pattern. All modules live in `public/js/`. State is managed via:
+- `state.js` - Global `state` object (no reactive framework), constants, preferences
+- `items.js` - Category/item loading, caching, search
+- `items-view.js` - Item rendering, search results
+- `items-actions.js` - Item CRUD, file uploads
+
+The active category and view mode (`liste`/`einkaufen`) persist in `localStorage` (and via the `preferences` API).
 
 The notes section opens a full TipTap rich-text editor (loaded from CDN at esm.sh) with 800 ms debounce auto-save.
 
@@ -110,7 +141,17 @@ The notes section opens a full TipTap rich-text editor (loaded from CDN at esm.s
 - Attachment file paths built server-side only from DB records, never from user input
 - Upload limits: 20 MB images, 5 GB files (set in `public/.user.ini` and nginx config)
 
+### Version Management
+
+Version is centralized in `public/version.php` (returns string like `'2.0.34'`). All PHP pages include this file. Service Worker (`sw.js`) has its own version constant since JS can't import PHP.
+
 ### Environment Variables
+
+| Variable | Purpose | Default |
+|---|---|---|
+| `EINKAUF_DATA_DIR` | Data/DB/uploads directory | `<project-root>/data` |
+| `ANKERKLADDE_CANONICAL_HOST` | Production domain for redirect enforcement | `ankerkladde.benduhn.de` |
+| `EINKAUF_TRUST_PROXY_HEADERS` | Trust X-Forwarded-* headers | Auto (true if request from 127.0.0.1) |
 
 | Variable | Purpose | Default |
 |---|---|---|

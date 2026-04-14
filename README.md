@@ -91,7 +91,8 @@ Jeder Nutzer verwaltet eigene **Kategorien** – Anzahl, Namen, Icons und Reihen
 | Pfad | Zweck |
 |---|---|
 | `public/index.php` | HTML-Oberfläche (App-Shell) |
-| `public/app.js` | Gesamtes Frontend als Single-File-JavaScript (kein Build-Tool) |
+| `public/js/main.js` | Frontend-Entry-Point (ESM-Modul-Orchestrierung) |
+| `public/js/*.js` | ESM-Module: `state`, `api`, `ui`, `theme`, `navigation`, `router`, `items`, `items-view`, `items-actions`, `item-menu`, `lightbox`, `scanner`, `editor`, `swipe`, `reorder`, `utils` |
 | `public/style.css` | CSS (Design-Tokens, Layout, Komponenten) |
 | `public/api.php` | JSON-REST-API |
 | `public/media.php` | Sicheres Streamen von Anhängen |
@@ -100,6 +101,7 @@ Jeder Nutzer verwaltet eigene **Kategorien** – Anzahl, Namen, Icons und Reihen
 | `public/admin.php` | Admin-Nutzerverwaltung |
 | `public/sw.js` | Service Worker |
 | `public/manifest.php` | Web App Manifest |
+| `public/version.php` | Zentrale Versionsnummer |
 | `public/extension-download.php` | Baut Browser-Extension-ZIP on demand für Chrome/Edge oder Firefox |
 | `public/.user.ini` | PHP-Upload-Limits (20 MB Bild, 5 GB Datei) |
 | `db.php` | SQLite-Init + automatische Migrationen |
