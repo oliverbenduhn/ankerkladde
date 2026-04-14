@@ -1,5 +1,4 @@
-import { api, normalizeItem } from './api.js';
-import { persistPreferences } from './shared.js';
+import { api, normalizeItem, persistPreferences } from './api.js';
 import { state } from './state.js';
 import { appEl, searchBar, searchBtn, searchInput } from './ui.js';
 

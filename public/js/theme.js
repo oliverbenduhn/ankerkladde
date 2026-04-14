@@ -1,4 +1,4 @@
-import { persistPreferences } from './shared.js';
+import { api, persistPreferences } from './api.js';
 import { THEME_COLORS, THEME_MODE_ORDER, themeMediaQuery } from './state.js';
 import { brandMarkEls, svgIcon, themeModeBtns } from './ui.js';
 

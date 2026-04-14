@@ -1,4 +1,4 @@
-import { appBasePath, csrfToken } from './state.js';
+import { appBasePath, csrfToken, normalizePreferences } from './state.js';
 
 export function appUrl(path) {
     return new URL(path, `${window.location.origin}${appBasePath}`).toString();
@@ -91,4 +91,18 @@ export function normalizeItem(item) {
         attachmentOriginalUrl: item.attachment_original_url || '',
         attachmentDownloadUrl: item.attachment_download_url || '',
     };
+}
+
+export async function persistPreferences(patch, setUserPreferences, applyThemePreferences) {
+    const body = new URLSearchParams();
+    Object.entries(patch).forEach(([key, value]) => {
+        body.set(key, String(value));
+    });
+
+    const payload = await api('preferences', { method: 'POST', body });
+    if (payload.preferences) {
+        const normalized = normalizePreferences(payload.preferences);
+        setUserPreferences(normalized);
+        applyThemePreferences(normalized);
+    }
 }
