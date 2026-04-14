@@ -8,6 +8,7 @@ export function createReorderController(deps) {
         cacheCurrentCategoryItems,
         getItemById,
         getUserPreferences,
+        getVisibleCategories,
         invalidateCategoryCache,
         loadCategories,
         loadItems,
@@ -21,6 +22,35 @@ export function createReorderController(deps) {
 
     function wasTabDragJustFinished() {
         return tabDragJustFinished;
+    }
+
+    function mergeDisplayedCategoryOrder(displayedIds) {
+        const visibleIds = getVisibleCategories().map(category => Number(category.id));
+        if (displayedIds.length === 0 || displayedIds.length >= visibleIds.length) {
+            return visibleIds;
+        }
+
+        const firstDisplayedIndex = visibleIds.findIndex(id => id === displayedIds[0]);
+        if (firstDisplayedIndex === -1) {
+            return visibleIds;
+        }
+
+        const displayedIdSet = new Set(displayedIds);
+        const remainingIds = visibleIds.filter(id => !displayedIdSet.has(id));
+
+        let insertionIndex = 0;
+        for (; insertionIndex < remainingIds.length; insertionIndex += 1) {
+            const originalIndex = visibleIds.findIndex(id => id === remainingIds[insertionIndex]);
+            if (originalIndex > firstDisplayedIndex) {
+                break;
+            }
+        }
+
+        return [
+            ...remainingIds.slice(0, insertionIndex),
+            ...displayedIds,
+            ...remainingIds.slice(insertionIndex),
+        ];
     }
 
     function updateCategoryOrderState(orderedIds) {
@@ -143,9 +173,10 @@ export function createReorderController(deps) {
                     sectionTabsEl.appendChild(tab);
                 }
 
-                const orderedIds = Array.from(sectionTabsEl.querySelectorAll('.section-tab'))
+                const displayedIds = Array.from(sectionTabsEl.querySelectorAll('.section-tab'))
                     .map(button => Number(button.dataset.categoryId))
                     .filter(Number.isInteger);
+                const orderedIds = mergeDisplayedCategoryOrder(displayedIds);
 
                 tabDragJustFinished = true;
                 window.setTimeout(() => {

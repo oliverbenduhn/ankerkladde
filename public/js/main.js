@@ -1356,6 +1356,7 @@ reorderController = createReorderController({
     cacheCurrentCategoryItems,
     getItemById,
     getUserPreferences: () => userPreferences,
+    getVisibleCategories,
     invalidateCategoryCache,
     loadCategories,
     loadItems,
@@ -1751,7 +1752,7 @@ document.addEventListener('visibilitychange', () => {
 
     if ('serviceWorker' in navigator) {
         try {
-            const reg = await navigator.serviceWorker.register(appBasePath + 'sw.js?v=2.0.18');
+            const reg = await navigator.serviceWorker.register(appBasePath + 'sw.js?v=2.0.19');
             reg.addEventListener('updatefound', () => {
                 const w = reg.installing;
                 w?.addEventListener('statechange', () => {
