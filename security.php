@@ -148,9 +148,17 @@ function startAppSession(): void
         return;
     }
 
+    $cookiePath = getAppBasePath();
+    if ($cookiePath === '') {
+        $cookiePath = '/';
+    } elseif (!str_ends_with($cookiePath, '/')) {
+        $cookiePath .= '/';
+    }
+
     session_set_cookie_params([
+        'lifetime' => 0,
         'httponly' => true,
-        'path' => '/',
+        'path' => $cookiePath,
         'samesite' => 'Strict',
         'secure' => isRequestHttps(),
     ]);
