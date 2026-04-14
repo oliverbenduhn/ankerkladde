@@ -69,8 +69,7 @@ const csrfMeta = document.querySelector('meta[name="csrf-token"]');
 if (!csrfMeta) throw new Error('csrf-token meta tag missing');
 const appBasePathMeta = document.querySelector('meta[name="app-base-path"]');
 
-export const csrfToken = csrfMeta.content;
-export const appBasePath = appBasePathMeta?.content || '/';
+export const basePath = appBasePathMeta?.content || '/';
 
 export function readInitialPreferences() {
     if (!userPreferencesScript) {

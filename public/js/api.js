@@ -1,7 +1,7 @@
-import { appBasePath, csrfToken, normalizePreferences } from './state.js';
+import { basePath, csrfToken, normalizePreferences } from './state.js';
 
 export function appUrl(path) {
-    return new URL(path, `${window.location.origin}${appBasePath}`).toString();
+    return new URL(path, `${window.location.origin}${basePath}`).toString();
 }
 
 export function settingsUrl(tab = 'app') {
