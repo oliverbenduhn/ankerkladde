@@ -85,19 +85,21 @@ $brandMarkSrc = 'icon.php?size=96&theme=' . rawurlencode($effectiveTheme) . '&v=
     </div>
 
     <header class="app-header liste-only">
-        <button type="button" id="tabsToggleBtn" class="btn-tabs-toggle" aria-label="Symbolleiste ein-/ausblenden"><?= icon('menu') ?></button>
-        <div class="app-title-group">
+        <div class="app-title-group clickable-brand" style="cursor: pointer;">
             <img src="<?= htmlspecialchars($brandMarkSrc, ENT_QUOTES, 'UTF-8') ?>" alt="" class="brand-mark brand-mark-app" aria-hidden="true">
             <div class="app-title-stack">
-                <h1 class="app-title">Ankerkladde</h1>
+                <div style="display: flex; align-items: baseline; gap: 6px;">
+                    <h1 class="app-title">Ankerkladde</h1>
+                    <div class="app-version" aria-label="Version <?= htmlspecialchars($assetVersion, ENT_QUOTES, 'UTF-8') ?>" style="font-size: 0.75rem; color: var(--text-muted); font-weight: normal;">v<?= htmlspecialchars($assetVersion, ENT_QUOTES, 'UTF-8') ?></div>
+                </div>
                 <div class="app-subtitle" id="titleListe">Listen</div>
-                <div class="app-version" aria-label="Version <?= htmlspecialchars($assetVersion, ENT_QUOTES, 'UTF-8') ?>">v<?= htmlspecialchars($assetVersion, ENT_QUOTES, 'UTF-8') ?></div>
             </div>
         </div>
         <div class="header-actions">
+            <button type="button" id="tabsToggleBtn" class="header-icon-btn btn-tabs-toggle" aria-label="Symbolleiste ein-/ausblenden"><?= icon('menu') ?></button>
             <a href="<?= htmlspecialchars(appPath('barcode.php'), ENT_QUOTES, 'UTF-8') ?>" class="header-icon-btn" aria-label="Produktinfos per Scan öffnen"><?= icon('scan-info') ?></a>
             <button type="button" id="searchBtn" class="header-icon-btn btn-search" aria-label="Suchen"><?= icon('search') ?></button>
-            <a href="<?= htmlspecialchars(appPath('index.php?view=settings&tab=app'), ENT_QUOTES, 'UTF-8') ?>" class="header-icon-btn btn-settings" data-settings-tab="app" aria-label="Einstellungen"><?= icon('settings') ?></a>
+            <a href="<?= htmlspecialchars(appPath('index.php?view=settings'), ENT_QUOTES, 'UTF-8') ?>" class="header-icon-btn btn-settings" data-settings-tab="app" aria-label="Einstellungen"><?= icon('settings') ?></a>
             <button type="button" class="header-icon-btn btn-theme-mode" aria-label="Farbschema umschalten" title="Farbschema umschalten"><?= icon('theme-auto') ?></button>
             <button type="button" class="header-icon-btn btn-mode-toggle" data-nav="einkaufen" aria-label="Einkaufs-Modus starten"><?= icon('eye') ?></button>
         </div>
@@ -111,20 +113,22 @@ $brandMarkSrc = 'icon.php?size=96&theme=' . rawurlencode($effectiveTheme) . '&v=
     </div>
 
     <header class="app-header shopping-only">
-        <button type="button" class="btn-tabs-toggle" aria-label="Symbolleiste ein-/ausblenden"><?= icon('menu') ?></button>
-        <div class="app-title-group">
+        <div class="app-title-group clickable-brand" style="cursor: pointer;">
             <img src="<?= htmlspecialchars($brandMarkSrc, ENT_QUOTES, 'UTF-8') ?>" alt="" class="brand-mark brand-mark-app" aria-hidden="true">
             <div class="app-title-stack">
-                <h1 class="app-title">Ankerkladde</h1>
+                <div style="display: flex; align-items: baseline; gap: 6px;">
+                    <h1 class="app-title">Ankerkladde</h1>
+                    <div class="app-version" aria-label="Version <?= htmlspecialchars($assetVersion, ENT_QUOTES, 'UTF-8') ?>" style="font-size: 0.75rem; color: var(--text-muted); font-weight: normal;">v<?= htmlspecialchars($assetVersion, ENT_QUOTES, 'UTF-8') ?></div>
+                </div>
                 <div class="app-subtitle" id="titleShopping">Einkaufen</div>
-                <div class="app-version" aria-label="Version <?= htmlspecialchars($assetVersion, ENT_QUOTES, 'UTF-8') ?>">v<?= htmlspecialchars($assetVersion, ENT_QUOTES, 'UTF-8') ?></div>
             </div>
         </div>
         <div class="header-actions">
+            <button type="button" class="header-icon-btn btn-tabs-toggle" aria-label="Symbolleiste ein-/ausblenden"><?= icon('menu') ?></button>
             <span class="progress" id="progress" aria-live="polite">0 / 0</span>
             <a href="<?= htmlspecialchars(appPath('barcode.php'), ENT_QUOTES, 'UTF-8') ?>" class="header-icon-btn" aria-label="Produktinfos per Scan öffnen"><?= icon('scan-info') ?></a>
             <button type="button" id="scanShoppingBtn" class="header-icon-btn btn-scan shopping-only" aria-label="Barcode scannen"><?= icon('scan') ?></button>
-            <a href="<?= htmlspecialchars(appPath('index.php?view=settings&tab=app'), ENT_QUOTES, 'UTF-8') ?>" class="header-icon-btn btn-settings" data-settings-tab="app" aria-label="Einstellungen"><?= icon('settings') ?></a>
+            <a href="<?= htmlspecialchars(appPath('index.php?view=settings'), ENT_QUOTES, 'UTF-8') ?>" class="header-icon-btn btn-settings" data-settings-tab="app" aria-label="Einstellungen"><?= icon('settings') ?></a>
             <button type="button" class="header-icon-btn btn-theme-mode" aria-label="Farbschema umschalten" title="Farbschema umschalten"><?= icon('theme-auto') ?></button>
             <button type="button" class="header-icon-btn btn-mode-toggle" data-nav="liste" aria-label="Liste bearbeiten"><?= icon('pencil') ?></button>
         </div>

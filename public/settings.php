@@ -305,11 +305,7 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
     </div>
     <?php endif; ?>
 
-    <?php if ($isEmbedded): ?>
-    <div style="padding: 1rem 1.5rem 0; display: flex; justify-content: flex-end;">
-        <button type="button" class="settings-close-inline" id="settings-close-btn" aria-label="Einstellungen schließen">✕</button>
-    </div>
-    <?php endif; ?>
+
 
     <?php if ($flash !== null): ?>
         <div class="settings-flash settings-flash-<?= htmlspecialchars($flashType, ENT_QUOTES, 'UTF-8') ?>">
@@ -591,7 +587,7 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
     const scrollKey = 'einkauf-settings-scroll-y';
     const copyButton = document.getElementById('copy-api-key');
     const apiKeyInput = document.getElementById('api-key-value');
-    const closeButton = document.getElementById('settings-close-btn');
+
     const saved = window.sessionStorage.getItem(scrollKey);
     const themeMediaQuery = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
 
@@ -664,13 +660,7 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
         });
     }
 
-    if (closeButton) {
-        closeButton.addEventListener('click', () => {
-            if (window.parent && window.parent !== window) {
-                window.parent.postMessage({ type: 'ankerkladde-settings-close' }, window.location.origin);
-            }
-        });
-    }
+
 
     window.addEventListener('message', event => {
         if (event.origin !== window.location.origin) return;

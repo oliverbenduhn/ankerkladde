@@ -406,4 +406,26 @@ export function registerAppEventHandlers(deps) {
         deferredInstallPrompt = null;
         void savePreferences({ install_banner_dismissed: true });
     });
+
+    document.querySelectorAll('.clickable-brand').forEach(el => {
+        el.addEventListener('click', () => {
+            const visibleCategories = state.categories?.filter(c => Number(c.is_hidden) !== 1) || [];
+            if (visibleCategories.length > 0) {
+                const firstCatId = visibleCategories[0].id;
+                if (state.categoryId === String(firstCatId) && state.view !== 'settings' && !state.search.open && !scannerState.open) return;
+                state.categoryId = String(firstCatId);
+                state.swipeTransitionActive = true;
+                void savePreferences({ last_category_id: firstCatId });
+                if (state.search.open) closeSearch();
+                if (state.view === 'settings') router.closeSettings();
+                if (scannerState.open) closeScanner();
+                navigation.pushHistoryState({ screen: 'list', categoryId: firstCatId });
+                renderCategoryTabs();
+                renderItems();
+                updateHeaders();
+                document.querySelectorAll('details').forEach(el => el.removeAttribute('open'));
+                setTimeout(() => { state.swipeTransitionActive = false; }, 300);
+            }
+        });
+    });
 }
