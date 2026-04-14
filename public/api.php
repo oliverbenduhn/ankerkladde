@@ -111,6 +111,57 @@ function isPublicIpAddress(string $ip): bool
     ) !== false;
 }
 
+function isResolvablePublicHostname(string $host): bool
+{
+    static $resultCache = [];
+
+    $normalizedHost = strtolower(trim($host));
+    if ($normalizedHost === '') {
+        return false;
+    }
+
+    if (array_key_exists($normalizedHost, $resultCache)) {
+        return $resultCache[$normalizedHost];
+    }
+
+    if (strlen($normalizedHost) > 253) {
+        return $resultCache[$normalizedHost] = false;
+    }
+
+    if (filter_var($normalizedHost, FILTER_VALIDATE_DOMAIN, FILTER_FLAG_HOSTNAME) === false) {
+        return $resultCache[$normalizedHost] = false;
+    }
+
+    if (function_exists('gethostbynamel')) {
+        $ipv4Hosts = @gethostbynamel($normalizedHost);
+        if (is_array($ipv4Hosts) && $ipv4Hosts !== []) {
+            foreach (array_slice($ipv4Hosts, 0, 8) as $resolvedIp) {
+                if (!isPublicIpAddress($resolvedIp)) {
+                    return $resultCache[$normalizedHost] = false;
+                }
+            }
+
+            return $resultCache[$normalizedHost] = true;
+        }
+    }
+
+    if (function_exists('dns_get_record')) {
+        $ipv6Records = @dns_get_record($normalizedHost, DNS_AAAA);
+        if (is_array($ipv6Records) && $ipv6Records !== []) {
+            foreach (array_slice($ipv6Records, 0, 8) as $record) {
+                $resolvedIp = (string) ($record['ipv6'] ?? '');
+                if ($resolvedIp !== '' && !isPublicIpAddress($resolvedIp)) {
+                    return $resultCache[$normalizedHost] = false;
+                }
+            }
+
+            return $resultCache[$normalizedHost] = true;
+        }
+    }
+
+    return $resultCache[$normalizedHost] = true;
+}
+
 function isAllowedRemoteUrl(string $url): bool
 {
     $parts = parse_url($url);
@@ -133,30 +184,7 @@ function isAllowedRemoteUrl(string $url): bool
         return isPublicIpAddress($host);
     }
 
-    if (function_exists('gethostbynamel')) {
-        $ipv4Hosts = @gethostbynamel($host);
-        if (is_array($ipv4Hosts) && $ipv4Hosts !== []) {
-            foreach ($ipv4Hosts as $resolvedIp) {
-                if (!isPublicIpAddress($resolvedIp)) {
-                    return false;
-                }
-            }
-        }
-    }
-
-    if (function_exists('dns_get_record')) {
-        $ipv6Records = @dns_get_record($host, DNS_AAAA);
-        if (is_array($ipv6Records) && $ipv6Records !== []) {
-            foreach ($ipv6Records as $record) {
-                $resolvedIp = (string) ($record['ipv6'] ?? '');
-                if ($resolvedIp !== '' && !isPublicIpAddress($resolvedIp)) {
-                    return false;
-                }
-            }
-        }
-    }
-
-    return true;
+    return isResolvablePublicHostname($host);
 }
 
 function parseHttpResponseHeaders(array $headers): array
