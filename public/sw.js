@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION = 'v2.0.8';
+const VERSION = 'v2.0.9';
 const STATIC_CACHE = `ankerkladde-static-${VERSION}`;
 const RUNTIME_CACHE = `ankerkladde-runtime-${VERSION}`;
 const SHARE_CACHE = 'ankerkladde-share-target';
@@ -10,19 +10,19 @@ const API_URL = new URL('api.php', APP_SCOPE_URL);
 
 const APP_SHELL_ASSET_URLS = [
     'offline.html',
-    'style.css?v=2.0.8',
-    'js/main.js?v=2.0.8',
-    'js/api.js?v=2.0.8',
-    'js/state.js?v=2.0.8',
-    'js/ui.js?v=2.0.8',
-    'js/utils.js?v=2.0.8',
-    'js/shared.js?v=2.0.8',
-    'js/theme.js?v=2.0.8',
-    'js/navigation.js?v=2.0.8',
-    'js/router.js?v=2.0.8',
-    'manifest.php?v=2.0.8',
-    'icon.php?size=192&theme=hafenblau&v=2.0.8',
-    'icon.php?size=512&theme=hafenblau&v=2.0.8',
+    'style.css?v=2.0.9',
+    'js/main.js?v=2.0.9',
+    'js/api.js?v=2.0.9',
+    'js/state.js?v=2.0.9',
+    'js/ui.js?v=2.0.9',
+    'js/utils.js?v=2.0.9',
+    'js/shared.js?v=2.0.9',
+    'js/theme.js?v=2.0.9',
+    'js/navigation.js?v=2.0.9',
+    'js/router.js?v=2.0.9',
+    'manifest.php?v=2.0.9',
+    'icon.php?size=192&theme=hafenblau&v=2.0.9',
+    'icon.php?size=512&theme=hafenblau&v=2.0.9',
     'icons/icon.svg',
     'icons/icon-192.png',
     'icons/icon-512.png',
