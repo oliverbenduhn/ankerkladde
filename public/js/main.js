@@ -13,6 +13,7 @@ import {
     BARCODE_FORMATS,
     NOTE_SAVE_DEBOUNCE_MS,
     SCANNER_COOLDOWN_MS,
+    getCurrentCategory,
     getCurrentType,
     getTypeConfig,
     isAttachmentCategory,
@@ -779,7 +780,7 @@ document.addEventListener('visibilitychange', () => {
 
     if ('serviceWorker' in navigator) {
         try {
-            const reg = await navigator.serviceWorker.register(appBasePath + 'sw.js?v=2.0.23');
+            const reg = await navigator.serviceWorker.register(appBasePath + 'sw.js?v=2.0.24');
             reg.addEventListener('updatefound', () => {
                 const w = reg.installing;
                 w?.addEventListener('statechange', () => {
