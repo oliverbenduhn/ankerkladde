@@ -9,6 +9,7 @@ import { createReorderController } from './reorder.js';
 import { applyViewState, createRouter } from './router.js';
 import { createScannerController } from './scanner.js';
 import { createSwipeController } from './swipe.js';
+import { createTabsViewController } from './tabs-view.js';
 import {
     BARCODE_FORMATS,
     NOTE_SAVE_DEBOUNCE_MS,
@@ -58,10 +59,8 @@ import {
     searchBtn,
     searchClose,
     searchInput,
-    sectionTabsEl,
     settingsBtns,
     settingsFrameEl,
-    svgIcon,
     tabsToggleBtns,
     themeModeBtns,
     updateBannerEl,
@@ -69,9 +68,6 @@ import {
 } from './ui.js';
 import { normalizeBarcodeValue, syncAutoHeight } from './utils.js';
 
-const MIN_VISIBLE_TAB_WIDTH = 64;
-const MEHR_BUTTON_WIDTH = 48;
-let mehrOpen = false;
 function resetItemForm() {
     itemForm?.reset();
     syncAutoHeight(itemInput);
@@ -92,6 +88,7 @@ let scannerController = null;
 let editorController = null;
 let reorderController = null;
 let swipeController = null;
+let tabsViewController = null;
 
 function setUserPreferences(nextPreferences) {
     userPreferences = nextPreferences;
@@ -122,119 +119,7 @@ function invalidateCategoryCache(categoryId) { return itemsController.invalidate
 async function loadCategories() { await itemsController.loadCategories(); }
 async function savePreferences(patch) { await itemsController.savePreferences(patch); }
 
-function makeCategoryTab(category) {
-    const button = document.createElement('button');
-    button.className = 'section-tab';
-    button.type = 'button';
-    button.dataset.categoryId = String(category.id);
-    button.setAttribute('aria-label', category.name);
-    button.title = category.name;
-    if (category.id === state.categoryId) {
-        button.setAttribute('aria-current', 'page');
-    }
-
-    const icon = document.createElement('span');
-    icon.className = 'section-icon';
-    icon.setAttribute('aria-hidden', 'true');
-    icon.textContent = category.icon || getTypeConfig(category.type).icon;
-
-    const dot = document.createElement('span');
-    dot.className = 'section-dot';
-
-    const label = document.createElement('span');
-    label.className = 'section-label';
-    label.textContent = category.name;
-
-    button.append(icon, label, dot);
-    button.addEventListener('click', () => {
-        if (reorderController?.wasTabDragJustFinished()) return;
-        void setCategory(category.id);
-    });
-    return button;
-}
-
-function getMaxVisibleTabs(categoryCount) {
-    if (!sectionTabsEl || categoryCount <= 0) return 0;
-
-    const navWidth = sectionTabsEl.clientWidth || window.innerWidth || 320;
-    const tabsWithoutOverflow = Math.max(1, Math.floor(navWidth / MIN_VISIBLE_TAB_WIDTH));
-    if (categoryCount <= tabsWithoutOverflow) {
-        return categoryCount;
-    }
-
-    return Math.max(1, Math.floor((navWidth - MEHR_BUTTON_WIDTH) / MIN_VISIBLE_TAB_WIDTH));
-}
-
-function toggleMehrMenu() {
-    mehrOpen = !mehrOpen;
-    if (mehrMenuEl) mehrMenuEl.hidden = !mehrOpen;
-}
-
-function closeMehrMenu() {
-    mehrOpen = false;
-    if (mehrMenuEl) mehrMenuEl.hidden = true;
-}
-
-function renderCategoryTabs() {
-    if (!sectionTabsEl) return;
-
-    sectionTabsEl.replaceChildren();
-    if (mehrMenuEl) {
-        mehrMenuEl.replaceChildren();
-        sectionTabsEl.appendChild(mehrMenuEl); // muss innerhalb der nav sein für position:absolute
-    }
-    closeMehrMenu();
-
-    const categories = getVisibleCategories();
-    const maxVisibleTabs = getMaxVisibleTabs(categories.length);
-    const activeIndex = Math.max(categories.findIndex(category => category.id === state.categoryId), 0);
-    const maxStart = Math.max(0, categories.length - maxVisibleTabs);
-    const windowStart = Math.min(Math.max(0, activeIndex - Math.floor(maxVisibleTabs / 2)), maxStart);
-    const visibleTabs = categories.slice(windowStart, windowStart + maxVisibleTabs);
-    const visibleTabIds = new Set(visibleTabs.map(category => category.id));
-    const overflowCategories = categories.filter(category => !visibleTabIds.has(category.id));
-
-    const fragment = document.createDocumentFragment();
-
-    visibleTabs.forEach(category => {
-        fragment.appendChild(makeCategoryTab(category));
-    });
-
-    if (overflowCategories.length > 0) {
-        const mehrBtn = document.createElement('button');
-        mehrBtn.type = 'button';
-        mehrBtn.className = 'mehr-btn';
-        mehrBtn.setAttribute('aria-label', 'Weitere Bereiche');
-        mehrBtn.appendChild(svgIcon('more-horizontal'));
-        mehrBtn.addEventListener('click', toggleMehrMenu);
-        fragment.appendChild(mehrBtn);
-
-        overflowCategories.forEach(category => {
-            const item = document.createElement('button');
-            item.type = 'button';
-            item.className = 'mehr-item' + (category.id === state.categoryId ? ' active' : '');
-            item.dataset.categoryId = String(category.id);
-
-            const icon = document.createElement('span');
-            icon.className = 'mehr-item-icon';
-            icon.setAttribute('aria-hidden', 'true');
-            icon.textContent = category.icon || getTypeConfig(category.type).icon;
-
-            const label = document.createElement('span');
-            label.textContent = category.name;
-
-            item.append(icon, label);
-            item.addEventListener('click', () => {
-                closeMehrMenu();
-                if (reorderController?.wasTabDragJustFinished()) return;
-                void setCategory(category.id);
-            });
-            if (mehrMenuEl) mehrMenuEl.appendChild(item);
-        });
-    }
-
-    sectionTabsEl.appendChild(fragment);
-}
+function renderCategoryTabs() { tabsViewController.renderCategoryTabs(); }
 
 function getTodayDateString() {
     const today = new Date();
@@ -330,6 +215,13 @@ itemsActionsController = createItemsActionsController({
     resetItemForm,
     setCategory,
     setMessage,
+});
+
+tabsViewController = createTabsViewController({
+    getTypeConfig,
+    getVisibleCategories,
+    isTabDragJustFinished: () => reorderController?.wasTabDragJustFinished() ?? false,
+    onCategorySelect: setCategory,
 });
 
 itemsViewController = createItemsViewController({
@@ -570,9 +462,7 @@ tabsToggleBtns.forEach(button => {
 });
 
 document.addEventListener('click', (e) => {
-    if (mehrOpen && !e.target.closest('.mehr-menu') && !e.target.closest('.mehr-btn')) {
-        closeMehrMenu();
-    }
+    tabsViewController.handleDocumentClick(e.target);
 });
 
 window.addEventListener('resize', () => {
@@ -780,7 +670,7 @@ document.addEventListener('visibilitychange', () => {
 
     if ('serviceWorker' in navigator) {
         try {
-            const reg = await navigator.serviceWorker.register(appBasePath + 'sw.js?v=2.0.35');
+            const reg = await navigator.serviceWorker.register(appBasePath + 'sw.js?v=2.0.36');
             reg.addEventListener('updatefound', () => {
                 const w = reg.installing;
                 w?.addEventListener('statechange', () => {
