@@ -707,28 +707,89 @@ function backfillLegacyCategoryKeys(PDO $db): void
 function ensureDefaultCategories(PDO $db): void
 {
     $users = $db->query('SELECT id FROM users')->fetchAll(PDO::FETCH_COLUMN);
-    $insertStmt = $db->prepare(
-        'INSERT INTO categories (user_id, name, type, icon, legacy_key, sort_order, is_hidden)
-         VALUES (:user_id, :name, :type, :icon, :legacy_key, :sort_order, :is_hidden)'
-    );
+    if (empty($users)) {
+        return;
+    }
 
-    foreach ($users as $userId) {
-        foreach (LEGACY_CATEGORY_DEFINITIONS as $legacyKey => $definition) {
-            if (findLegacyCategoryId($db, (int) $userId, $legacyKey) !== null) {
-                continue;
+    $userChunks = array_chunk($users, 100);
+    foreach ($userChunks as $userChunk) {
+        $userIds = array_map('intval', $userChunk);
+        $placeholders = implode(',', array_fill(0, count($userIds), '?'));
+
+        $existingCategories = [];
+        $stmt = $db->prepare("SELECT user_id, name, type, icon, legacy_key, sort_order FROM categories WHERE user_id IN ($placeholders)");
+        $stmt->execute($userIds);
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $existingCategories[(int) $row['user_id']][] = $row;
+        }
+
+        $toInsert = [];
+        foreach ($userIds as $userId) {
+            $userCategories = $existingCategories[$userId] ?? [];
+
+            foreach (LEGACY_CATEGORY_DEFINITIONS as $legacyKey => $definition) {
+                if (findLegacyCategoryIdInMemory($userCategories, $legacyKey, $definition) !== null) {
+                    continue;
+                }
+
+                $toInsert[] = [
+                    'user_id' => $userId,
+                    'name' => $definition['name'],
+                    'type' => $definition['type'],
+                    'icon' => $definition['icon'],
+                    'legacy_key' => $legacyKey,
+                    'sort_order' => $definition['sort_order'],
+                    'is_hidden' => 0,
+                ];
             }
+        }
 
-            $insertStmt->execute([
-                ':user_id' => (int) $userId,
-                ':name' => $definition['name'],
-                ':type' => $definition['type'],
-                ':icon' => $definition['icon'],
-                ':legacy_key' => $legacyKey,
-                ':sort_order' => $definition['sort_order'],
-                ':is_hidden' => 0,
-            ]);
+        if (!empty($toInsert)) {
+            $insertChunks = array_chunk($toInsert, 100);
+            foreach ($insertChunks as $chunk) {
+                $rowPlaceholders = [];
+                $values = [];
+                foreach ($chunk as $row) {
+                    $rowPlaceholders[] = '(?, ?, ?, ?, ?, ?, ?)';
+                    $values[] = $row['user_id'];
+                    $values[] = $row['name'];
+                    $values[] = $row['type'];
+                    $values[] = $row['icon'];
+                    $values[] = $row['legacy_key'];
+                    $values[] = $row['sort_order'];
+                    $values[] = $row['is_hidden'];
+                }
+
+                $sql = 'INSERT INTO categories (user_id, name, type, icon, legacy_key, sort_order, is_hidden) VALUES ' . implode(', ', $rowPlaceholders);
+                $db->prepare($sql)->execute($values);
+            }
         }
     }
+}
+
+/**
+ * @param array<int, array<string, mixed>> $userCategories
+ * @param array<string, mixed> $definition
+ */
+function findLegacyCategoryIdInMemory(array $userCategories, string $legacyKey, array $definition): ?int
+{
+    foreach ($userCategories as $cat) {
+        if ($cat['type'] !== $definition['type']) {
+            continue;
+        }
+
+        $legacyKeyMatch = ($cat['legacy_key'] === $legacyKey);
+        $nameMatch = ($cat['name'] === $definition['name']);
+        $noLegacyKey = ($cat['legacy_key'] === null || $cat['legacy_key'] === '');
+        $sortOrderMatch = ($noLegacyKey && (int) $cat['sort_order'] === $definition['sort_order']);
+        $iconNameMatch = ($noLegacyKey && $cat['icon'] === $definition['icon'] && $cat['name'] === $definition['name']);
+
+        if ($legacyKeyMatch || $nameMatch || $sortOrderMatch || $iconNameMatch) {
+            return 1; // ID doesn't matter here, only that it's found
+        }
+    }
+
+    return null;
 }
 
 function migrateLegacyCategories(PDO $db): void
