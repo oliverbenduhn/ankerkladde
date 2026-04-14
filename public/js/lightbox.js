@@ -33,7 +33,7 @@ export function createLightboxController() {
         closeBtn.setAttribute('aria-label', 'Schließen');
         closeBtn.textContent = '×';
 
-        const close = () => {
+        const closeOverlay = () => {
             overlay.remove();
             if (onKeyHandler) {
                 document.removeEventListener('keydown', onKeyHandler);
@@ -43,12 +43,12 @@ export function createLightboxController() {
         };
 
         onKeyHandler = (event) => {
-            if (event.key === 'Escape') close();
+            if (event.key === 'Escape') closeOverlay();
         };
 
-        closeBtn.addEventListener('click', close);
+        closeBtn.addEventListener('click', closeOverlay);
         overlay.addEventListener('click', event => {
-            if (event.target === overlay) close();
+            if (event.target === overlay) closeOverlay();
         });
         document.addEventListener('keydown', onKeyHandler);
 
