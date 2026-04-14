@@ -241,7 +241,7 @@ $brandMarkSrc = 'icon.php?size=96&theme=' . rawurlencode($effectiveTheme) . '&v=
 </div>
 
 <script id="userPreferences" type="application/json"><?= json_encode($userPreferences, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
-<script src="https://unpkg.com/@zxing/browser@0.1.5"></script>
+<script src="<?= htmlspecialchars(appPath('vendor/zxing/browser-0.1.5.js?v=' . $assetVersion), ENT_QUOTES, 'UTF-8') ?>"></script>
 <script type="module" src="js/main.js?v=<?= urlencode($assetVersion) ?>"></script>
 <script type="module">
 import { Editor } from 'https://esm.sh/@tiptap/core@2';

@@ -76,7 +76,7 @@ function icon(string $name): string {
         </section>
     </main>
 </div>
-<script src="https://unpkg.com/@zxing/browser@0.1.5"></script>
+<script src="<?= htmlspecialchars(appPath('vendor/zxing/browser-0.1.5.js?v=' . $assetVersion), ENT_QUOTES, 'UTF-8') ?>"></script>
 <script src="<?= htmlspecialchars(appPath('barcode-page.js?v=' . $assetVersion), ENT_QUOTES, 'UTF-8') ?>"></script>
 </body>
 </html>
