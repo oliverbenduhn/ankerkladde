@@ -2,6 +2,17 @@ export function createLightboxController() {
     let currentOverlay = null;
     let onKeyHandler = null;
 
+    function close() {
+        if (currentOverlay) {
+            currentOverlay.remove();
+            currentOverlay = null;
+        }
+        if (onKeyHandler) {
+            document.removeEventListener('keydown', onKeyHandler);
+            onKeyHandler = null;
+        }
+    }
+
     function open(src, alt) {
         close();
 
@@ -45,17 +56,6 @@ export function createLightboxController() {
         document.body.appendChild(overlay);
         closeBtn.focus();
         currentOverlay = overlay;
-    }
-
-    function close() {
-        if (currentOverlay) {
-            currentOverlay.remove();
-            currentOverlay = null;
-        }
-        if (onKeyHandler) {
-            document.removeEventListener('keydown', onKeyHandler);
-            onKeyHandler = null;
-        }
     }
 
     return {
