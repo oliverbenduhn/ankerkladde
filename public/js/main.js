@@ -2401,11 +2401,13 @@ settingsFrameEl?.addEventListener('load', () => {
             return;
         }
         state.settingsTab = frameUrl.searchParams.get('tab') === 'extension' ? 'extension' : 'app';
-        syncSettingsFrameTheme();
         if (state.view === 'settings') {
             navigation.replaceCurrentHistoryState({ screen: 'settings', tab: state.settingsTab });
             void loadCategories()
-                .then(() => updateHeaders())
+                .then(() => {
+                    updateHeaders();
+                    syncSettingsFrameTheme();
+                })
                 .catch(() => {});
         }
     } catch {
@@ -2675,7 +2677,7 @@ document.addEventListener('visibilitychange', () => {
 
     if ('serviceWorker' in navigator) {
         try {
-            const reg = await navigator.serviceWorker.register(appBasePath + 'sw.js?v=2.0.13');
+            const reg = await navigator.serviceWorker.register(appBasePath + 'sw.js?v=2.0.14');
             reg.addEventListener('updatefound', () => {
                 const w = reg.installing;
                 w?.addEventListener('statechange', () => {
