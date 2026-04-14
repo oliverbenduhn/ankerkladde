@@ -159,7 +159,7 @@ function startAppSession(): void
         'lifetime' => 0,
         'httponly' => true,
         'path' => $cookiePath,
-        'samesite' => 'Strict',
+        'samesite' => 'Lax',
         'secure' => isRequestHttps(),
     ]);
 
