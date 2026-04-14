@@ -231,6 +231,10 @@ function isHtmlContentType(string $contentType): bool
 
 function fetchRemoteHtml(string $url): array
 {
+    $connectTimeoutSeconds = 3;
+    $requestTimeoutSeconds = 6;
+    $maxRedirects = 3;
+
     $headers = [
         'Accept: text/html,application/xhtml+xml',
         'Accept-Language: de-DE,de;q=0.9,en;q=0.8',
@@ -246,9 +250,9 @@ function fetchRemoteHtml(string $url): array
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_MAXREDIRS => 5,
-            CURLOPT_TIMEOUT => 10,
-            CURLOPT_CONNECTTIMEOUT => 5,
+            CURLOPT_MAXREDIRS => $maxRedirects,
+            CURLOPT_TIMEOUT => $requestTimeoutSeconds,
+            CURLOPT_CONNECTTIMEOUT => $connectTimeoutSeconds,
             CURLOPT_HTTPHEADER => $headers,
             CURLOPT_ENCODING => '',
             CURLOPT_SSL_VERIFYPEER => true,
@@ -286,9 +290,9 @@ function fetchRemoteHtml(string $url): array
 
     $context = stream_context_create([
         'http' => [
-            'timeout' => 10,
+            'timeout' => $requestTimeoutSeconds,
             'follow_location' => 1,
-            'max_redirects' => 5,
+            'max_redirects' => $maxRedirects,
             'ignore_errors' => true,
             'header' => implode("\r\n", $headers) . "\r\n",
         ],
