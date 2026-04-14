@@ -421,6 +421,7 @@ function normalizeIdList(mixed $ids): array
 
 function sanitizeFtsQuery(string $q): string
 {
+    $q = truncateText($q, 256);
     $q = trim($q);
     if ($q === '') {
         return '';
@@ -431,8 +432,10 @@ function sanitizeFtsQuery(string $q): string
         return '';
     }
 
+    $words = array_slice($words, 0, 8);
+
     $parts = array_map(
-        static fn(string $w): string => '"' . str_replace('"', '""', $w) . '"*',
+        static fn(string $w): string => '"' . str_replace('"', '""', truncateText($w, 32)) . '"*',
         $words
     );
 
