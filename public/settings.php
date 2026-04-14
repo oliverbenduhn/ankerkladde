@@ -276,7 +276,7 @@ $iconOptions = getCategoryIconOptions();
 $currentTab = $_GET['tab'] ?? 'app';
 $isEmbedded = isset($_GET['embed']) && $_GET['embed'] === '1';
 $settingsAction = appPath('settings.php' . ($isEmbedded ? '?embed=1&tab=' . rawurlencode((string) $currentTab) : ''));
-$assetVersion = '2.0.4';
+$assetVersion = '2.0.27';
 ?>
 <!DOCTYPE html>
 <html lang="de">
