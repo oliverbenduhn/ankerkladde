@@ -1,4 +1,5 @@
 import { appUrl, api, apiUpload } from './api.js';
+import { createAppUiController } from './app-ui.js';
 import { createItemsController } from './items.js';
 import { createNavigation } from './navigation.js';
 import { createEditorController } from './editor.js';
@@ -27,25 +28,16 @@ import {
 import { applyThemePreferences, cycleThemeMode } from './theme.js';
 import {
     appEl,
-    cameraBtn,
     cameraInput,
     clearDoneBtn,
-    diskFreeEl,
     dropZoneEl,
     fileInput,
-    fileInputGroup,
-    filePickerButton,
-    filePickerName,
-    inputHintEl,
     itemForm,
     itemInput,
-    linkDescriptionInput,
     listAreaEl,
     listEl,
-    messageEl,
     modeToggleBtns,
     mehrMenuEl,
-    networkStatusEl,
     noteEditorBack,
     noteEditorBody,
     noteEditorEl,
@@ -60,7 +52,6 @@ import {
     scannerManualForm,
     scannerManualInput,
     scannerOverlay,
-    scannerStatus,
     scannerSubtitle,
     scannerVideo,
     searchBar,
@@ -71,12 +62,9 @@ import {
     settingsBtns,
     settingsFrameEl,
     svgIcon,
-    tabsToggleBtns,
     themeModeBtns,
     updateBannerEl,
     updateViewportHeight,
-    uploadProgressBarEl,
-    uploadProgressEl,
 } from './ui.js';
 import { escapeRegExp, normalizeBarcodeValue, syncAutoHeight } from './utils.js';
 
@@ -91,11 +79,11 @@ function resetItemForm() {
 }
 
 let userPreferences = readInitialPreferences();
-let messageTimer = null;
 let noteSaveTimer = null;
 let tiptapEditor = null;
 let navigation = null;
 let router = null;
+let appUiController = null;
 let itemsController = null;
 let scannerController = null;
 let editorController = null;
@@ -129,47 +117,10 @@ async function fetchLinkMetadata(url) {
     }
 }
 
-function setMessage(text, isError = false) {
-    clearTimeout(messageTimer);
-    messageEl.textContent = text;
-    messageEl.classList.toggle('is-error', isError);
-    messageEl.classList.add('is-visible');
-    messageTimer = setTimeout(() => messageEl.classList.remove('is-visible'), 2500);
-}
-
 function triggerHapticFeedback() {
     if ('vibrate' in navigator) {
         navigator.vibrate(12);
     }
-}
-
-function setUploadProgress(fraction) {
-    if (!uploadProgressEl || !uploadProgressBarEl) return;
-
-    if (fraction <= 0) {
-        uploadProgressEl.hidden = true;
-        uploadProgressBarEl.style.width = '0%';
-        return;
-    }
-
-    uploadProgressEl.hidden = false;
-    uploadProgressBarEl.style.width = `${Math.round(fraction * 100)}%`;
-
-    if (fraction >= 1) {
-        window.setTimeout(() => {
-            uploadProgressEl.hidden = true;
-            uploadProgressBarEl.style.width = '0%';
-        }, 600);
-    }
-}
-
-function makeUploadProgressCallback() {
-    return fraction => {
-        setUploadProgress(fraction);
-        messageEl.classList.remove('is-error');
-        messageEl.classList.add('is-visible');
-        messageEl.textContent = fraction < 1 ? `Hochladen ${Math.round(fraction * 100)} %` : 'Wird gespeichert...';
-    };
 }
 
 function getItemById(id) { return itemsController.getItemById(id); }
@@ -293,117 +244,6 @@ function renderCategoryTabs() {
     sectionTabsEl.appendChild(fragment);
 }
 
-function updateHeaders() {
-    if (state.view === 'settings') {
-        const titleListe = document.getElementById('titleListe');
-        const titleShopping = document.getElementById('titleShopping');
-        if (titleListe) titleListe.textContent = 'Einstellungen';
-        if (titleShopping) titleShopping.textContent = 'Einstellungen';
-        document.title = 'Ankerkladde - Einstellungen';
-        return;
-    }
-
-    const category = getCurrentCategory();
-    if (!category) return;
-
-    const config = getTypeConfig(category.type);
-    const titleListe = document.getElementById('titleListe');
-    const titleShopping = document.getElementById('titleShopping');
-    if (titleListe) titleListe.textContent = config.title(category.name);
-    if (titleShopping) titleShopping.textContent = config.shoppingTitle(category.name);
-    document.title = `Ankerkladde - ${category.name}`;
-
-    if (itemInput) {
-        itemInput.placeholder = config.placeholder;
-        itemInput.required = !isAttachmentCategory(category.type);
-    }
-
-    if (quantityInput) {
-        if (config.quantityMode === 'text') {
-            quantityInput.type = 'text';
-            quantityInput.placeholder = 'Menge';
-            quantityInput.style.display = '';
-        } else if (config.quantityMode === 'date') {
-            quantityInput.type = 'date';
-            quantityInput.placeholder = '';
-            quantityInput.style.display = '';
-            if (!quantityInput.value) {
-                quantityInput.value = new Date().toISOString().slice(0, 10);
-            }
-        } else {
-            quantityInput.style.display = 'none';
-            quantityInput.value = '';
-        }
-    }
-
-    if (searchInput) {
-        searchInput.placeholder = 'In allen Kategorien suchen...';
-    }
-
-    updateUploadUi();
-}
-
-function updateUploadUi() {
-    const type = getCurrentType();
-    const uploadCategory = isAttachmentCategory(type);
-    const imageCategory = type === 'images';
-    const barcodeCategory = type === 'list_quantity';
-    const linkCategory = type === 'links';
-
-    if (fileInputGroup) fileInputGroup.hidden = !uploadCategory;
-    if (linkDescriptionInput) {
-        linkDescriptionInput.hidden = !linkCategory;
-        if (!linkCategory && linkDescriptionInput.value !== '') {
-            linkDescriptionInput.value = '';
-        }
-        syncAutoHeight(linkDescriptionInput);
-    }
-    if (inputHintEl) {
-        inputHintEl.hidden = true;
-        inputHintEl.textContent = '';
-    }
-
-    const submitBtn = itemForm?.querySelector('[type="submit"]');
-    if (submitBtn) submitBtn.hidden = uploadCategory;
-    if (scanAddBtn) scanAddBtn.hidden = !barcodeCategory || uploadCategory;
-    if (scanShoppingBtn) scanShoppingBtn.hidden = !barcodeCategory;
-
-    if (filePickerButton) filePickerButton.textContent = imageCategory ? 'Bild wählen' : 'Datei wählen';
-    if (fileInput) {
-        fileInput.accept = imageCategory ? 'image/*' : '';
-    }
-    if (cameraBtn) cameraBtn.hidden = !imageCategory;
-    if (dropZoneEl) {
-        dropZoneEl.hidden = !uploadCategory;
-        const label = dropZoneEl.querySelector('.drop-zone-label');
-        if (label) {
-            label.textContent = imageCategory
-                ? 'Bild hierher ziehen oder aus Zwischenablage einfügen'
-                : 'Datei hierher ziehen oder aus Zwischenablage einfügen';
-        }
-    }
-    if (diskFreeEl) {
-        diskFreeEl.hidden = !uploadCategory || state.diskFreeBytes === null;
-        if (!diskFreeEl.hidden) {
-            diskFreeEl.textContent = formatBytes(state.diskFreeBytes) + ' frei';
-        }
-    }
-
-    updateFilePickerLabel();
-}
-
-function updateFilePickerLabel() {
-    if (!filePickerName) return;
-    const attachment = fileInput?.files?.[0] || null;
-    filePickerName.textContent = attachment ? attachment.name : 'Keine Datei ausgewählt';
-}
-
-function setScannerStatus(text, isError = false) {
-    if (!scannerStatus) return;
-    scannerStatus.textContent = text;
-    scannerStatus.classList.toggle('is-error', Boolean(isError));
-}
-
 function getTodayDateString() {
     const today = new Date();
     const year = today.getFullYear();
@@ -422,25 +262,6 @@ function isOverdueItem(item) {
 function closeScanner() { scannerController.closeScanner(); }
 async function handleScannedBarcode(rawValue) { await scannerController.handleScannedBarcode(rawValue); }
 async function openScanner(action = state.mode === 'einkaufen' ? 'toggle' : 'add') { await scannerController.openScanner(action); }
-
-function formatBytes(sizeBytes) {
-    const size = Number(sizeBytes);
-    if (!Number.isFinite(size) || size < 0) return 'Unbekannt';
-    if (size < 1024) return `${size} B`;
-    const units = ['KB', 'MB', 'GB', 'TB'];
-    let value = size / 1024;
-    let unitIndex = 0;
-
-    while (value >= 1024 && unitIndex < units.length - 1) {
-        value /= 1024;
-        unitIndex += 1;
-    }
-
-    return `${value.toLocaleString('de-DE', {
-        minimumFractionDigits: value < 10 ? 1 : 0,
-        maximumFractionDigits: 1,
-    })} ${units[unitIndex]}`;
-}
 
 async function setCategory(categoryId) { await itemsController.setCategory(categoryId); }
 async function loadItems(categoryId = state.categoryId, options = {}) { await itemsController.loadItems(categoryId, options); }
@@ -1270,12 +1091,6 @@ async function clearDone() {
     setMessage('Erledigte Artikel entfernt.');
 }
 
-function applyTabsVisibility(hidden) {
-    if (!sectionTabsEl) return;
-    sectionTabsEl.classList.toggle('tabs-hidden', Boolean(hidden));
-    tabsToggleBtns.forEach(btn => btn.classList.toggle('is-active', Boolean(hidden)));
-}
-
 function formatDate(value) {
     try {
         return new Date(`${value}T00:00:00`).toLocaleDateString('de-DE');
@@ -1288,6 +1103,16 @@ async function openNoteEditor(item) { await editorController.openNoteEditor(item
 async function openNoteEditorWithNavigation(item) { await editorController.openNoteEditorWithNavigation(item); }
 async function closeNoteEditor() { await editorController.closeNoteEditor(); }
 function scheduleNoteSave() { editorController.scheduleNoteSave(); }
+function setMessage(text, isError = false) { appUiController.setMessage(text, isError); }
+function setUploadProgress(fraction) { appUiController.setUploadProgress(fraction); }
+function makeUploadProgressCallback() { return appUiController.makeUploadProgressCallback(); }
+function updateHeaders() { appUiController.updateHeaders(); }
+function updateUploadUi() { appUiController.updateUploadUi(); }
+function updateFilePickerLabel() { appUiController.updateFilePickerLabel(); }
+function setScannerStatus(text, isError = false) { appUiController.setScannerStatus(text, isError); }
+function setNetworkStatus() { appUiController.setNetworkStatus(); }
+function applyTabsVisibility(hidden) { appUiController.applyTabsVisibility(hidden); }
+function formatBytes(sizeBytes) { return appUiController.formatBytes(sizeBytes); }
 
 router = createRouter({
     closeNoteEditor,
@@ -1307,6 +1132,8 @@ navigation = createNavigation({
     applyRouteState: router.applyRouteState,
     getCurrentRouteState: router.getCurrentRouteState,
 });
+
+appUiController = createAppUiController();
 
 itemsController = createItemsController({
     applyTabsVisibility,
@@ -1371,17 +1198,6 @@ swipeController = createSwipeController({
     getVisibleCategories,
     setCategory,
 });
-
-function setNetworkStatus() {
-    if (!networkStatusEl) return;
-    if (navigator.onLine) {
-        networkStatusEl.hidden = true;
-        networkStatusEl.textContent = '';
-    } else {
-        networkStatusEl.hidden = false;
-        networkStatusEl.textContent = 'Offline: Die zuletzt geladene Liste bleibt sichtbar.';
-    }
-}
 
 itemForm?.addEventListener('submit', event => {
     void addItem(event).catch(error => {
@@ -1752,7 +1568,7 @@ document.addEventListener('visibilitychange', () => {
 
     if ('serviceWorker' in navigator) {
         try {
-            const reg = await navigator.serviceWorker.register(appBasePath + 'sw.js?v=2.0.19');
+            const reg = await navigator.serviceWorker.register(appBasePath + 'sw.js?v=2.0.20');
             reg.addEventListener('updatefound', () => {
                 const w = reg.installing;
                 w?.addEventListener('statechange', () => {
