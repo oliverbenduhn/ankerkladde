@@ -241,18 +241,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
         } elseif ($action === 'save_theme') {
+            $themeMode = (string) ($_POST['theme_mode'] ?? 'auto');
             $lightTheme = (string) ($_POST['light_theme'] ?? 'hafenblau');
             $darkTheme = (string) ($_POST['dark_theme'] ?? 'nachtwache');
+
+            if (!in_array($themeMode, ['auto', 'light', 'dark'], true)) {
+                $themeMode = 'auto';
+            }
             if (!in_array($lightTheme, ['parchment', 'hafenblau'], true)) {
                 $lightTheme = 'hafenblau';
             }
             if (!in_array($darkTheme, ['nachtwache', 'pier'], true)) {
                 $darkTheme = 'nachtwache';
             }
+
             updateExtendedUserPreferences($db, $userId, [
+                'theme_mode' => $themeMode,
                 'light_theme' => $lightTheme,
                 'dark_theme' => $darkTheme,
             ]);
+
+            // Re-read preferences so that the UI can reflect the new mode right away
+            $preferences = getExtendedUserPreferences($db, $userId);
             $flash = 'Themes gespeichert.';
         } elseif ($action === 'save_app_preferences') {
             $preferences = updateExtendedUserPreferences($db, $userId, [
@@ -319,8 +329,19 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
             <input type="hidden" name="action" value="save_theme">
             <div class="settings-block">
-                <p class="settings-copy">In der App-Leiste schaltest du zwischen Hell, Dunkel und Auto um. Hier legst du fest, welche Themes dabei verwendet werden.</p>
-                <div class="theme-grid">
+                <div class="settings-row">
+                    <div class="settings-row-meta">
+                        <span class="settings-row-title">Farbschema-Modus</span>
+                    </div>
+                    <div class="settings-row-actions">
+                        <select name="theme_mode" class="settings-input" style="width: 100%; max-width: 200px;">
+                            <option value="auto" <?= ($preferences['theme_mode'] ?? 'auto') === 'auto' ? 'selected' : '' ?>>Automatisch</option>
+                            <option value="light" <?= ($preferences['theme_mode'] ?? 'auto') === 'light' ? 'selected' : '' ?>>Hell</option>
+                            <option value="dark" <?= ($preferences['theme_mode'] ?? 'auto') === 'dark' ? 'selected' : '' ?>>Dunkel</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="theme-grid" style="margin-top: 16px;">
                     <div>
                         <h3 class="theme-group-title">Light Theme</h3>
                         <div class="theme-list">

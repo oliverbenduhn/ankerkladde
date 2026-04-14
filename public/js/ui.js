@@ -29,7 +29,6 @@ export const searchBar = document.getElementById('searchBar');
 export const searchInput = document.getElementById('searchInput');
 export const searchClose = document.getElementById('searchClose');
 export const modeToggleBtns = document.querySelectorAll('.btn-mode-toggle');
-export const themeModeBtns = document.querySelectorAll('.btn-theme-mode');
 export const settingsBtns = document.querySelectorAll('.btn-settings');
 export const sectionTabsEl = document.getElementById('sectionTabs');
 export const mehrMenuEl = document.getElementById('mehrMenu');
