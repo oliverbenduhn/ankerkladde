@@ -959,7 +959,7 @@ function getDatabase(): PDO
     $db = new PDO('sqlite:' . $dbFile);
     $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     $db->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
-    $db->exec('PRAGMA busy_timeout = 5000');
+    $db->exec('PRAGMA busy_timeout = 3000');
     $db->exec('PRAGMA journal_mode = WAL');
     $db->exec('PRAGMA foreign_keys = ON');
 
