@@ -1010,6 +1010,10 @@ Object.entries(DEFAULT_CATEGORY_KEYS).forEach(([type, elementId]) => {
 });
 
 (async () => {
+  const manifest = chrome.runtime.getManifest();
+  const versionText = document.getElementById('versionText');
+  if (versionText) versionText.textContent = manifest.version;
+
   await loadCurrentTab();
   await loadSettings();
   
