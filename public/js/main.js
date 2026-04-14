@@ -1,5 +1,6 @@
 import { appUrl, api, apiUpload } from './api.js';
 import { createAppUiController } from './app-ui.js';
+import { createHelpersController } from './helpers.js';
 import { createItemsActionsController } from './items-actions.js';
 import { createItemsController } from './items.js';
 import { createItemsViewController } from './items-view.js';
@@ -31,12 +32,14 @@ import {
 import { applyThemePreferences, cycleThemeMode } from './theme.js';
 import {
     appEl,
+    cameraBtn,
     cameraInput,
     clearDoneBtn,
     dropZoneEl,
     fileInput,
     itemForm,
     itemInput,
+    linkDescriptionInput,
     listAreaEl,
     modeToggleBtns,
     mehrMenuEl,
@@ -69,19 +72,13 @@ import {
 } from './ui.js';
 import { normalizeBarcodeValue, syncAutoHeight } from './utils.js';
 
-function resetItemForm() {
-    itemForm?.reset();
-    syncAutoHeight(itemInput);
-    syncAutoHeight(linkDescriptionInput);
-    updateFilePickerLabel();
-}
-
 let userPreferences = readInitialPreferences();
 let noteSaveTimer = null;
 let tiptapEditor = null;
 let navigation = null;
 let router = null;
 let appUiController = null;
+let helpersController = null;
 let itemsActionsController = null;
 let itemsController = null;
 let itemsViewController = null;
@@ -95,24 +92,6 @@ function setUserPreferences(nextPreferences) {
     userPreferences = nextPreferences;
 }
 
-function syncSettingsFrameTheme() {
-    if (!settingsFrameEl?.contentWindow || state.view !== 'settings') return;
-    settingsFrameEl.contentWindow.postMessage({
-        type: 'ankerkladde-theme-update',
-        preferences: {
-            theme_mode: userPreferences.theme_mode,
-            light_theme: userPreferences.light_theme,
-            dark_theme: userPreferences.dark_theme,
-        },
-    }, window.location.origin);
-}
-
-function triggerHapticFeedback() {
-    if ('vibrate' in navigator) {
-        navigator.vibrate(12);
-    }
-}
-
 function getItemById(id) { return itemsController.getItemById(id); }
 function getVisibleCategories() { return itemsController.getVisibleCategories(); }
 function cacheCurrentCategoryItems() { return itemsController.cacheCurrentCategoryItems(); }
@@ -121,21 +100,6 @@ async function loadCategories() { await itemsController.loadCategories(); }
 async function savePreferences(patch) { await itemsController.savePreferences(patch); }
 
 function renderCategoryTabs() { tabsViewController.renderCategoryTabs(); }
-
-function getTodayDateString() {
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = String(today.getMonth() + 1).padStart(2, '0');
-    const day = String(today.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-}
-
-function isOverdueItem(item) {
-    return item.category_type === 'list_due_date'
-        && item.done !== 1
-        && /^\d{4}-\d{2}-\d{2}$/.test(item.due_date || '')
-        && item.due_date < getTodayDateString();
-}
 
 function closeScanner() { scannerController.closeScanner(); }
 async function handleScannedBarcode(rawValue) { await scannerController.handleScannedBarcode(rawValue); }
@@ -151,18 +115,15 @@ async function doSearch(query) { await itemsController.doSearch(query); }
 
 function renderItems() { itemsViewController.renderItems(); }
 
-function formatDate(value) {
-    try {
-        return new Date(`${value}T00:00:00`).toLocaleDateString('de-DE');
-    } catch {
-        return value;
-    }
-}
-
 async function openNoteEditor(item) { await editorController.openNoteEditor(item); }
 async function openNoteEditorWithNavigation(item) { await editorController.openNoteEditorWithNavigation(item); }
 async function closeNoteEditor() { await editorController.closeNoteEditor(); }
 function scheduleNoteSave() { editorController.scheduleNoteSave(); }
+function resetItemForm() { helpersController.resetItemForm(); }
+function syncSettingsFrameTheme() { helpersController.syncSettingsFrameTheme(settingsFrameEl); }
+function triggerHapticFeedback() { helpersController.triggerHapticFeedback(); }
+function isOverdueItem(item) { return helpersController.isOverdueItem(item); }
+function formatDate(value) { return helpersController.formatDate(value); }
 function setMessage(text, isError = false) { appUiController.setMessage(text, isError); }
 function setUploadProgress(fraction) { appUiController.setUploadProgress(fraction); }
 function makeUploadProgressCallback() { return appUiController.makeUploadProgressCallback(); }
@@ -202,6 +163,11 @@ navigation = createNavigation({
 });
 
 appUiController = createAppUiController();
+
+helpersController = createHelpersController({
+    getUserPreferences: () => userPreferences,
+    updateFilePickerLabel,
+});
 
 itemsActionsController = createItemsActionsController({
     cacheCurrentCategoryItems,
@@ -671,7 +637,7 @@ document.addEventListener('visibilitychange', () => {
 
     if ('serviceWorker' in navigator) {
         try {
-            const reg = await navigator.serviceWorker.register(appBasePath + 'sw.js?v=2.0.37');
+            const reg = await navigator.serviceWorker.register(appBasePath + 'sw.js?v=2.0.38');
             reg.addEventListener('updatefound', () => {
                 const w = reg.installing;
                 w?.addEventListener('statechange', () => {
