@@ -22,7 +22,7 @@ if ($appBasePath === '' || $appBasePath === '.') {
 } else {
     $appBasePath = rtrim($appBasePath, '/') . '/';
 }
-$assetVersion = '2.0.4';
+$assetVersion = '2.0.5';
 
 function icon(string $name): string {
     static $paths = [
@@ -91,6 +91,7 @@ $brandMarkSrc = 'icon.php?size=96&theme=' . rawurlencode($effectiveTheme) . '&v=
             <div class="app-title-stack">
                 <h1 class="app-title">Ankerkladde</h1>
                 <div class="app-subtitle" id="titleListe">Listen</div>
+                <div class="app-version" aria-label="Version <?= htmlspecialchars($assetVersion, ENT_QUOTES, 'UTF-8') ?>">v<?= htmlspecialchars($assetVersion, ENT_QUOTES, 'UTF-8') ?></div>
             </div>
         </div>
         <div class="header-actions">
@@ -116,6 +117,7 @@ $brandMarkSrc = 'icon.php?size=96&theme=' . rawurlencode($effectiveTheme) . '&v=
             <div class="app-title-stack">
                 <h1 class="app-title">Ankerkladde</h1>
                 <div class="app-subtitle" id="titleShopping">Einkaufen</div>
+                <div class="app-version" aria-label="Version <?= htmlspecialchars($assetVersion, ENT_QUOTES, 'UTF-8') ?>">v<?= htmlspecialchars($assetVersion, ENT_QUOTES, 'UTF-8') ?></div>
             </div>
         </div>
         <div class="header-actions">
@@ -240,7 +242,7 @@ $brandMarkSrc = 'icon.php?size=96&theme=' . rawurlencode($effectiveTheme) . '&v=
 
 <script id="userPreferences" type="application/json"><?= json_encode($userPreferences, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
 <script src="https://unpkg.com/@zxing/browser@0.1.5"></script>
-<script src="app.js?v=<?= urlencode($assetVersion) ?>"></script>
+<script type="module" src="js/main.js?v=<?= urlencode($assetVersion) ?>"></script>
 <script type="module">
 import { Editor } from 'https://esm.sh/@tiptap/core@2';
 import StarterKit from 'https://esm.sh/@tiptap/starter-kit@2';

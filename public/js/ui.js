@@ -1,0 +1,96 @@
+export const appEl = document.getElementById('app');
+export const listEl = document.getElementById('list');
+export const listAreaEl = document.querySelector('.list-area');
+export const listSwipeStageEl = document.getElementById('listSwipeStage');
+export const listSwipePreviewEl = document.getElementById('listSwipePreview');
+export const listSwipePreviewHeaderEl = document.getElementById('listSwipePreviewHeader');
+export const listSwipePreviewListEl = document.getElementById('listSwipePreviewList');
+export const itemForm = document.getElementById('itemForm');
+export const itemInput = document.getElementById('itemInput');
+export const linkDescriptionInput = document.getElementById('linkDescriptionInput');
+export const quantityInput = document.getElementById('quantityInput');
+export const scanAddBtn = document.getElementById('scanAddBtn');
+export const scanShoppingBtn = document.getElementById('scanShoppingBtn');
+export const fileInput = document.getElementById('fileInput');
+export const fileInputGroup = document.getElementById('fileInputGroup');
+export const filePickerButton = document.getElementById('filePickerButton');
+export const filePickerName = document.getElementById('filePickerName');
+export const cameraBtn = document.getElementById('cameraBtn');
+export const cameraInput = document.getElementById('cameraInput');
+export const dropZoneEl = document.getElementById('dropZone');
+export const inputHintEl = document.getElementById('inputHint');
+export const clearDoneBtn = document.getElementById('clearDoneBtn');
+export const messageEl = document.getElementById('message');
+export const uploadProgressEl = document.getElementById('uploadProgress');
+export const uploadProgressBarEl = document.getElementById('uploadProgressBar');
+export const progressEl = document.getElementById('progress');
+export const searchBtn = document.getElementById('searchBtn');
+export const searchBar = document.getElementById('searchBar');
+export const searchInput = document.getElementById('searchInput');
+export const searchClose = document.getElementById('searchClose');
+export const modeToggleBtns = document.querySelectorAll('.btn-mode-toggle');
+export const themeModeBtns = document.querySelectorAll('.btn-theme-mode');
+export const settingsBtns = document.querySelectorAll('.btn-settings');
+export const sectionTabsEl = document.getElementById('sectionTabs');
+export const mehrMenuEl = document.getElementById('mehrMenu');
+export const tabsToggleBtns = document.querySelectorAll('.btn-tabs-toggle');
+export const networkStatusEl = document.getElementById('networkStatus');
+export const updateBannerEl = document.getElementById('updateBanner');
+export const diskFreeEl = document.getElementById('diskFreeDisplay');
+export const noteEditorEl = document.getElementById('noteEditor');
+export const noteEditorBack = document.getElementById('noteEditorBack');
+export const noteTitleInput = document.getElementById('noteTitleInput');
+export const noteSaveStatus = document.getElementById('noteSaveStatus');
+export const noteEditorBody = document.getElementById('noteEditorEl');
+export const noteToolbar = document.getElementById('noteToolbar');
+export const scannerOverlay = document.getElementById('scannerOverlay');
+export const scannerCloseBtn = document.getElementById('scannerCloseBtn');
+export const scannerVideo = document.getElementById('scannerVideo');
+export const scannerSubtitle = document.getElementById('scannerSubtitle');
+export const scannerStatus = document.getElementById('scannerStatus');
+export const scannerManualForm = document.getElementById('scannerManualForm');
+export const scannerManualInput = document.getElementById('scannerManualInput');
+export const userPreferencesScript = document.getElementById('userPreferences');
+export const brandMarkEls = document.querySelectorAll('.brand-mark');
+export const settingsEmbedEl = document.getElementById('settingsEmbed');
+export const settingsFrameEl = document.getElementById('settingsFrame');
+
+const ICONS = {
+    menu: '<line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="18" y2="18"/>',
+    search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+    settings: '<path d="M20 7h-9"/><path d="M14 17H5"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/>',
+    'theme-auto': '<path d="M4 12a8 8 0 0 1 8-8v8Z"/><path d="M20 12a8 8 0 0 1-8 8v-8Z"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="M2 12h2"/><path d="M20 12h2"/>',
+    'theme-light': '<path d="M12 3v2"/><path d="M12 19v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66-1.41-1.41"/><path d="M3 12h2"/><path d="M19 12h2"/><path d="m4.93 19.07 1.41-1.41"/><path d="m17.66 6.34-1.41 1.41"/><circle cx="12" cy="12" r="4"/>',
+    'theme-dark': '<path d="M12 3a6 6 0 1 0 9 9 7.5 7.5 0 1 1-9-9Z"/>',
+    eye: '<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>',
+    pencil: '<path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/>',
+    camera: '<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/>',
+    pin: '<line x1="12" x2="12" y1="17" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.69l-1.78.9A2 2 0 0 0 5 15.24Z"/>',
+    x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+    check: '<path d="M20 6 9 17l-5-5"/>',
+    'rotate-ccw': '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>',
+    grip: '<circle cx="9" cy="6" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="18" r="1"/>',
+    'arrow-left': '<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>',
+    plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
+    scan: '<path d="M4 7V5a1 1 0 0 1 1-1h2"/><path d="M20 7V5a1 1 0 0 0-1-1h-2"/><path d="M4 17v2a1 1 0 0 0 1 1h2"/><path d="M20 17v2a1 1 0 0 1-1 1h-2"/><path d="M7 12h10"/><path d="M8 9v6"/><path d="M11 9v6"/><path d="M14 9v6"/><path d="M16 9v6"/>',
+    'scan-info': '<path d="M4 7V5a1 1 0 0 1 1-1h2"/><path d="M20 7V5a1 1 0 0 0-1-1h-2"/><path d="M4 17v2a1 1 0 0 0 1 1h2"/><path d="M20 17v2a1 1 0 0 1-1 1h-2"/><path d="M7 12h6"/><path d="M8 9v6"/><path d="M11 9v6"/><circle cx="18" cy="12" r="3"/><path d="M18 10.8h.01"/><path d="M18 12.2v1.4"/>',
+    link: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+    'more-horizontal': '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
+};
+
+export function svgIcon(name) {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.classList.add('icon');
+    svg.innerHTML = ICONS[name] || '';
+    return svg;
+}
+
+export function updateViewportHeight() {
+    const viewportHeight = (window.visualViewport?.height || window.innerHeight || 0)
+        + (window.visualViewport?.offsetTop || 0);
+    if (viewportHeight > 0) {
+        document.documentElement.style.setProperty('--app-height', `${Math.round(viewportHeight)}px`);
+    }
+}
