@@ -50,9 +50,6 @@ export function createRouter(deps) {
     function closeSettings() {
         if (state.view !== 'settings') return;
         state.view = 'list';
-        if (settingsFrameEl) {
-            settingsFrameEl.src = 'about:blank';
-        }
         applyViewState();
         updateHeaders();
     }
