@@ -1,7 +1,7 @@
-import { appUrl, api, apiUpload, normalizeItem } from './api.js';
+import { appUrl, api, apiUpload } from './api.js';
+import { createItemsController } from './items.js';
 import { createNavigation } from './navigation.js';
 import { applyViewState, createRouter } from './router.js';
-import { persistPreferences } from './shared.js';
 import {
     BARCODE_FORMATS,
     CATEGORY_SWIPE_THRESHOLD_PX,
@@ -101,6 +101,7 @@ let swipeState = null;
 let swipeTransitionActive = false;
 let navigation = null;
 let router = null;
+let itemsController = null;
 
 function setUserPreferences(nextPreferences) {
     userPreferences = nextPreferences;
@@ -218,72 +219,12 @@ function makeUploadProgressCallback() {
     };
 }
 
-function getItemById(id) {
-    return state.items.find(item => item.id === Number(id)) || null;
-}
-
-function getVisibleCategories() {
-    return state.categories.filter(category => Number(category.is_hidden) === 0);
-}
-
-function cloneItems(items) {
-    return items.map(item => ({ ...item }));
-}
-
-function cacheCurrentCategoryItems() {
-    if (!Number.isInteger(Number(state.categoryId))) return;
-    state.itemsByCategoryId.set(Number(state.categoryId), {
-        items: cloneItems(state.items),
-        diskFreeBytes: state.diskFreeBytes,
-    });
-}
-
-function invalidateCategoryCache(categoryId) {
-    state.itemsByCategoryId.delete(Number(categoryId));
-}
-
-function cacheCategoryPayload(categoryId, payload) {
-    const normalizedItems = Array.isArray(payload.items) ? payload.items.map(normalizeItem) : [];
-    const diskFreeBytes = typeof payload.disk_free_bytes === 'number' ? payload.disk_free_bytes : null;
-    state.itemsByCategoryId.set(Number(categoryId), {
-        items: cloneItems(normalizedItems),
-        diskFreeBytes,
-    });
-    return { items: normalizedItems, diskFreeBytes };
-}
-
-function applyCategoryPayload(categoryId, payload) {
-    const normalized = cacheCategoryPayload(categoryId, payload);
-    state.items = normalized.items;
-    state.diskFreeBytes = normalized.diskFreeBytes;
-}
-
-async function loadCategories() {
-    const payload = await api('categories_list');
-    state.categories = Array.isArray(payload.categories) ? payload.categories.map(category => ({
-        ...category,
-        id: Number(category.id),
-        sort_order: Number(category.sort_order),
-        is_hidden: Number(category.is_hidden),
-    })) : [];
-
-    if (payload.preferences) {
-        userPreferences = normalizePreferences(payload.preferences);
-        applyThemePreferences(userPreferences);
-    }
-
-    const visibleCategories = getVisibleCategories();
-    const preferredCategoryId = Number(userPreferences.last_category_id);
-    const preferredVisible = visibleCategories.find(category => category.id === preferredCategoryId);
-
-    state.categoryId = preferredVisible?.id || visibleCategories[0]?.id || state.categories[0]?.id || null;
-    renderCategoryTabs();
-    applyTabsVisibility(userPreferences.tabs_hidden);
-}
-
-async function savePreferences(patch) {
-    await persistPreferences(patch, setUserPreferences, applyThemePreferences);
-}
+function getItemById(id) { return itemsController.getItemById(id); }
+function getVisibleCategories() { return itemsController.getVisibleCategories(); }
+function cacheCurrentCategoryItems() { return itemsController.cacheCurrentCategoryItems(); }
+function invalidateCategoryCache(categoryId) { return itemsController.invalidateCategoryCache(categoryId); }
+async function loadCategories() { await itemsController.loadCategories(); }
+async function savePreferences(patch) { await itemsController.savePreferences(patch); }
 
 function makeCategoryTab(category) {
     const button = document.createElement('button');
@@ -1193,131 +1134,13 @@ function formatBytes(sizeBytes) {
     })} ${units[unitIndex]}`;
 }
 
-async function setCategory(categoryId) {
-    if (scannerState.open) {
-        closeScanner();
-    }
-    if (state.noteEditorId !== null) {
-        await closeNoteEditor();
-    }
-    router.closeSettings();
-
-    state.categoryId = Number(categoryId);
-    renderCategoryTabs();
-    updateHeaders();
-    const loadPromise = loadItems();
-    void savePreferences({ last_category_id: state.categoryId }).catch(() => {});
-    await loadPromise;
-    prefetchAdjacentCategories();
-}
-
-async function loadItems(categoryId = state.categoryId, options = {}) {
-    const resolvedCategoryId = Number(categoryId);
-    const useCache = options.useCache !== false;
-    const category = state.categories.find(entry => entry.id === resolvedCategoryId) || null;
-    if (!category) {
-        state.items = [];
-        state.diskFreeBytes = null;
-        renderItems();
-        return;
-    }
-
-    if (useCache) {
-        const cached = state.itemsByCategoryId.get(resolvedCategoryId);
-        if (cached) {
-            state.items = cloneItems(cached.items);
-            state.diskFreeBytes = cached.diskFreeBytes ?? null;
-            renderItems();
-            updateUploadUi();
-            return;
-        }
-    }
-
-    const payload = await api(`list&category_id=${encodeURIComponent(category.id)}`);
-
-    if (resolvedCategoryId !== Number(state.categoryId)) {
-        cacheCategoryPayload(resolvedCategoryId, payload);
-        return;
-    }
-
-    applyCategoryPayload(resolvedCategoryId, payload);
-    renderItems();
-    updateUploadUi();
-}
-
-function prefetchAdjacentCategories() {
-    const visibleCategories = getVisibleCategories();
-    const currentIndex = visibleCategories.findIndex(category => category.id === state.categoryId);
-    if (currentIndex === -1) return;
-
-    [currentIndex - 1, currentIndex + 1]
-        .map(index => visibleCategories[index]?.id ?? null)
-        .filter(categoryId => categoryId !== null && !state.itemsByCategoryId.has(Number(categoryId)))
-        .forEach(categoryId => {
-            void loadItems(categoryId, { useCache: false }).catch(() => {});
-        });
-}
-
-function getVisibleItems() {
-    const items = [...state.items].sort((a, b) => {
-        if (state.mode === 'einkaufen') {
-            const doneDiff = a.done - b.done;
-            if (doneDiff !== 0) return doneDiff;
-        }
-        if (b.is_pinned !== a.is_pinned) return b.is_pinned - a.is_pinned;
-        if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order;
-        return a.id - b.id;
-    });
-
-    if (state.mode === 'einkaufen') {
-        return items;
-    }
-
-    return items;
-}
-
-function openSearch() {
-    state.search.open = true;
-    appEl.classList.add('is-searching');
-    searchBar?.removeAttribute('hidden');
-    searchBtn?.classList.add('is-active');
-    if (searchInput) {
-        searchInput.value = state.search.query;
-        searchInput.focus();
-    }
-    renderItems();
-}
-
-function closeSearch() {
-    state.search = { open: false, query: '', results: [] };
-    appEl.classList.remove('is-searching');
-    searchBar?.setAttribute('hidden', '');
-    searchBtn?.classList.remove('is-active');
-    renderItems();
-}
-
-async function doSearch(query) {
-    state.search.query = query;
-    if (state.search.open) {
-        navigation.replaceCurrentHistoryState({ screen: 'search', query: state.search.query });
-    }
-
-    if (query.trim().length < 2) {
-        state.search.results = [];
-        renderItems();
-        return;
-    }
-
-    try {
-        const payload = await api(`search&q=${encodeURIComponent(query.trim())}`);
-        state.search.results = Array.isArray(payload.items) ? payload.items.map(normalizeItem) : [];
-    } catch (error) {
-        state.search.results = [];
-        setMessage(error instanceof Error ? error.message : 'Suche fehlgeschlagen.', true);
-    }
-
-    renderItems();
-}
+async function setCategory(categoryId) { await itemsController.setCategory(categoryId); }
+async function loadItems(categoryId = state.categoryId, options = {}) { await itemsController.loadItems(categoryId, options); }
+function prefetchAdjacentCategories() { itemsController.prefetchAdjacentCategories(); }
+function getVisibleItems() { return itemsController.getVisibleItems(); }
+function openSearch() { itemsController.openSearch(); }
+function closeSearch() { itemsController.closeSearch(); }
+async function doSearch(query) { await itemsController.doSearch(query); }
 
 function getAttachmentTitle(item) {
     return item.name || item.attachmentOriginalName || 'Anhang';
@@ -2413,6 +2236,24 @@ navigation = createNavigation({
     getCurrentRouteState: router.getCurrentRouteState,
 });
 
+itemsController = createItemsController({
+    applyTabsVisibility,
+    applyThemePreferences,
+    closeNoteEditor,
+    closeScanner,
+    closeSettings: () => router.closeSettings(),
+    getUserPreferences: () => userPreferences,
+    navigation,
+    normalizePreferences,
+    renderCategoryTabs,
+    renderItems,
+    scannerState,
+    setMessage,
+    setUserPreferences,
+    updateHeaders,
+    updateUploadUi,
+});
+
 function setNetworkStatus() {
     if (!networkStatusEl) return;
     if (navigator.onLine) {
@@ -2814,7 +2655,7 @@ document.addEventListener('visibilitychange', () => {
 
     if ('serviceWorker' in navigator) {
         try {
-            const reg = await navigator.serviceWorker.register(appBasePath + 'sw.js?v=2.0.11');
+            const reg = await navigator.serviceWorker.register(appBasePath + 'sw.js?v=2.0.12');
             reg.addEventListener('updatefound', () => {
                 const w = reg.installing;
                 w?.addEventListener('statechange', () => {
