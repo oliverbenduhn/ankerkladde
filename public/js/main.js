@@ -107,6 +107,18 @@ function setUserPreferences(nextPreferences) {
     userPreferences = nextPreferences;
 }
 
+function syncSettingsFrameTheme() {
+    if (!settingsFrameEl?.contentWindow || state.view !== 'settings') return;
+    settingsFrameEl.contentWindow.postMessage({
+        type: 'ankerkladde-theme-update',
+        preferences: {
+            theme_mode: userPreferences.theme_mode,
+            light_theme: userPreferences.light_theme,
+            dark_theme: userPreferences.dark_theme,
+        },
+    }, window.location.origin);
+}
+
 async function fetchLinkMetadata(url) {
     try {
         const response = await fetch(appUrl(`api.php?action=fetch_metadata&url=${encodeURIComponent(url)}`));
@@ -2361,7 +2373,9 @@ modeToggleBtns.forEach(button => {
 
 themeModeBtns.forEach(button => {
     button.addEventListener('click', () => {
-        void cycleThemeMode(userPreferences, setUserPreferences, setMessage);
+        void cycleThemeMode(userPreferences, setUserPreferences, setMessage).then(() => {
+            syncSettingsFrameTheme();
+        });
     });
 });
 
@@ -2370,6 +2384,7 @@ settingsBtns.forEach(button => {
         event.preventDefault();
         const targetTab = button.dataset.settingsTab || 'app';
         if (state.view === 'settings' && state.settingsTab === targetTab) {
+            router.closeSettings();
             navigation.navigateBackOrReplace({ screen: 'list' });
             return;
         }
@@ -2382,7 +2397,11 @@ settingsBtns.forEach(button => {
 settingsFrameEl?.addEventListener('load', () => {
     try {
         const frameUrl = new URL(settingsFrameEl.contentWindow?.location.href || settingsFrameEl.src, window.location.href);
+        if (frameUrl.protocol === 'about:') {
+            return;
+        }
         state.settingsTab = frameUrl.searchParams.get('tab') === 'extension' ? 'extension' : 'app';
+        syncSettingsFrameTheme();
         if (state.view === 'settings') {
             navigation.replaceCurrentHistoryState({ screen: 'settings', tab: state.settingsTab });
             void loadCategories()
@@ -2397,6 +2416,7 @@ settingsFrameEl?.addEventListener('load', () => {
 window.addEventListener('message', event => {
     if (event.origin !== window.location.origin) return;
     if (event.data?.type === 'ankerkladde-settings-close') {
+        router.closeSettings();
         navigation.navigateBackOrReplace({ screen: 'list' });
     }
 });
@@ -2655,7 +2675,7 @@ document.addEventListener('visibilitychange', () => {
 
     if ('serviceWorker' in navigator) {
         try {
-            const reg = await navigator.serviceWorker.register(appBasePath + 'sw.js?v=2.0.12');
+            const reg = await navigator.serviceWorker.register(appBasePath + 'sw.js?v=2.0.13');
             reg.addEventListener('updatefound', () => {
                 const w = reg.installing;
                 w?.addEventListener('statechange', () => {

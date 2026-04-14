@@ -675,6 +675,19 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
         });
     }
 
+    window.addEventListener('message', event => {
+        if (event.origin !== window.location.origin) return;
+        if (event.data?.type !== 'ankerkladde-theme-update') return;
+
+        const nextPreferences = event.data?.preferences;
+        if (!nextPreferences || typeof nextPreferences !== 'object') return;
+
+        themePreferences.theme_mode = nextPreferences.theme_mode || themePreferences.theme_mode;
+        themePreferences.light_theme = nextPreferences.light_theme || themePreferences.light_theme;
+        themePreferences.dark_theme = nextPreferences.dark_theme || themePreferences.dark_theme;
+        applySettingsTheme();
+    });
+
     if (themeMediaQuery) {
         const onThemeChange = () => {
             if (themePreferences.theme_mode === 'auto') {
