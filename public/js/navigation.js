@@ -158,10 +158,16 @@ export function createNavigation({ applyRouteState, getCurrentRouteState }) {
     }
 
     async function handlePopState(event, setMessage) {
-        if (!event.state?.appManaged) return;
-        appHistoryIndex = Number.isInteger(Number(event.state.appIndex)) ? Number(event.state.appIndex) : 0;
+        const isManagedState = Boolean(event.state?.appManaged);
+        appHistoryIndex = isManagedState && Number.isInteger(Number(event.state.appIndex))
+            ? Number(event.state.appIndex)
+            : 0;
         try {
-            await applyManagedRouteState(event.state.appRoute);
+            const route = isManagedState ? event.state.appRoute : { screen: 'list' };
+            await applyManagedRouteState(route);
+            if (!isManagedState) {
+                replaceCurrentHistoryState(route);
+            }
         } catch (error) {
             setMessage(error instanceof Error ? error.message : 'Navigation konnte nicht wiederhergestellt werden.', true);
         }
