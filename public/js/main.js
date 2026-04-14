@@ -1,6 +1,6 @@
 import { appUrl, api, apiUpload, normalizeItem } from './api.js';
 import { createNavigation } from './navigation.js';
-import { createRouter } from './router.js';
+import { applyViewState, createRouter } from './router.js';
 import { persistPreferences } from './shared.js';
 import {
     BARCODE_FORMATS,
@@ -2814,7 +2814,7 @@ document.addEventListener('visibilitychange', () => {
 
     if ('serviceWorker' in navigator) {
         try {
-            const reg = await navigator.serviceWorker.register(appBasePath + 'sw.js?v=2.0.6');
+            const reg = await navigator.serviceWorker.register(appBasePath + 'sw.js?v=2.0.7');
             reg.addEventListener('updatefound', () => {
                 const w = reg.installing;
                 w?.addEventListener('statechange', () => {
