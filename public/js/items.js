@@ -3,6 +3,26 @@ import { state } from './state.js';
 import { appEl, searchBar, searchBtn, searchInput } from './ui.js';
 
 export function createItemsController(deps) {
+    /**
+     * @typedef {Object} ItemsControllerDeps
+     * @property {function(boolean): void} applyTabsVisibility
+     * @property {function(Object): void} applyThemePreferences
+     * @property {function(): Promise<void>} closeNoteEditor
+     * @property {function(): void} closeScanner
+     * @property {function(): void} closeSettings
+     * @property {function(): Object} getUserPreferences
+     * @property {Object} navigation
+     * @property {function(Object): Object} normalizePreferences
+     * @property {function(): void} renderCategoryTabs
+     * @property {function(): void} renderItems
+     * @property {Object} scannerState
+     * @property {function(string, boolean=): void} setMessage
+     * @property {function(Object): void} setUserPreferences
+     * @property {function(): void} updateHeaders
+     * @property {function(number): void} updateUploadUi
+     */
+
+    /** @type {ItemsControllerDeps} */
     const {
         applyTabsVisibility,
         applyThemePreferences,

@@ -4,6 +4,23 @@ import { itemForm, itemInput, quantityInput, scannerManualInput, scannerOverlay,
 import { normalizeBarcodeValue, syncAutoHeight } from './utils.js';
 
 export function createScannerController(deps) {
+    /**
+     * @typedef {Object} ScannerControllerDeps
+     * @property {function(): Object|null} getCurrentCategory
+     * @property {function(number): Object|null} getItemById
+     * @property {function(): number} getScannerCooldownMs
+     * @property {function(): string[]} getScannerSupportedFormats
+     * @property {function(number, number): Promise<void>} handleToggle
+     * @property {function(number): void} invalidateCategoryCache
+     * @property {function(number=, Object=): Promise<void>} loadItems
+     * @property {Object} navigation
+     * @property {function(string, boolean=): void} setMessage
+     * @property {function(string, boolean=): void} setScannerStatus
+     * @property {function(): void} triggerHapticFeedback
+     * @property {function(string): void} updateFilePickerLabel
+     */
+
+    /** @type {ScannerControllerDeps} */
     const {
         getCurrentCategory,
         getItemById,
