@@ -305,13 +305,11 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
     </div>
     <?php endif; ?>
 
-    <div class="settings-tabs">
-        <?php if ($isEmbedded): ?>
+    <?php if ($isEmbedded): ?>
+    <div style="padding: 1rem 1.5rem 0; display: flex; justify-content: flex-end;">
         <button type="button" class="settings-close-inline" id="settings-close-btn" aria-label="Einstellungen schließen">✕</button>
-        <?php endif; ?>
-        <a href="<?= htmlspecialchars(appPath('settings.php' . ($isEmbedded ? '?embed=1&tab=app' : '?tab=app')), ENT_QUOTES, 'UTF-8') ?>" class="settings-tab <?= ($currentTab ?? 'app') === 'app' ? 'settings-tab-active' : '' ?>">App</a>
-        <a href="<?= htmlspecialchars(appPath('settings.php' . ($isEmbedded ? '?embed=1&tab=extension' : '?tab=extension')), ENT_QUOTES, 'UTF-8') ?>" class="settings-tab <?= ($currentTab ?? 'app') === 'extension' ? 'settings-tab-active' : '' ?>">Erweiterung</a>
     </div>
+    <?php endif; ?>
 
     <?php if ($flash !== null): ?>
         <div class="settings-flash settings-flash-<?= htmlspecialchars($flashType, ENT_QUOTES, 'UTF-8') ?>">
@@ -319,13 +317,12 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
         </div>
     <?php endif; ?>
 
-    <?php if (($currentTab ?? 'app') === 'app'): ?>
-    <section class="settings-section">
+    <details class="settings-section settings-accordion" open>
+        <summary>Erscheinungsbild</summary>
         <form method="post" action="<?= htmlspecialchars($settingsAction, ENT_QUOTES, 'UTF-8') ?>" class="settings-form">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
             <input type="hidden" name="action" value="save_theme">
             <div class="settings-block">
-                <h2>Erscheinungsbild</h2>
                 <p class="settings-copy">In der App-Leiste schaltest du zwischen Hell, Dunkel und Auto um. Hier legst du fest, welche Themes dabei verwendet werden.</p>
                 <div class="theme-grid">
                     <div>
@@ -364,14 +361,14 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                 <button type="submit" class="settings-save">Themes speichern</button>
             </div>
         </form>
-    </section>
+    </details>
 
-    <section class="settings-section settings-section-secondary">
+    <details class="settings-section settings-section-secondary settings-accordion">
+        <summary>Anzeige</summary>
         <form method="post" action="<?= htmlspecialchars($settingsAction, ENT_QUOTES, 'UTF-8') ?>" class="settings-form">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
             <input type="hidden" name="action" value="save_app_preferences">
             <div class="settings-block">
-                <h2>Anzeige</h2>
                 <div class="settings-options">
                     <label class="settings-option">
                         <input
@@ -389,11 +386,11 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                 <button type="submit" class="settings-save">Anzeige speichern</button>
             </div>
         </form>
-    </section>
+    </details>
 
-    <section class="settings-section">
+    <details class="settings-section settings-accordion" open>
+        <summary>Kategorien</summary>
         <div class="settings-block">
-            <h2>Kategorien</h2>
             <p class="settings-copy">Neue Kategorien werden direkt angelegt. Bestehende Kategorien speicherst du pro Zeile.</p>
             <div class="settings-options">
                 <?php foreach ($categories as $category): ?>
@@ -477,14 +474,14 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                 <?php endforeach; ?>
             </div>
         </div>
-    </section>
+    </details>
 
-    <section class="settings-section">
+    <details class="settings-section settings-accordion">
+        <summary>Neue Kategorie</summary>
         <form method="post" action="<?= htmlspecialchars($settingsAction, ENT_QUOTES, 'UTF-8') ?>" class="settings-form">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
             <input type="hidden" name="action" value="create_category">
             <div class="settings-block">
-                <h2>Neue Kategorie</h2>
                 <p class="settings-copy">Name frei wählen, Strukturtyp bleibt fest im Produkt definiert.</p>
                 <div class="settings-password-fields">
                     <label class="settings-field">
@@ -515,13 +512,11 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                 <button type="submit" class="settings-save">Kategorie anlegen</button>
             </div>
         </form>
-    </section>
-    <?php endif; ?>
+    </details>
 
-    <?php if (($currentTab ?? 'app') === 'extension'): ?>
-    <section class="settings-section">
+    <details class="settings-section settings-accordion">
+        <summary>Browser-Extension</summary>
         <div class="settings-block">
-            <h2>Browser-Extension</h2>
             <p class="settings-copy">Diesen API-Key in die Extension kopieren. Er verbindet die Erweiterung direkt mit deinem Account.</p>
             <div class="settings-password-fields">
                 <label class="settings-field">
@@ -541,14 +536,14 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
             </div>
             <p class="settings-copy">Wenn sich die Erweiterung spaeter aendert, hier einfach erneut herunterladen.</p>
         </div>
-    </section>
+    </details>
 
-    <section class="settings-section settings-section-secondary">
+    <details class="settings-section settings-section-secondary settings-accordion">
+        <summary>Passwort ändern</summary>
         <form method="post" action="<?= htmlspecialchars($settingsAction, ENT_QUOTES, 'UTF-8') ?>" class="settings-form">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
             <input type="hidden" name="action" value="change_password">
             <div class="settings-block">
-                <h2>Passwort ändern</h2>
                 <p class="settings-copy">Dein neues Passwort muss mindestens 8 Zeichen lang sein.</p>
                 <div class="settings-password-fields">
                     <label class="settings-field">
@@ -570,13 +565,15 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                 <button type="submit" class="settings-save">Passwort ändern</button>
             </div>
         </form>
-    </section>
+    </details>
 
-    <section class="settings-section settings-section-secondary">
-        <p class="settings-copy">Global gespeichert bleiben Modus, ausgeblendete Tabs, letzter aktiver Bereich und Installationshinweis. Zuletzt aktiv: <?= $preferences['last_category_id'] !== null ? (int) $preferences['last_category_id'] : 'keine' ?>.</p>
-        <a href="<?= htmlspecialchars(appPath('logout.php'), ENT_QUOTES, 'UTF-8') ?>" class="settings-link">Abmelden</a>
-    </section>
-    <?php endif; ?>
+    <details class="settings-section settings-section-secondary settings-accordion">
+        <summary>System & Abmelden</summary>
+        <div class="settings-block">
+            <p class="settings-copy">Global gespeichert bleiben Modus, ausgeblendete Tabs, letzter aktiver Bereich und Installationshinweis. Zuletzt aktiv: <?= $preferences['last_category_id'] !== null ? (int) $preferences['last_category_id'] : 'keine' ?>.</p>
+            <a href="<?= htmlspecialchars(appPath('logout.php'), ENT_QUOTES, 'UTF-8') ?>" class="settings-link">Abmelden</a>
+        </div>
+    </details>
 </div>
 <script>
 (() => {

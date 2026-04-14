@@ -2467,36 +2467,6 @@ button, input { font: inherit; }
     color: var(--text-primary);
 }
 
-.settings-tabs {
-    display: flex;
-    gap: 4px;
-    margin-bottom: 16px;
-    border-bottom: 1px solid var(--border);
-    align-items: stretch;
-}
-
-.settings-tab {
-    flex: 1;
-    padding: 10px 16px;
-    font-size: 0.95rem;
-    color: var(--text-secondary);
-    text-align: center;
-    text-decoration: none;
-    border-radius: 8px 8px 0 0;
-    transition: color 0.15s, background 0.15s;
-}
-
-.settings-tab:hover {
-    color: var(--text-primary);
-    background: var(--surface-hover);
-}
-
-.settings-tab-active {
-    color: var(--text-primary);
-    font-weight: 500;
-    border-bottom: 2px solid var(--accent);
-    margin-bottom: -1px;
-}
 
 .settings-back {
     display: inline-flex;
@@ -2536,16 +2506,55 @@ button, input { font: inherit; }
     background: var(--border);
 }
 
-.settings-section {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
+.settings-accordion {
+    display: block;
+    border-bottom: 1px solid var(--border);
 }
 
-.settings-section-secondary {
-    margin-top: 18px;
-    padding-top: 18px;
-    border-top: 1px solid var(--border);
+.settings-accordion:last-of-type {
+    border-bottom: none;
+}
+
+.settings-accordion[open] {
+    padding-bottom: 16px;
+}
+
+.settings-accordion summary {
+    padding: 18px 4px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    cursor: pointer;
+    list-style: none;
+    position: relative;
+    user-select: none;
+}
+
+.settings-accordion summary::-webkit-details-marker {
+    display: none;
+}
+
+.settings-accordion summary::after {
+    content: "▼";
+    font-size: 0.8rem;
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%) rotate(-90deg);
+    transition: transform 0.2s;
+    color: var(--text-muted);
+}
+
+.settings-accordion[open] summary::after {
+    transform: translateY(-50%) rotate(0deg);
+}
+
+.settings-accordion .settings-block,
+.settings-accordion .settings-form {
+    padding: 4px 4px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
 }
 
 .settings-copy {
