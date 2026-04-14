@@ -1566,8 +1566,14 @@ button, input { font: inherit; }
     color: var(--text-secondary);
 }
 
-.header-icon-btn:hover  { background: var(--accent); color: var(--text-primary); }
 .header-icon-btn:active { background: var(--accent); color: var(--text-primary); transform: scale(0.92); }
+
+@media (hover: hover) and (pointer: fine) {
+    .header-icon-btn:hover {
+        background: var(--accent);
+        color: var(--text-primary);
+    }
+}
 
 @media (max-width: 460px) {
     .app-header {
