@@ -6,26 +6,15 @@ on:
       - main
   workflow_dispatch:
 
-env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
-
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
     steps:
       - uses: actions/checkout@v4
-      - run: echo "Checking out..."
+      - run: echo "Build"
 
   deploy:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-        with:
-          repository: oliverbenduhn/ansible
-          token: ${{ secrets.GITHUB_TOKEN }}
-      - run: echo "Would deploy now"
+      - run: echo "Deploy"
