@@ -108,9 +108,9 @@ export function startApp(version) {
             updateHeaders,
         });
 
-        initWebSocketServer(() => {
-            loadItems(undefined, { useCache: false });
-            loadCategories();
+        initWebSocketServer(async () => {
+            await loadCategories();
+            await loadItems(undefined, { useCache: false });
         });
         await registerServiceWorker(version);
         registerUpdateReloadHandler();
