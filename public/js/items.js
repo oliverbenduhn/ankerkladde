@@ -1,5 +1,5 @@
 import { api, normalizeItem, persistPreferences } from './api.js';
-import { state } from './state.js';
+import { LOCAL_PREF_KEYS, state } from './state.js';
 import { appEl, searchBar, searchBtn, searchInput } from './ui.js';
 
 export function createItemsController(deps) {
@@ -91,7 +91,13 @@ export function createItemsController(deps) {
         })) : [];
 
         if (payload.preferences) {
-            const nextPreferences = normalizePreferences(payload.preferences);
+            // Gerätespezifische Prefs (mode, last_category_id) nicht vom Server überschreiben
+            const currentPrefs = getUserPreferences();
+            const serverPrefs = { ...payload.preferences };
+            for (const key of LOCAL_PREF_KEYS) {
+                serverPrefs[key] = currentPrefs[key];
+            }
+            const nextPreferences = normalizePreferences(serverPrefs);
             setUserPreferences(nextPreferences);
             applyThemePreferences(nextPreferences);
         }
