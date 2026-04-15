@@ -9,8 +9,8 @@ jobs:
   trigger-deploy:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - name: Trigger deployment
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh workflow run deploy.yml --ref main
+        run: gh workflow run deploy.yml --ref main
