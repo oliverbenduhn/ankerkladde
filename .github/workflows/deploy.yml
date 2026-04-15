@@ -7,5 +7,21 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - run: echo "Ready"
+      - name: Deploy Docker containers to VPS
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$VPS_SSH_KEY" > ~/.ssh/vps_key
+          chmod 600 ~/.ssh/vps_key
+          
+          ssh -i ~/.ssh/vps_key -o StrictHostKeyChecking=no ansible@91.98.42.99 << 'DEPLOY'
+          cd /tmp && git clone https://github.com/oliverbenduhn/ankerkladde.git deploy-temp
+          cd deploy-temp
+          docker build -t ankerkladde-app .
+          docker build -t ankerkladde-ws ./websocket-server
+          rm ~/.ssh/vps_key
+          echo "Deployment complete"
+          DEPLOY
+          
+          rm ~/.ssh/vps_key
