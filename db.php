@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+date_default_timezone_set('Europe/Berlin');
+
 const CATEGORY_TYPES = ['list_quantity', 'list_due_date', 'notes', 'images', 'files', 'links'];
 const ATTACHMENT_CATEGORY_TYPES = ['images', 'files'];
 const CATEGORY_ICON_OPTIONS = [
