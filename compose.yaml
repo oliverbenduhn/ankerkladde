@@ -15,6 +15,14 @@ services:
       ANKERKLADDE_CANONICAL_HOST: ""
       # Proxy-Header vertrauen (true wenn hinter Reverse Proxy wie Caddy/Nginx/Traefik)
       # EINKAUF_TRUST_PROXY_HEADERS: 'true'
+      WS_NOTIFY_URL: "http://websocket:3000/notify"
+
+  websocket:
+    container_name: ankerkladde_websocket
+    build: ./websocket-server
+    restart: unless-stopped
+    expose:
+      - "3000"
 
 volumes:
   ankerkladde_data:

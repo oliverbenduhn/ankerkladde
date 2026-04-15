@@ -76,3 +76,47 @@ export function registerUpdateReloadHandler() {
         window.location.reload();
     });
 }
+
+export function initWebSocketServer(onUpdate) {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/ws/`;
+    let debounceTimer;
+
+    function connect() {
+        // Only connect if we're not offline to avoid console spam
+        if (!navigator.onLine) {
+            setTimeout(connect, 5000);
+            return;
+        }
+
+        const ws = new WebSocket(wsUrl);
+
+        ws.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                if (data.action === 'update') {
+                    clearTimeout(debounceTimer);
+                    debounceTimer = setTimeout(() => {
+                        onUpdate();
+                    }, 600);
+                }
+            } catch (e) {}
+        };
+
+        ws.onerror = () => {
+            // Silent error handling for WebSocket connection failures
+            ws.close();
+        };
+
+        ws.onclose = () => {
+            setTimeout(connect, 5000); // Reconnect
+        };
+    }
+
+    window.addEventListener('online', () => {
+        // Optional immediate reconnect hint
+    });
+
+    // Start initial connection
+    connect();
+}

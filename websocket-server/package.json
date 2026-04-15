@@ -1,0 +1,12 @@
+{
+  "name": "ankerkladde-ws",
+  "version": "1.0.0",
+  "description": "WebSocket Broadcast Server for Ankerkladde",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "ws": "^8.16.0"
+  }
+}

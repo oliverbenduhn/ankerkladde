@@ -16,7 +16,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 # Apache-Module aktivieren
-RUN a2enmod rewrite headers
+RUN a2enmod rewrite headers proxy proxy_http proxy_wstunnel
 
 # DocumentRoot → public/
 COPY deploy/docker/ankerkladde.conf /etc/apache2/sites-available/000-default.conf
