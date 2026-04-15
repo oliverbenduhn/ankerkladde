@@ -3,25 +3,8 @@ name: Build and Deploy Ankerkladde
 on:
   workflow_dispatch:
 
-env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
-
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - uses: actions/checkout@v4
-      - name: Build Docker image
-        run: |
-          docker build -t ghcr.io/${{ env.IMAGE_NAME }}:latest .
-          docker build -t ghcr.io/${{ env.IMAGE_NAME }}/websocket:latest ./websocket-server
-
   deploy:
-    needs: build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
