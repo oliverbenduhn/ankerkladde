@@ -28,6 +28,9 @@ bash scripts/smoke-test.sh
 
 # DB migration test (runs migrations on a fresh DB)
 bash scripts/test-db-migration.sh
+
+# Security unit tests (pure logic functions)
+php scripts/test-security.php
 ```
 
 Both scripts spin up their own `php -S` instances with isolated temp data dirs via `EINKAUF_DATA_DIR`. CI (self-hosted runner) runs both on push to `main`.

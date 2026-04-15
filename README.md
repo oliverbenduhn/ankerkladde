@@ -211,6 +211,7 @@ php scripts/create-user.php   # EINKAUF_USER / EINKAUF_PASS für nicht-interakti
 ```bash
 bash scripts/smoke-test.sh        # Uploads, Streaming, CSRF, Anhang-Ersetzung, Fehlerfälle
 bash scripts/test-db-migration.sh # Migrationen auf frischer DB
+php scripts/test-security.php     # Sicherheits-Unit-Tests (isTrustedProxyPeer, etc.)
 find . -path './.git' -prune -o -path './.worktrees' -prune -o -path './data' -prune -o -name '*.php' -print | sort | xargs -r -n1 php -l
 ```
 

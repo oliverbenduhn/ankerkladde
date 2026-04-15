@@ -372,7 +372,7 @@ curl -fsS -b "$SUBPATH_COOKIE_JAR" "http://127.0.0.1:$SUBPATH_PORT/sub/index.php
 grep -q '<meta name="app-base-path" content="/sub/">' "$SUBPATH_HTML"
 grep -Eq '<link rel="manifest" href="manifest\.php(\?v=[^"]+)?"' "$SUBPATH_HTML"
 grep -Eq '<link rel="stylesheet" href="style\.css(\?v=[^"]+)?"' "$SUBPATH_HTML"
-grep -Eq '<script src="app\.js(\?v=[^"]+)?"></script>' "$SUBPATH_HTML"
+grep -Eq '<script type="module" src="js/main\.js(\?v=[^"]+)?"></script>' "$SUBPATH_HTML"
 
 curl -fsS -b "$SUBPATH_COOKIE_JAR" "http://127.0.0.1:$SUBPATH_PORT/sub/manifest.php" >"$SUBPATH_MANIFEST"
 grep -q '"id":"/sub/"' "$SUBPATH_MANIFEST"
