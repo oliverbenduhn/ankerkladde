@@ -1714,12 +1714,6 @@ try {
                 ]);
             }
 
-            // 3. Kein Treffer — leeren Eintrag anlegen, damit der Barcode bekannt ist
-            upsertScannedProduct($db, $barcode, [
-                'product_name' => '',
-                'brands'       => '',
-                'quantity'     => '',
-            ], false);
 
             respond(404, ['error' => 'Produkt nicht gefunden.']);
 
