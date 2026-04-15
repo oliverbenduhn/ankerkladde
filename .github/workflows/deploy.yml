@@ -1,4 +1,4 @@
-name: Build and Deploy
+name: Build and Deploy Ankerkladde
 
 on:
   push:
@@ -13,61 +13,11 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/metadata-action@v5
-        id: meta
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=ref,event=branch
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=sha
-            type=raw,value=latest
-      - uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-      - uses: docker/build-push-action@v5
-        with:
-          context: ./websocket-server
-          push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/websocket:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      - run: echo "build"
 
   deploy:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-        with:
-          repository: oliverbenduhn/ansible
-          path: ansible-repo
-          token: ${{ secrets.GITHUB_TOKEN }}
-      - env:
-          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
-          VPS_HOST: 91.98.42.99
-          VPS_USER: ansible
-        run: |
-          mkdir -p ~/.ssh
-          echo "$VPS_SSH_KEY" > ~/.ssh/vps_key
-          chmod 600 ~/.ssh/vps_key
-          ssh -i ~/.ssh/vps_key -o StrictHostKeyChecking=no \
-            "$VPS_USER@$VPS_HOST" \
-            "cd ~/ansible && ansible-playbook playbooks/ankerkladde-deploy.yml"
-          rm ~/.ssh/vps_key
+      - run: echo "deploy"
