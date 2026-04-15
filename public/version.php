@@ -1,4 +1,4 @@
 <?php
 declare(strict_types=1);
 
-return '2.0.59';
+return '2.0.60';
