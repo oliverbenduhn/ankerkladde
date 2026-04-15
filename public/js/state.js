@@ -26,6 +26,25 @@ export const DEFAULT_PREFERENCES = {
     dark_theme: 'nachtwache',
 };
 
+// Preferences, die gerätespezifisch in localStorage gespeichert werden
+// und nicht zwischen Geräten/Tabs synchronisiert werden sollen.
+export const LOCAL_PREF_KEYS = ['mode', 'last_category_id'];
+const LOCAL_PREFS_STORAGE_KEY = 'ankerkladde_local_prefs';
+
+function readLocalPrefs() {
+    try {
+        const raw = localStorage.getItem(LOCAL_PREFS_STORAGE_KEY);
+        return raw ? JSON.parse(raw) : {};
+    } catch { return {}; }
+}
+
+export function saveLocalPrefs(patch) {
+    try {
+        const current = readLocalPrefs();
+        localStorage.setItem(LOCAL_PREFS_STORAGE_KEY, JSON.stringify({ ...current, ...patch }));
+    } catch {}
+}
+
 export const THEME_MODE_ORDER = ['light', 'dark', 'auto'];
 export const THEME_COLORS = {
     parchment: '#f5f0eb',
@@ -72,15 +91,24 @@ export const scannerState = {
 };
 
 export function readInitialPreferences() {
-    if (!userPreferencesScript) {
-        return { ...DEFAULT_PREFERENCES };
+    let serverPrefs = {};
+    if (userPreferencesScript) {
+        try {
+            serverPrefs = JSON.parse(userPreferencesScript.textContent || '{}');
+        } catch {}
     }
-
-    try {
-        return normalizePreferences(JSON.parse(userPreferencesScript.textContent || '{}'));
-    } catch {
-        return { ...DEFAULT_PREFERENCES };
+    // Gerätespezifische Prefs aus localStorage haben Vorrang vor Server-Werten
+    const localPrefs = readLocalPrefs();
+    const merged = normalizePreferences({ ...serverPrefs, ...localPrefs });
+    // Migration: beim ersten Aufruf Server-Werte einmalig in localStorage schreiben
+    const toMigrate = {};
+    for (const key of LOCAL_PREF_KEYS) {
+        if (!Object.prototype.hasOwnProperty.call(localPrefs, key)) {
+            toMigrate[key] = merged[key];
+        }
     }
+    if (Object.keys(toMigrate).length > 0) saveLocalPrefs(toMigrate);
+    return merged;
 }
 
 export function normalizePreferences(preferences) {
