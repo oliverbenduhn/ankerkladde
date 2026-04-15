@@ -16,6 +16,74 @@ const barcodeEmptyState = document.getElementById('barcodeEmptyState');
 
 const BARCODE_FORMATS = ['ean_13', 'ean_8', 'upc_a', 'upc_e'];
 const SCAN_COOLDOWN_MS = 1800;
+const FIELD_LABELS = {
+    code: 'Barcode',
+    product_name: 'Produktname',
+    abbreviated_product_name: 'Kurzname',
+    generic_name: 'Allgemeine Bezeichnung',
+    quantity: 'Menge',
+    brands: 'Marken',
+    categories: 'Kategorien',
+    main_category: 'Hauptkategorie',
+    countries: 'Länder',
+    stores: 'Geschäfte',
+    purchase_places: 'Kauforte',
+    brand_owner: 'Markeninhaber',
+    packaging: 'Verpackung',
+    packaging_text: 'Verpackungstext',
+    labels: 'Label',
+    origins: 'Herkunft',
+    manufacturing_places: 'Herstellungsorte',
+    emb_codes: 'Betriebscodes',
+    ingredients_text: 'Zutaten',
+    allergens: 'Allergene',
+    traces: 'Spurenhinweise',
+    serving_size: 'Portionsgröße',
+    serving_quantity: 'Portionsmenge',
+    no_nutrition_data: 'Keine Nährwertdaten',
+    additives: 'Zusatzstoffe',
+    additives_n: 'Anzahl Zusatzstoffe',
+    nutriscore_score: 'Nutri-Score Punkte',
+    nutriscore_grade: 'Nutri-Score',
+    nova_group: 'NOVA-Gruppe',
+    pnns_groups_1: 'Lebensmittelgruppe',
+    pnns_groups_2: 'Untergruppe',
+    food_groups: 'Food Group',
+    states: 'Status',
+    image_url: 'Bild',
+    image_small_url: 'Kleines Bild',
+    image_ingredients_url: 'Zutatenbild',
+    image_nutrition_url: 'Nährwertbild',
+    product_quantity: 'Produktmenge',
+    owner: 'Eigentümer',
+    completeness: 'Vollständigkeit',
+    unique_scans_n: 'Anzahl Scans',
+    last_image_t: 'Letztes Bild Zeitstempel',
+    last_image_datetime: 'Letztes Bild Datum',
+    energy_kj_100g: 'Energie kJ pro 100 g',
+    energy_kcal_100g: 'Energie kcal pro 100 g',
+    energy_100g: 'Energie pro 100 g',
+    fat_100g: 'Fett pro 100 g',
+    saturated_fat_100g: 'Gesättigte Fettsäuren pro 100 g',
+    carbohydrates_100g: 'Kohlenhydrate pro 100 g',
+    sugars_100g: 'Zucker pro 100 g',
+    fiber_100g: 'Ballaststoffe pro 100 g',
+    proteins_100g: 'Eiweiß pro 100 g',
+    salt_100g: 'Salz pro 100 g',
+    sodium_100g: 'Natrium pro 100 g',
+    alcohol_100g: 'Alkohol pro 100 g',
+    vitamin_a_100g: 'Vitamin A pro 100 g',
+    vitamin_c_100g: 'Vitamin C pro 100 g',
+    vitamin_d_100g: 'Vitamin D pro 100 g',
+    calcium_100g: 'Calcium pro 100 g',
+    iron_100g: 'Eisen pro 100 g',
+    magnesium_100g: 'Magnesium pro 100 g',
+    potassium_100g: 'Kalium pro 100 g',
+    zinc_100g: 'Zink pro 100 g',
+    environmental_score_score: 'Umweltscore Punkte',
+    environmental_score_grade: 'Umweltscore',
+    popularity_tags: 'Beliebtheit',
+};
 
 const scannerState = {
     stream: null,
@@ -217,118 +285,238 @@ function scheduleWatchdog() {
         setStatus('Kamera aktiv. Falls kein Scan erkannt wird, Barcode manuell eingeben.', true);
     }, 7000);
 }
-function createElement(tag, className, textContent = null) {
-    const el = document.createElement(tag);
-    if (className) el.className = className;
-    if (textContent !== null) el.textContent = textContent;
-    return el;
+
+function humanizeKey(key) {
+    const normalized = String(key || '').replace(/-/g, '_');
+    if (FIELD_LABELS[normalized]) {
+        return FIELD_LABELS[normalized];
+    }
+
+    return key
+        .replace(/_/g, ' ')
+        .replace(/-/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function shouldDisplayField(key, value) {
+    if (value === null || value === '') return false;
+
+    const normalized = String(key || '').toLowerCase();
+    const normalizedValue = String(value).trim().toLowerCase();
+
+    const hiddenValues = new Set([
+        '',
+        'unknown',
+        'en:unknown',
+        'unknown unknown',
+        'null',
+        'n/a',
+        'na',
+    ]);
+
+    if (hiddenValues.has(normalizedValue)) {
+        return false;
+    }
+
+    const hiddenExact = new Set([
+        'url',
+        'creator',
+        'created_t',
+        'created_datetime',
+        'last_modified_t',
+        'last_modified_datetime',
+        'last_modified_by',
+        'last_updated_t',
+        'last_updated_datetime',
+        'states',
+        'states_tags',
+        'states_en',
+        'data_quality_errors_tags',
+        'popularity_tags',
+        'completeness',
+        'owners',
+        'owner',
+        'unique_scans_n',
+    ]);
+
+    if (hiddenExact.has(normalized)) {
+        return false;
+    }
+
+    const hiddenPrefixes = [
+        'image_',
+    ];
+
+    if (hiddenPrefixes.some(prefix => normalized.startsWith(prefix))) {
+        return false;
+    }
+
+    const hiddenContains = [
+        '_tags',
+        '_en',
+        '_datetime',
+        'debug',
+        'unknown',
+        'selected',
+        'uploaded',
+        'to_be_',
+        'to-be-',
+    ];
+
+    if (hiddenContains.some(part => normalized.includes(part))) {
+        return false;
+    }
+
+    return true;
+}
+
+function getFieldGroup(key) {
+    const normalized = String(key || '').toLowerCase();
+
+    if ([
+        'code', 'url', 'product_name', 'abbreviated_product_name', 'generic_name', 'quantity',
+        'brands', 'brands_tags', 'brands_en', 'categories', 'categories_tags', 'categories_en',
+        'main_category', 'main_category_en', 'countries', 'countries_tags', 'countries_en',
+        'stores', 'purchase_places', 'owner', 'brand_owner'
+    ].includes(normalized)) {
+        return 'Allgemein';
+    }
+
+    if (normalized.startsWith('image_') || normalized.endsWith('_url') || normalized.includes('photo')) {
+        return 'Bilder & Links';
+    }
+
+    if (
+        normalized.includes('ingredient') ||
+        normalized.includes('allergen') ||
+        normalized.includes('trace') ||
+        normalized.includes('additive') ||
+        normalized.includes('packaging') ||
+        normalized.includes('label') ||
+        normalized.includes('origin')
+    ) {
+        return 'Inhalt & Herkunft';
+    }
+
+    if (
+        normalized.includes('nutri') ||
+        normalized.includes('nova') ||
+        normalized.includes('energy') ||
+        normalized.includes('fat') ||
+        normalized.includes('sugar') ||
+        normalized.includes('salt') ||
+        normalized.includes('protein') ||
+        normalized.includes('fiber') ||
+        normalized.includes('sodium') ||
+        normalized.includes('vitamin') ||
+        normalized.includes('mineral') ||
+        normalized.includes('calcium') ||
+        normalized.includes('iron') ||
+        normalized.includes('magnesium') ||
+        normalized.includes('zinc') ||
+        normalized.includes('potassium') ||
+        normalized.endsWith('_100g')
+    ) {
+        return 'Nährwerte & Analyse';
+    }
+
+    return null;
+}
+
+function renderFieldList(entries) {
+    const list = document.createElement('dl');
+    list.className = 'barcode-field-list';
+
+    entries.forEach(([key, value]) => {
+        if (!shouldDisplayField(key, value)) return;
+
+        const term = document.createElement('dt');
+        term.textContent = humanizeKey(key);
+
+        const description = document.createElement('dd');
+        description.textContent = String(value);
+
+        list.append(term, description);
+    });
+
+    return list;
+}
+
+function groupFields(fields) {
+    const groups = new Map();
+
+    Object.entries(fields || {}).forEach(([key, value]) => {
+        if (!shouldDisplayField(key, value)) return;
+        const groupName = getFieldGroup(key);
+        if (!groupName) return;
+        const current = groups.get(groupName) || [];
+        current.push([key, value]);
+        groups.set(groupName, current);
+    });
+
+    return groups;
+}
+
+function renderGroupedFields(fields) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'barcode-groups';
+
+    groupFields(fields).forEach((entries, groupName) => {
+        if (entries.length === 0) return;
+
+        const section = document.createElement('section');
+        section.className = 'barcode-group';
+
+        const title = document.createElement('h4');
+        title.className = 'barcode-group-title';
+        title.textContent = groupName;
+
+        section.append(title, renderFieldList(entries));
+        wrapper.appendChild(section);
+    });
+
+    return wrapper;
 }
 
 function renderProductDetails(payload) {
     if (!barcodeResult) return;
     barcodeResult.replaceChildren();
 
-    const product = payload.product || {};
-    const sources = payload.sources || [];
-    let fields = {};
-    if (sources.length > 0) {
-        fields = sources[0].fields || {};
-    }
+    const summary = document.createElement('section');
+    summary.className = 'barcode-summary-card';
 
-    const card = createElement('section', 'barcode-summary-card');
-    const headerRow = createElement('div', 'p-product-header');
-    
-    if (fields.image_small_url) {
-        const imgWrap = createElement('div', 'p-product-image-wrapper');
-        const img = createElement('img', 'p-product-image');
-        img.src = fields.image_small_url;
-        img.alt = fields.product_name || 'Produktbild';
-        imgWrap.appendChild(img);
-        headerRow.appendChild(imgWrap);
-    }
-    
-    const titleCol = createElement('div', 'p-product-title-col');
-    if (fields.brands || product.brands) {
-        titleCol.appendChild(createElement('div', 'p-product-brand', fields.brands || product.brands));
-    }
-    titleCol.appendChild(createElement('h2', 'p-product-title', fields.product_name || product.product_name || `Artikel ${product.barcode}`));
-    if (fields.quantity || product.quantity) {
-        titleCol.appendChild(createElement('div', 'p-product-quantity', fields.quantity || product.quantity));
-    }
-    titleCol.appendChild(createElement('div', 'barcode-summary-eyebrow', `Barcode: ${product.barcode}`));
-    headerRow.appendChild(titleCol);
-    card.appendChild(headerRow);
-    
-    if (fields.nutriscore_grade || fields.nova_group || fields.labels) {
-        const badgeRow = createElement('div', 'p-badge-row');
-        
-        if (fields.nutriscore_grade) {
-            const ns = String(fields.nutriscore_grade).toLowerCase();
-            const badge = createElement('div', `p-badge p-badge-nutri p-badge-nutri-${ns}`, `Nutri-Score ${ns.toUpperCase()}`);
-            badgeRow.appendChild(badge);
-        }
-        
-        if (fields.nova_group) {
-            const badge = createElement('div', 'p-badge p-badge-nova', `NOVA ${fields.nova_group}`);
-            badgeRow.appendChild(badge);
-        }
-        
-        if (fields.labels) {
-            const rawLabels = String(fields.labels).split(',');
-            rawLabels.slice(0, 3).forEach(lbl => {
-                const text = lbl.trim().replace(/^en:/i, '').replace(/^de:/i, '');
-                if (text) badgeRow.appendChild(createElement('div', 'p-badge p-badge-label', text));
-            });
-        }
-        
-        card.appendChild(badgeRow);
-    }
-    
-    if (fields.energy_kcal_100g || fields['energy-kcal_100g'] || fields.fat_100g) {
-        const macros = {
-            'Brennwert (kcal)': fields['energy-kcal_100g'] || fields.energy_kcal_100g,
-            'Fett': fields.fat_100g,
-            '  davon gesättigte Fettsäuren': fields['saturated-fat_100g'] || fields.saturated_fat_100g,
-            'Kohlenhydrate': fields.carbohydrates_100g,
-            '  davon Zucker': fields.sugars_100g,
-            'Ballaststoffe': fields.fiber_100g,
-            'Eiweiß': fields.proteins_100g,
-            'Salz': fields.salt_100g
-        };
-        
-        const table = createElement('table', 'p-nutrition-table');
-        const thead = createElement('thead');
-        const trHead = createElement('tr');
-        trHead.appendChild(createElement('th', '', 'Nährwerte'));
-        trHead.appendChild(createElement('th', '', 'pro 100g'));
-        thead.appendChild(trHead);
-        table.appendChild(thead);
-        
-        const tbody = createElement('tbody');
-        Object.entries(macros).forEach(([name, val]) => {
-            if (!val && val !== 0 && val !== '0') return;
-            const tr = createElement('tr');
-            tr.appendChild(createElement('td', '', name));
-            tr.appendChild(createElement('td', '', `${val}${name.includes('kcal') ? '' : ' g'}`));
-            tbody.appendChild(tr);
-        });
-        table.appendChild(tbody);
-        card.appendChild(table);
-    }
-    
-    if (fields.ingredients_text) {
-        const ingrSec = createElement('div', 'p-ingredients-sec');
-        ingrSec.appendChild(createElement('h3', 'p-section-title', 'Zutaten'));
-        ingrSec.appendChild(createElement('p', 'p-ingredients-text', fields.ingredients_text));
-        card.appendChild(ingrSec);
-    }
-    
-    if (fields.allergens) {
-        const allg = createElement('div', 'p-allergens-warn', `Allergene: ${String(fields.allergens).replace(/^en:/gi, '').replace(/,/g, ', ')}`);
-        card.appendChild(allg);
-    }
+    const eyebrow = document.createElement('div');
+    eyebrow.className = 'barcode-summary-eyebrow';
+    eyebrow.textContent = payload.product.source || 'lokal';
 
-    barcodeResult.appendChild(card);
+    const title = document.createElement('h2');
+    title.className = 'barcode-summary-title';
+    title.textContent = payload.product.product_name || `Artikel ${payload.product.barcode}`;
+
+    const meta = document.createElement('div');
+    meta.className = 'barcode-summary-meta';
+    meta.textContent = [
+        payload.product.barcode ? `Barcode ${payload.product.barcode}` : null,
+        payload.product.brands || null,
+        payload.product.quantity || null,
+    ].filter(Boolean).join(' • ');
+
+    summary.append(eyebrow, title, meta);
+    barcodeResult.appendChild(summary);
+
+    (payload.sources || []).forEach(source => {
+        const card = document.createElement('section');
+        card.className = 'barcode-source-card';
+
+        const heading = document.createElement('h3');
+        heading.className = 'barcode-source-title';
+        heading.textContent = source.dataset;
+
+        card.appendChild(heading);
+        card.appendChild(renderGroupedFields(source.fields || {}));
+        barcodeResult.appendChild(card);
+    });
 }
 
 async function loadBarcodeDetails(barcode) {
