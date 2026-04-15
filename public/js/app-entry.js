@@ -1,5 +1,5 @@
 import { registerAppEventHandlers } from './app-events.js';
-import { initApp, registerServiceWorker, registerUpdateReloadHandler, initWebSocketServer } from './app-init.js';
+import { initApp, registerServiceWorker, initWebSocketServer } from './app-init.js';
 import { createAppRuntime } from './app-runtime.js';
 import { readInitialPreferences } from './state.js';
 import { applyThemePreferences } from './theme.js';
@@ -113,6 +113,5 @@ export function startApp(version) {
             await loadItems(undefined, { useCache: false });
         });
         await registerServiceWorker(version);
-        registerUpdateReloadHandler();
     })();
 }

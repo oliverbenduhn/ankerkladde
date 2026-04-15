@@ -53,28 +53,16 @@ export async function registerServiceWorker(version) {
     }
 
     try {
-        const reg = await navigator.serviceWorker.register(`${basePath}sw.js?v=${encodeURIComponent(version)}`);
-        reg.addEventListener('updatefound', () => {
-            const worker = reg.installing;
-            worker?.addEventListener('statechange', () => {
-                if (worker.state === 'installed' && navigator.serviceWorker.controller) {
-                    if (updateBannerEl) {
-                        updateBannerEl.hidden = false;
-                    }
-                }
-            });
+        await navigator.serviceWorker.register(`${basePath}sw.js?v=${encodeURIComponent(version)}`);
+
+        // Wenn ein neuer SW die Kontrolle übernimmt (skipWaiting läuft automatisch
+        // beim Install), die Seite sofort neu laden — kein manueller Banner nötig.
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+            window.location.reload();
         });
     } catch {
         // SW registration failure is non-fatal
     }
-}
-
-export function registerUpdateReloadHandler() {
-    document.getElementById('updateReloadBtn')?.addEventListener('click', async () => {
-        const reg = await navigator.serviceWorker.getRegistration();
-        reg?.waiting?.postMessage({ type: 'SKIP_WAITING' });
-        window.location.reload();
-    });
 }
 
 export function initWebSocketServer(onUpdate) {
