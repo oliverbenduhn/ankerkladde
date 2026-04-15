@@ -109,8 +109,15 @@ export function startApp(version) {
         });
 
         initWebSocketServer(async () => {
-            await loadCategories();
-            await loadItems(undefined, { useCache: false });
+            console.log('[WS] update received, reloading items...');
+            try {
+                await loadCategories();
+                console.log('[WS] categories loaded, loading items...');
+                await loadItems(undefined, { useCache: false });
+                console.log('[WS] items loaded and rendered');
+            } catch (err) {
+                console.error('[WS] update failed:', err);
+            }
         });
         await registerServiceWorker(version);
     })();
