@@ -79,24 +79,32 @@ export function initWebSocketServer(onUpdate) {
 
         const ws = new WebSocket(wsUrl);
 
+        ws.onopen = () => {
+            console.log('[WS] connected to', wsUrl);
+        };
+
         ws.onmessage = (event) => {
             try {
                 const data = JSON.parse(event.data);
+                console.log('[WS] message received:', data.action);
                 if (data.action === 'update') {
                     clearTimeout(debounceTimer);
                     debounceTimer = setTimeout(() => {
                         onUpdate();
                     }, 600);
                 }
-            } catch (e) {}
+            } catch (e) {
+                console.error('[WS] parse error:', e);
+            }
         };
 
-        ws.onerror = () => {
-            // Silent error handling for WebSocket connection failures
+        ws.onerror = (err) => {
+            console.warn('[WS] error', err);
             ws.close();
         };
 
         ws.onclose = () => {
+            console.log('[WS] disconnected, reconnecting in 5s...');
             setTimeout(connect, 5000); // Reconnect
         };
     }
