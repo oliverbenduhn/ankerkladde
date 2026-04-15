@@ -143,6 +143,48 @@ export function createEditorController(deps) {
         if (noteEditorEl) noteEditorEl.hidden = true;
     }
 
+    function syncEditorContent() {
+        const editor = getTiptapEditor();
+        if (!editor || state.noteEditorId === null) return;
+
+        const item = deps.getItemById(state.noteEditorId);
+        if (!item) return;
+
+        const currentHtml = editor.getHTML();
+        if (currentHtml === item.content) return; // No changes to editor required
+
+        state.noteEditorUpdatedAt = item.updated_at || '';
+
+        // Update the title input if it changed and user isn't currently editing it
+        if (noteTitleInput && noteTitleInput.value !== item.name) {
+            if (document.activeElement !== noteTitleInput && item.name !== undefined) {
+                noteTitleInput.value = item.name;
+            }
+        }
+
+        let from = 0;
+        let to = 0;
+        try {
+            // Attempt to read current selection
+            from = editor.state.selection.from;
+            to = editor.state.selection.to;
+        } catch (e) {}
+        
+        // This replaces the content without triggering onUpdate (emitUpdate: false)
+        editor.commands.setContent(item.content || '', false);
+
+        // Try to restore selection safely
+        if (editor.isFocused || from > 0 || to > 0) {
+            try {
+                editor.commands.setTextSelection({ from, to });
+            } catch (e) {
+                // Ignore out of bounds
+            }
+        }
+        
+        updateNoteToolbar();
+    }
+
     function handleToolbarClick(event) {
         const button = event.target.closest('button[data-cmd]');
         const editor = getTiptapEditor();
@@ -185,5 +227,6 @@ export function createEditorController(deps) {
         openNoteEditor,
         openNoteEditorWithNavigation,
         scheduleNoteSave,
+        syncEditorContent,
     };
 }
