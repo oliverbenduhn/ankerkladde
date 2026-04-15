@@ -1,4 +1,4 @@
-import { basePath, csrfToken, normalizePreferences } from './state.js';
+import { LOCAL_PREF_KEYS, basePath, csrfToken, normalizePreferences, readLocalPrefs, saveLocalPrefs } from './state.js';
 
 export function appUrl(path) {
     return new URL(path, `${window.location.origin}${basePath}`).toString();
@@ -94,6 +94,12 @@ export function normalizeItem(item) {
 }
 
 export async function persistPreferences(patch, setUserPreferences, applyThemePreferences) {
+    // Gerätespezifische Prefs sofort in localStorage sichern
+    const localPatch = Object.fromEntries(
+        Object.entries(patch).filter(([k]) => LOCAL_PREF_KEYS.includes(k))
+    );
+    if (Object.keys(localPatch).length > 0) saveLocalPrefs(localPatch);
+
     const body = new URLSearchParams();
     Object.entries(patch).forEach(([key, value]) => {
         body.set(key, String(value));
@@ -101,7 +107,8 @@ export async function persistPreferences(patch, setUserPreferences, applyThemePr
 
     const payload = await api('preferences', { method: 'POST', body });
     if (payload.preferences) {
-        const normalized = normalizePreferences(payload.preferences);
+        // Server-Antwort mit localStorage-Werten mergen: lokale Prefs nie vom Server überschreiben
+        const normalized = normalizePreferences({ ...payload.preferences, ...readLocalPrefs() });
         setUserPreferences(normalized);
         applyThemePreferences(normalized);
     }

@@ -31,7 +31,7 @@ export const DEFAULT_PREFERENCES = {
 export const LOCAL_PREF_KEYS = ['mode', 'last_category_id'];
 const LOCAL_PREFS_STORAGE_KEY = 'ankerkladde_local_prefs';
 
-function readLocalPrefs() {
+export function readLocalPrefs() {
     try {
         const raw = localStorage.getItem(LOCAL_PREFS_STORAGE_KEY);
         return raw ? JSON.parse(raw) : {};
