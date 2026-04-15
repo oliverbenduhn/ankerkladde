@@ -50,17 +50,31 @@ function respond(int $status, array $payload): never
 {
     if (in_array($_SERVER['REQUEST_METHOD'], ['POST', 'PUT', 'PATCH', 'DELETE']) && $status >= 200 && $status < 300) {
         $wsUrl = getenv('WS_NOTIFY_URL') ?: 'http://127.0.0.1:3000/notify';
-        $ch = curl_init($wsUrl);
-        if ($ch !== false) {
-            curl_setopt_array($ch, [
-                CURLOPT_CUSTOMREQUEST => 'POST',
-                CURLOPT_POSTFIELDS => json_encode(['action' => 'update']),
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_TIMEOUT_MS => 150,
-                CURLOPT_HTTPHEADER => ['Content-Type: application/json']
+        if (function_exists('curl_init')) {
+            $ch = curl_init($wsUrl);
+            if ($ch !== false) {
+                curl_setopt_array($ch, [
+                    CURLOPT_CUSTOMREQUEST => 'POST',
+                    CURLOPT_POSTFIELDS => json_encode(['action' => 'update']),
+                    CURLOPT_RETURNTRANSFER => true,
+                    CURLOPT_TIMEOUT_MS => 150,
+                    CURLOPT_NOSIGNAL => true,
+                    CURLOPT_HTTPHEADER => ['Content-Type: application/json']
+                ]);
+                curl_exec($ch);
+                curl_close($ch);
+            }
+        } else {
+            $context = stream_context_create([
+                'http' => [
+                    'method' => 'POST',
+                    'header' => 'Content-Type: application/json',
+                    'content' => json_encode(['action' => 'update']),
+                    'timeout' => 0.15,
+                    'ignore_errors' => true
+                ]
             ]);
-            curl_exec($ch);
-            curl_close($ch);
+            @file_get_contents($wsUrl, false, $context);
         }
     }
 
