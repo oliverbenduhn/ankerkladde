@@ -1004,6 +1004,27 @@ function cleanupDuplicateLegacyCategories(PDO $db): void
     }
 }
 
+function upsertScannedProduct(PDO $db, string $barcode, array $data, bool $confirmed): void
+{
+    $stmt = $db->prepare(
+        'INSERT INTO scanned_products (barcode, product_name, brands, quantity, confirmed, scan_count, updated_at)
+         VALUES (:barcode, :product_name, :brands, :quantity, :confirmed, 0, CURRENT_TIMESTAMP)
+         ON CONFLICT(barcode) DO UPDATE SET
+             product_name = :product_name,
+             brands       = :brands,
+             quantity     = :quantity,
+             confirmed    = MAX(confirmed, :confirmed),
+             updated_at   = CURRENT_TIMESTAMP'
+    );
+    $stmt->execute([
+        ':barcode'      => $barcode,
+        ':product_name' => (string) ($data['product_name'] ?? ''),
+        ':brands'       => (string) ($data['brands'] ?? ''),
+        ':quantity'     => (string) ($data['quantity'] ?? ''),
+        ':confirmed'    => $confirmed ? 1 : 0,
+    ]);
+}
+
 function getDatabase(): PDO
 {
     static $db = null;
@@ -1277,6 +1298,19 @@ function getDatabase(): PDO
     if (!in_array('source', $productCatalogColumnNames, true)) {
         $db->exec("ALTER TABLE product_catalog ADD COLUMN source TEXT NOT NULL DEFAULT ''");
     }
+
+    $db->exec(
+        "CREATE TABLE IF NOT EXISTS scanned_products (
+            barcode      TEXT PRIMARY KEY,
+            product_name TEXT NOT NULL DEFAULT '',
+            brands       TEXT NOT NULL DEFAULT '',
+            quantity     TEXT NOT NULL DEFAULT '',
+            confirmed    INTEGER NOT NULL DEFAULT 0 CHECK(confirmed IN (0, 1)),
+            scan_count   INTEGER NOT NULL DEFAULT 0,
+            created_at   TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at   TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )"
+    );
 
     $categoryColumns = $db->query('PRAGMA table_info(categories)')->fetchAll();
     $categoryColumnNames = array_map(static fn(array $column): string => $column['name'], $categoryColumns);
