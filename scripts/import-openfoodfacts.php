@@ -4,6 +4,12 @@ declare(strict_types=1);
 require dirname(__DIR__) . '/db.php';
 
 const REQUIRED_COLUMNS = ['code', 'product_name', 'brands', 'quantity'];
+const ALLOWED_COLUMNS = [
+    'code', 'product_name', 'brands', 'quantity', 'image_small_url',
+    'ingredients_text', 'allergens', 'labels', 'nutriscore_grade', 'nova_group',
+    'energy-kcal_100g', 'fat_100g', 'saturated-fat_100g', 'carbohydrates_100g',
+    'sugars_100g', 'fiber_100g', 'proteins_100g', 'salt_100g'
+];
 const IMPORT_BATCH_SIZE = 5000;
 const VALID_DATASETS = ['food', 'beauty', 'petfood', 'products'];
 
@@ -175,10 +181,17 @@ if (!is_array($header) || $header === []) {
 }
 
 $header = array_map(static fn($value): string => (string) $value, $header);
+
+// Filter the header to keep only allowed columns
+$activeColumns = [];
 $columnIndex = [];
 foreach ($header as $index => $name) {
-    $columnIndex[$name] = (int) $index;
+    if (in_array($name, ALLOWED_COLUMNS, true)) {
+        $activeColumns[] = $name;
+        $columnIndex[$name] = (int) $index;
+    }
 }
+$header = $activeColumns;
 
 foreach (REQUIRED_COLUMNS as $columnName) {
     if (!array_key_exists($columnName, $columnIndex)) {
@@ -241,7 +254,11 @@ $imported = 0;
 $skipped = 0;
 
 while (($row = readTsvRow($handle)) !== null) {
-    $normalizedRow = buildNormalizedRow($header, $row);
+    $normalizedRow = [];
+    foreach ($columnIndex as $colName => $colIdx) {
+        $normalizedRow[$colName] = (string) ($row[$colIdx] ?? '');
+    }
+    
     $barcode = preg_replace('/\D+/', '', (string) ($normalizedRow['code'] ?? '')) ?? '';
     if ($barcode === '') {
         $skipped++;
