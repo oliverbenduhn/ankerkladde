@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION = 'v3.0.5';
+const VERSION = 'v3.0.6';
 const STATIC_CACHE = `ankerkladde-static-${VERSION}`;
 const RUNTIME_CACHE = `ankerkladde-runtime-${VERSION}`;
 const SHARE_CACHE = 'ankerkladde-share-target';
@@ -10,32 +10,32 @@ const API_URL = new URL('api.php', APP_SCOPE_URL);
 
 const APP_SHELL_ASSET_URLS = [
     'offline.html',
-    'style.css?v=3.0.5',
-    'js/main.js?v=3.0.5',
-    'js/api.js?v=3.0.5',
-    'js/state.js?v=3.0.5',
-    'js/ui.js?v=3.0.5',
-    'js/utils.js?v=3.0.5',
-    'js/shared.js?v=3.0.5',
-    'js/theme.js?v=3.0.5',
-    'js/navigation.js?v=3.0.5',
-    'js/router.js?v=3.0.5',
-    'js/items.js?v=3.0.5',
-    'js/scanner.js?v=3.0.5',
-    'js/editor.js?v=3.0.5',
-    'js/swipe.js?v=3.0.5',
-    'js/reorder.js?v=3.0.5',
-    'js/app-ui.js?v=3.0.5',
-    'js/app-events.js?v=3.0.5',
-    'js/app-init.js?v=3.0.5',
-    'js/app-runtime.js?v=3.0.5',
-    'js/app-entry.js?v=3.0.5',
-    'js/items-view.js?v=3.0.5',
-    'js/items-actions.js?v=3.0.5',
-    'js/tabs-view.js?v=3.0.5',
-    'js/helpers.js?v=3.0.5',
-    'vendor/zxing/browser-0.1.5.js?v=3.0.5',
-    'manifest.php?v=3.0.5',
+    'style.css?v=3.0.6',
+    'js/main.js?v=3.0.6',
+    'js/api.js?v=3.0.6',
+    'js/state.js?v=3.0.6',
+    'js/ui.js?v=3.0.6',
+    'js/utils.js?v=3.0.6',
+    'js/shared.js?v=3.0.6',
+    'js/theme.js?v=3.0.6',
+    'js/navigation.js?v=3.0.6',
+    'js/router.js?v=3.0.6',
+    'js/items.js?v=3.0.6',
+    'js/scanner.js?v=3.0.6',
+    'js/editor.js?v=3.0.6',
+    'js/swipe.js?v=3.0.6',
+    'js/reorder.js?v=3.0.6',
+    'js/app-ui.js?v=3.0.6',
+    'js/app-events.js?v=3.0.6',
+    'js/app-init.js?v=3.0.6',
+    'js/app-runtime.js?v=3.0.6',
+    'js/app-entry.js?v=3.0.6',
+    'js/items-view.js?v=3.0.6',
+    'js/items-actions.js?v=3.0.6',
+    'js/tabs-view.js?v=3.0.6',
+    'js/helpers.js?v=3.0.6',
+    'vendor/zxing/browser-0.1.5.js?v=3.0.6',
+    'manifest.php?v=3.0.6',
     'icon.php?size=192&theme=hafenblau&v=2.0.55',
     'icon.php?size=512&theme=hafenblau&v=2.0.55',
     'icons/icon.svg',
@@ -46,8 +46,20 @@ const APP_SHELL_ASSET_URLS = [
 self.addEventListener('install', event => {
     event.waitUntil(
         caches.open(STATIC_CACHE)
-            .then(cache => cache.addAll(APP_SHELL_ASSET_URLS))
+            .then(cache => {
+                // Try to cache all assets, but don't fail if some are unreachable
+                return Promise.allSettled(
+                    APP_SHELL_ASSET_URLS.map(url => cache.add(url))
+                ).then(() => {
+                    console.log('[SW] Precache complete (some assets may have failed)');
+                });
+            })
             .then(() => self.skipWaiting())
+            .catch(err => {
+                console.warn('[SW] Install failed:', err);
+                // Still skip waiting even if precache failed - offline page is cached
+                return self.skipWaiting();
+            })
     );
 });
 
