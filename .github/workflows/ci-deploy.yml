@@ -1,4 +1,4 @@
-name: Build and Deploy Ankerkladde
+name: CI Deploy
 
 on:
   push:
