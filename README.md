@@ -264,3 +264,4 @@ ssh ansible@web "tail -f /var/log/ankerkladde/deploy.log"
 
 - PHP 8.1+ mit `pdo_sqlite` und `mbstring`
 - Schreibrechte für den Webserver-Prozess auf `data/` (nicht auf den Webroot)
+# Dummy update
