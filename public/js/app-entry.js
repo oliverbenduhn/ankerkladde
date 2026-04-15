@@ -109,7 +109,7 @@ export function startApp(version) {
         });
 
         initWebSocketServer(() => {
-            loadItems();
+            loadItems(undefined, { useCache: false });
             loadCategories();
         });
         await registerServiceWorker(version);
