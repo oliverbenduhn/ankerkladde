@@ -1212,6 +1212,14 @@ try {
                 ':user_id' => $userId,
             ]);
 
+            if ($barcode !== '') {
+                $db->prepare(
+                    'UPDATE scanned_products
+                     SET scan_count = scan_count + 1, updated_at = CURRENT_TIMESTAMP
+                     WHERE barcode = :barcode'
+                )->execute([':barcode' => $barcode]);
+            }
+
             respond(201, [
                 'message' => 'Artikel hinzugefügt.',
                 'id' => (int) $db->lastInsertId(),
@@ -1656,28 +1664,64 @@ try {
                 respond(422, ['error' => 'Ungültiger Barcode.']);
             }
 
+            // 1. scanned_products — Single Point of Truth
             $stmt = $db->prepare(
-                'SELECT barcode, product_name, brands, quantity, source
+                'SELECT barcode, product_name, brands, quantity
+                 FROM scanned_products
+                 WHERE barcode = :barcode
+                 LIMIT 1'
+            );
+            $stmt->execute([':barcode' => $barcode]);
+            $scanned = $stmt->fetch();
+
+            if (is_array($scanned)) {
+                respond(200, [
+                    'product' => [
+                        'barcode'      => (string) ($scanned['barcode'] ?? ''),
+                        'product_name' => (string) ($scanned['product_name'] ?? ''),
+                        'brands'       => (string) ($scanned['brands'] ?? ''),
+                        'quantity'     => (string) ($scanned['quantity'] ?? ''),
+                        'source'       => 'local',
+                    ],
+                ]);
+            }
+
+            // 2. product_catalog — OpenFoodFacts-Fallback
+            $stmt = $db->prepare(
+                'SELECT barcode, product_name, brands, quantity
                  FROM product_catalog
                  WHERE barcode = :barcode
                  LIMIT 1'
             );
             $stmt->execute([':barcode' => $barcode]);
-            $product = $stmt->fetch();
+            $catalog = $stmt->fetch();
 
-            if (!is_array($product)) {
-                respond(404, ['error' => 'Produkt nicht gefunden.']);
-            }
+            if (is_array($catalog)) {
+                upsertScannedProduct($db, $barcode, [
+                    'product_name' => (string) ($catalog['product_name'] ?? ''),
+                    'brands'       => (string) ($catalog['brands'] ?? ''),
+                    'quantity'     => (string) ($catalog['quantity'] ?? ''),
+                ], false);
 
-            respond(200, [
-                'product' => [
-                    'barcode' => (string) ($product['barcode'] ?? ''),
-                    'product_name' => (string) ($product['product_name'] ?? ''),
-                    'brands' => (string) ($product['brands'] ?? ''),
-                    'quantity' => (string) ($product['quantity'] ?? ''),
-                    'source' => (string) ($product['source'] ?? ''),
+                respond(200, [
+                    'product' => [
+                        'barcode'      => (string) ($catalog['barcode'] ?? ''),
+                        'product_name' => (string) ($catalog['product_name'] ?? ''),
+                        'brands'       => (string) ($catalog['brands'] ?? ''),
+                        'quantity'     => (string) ($catalog['quantity'] ?? ''),
+                        'source'       => 'catalog',
                     ],
                 ]);
+            }
+
+            // 3. Kein Treffer — leeren Eintrag anlegen, damit der Barcode bekannt ist
+            upsertScannedProduct($db, $barcode, [
+                'product_name' => '',
+                'brands'       => '',
+                'quantity'     => '',
+            ], false);
+
+            respond(404, ['error' => 'Produkt nicht gefunden.']);
 
         case 'fetch_metadata':
             requireMethod('GET');
