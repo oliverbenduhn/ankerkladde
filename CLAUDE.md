@@ -163,8 +163,48 @@ Version is centralized in `public/version.php` (returns string like `'2.0.34'`).
 | `ANKERKLADDE_CANONICAL_HOST` | Production domain for redirect enforcement | `ankerkladde.benduhn.de` |
 | `EINKAUF_TRUST_PROXY_HEADERS` | Trust X-Forwarded-* headers | Auto (true if request from 127.0.0.1) |
 
-| Variable | Purpose | Default |
-|---|---|---|
-| `EINKAUF_DATA_DIR` | Data/DB/uploads directory | `<project-root>/data` |
-| `ANKERKLADDE_CANONICAL_HOST` | Production domain for redirect enforcement | `ankerkladde.benduhn.de` |
-| `EINKAUF_TRUST_PROXY_HEADERS` | Trust X-Forwarded-* headers | Auto (true if request from 127.0.0.1) |
+## Working Process
+
+Work in small, isolated release steps — one clearly scoped change at a time.
+
+### Before each step
+
+State in 1–2 sentences:
+- what is being changed now
+- why this step comes next
+
+Then implement immediately — no planning without action.
+
+### After every single step
+
+1. Bump the version in `public/version.php` (patch: `2.0.x`)
+2. Run syntax checks and smoke test:
+   ```bash
+   php -l public/version.php
+   bash scripts/smoke-test.sh
+   ```
+3. Commit with a clear message
+4. Push to GitHub (`git push origin main`)
+5. Report:
+
+```
+Version: vX.Y.Z
+Geändert:
+- Datei / Komponente
+Geprüft:
+- ausgeführte Checks
+GitHub:
+- Branch / Commit
+Bitte jetzt testen:
+- konkrete Testpunkte
+```
+
+Then wait for the user to test and say "weiter" before continuing.
+
+### Rules
+
+- No bundled multi-topic changes. One subject per step.
+- If a bug appears: fix it in isolation, version + commit + push, then continue.
+- Cut changes so the user can test exactly that area.
+- Never discard the user's existing uncommitted changes.
+- Always use the Edit tool (not sed/awk) for file modifications.
