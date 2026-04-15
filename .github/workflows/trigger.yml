@@ -1,0 +1,12 @@
+name: Trigger Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Push detected, would trigger deploy"
