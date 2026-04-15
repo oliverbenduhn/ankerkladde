@@ -1,7 +1,7 @@
 import { registerAppEventHandlers } from './app-events.js';
 import { initApp, registerServiceWorker, initWebSocketServer } from './app-init.js';
 import { createAppRuntime } from './app-runtime.js';
-import { readInitialPreferences } from './state.js';
+import { readInitialPreferences, state } from './state.js';
 import { applyThemePreferences } from './theme.js';
 import { modeToggleBtns } from './ui.js';
 
@@ -109,8 +109,16 @@ export function startApp(version) {
         });
 
         initWebSocketServer(async () => {
-            console.log('[WS] update received, reloading items...');
+            console.log('[WS] update received');
+
+            // Skip reload if note editor is open to avoid overwriting unsaved changes
+            if (state.noteEditorId !== null) {
+                console.log('[WS] note editor open (id:', state.noteEditorId, '), skipping reload');
+                return;
+            }
+
             try {
+                console.log('[WS] reloading items...');
                 await loadCategories();
                 console.log('[WS] categories loaded, loading items...');
                 await loadItems(undefined, { useCache: false });

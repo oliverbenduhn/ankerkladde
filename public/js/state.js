@@ -67,6 +67,7 @@ export const state = {
     editDraft: { name: '', barcode: '', quantity: '', due_date: '', content: '' },
     search: { open: false, query: '', results: [] },
     noteEditorId: null,
+    noteEditorUpdatedAt: '',
     diskFreeBytes: null,
 };
 

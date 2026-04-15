@@ -36,6 +36,14 @@ export function createEditorController(deps) {
     }
 
     async function saveNoteContent(id, title, htmlContent) {
+        // Conflict detection: check if note was modified elsewhere
+        const currentItem = deps.getItemById(id);
+        if (currentItem && state.noteEditorUpdatedAt && currentItem.updated_at !== state.noteEditorUpdatedAt) {
+            setNoteSaveStatus('⚠️ Notiz wurde woanders geändert. Nicht gespeichert.');
+            console.warn('[Note] Conflict detected: updated_at mismatch. Local:', state.noteEditorUpdatedAt, 'Server:', currentItem.updated_at);
+            return;
+        }
+
         await api('update', {
             method: 'POST',
             body: new URLSearchParams({ id: String(id), name: title || 'Ohne Titel', content: htmlContent }),
@@ -84,6 +92,7 @@ export function createEditorController(deps) {
         await closeNoteEditor();
 
         state.noteEditorId = item.id;
+        state.noteEditorUpdatedAt = item.updated_at || '';
         if (noteTitleInput) noteTitleInput.value = item.name || '';
         if (noteEditorEl) noteEditorEl.hidden = false;
         appEl.classList.add('note-editor-open');
@@ -129,6 +138,7 @@ export function createEditorController(deps) {
 
         destroyTipTap();
         state.noteEditorId = null;
+        state.noteEditorUpdatedAt = '';
         appEl.classList.remove('note-editor-open');
         if (noteEditorEl) noteEditorEl.hidden = true;
     }
