@@ -1447,6 +1447,22 @@ try {
                 ':user_id' => $userId,
             ]);
 
+            if ($barcode !== '') {
+                $db->prepare(
+                    'INSERT INTO scanned_products (barcode, product_name, quantity, confirmed, scan_count, updated_at)
+                     VALUES (:barcode, :product_name, :quantity, 1, 0, CURRENT_TIMESTAMP)
+                     ON CONFLICT(barcode) DO UPDATE SET
+                         product_name = excluded.product_name,
+                         quantity     = excluded.quantity,
+                         confirmed    = 1,
+                         updated_at   = CURRENT_TIMESTAMP'
+                )->execute([
+                    ':barcode'      => $barcode,
+                    ':product_name' => $name,
+                    ':quantity'     => $quantity,
+                ]);
+            }
+
             respond(200, ['message' => 'Artikel aktualisiert.']);
 
         case 'delete':
