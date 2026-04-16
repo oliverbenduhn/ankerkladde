@@ -316,6 +316,9 @@ $apiKey = getUserApiKey($db, $userId);
 if ($apiKey === null) {
     $apiKey = setUserApiKey($db, $userId);
 }
+$stmt = $db->prepare('SELECT username FROM users WHERE id = :id LIMIT 1');
+$stmt->execute([':id' => $userId]);
+$currentUser = $stmt->fetch();
 $categories = loadUserCategories($db, $userId);
 $iconOptions = getCategoryIconOptions();
 $currentTab = $_GET['tab'] ?? 'app';
@@ -627,7 +630,7 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
     <details class="settings-section settings-section-secondary settings-accordion">
         <summary>System & Abmelden</summary>
         <div class="settings-block">
-            <p class="settings-copy">Global gespeichert bleiben Modus, ausgeblendete Tabs, letzter aktiver Bereich und Installationshinweis. Zuletzt aktiv: <?= $preferences['last_category_id'] !== null ? (int) $preferences['last_category_id'] : 'keine' ?>.</p>
+            <p class="settings-copy">Angemeldet als <strong><?= htmlspecialchars((string) ($currentUser['username'] ?? 'unbekannt'), ENT_QUOTES, 'UTF-8') ?></strong>.</p>
             <a href="<?= htmlspecialchars(appPath('logout.php'), ENT_QUOTES, 'UTF-8') ?>" class="settings-link">Abmelden</a>
         </div>
     </details>
