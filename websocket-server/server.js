@@ -1,12 +1,57 @@
 const WebSocket = require('ws');
 const http = require('http');
 const { URL } = require('url');
+const fs = require('fs');
+const path = require('path');
 
 const PORT = process.env.WS_PORT || 3000;
 const BIND_HOST = process.env.WS_HOST || '0.0.0.0';
 
 // Map of userId -> Set of WebSocket connections for that user
 const userRooms = new Map();
+
+// Version monitoring
+let currentVersion = null;
+const VERSION_FILE = path.join(__dirname, '../public/version.php');
+
+// Read version from PHP file
+function readVersion() {
+    try {
+        const content = fs.readFileSync(VERSION_FILE, 'utf-8');
+        const match = content.match(/return\s+'([^']+)'/);
+        return match ? match[1] : null;
+    } catch (e) {
+        console.error(`Failed to read version file: ${e.message}`);
+        return null;
+    }
+}
+
+// Initialize version on startup
+currentVersion = readVersion();
+console.log(`[Startup] Current version: ${currentVersion}`);
+
+// Function to broadcast version update to all clients
+function broadcastVersionUpdate(version) {
+    const message = JSON.stringify({ action: 'version_update', version });
+    let count = 0;
+    wss.clients.forEach(client => {
+        if (client.readyState === WebSocket.OPEN) {
+            client.send(message);
+            count++;
+        }
+    });
+    console.log(`[${new Date().toISOString()}] Broadcasted version update (${version}) to ${count} clients.`);
+}
+
+// Monitor version changes every 5 seconds
+setInterval(() => {
+    const newVersion = readVersion();
+    if (newVersion && newVersion !== currentVersion) {
+        console.log(`[${new Date().toISOString()}] Version changed: ${currentVersion} -> ${newVersion}`);
+        currentVersion = newVersion;
+        broadcastVersionUpdate(newVersion);
+    }
+}, 5000);
 
 // Create HTTP server for incoming notifications (from PHP)
 const server = http.createServer((req, res) => {

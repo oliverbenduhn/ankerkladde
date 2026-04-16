@@ -89,7 +89,10 @@ export function initWebSocketServer(onUpdate) {
                 const data = JSON.parse(event.data);
                 console.log('[WS] message received:', data.action);
 
-                if (data.action === 'update' || data.action === 'settings_update') {
+                if (data.action === 'version_update') {
+                    console.log('[WS] new version available:', data.version);
+                    window.location.reload();
+                } else if (data.action === 'update' || data.action === 'settings_update') {
                     clearTimeout(debounceTimer);
                     debounceTimer = setTimeout(() => {
                         onUpdate(data.action);
