@@ -2734,6 +2734,13 @@ button, input { font: inherit; }
     box-shadow: 0 14px 34px rgba(0, 0, 0, 0.18);
     z-index: 250;
     pointer-events: none;
+    animation: toast-fade 3s forwards;
+}
+
+@keyframes toast-fade {
+    0% { opacity: 1; }
+    70% { opacity: 1; }
+    100% { opacity: 0; }
 }
 
 .settings-flash-ok {
