@@ -26,7 +26,12 @@ $error = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $providedToken = $_POST['csrf_token'] ?? null;
 
-    if (!hasValidCsrfToken(is_string($providedToken) ? $providedToken : null)) {
+    $loginAttempts = (int) ($_SESSION['login_attempts'] ?? 0);
+    $lastAttempt = (int) ($_SESSION['login_last_attempt'] ?? 0);
+
+    if ($loginAttempts >= 5 && (time() - $lastAttempt) < 30) {
+        $error = 'Zu viele Anmeldeversuche. Bitte warten Sie einen Moment.';
+    } elseif (!hasValidCsrfToken(is_string($providedToken) ? $providedToken : null)) {
         $error = 'Ungültiges Sicherheits-Token. Bitte Seite neu laden.';
     } else {
         $username = normalizeUsername((string) ($_POST['username'] ?? ''));
@@ -46,9 +51,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 session_regenerate_id(true);
                 $_SESSION['user_id']  = (int) $user['id'];
                 $_SESSION['is_admin'] = (bool) $user['is_admin'];
+                unset($_SESSION['login_attempts'], $_SESSION['login_last_attempt']);
                 header('Location: ' . ($user['is_admin'] ? appPath('admin.php') : appPath('index.php')));
                 exit;
             }
+
+            $_SESSION['login_attempts'] = $loginAttempts + 1;
+            $_SESSION['login_last_attempt'] = time();
+            sleep(1);
 
             $error = 'Ungültige Anmeldedaten.';
         }
