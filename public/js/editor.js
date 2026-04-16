@@ -12,6 +12,9 @@ export function createEditorController(deps) {
         getTiptapEditor,
     } = deps;
 
+    let ydoc = null;
+    let provider = null;
+
     async function waitForTipTap() {
         return new Promise(resolve => {
             if (window.TipTap) {
@@ -97,18 +100,49 @@ export function createEditorController(deps) {
         if (noteEditorEl) noteEditorEl.hidden = false;
         appEl.classList.add('note-editor-open');
 
-        const { Editor, StarterKit, Link } = await waitForTipTap();
+        const { Editor, StarterKit, Link, Y, WebsocketProvider, Collaboration, CollaborationCursor } = await waitForTipTap();
         if (noteEditorBody) noteEditorBody.innerHTML = '';
+
+        ydoc = new Y.Doc();
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}`;
+        
+        provider = new WebsocketProvider(wsUrl, `yjs/note/${item.id}`, ydoc);
+
+        const randId = Math.floor(Math.random() * 10000);
+        const userName = `Gast-${randId}`;
+        const userColor = `hsl(${Math.floor(Math.random() * 360)}, 70%, 50%)`;
 
         const editor = new Editor({
             element: noteEditorBody,
-            extensions: [StarterKit, Link.configure({ openOnClick: false })],
-            content: item.content || '',
+            extensions: [
+                StarterKit.configure({
+                    history: false,
+                }),
+                Link.configure({ openOnClick: false }),
+                Collaboration.configure({
+                    document: ydoc,
+                }),
+                CollaborationCursor.configure({
+                    provider: provider,
+                    user: {
+                        name: userName,
+                        color: userColor,
+                    },
+                }),
+            ],
             onUpdate: () => {
                 updateNoteToolbar();
                 scheduleNoteSave();
             },
             onSelectionUpdate: updateNoteToolbar,
+        });
+
+        // Initialize content if Yjs document is empty after sync
+        provider.on('synced', () => {
+            if (item.content && (editor.getHTML() === '<p></p>' || editor.getHTML() === '')) {
+                editor.commands.setContent(item.content, false);
+            }
         });
 
         setTiptapEditor(editor);
@@ -137,52 +171,20 @@ export function createEditorController(deps) {
         }
 
         destroyTipTap();
+        
+        if (provider) {
+            provider.destroy();
+            provider = null;
+        }
+        if (ydoc) {
+            ydoc.destroy();
+            ydoc = null;
+        }
+
         state.noteEditorId = null;
         state.noteEditorUpdatedAt = '';
         appEl.classList.remove('note-editor-open');
         if (noteEditorEl) noteEditorEl.hidden = true;
-    }
-
-    function syncEditorContent() {
-        const editor = getTiptapEditor();
-        if (!editor || state.noteEditorId === null) return;
-
-        const item = deps.getItemById(state.noteEditorId);
-        if (!item) return;
-
-        const currentHtml = editor.getHTML();
-        if (currentHtml === item.content) return; // No changes to editor required
-
-        state.noteEditorUpdatedAt = item.updated_at || '';
-
-        // Update the title input if it changed and user isn't currently editing it
-        if (noteTitleInput && noteTitleInput.value !== item.name) {
-            if (document.activeElement !== noteTitleInput && item.name !== undefined) {
-                noteTitleInput.value = item.name;
-            }
-        }
-
-        let from = 0;
-        let to = 0;
-        try {
-            // Attempt to read current selection
-            from = editor.state.selection.from;
-            to = editor.state.selection.to;
-        } catch (e) {}
-        
-        // This replaces the content without triggering onUpdate (emitUpdate: false)
-        editor.commands.setContent(item.content || '', false);
-
-        // Try to restore selection safely
-        if (editor.isFocused || from > 0 || to > 0) {
-            try {
-                editor.commands.setTextSelection({ from, to });
-            } catch (e) {
-                // Ignore out of bounds
-            }
-        }
-        
-        updateNoteToolbar();
     }
 
     function handleToolbarClick(event) {
@@ -227,6 +229,5 @@ export function createEditorController(deps) {
         openNoteEditor,
         openNoteEditorWithNavigation,
         scheduleNoteSave,
-        syncEditorContent,
     };
 }
