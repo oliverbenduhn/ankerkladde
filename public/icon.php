@@ -85,14 +85,6 @@ function applyBrandThemeVariant(GdImage $image, string $theme): void
             @imagefilter($image, IMG_FILTER_COLORIZE, -18, 10, 48, 18);
             @imagefilter($image, IMG_FILTER_CONTRAST, -4);
             break;
-        case 'meeresgruen':
-            @imagefilter($image, IMG_FILTER_COLORIZE, 30, -10, 48, 16);
-            @imagefilter($image, IMG_FILTER_CONTRAST, -4);
-            break;
-        case 'lavendelsegel':
-            @imagefilter($image, IMG_FILTER_COLORIZE, -18, 48, 10, 18);
-            @imagefilter($image, IMG_FILTER_CONTRAST, -4);
-            break;
         case 'nachtwache':
             @imagefilter($image, IMG_FILTER_BRIGHTNESS, -12);
             @imagefilter($image, IMG_FILTER_COLORIZE, -30, -10, 36, 24);
@@ -103,19 +95,12 @@ function applyBrandThemeVariant(GdImage $image, string $theme): void
             @imagefilter($image, IMG_FILTER_COLORIZE, 22, 10, -12, 18);
             @imagefilter($image, IMG_FILTER_CONTRAST, -5);
             break;
-        case 'mangrove':
-            @imagefilter($image, IMG_FILTER_BRIGHTNESS, -8);
-            @imagefilter($image, IMG_FILTER_COLORIZE, -20, 40, 10, 18);
-            @imagefilter($image, IMG_FILTER_CONTRAST, -6);
-            break;
-        case 'abyssus':
-            @imagefilter($image, IMG_FILTER_BRIGHTNESS, -10);
-            @imagefilter($image, IMG_FILTER_COLORIZE, 10, -20, 45, 22);
-            @imagefilter($image, IMG_FILTER_CONTRAST, -8);
-            break;
         case 'parchment':
+        case 'meeresgruen':
+        case 'lavendelsegel':
+        case 'mangrove':
+        case 'abyssus':
         default:
-            @imagefilter($image, IMG_FILTER_COLORIZE, 4, 0, -6, 6);
             break;
     }
 }
