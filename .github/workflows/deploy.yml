@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  deploy:
+  deploy-vps:
     runs-on: ubuntu-latest
     steps:
       - name: Deploy Docker containers to VPS
@@ -16,17 +16,15 @@ jobs:
           chmod 600 ~/.ssh/vps_key
           
           ssh -i ~/.ssh/vps_key -o StrictHostKeyChecking=no ansible@91.98.42.99 << 'DEPLOY'
-          cd /tmp && git clone https://github.com/oliverbenduhn/ankerkladde.git deploy-temp
+          cd /tmp && git clone https://github.com/oliverbenduhn/ankerkladde.git deploy-temp || cd deploy-temp && git pull
           cd deploy-temp
           docker build -t ankerkladde-app .
           docker build -t ankerkladde-ws ./websocket-server
-          rm ~/.ssh/vps_key
-          echo "Deployment complete"
           DEPLOY
           
           rm ~/.ssh/vps_key
 
-  update-web:
+  deploy-web:
     runs-on: ubuntu-latest
     steps:
       - name: Update ankerkladde on web server
@@ -37,8 +35,8 @@ jobs:
           echo "$WEB_SSH_KEY" > ~/.ssh/web_key
           chmod 600 ~/.ssh/web_key
           
-          ssh -i ~/.ssh/web_key -o StrictHostKeyChecking=no komodo@192.168.50.10 << 'DEPLOY'
-          cd /opt/komodo/stacks/ankerkladde
+          ssh -i ~/.ssh/web_key -o StrictHostKeyChecking=no ansible@192.168.50.10 << 'DEPLOY'
+          cd /var/www/projects/ankerkladde
           git pull origin main
           docker-compose up -d --build
           DEPLOY
