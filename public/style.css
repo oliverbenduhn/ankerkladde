@@ -1610,6 +1610,13 @@ button, input { font: inherit; }
 
     .app-title-group {
         gap: 8px;
+    }
+
+    .brand-mark-app {
+        width: 34px;
+        height: 34px;
+        border-radius: 9px;
+    }
 
     .header-actions {
         gap: 5px;
