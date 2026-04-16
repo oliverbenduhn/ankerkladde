@@ -95,8 +95,13 @@ function getThemeColor(string $theme): string
 {
     return match ($theme) {
         'hafenblau' => '#cfe0ec',
+        'parchment' => '#f5f0eb',
+        'meeresgruen' => '#c5e8d8',
+        'lavendelsegel' => '#e0d5f0',
         'nachtwache' => '#162338',
         'pier' => '#0f1419',
+        'mangrove' => '#0a1410',
+        'abyssus' => '#1a1030',
         default => '#f5f0eb',
     };
 }
