@@ -105,8 +105,8 @@ export function createEditorController(deps) {
 
         ydoc = new Y.Doc();
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocol}//${window.location.host}`;
-        
+        const wsUrl = `${protocol}//${window.location.host}/ws`;
+
         provider = new WebsocketProvider(wsUrl, `yjs/note/${item.id}`, ydoc);
 
         const randId = Math.floor(Math.random() * 10000);
