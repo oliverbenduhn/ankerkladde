@@ -76,33 +76,7 @@ function outputPngFile(string $path): never
 
 function applyBrandThemeVariant(GdImage $image, string $theme): void
 {
-    if (!function_exists('imagefilter')) {
-        return;
-    }
-
-    switch ($theme) {
-        case 'hafenblau':
-            @imagefilter($image, IMG_FILTER_COLORIZE, -18, 10, 48, 18);
-            @imagefilter($image, IMG_FILTER_CONTRAST, -4);
-            break;
-        case 'nachtwache':
-            @imagefilter($image, IMG_FILTER_BRIGHTNESS, -12);
-            @imagefilter($image, IMG_FILTER_COLORIZE, -30, -10, 36, 24);
-            @imagefilter($image, IMG_FILTER_CONTRAST, -8);
-            break;
-        case 'pier':
-            @imagefilter($image, IMG_FILTER_BRIGHTNESS, -8);
-            @imagefilter($image, IMG_FILTER_COLORIZE, 22, 10, -12, 18);
-            @imagefilter($image, IMG_FILTER_CONTRAST, -5);
-            break;
-        case 'parchment':
-        case 'meeresgruen':
-        case 'lavendelsegel':
-        case 'mangrove':
-        case 'abyssus':
-        default:
-            break;
-    }
+    // Logo bleibt bei allen Themes in Standard-Farbe
 }
 
 function outputResizedBrandLogo(string $path, int $size, string $theme): never
