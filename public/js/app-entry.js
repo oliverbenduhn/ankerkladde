@@ -123,8 +123,8 @@ export function startApp(version) {
                     console.log('[WS] reloading items...');
                     await loadCategories();
                     console.log('[WS] categories loaded, loading items...');
-                    await loadItems(undefined, { useCache: false, quiet: true });
-                    console.log('[WS] items loaded and rendered (quiet)');
+                    await loadItems(undefined, { useCache: false });
+                    console.log('[WS] items loaded and rendered');
                 }
             } catch (err) {
                 console.error('[WS] update failed:', err);

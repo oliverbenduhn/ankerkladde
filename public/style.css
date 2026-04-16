@@ -551,12 +551,8 @@ button, input { font: inherit; }
     border: 1.5px solid var(--border);
     border-radius: 12px;
     cursor: grab;
-    animation: cardIn 0.15s ease both;
+    animation: cardIn 0.12s ease-out both;
     transition: opacity 0.2s ease, background 0.2s ease;
-}
-
-#list.no-animations .item-card {
-    animation: none !important;
 }
 
 [data-mode="einkaufen"] .item-card,
@@ -1684,8 +1680,8 @@ button, input { font: inherit; }
    ANIMATIONS
    =========================================== */
 @keyframes cardIn {
-    from { transform: translateY(4px); }
-    to   { transform: translateY(0);   }
+    from { opacity: 0.85; }
+    to   { opacity: 1;    }
 }
 
 /* ===========================================
