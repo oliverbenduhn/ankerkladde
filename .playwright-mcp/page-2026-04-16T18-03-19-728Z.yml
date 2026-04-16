@@ -1,0 +1,29 @@
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - generic [ref=e4]: App installieren?
+    - button "Installieren" [ref=e5] [cursor=pointer]
+    - button "Schließen" [ref=e6] [cursor=pointer]: ✕
+  - banner [ref=e7]:
+    - generic [ref=e8] [cursor=pointer]:
+      - img [ref=e9]
+      - generic [ref=e10]:
+        - heading "Ankerkladde" [level=1] [ref=e11]
+        - generic [ref=e12]: Einstellungen
+    - generic [ref=e13]:
+      - button "Kategorienleiste ein-/ausblenden" [ref=e14] [cursor=pointer]:
+        - img
+      - link "Produktinfos per Scan öffnen" [ref=e15] [cursor=pointer]:
+        - /url: /barcode.php
+        - img
+      - button "Suchen" [ref=e16] [cursor=pointer]:
+        - img
+      - link "Einstellungen" [active] [ref=e17] [cursor=pointer]:
+        - /url: /index.php?view=settings
+        - img
+      - button "Einkaufs-Modus starten" [ref=e18] [cursor=pointer]:
+        - img
+  - main [ref=e25]:
+    - region "Einstellungen" [ref=e59]:
+      - iframe [ref=e60]:
+        
+  - status: Serverfehler.

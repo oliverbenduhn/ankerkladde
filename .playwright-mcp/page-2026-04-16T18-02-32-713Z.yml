@@ -1,0 +1,17 @@
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e3]: App installieren?
+    - button "Installieren" [ref=e4] [cursor=pointer]
+    - button "Schließen" [ref=e5] [cursor=pointer]: ✕
+  - generic [ref=e6]:
+    - generic [ref=e7]:
+      - img "Ankerkladde Logo" [ref=e8]
+      - heading "Ankerkladde" [level=1] [ref=e9]
+    - generic [ref=e10]:
+      - generic [ref=e11]:
+        - generic [ref=e12]: Benutzername
+        - textbox "Benutzername" [active] [ref=e13]
+      - generic [ref=e14]:
+        - generic [ref=e15]: Passwort
+        - textbox "Passwort" [ref=e16]
+      - button "Anmelden" [ref=e17] [cursor=pointer]
