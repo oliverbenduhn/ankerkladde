@@ -46,12 +46,18 @@ export function saveLocalPrefs(patch) {
 }
 
 export const THEME_MODE_ORDER = ['light', 'dark', 'auto'];
-export const THEME_COLORS = {
-    parchment: '#f5f0eb',
-    hafenblau: '#cfe0ec',
-    nachtwache: '#162338',
-    pier: '#0f1419',
-};
+export const THEME_COLORS = (() => {
+    const globalData = window.__ANKERKLADDE_THEME_DATA__;
+    if (globalData && globalData.theme_colors) {
+        return globalData.theme_colors;
+    }
+    return {
+        parchment: '#f5f0eb',
+        hafenblau: '#cfe0ec',
+        nachtwache: '#162338',
+        pier: '#0f1419',
+    };
+})();
 
 export const themeMediaQuery = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
 
@@ -112,6 +118,8 @@ export function readInitialPreferences() {
 }
 
 export function normalizePreferences(preferences) {
+    const validThemes = getValidThemes();
+
     return {
         mode: preferences?.mode === 'einkaufen' ? 'einkaufen' : 'liste',
         tabs_hidden: Boolean(preferences?.tabs_hidden),
@@ -119,9 +127,20 @@ export function normalizePreferences(preferences) {
         last_category_id: Number.isInteger(Number(preferences?.last_category_id)) ? Number(preferences.last_category_id) : null,
         install_banner_dismissed: Boolean(preferences?.install_banner_dismissed),
         theme_mode: THEME_MODE_ORDER.includes(preferences?.theme_mode) ? preferences.theme_mode : 'auto',
-        light_theme: ['parchment', 'hafenblau'].includes(preferences?.light_theme) ? preferences.light_theme : 'hafenblau',
-        dark_theme: ['nachtwache', 'pier'].includes(preferences?.dark_theme) ? preferences.dark_theme : 'nachtwache',
+        light_theme: validThemes.light.includes(preferences?.light_theme) ? preferences.light_theme : 'hafenblau',
+        dark_theme: validThemes.dark.includes(preferences?.dark_theme) ? preferences.dark_theme : 'nachtwache',
     };
+}
+
+function getValidThemes() {
+    const globalData = window.__ANKERKLADDE_THEME_DATA__;
+    if (globalData && globalData.theme_colors) {
+        return {
+            light: Object.keys(globalData.theme_colors).filter(t => !['nachtwache', 'pier'].includes(t)),
+            dark: Object.keys(globalData.theme_colors).filter(t => ['nachtwache', 'pier'].includes(t)),
+        };
+    }
+    return { light: ['parchment', 'hafenblau'], dark: ['nachtwache', 'pier'] };
 }
 
 export function getCurrentCategory() {
