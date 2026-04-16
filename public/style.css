@@ -1815,15 +1815,17 @@ button, input { font: inherit; }
    =========================================== */
 .section-tabs {
     display: flex;
-    border-top: 1.5px solid var(--border);
     background: var(--surface);
     flex-shrink: 0;
     position: relative;
-    z-index: 1;
+    z-index: 10;
     justify-content: space-between;
     gap: 4px;
-    padding-inline: 6px;
-    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding: 6px 10px;
+    margin: 0 12px clamp(12px, calc(10px + env(safe-area-inset-bottom, 0px)), 40px);
+    border: 1.5px solid var(--border);
+    border-radius: 999px;
+    box-shadow: 0 12px 32px -8px rgba(13, 58, 92, 0.14);
 }
 
 .section-tab {
@@ -1831,17 +1833,17 @@ button, input { font: inherit; }
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 2px;
+    gap: 3px;
     min-width: 0;
-    padding: 7px 5px 8px;
+    padding: 6px 4px 6px;
     background: transparent;
     border: none;
-    border-radius: 12px;
+    border-radius: 999px;
     cursor: pointer;
     color: var(--text-secondary);
     flex: 1 1 0;
-    transition: color 0.15s ease, background 0.15s ease;
-    touch-action: none; /* prevent browser scroll-gesture from cancelling pointer events */
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    touch-action: none;
 }
 
 .section-tab.is-tab-dragging {
@@ -1859,32 +1861,33 @@ button, input { font: inherit; }
 
 .section-tab[aria-current="page"] {
     color: var(--text-primary);
-    background: color-mix(in srgb, var(--accent) 14%, transparent);
+    background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 15%, transparent);
 }
 
 .section-tab:hover:not([aria-current="page"]),
 .section-tab:active:not([aria-current="page"]) {
     color: var(--text-primary);
-    background: color-mix(in srgb, var(--border) 72%, transparent);
+    background: color-mix(in srgb, var(--border) 40%, transparent);
 }
 
 .section-icon {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 24px;
-    height: 24px;
+    width: 28px;
+    height: 28px;
     border-radius: 999px;
-    background: var(--tab-icon-chip);
-    font-size: 0.96rem;
+    background: transparent;
+    font-size: 1.1rem;
     line-height: 1;
-    filter: grayscale(0.18) opacity(0.9) var(--tab-icon-filter);
-    transition: filter 0.15s ease, background 0.15s ease, transform 0.15s ease;
+    filter: saturate(0.85) brightness(1.02) contrast(1.05);
+    transition: all 0.2s ease;
 }
+
 .section-tab[aria-current="page"] .section-icon {
-    background: var(--tab-icon-chip-active);
-    filter: grayscale(0) opacity(1) var(--tab-icon-filter-active);
-    transform: translateY(-1px);
+    filter: saturate(1.05) brightness(1.1);
+    transform: scale(1.15) translateY(-1px);
 }
 .section-label {
     display: block;
@@ -1907,17 +1910,18 @@ button, input { font: inherit; }
 .section-tab[aria-current="page"] .section-dot { opacity: 1; }
 
 .mehr-btn {
-    flex: 0 0 48px;
+    flex: 0 0 44px;
     display: flex;
     align-items: center;
     justify-content: center;
-    min-width: 48px;
-    padding: 6px 3px 7px;
+    min-width: 44px;
+    padding: 0;
     background: transparent;
     border: none;
-    border-radius: 12px;
+    border-radius: 999px;
     cursor: pointer;
     color: var(--text-secondary);
+    transition: all 0.2s ease;
 }
 .mehr-btn:hover, .mehr-btn:active {
     color: var(--text-primary);
