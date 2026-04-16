@@ -99,7 +99,7 @@ function getThemeColor(string $theme): string
         'meeresgruen' => '#c5e8d8',
         'lavendelsegel' => '#e0d5f0',
         'monochrom' => '#ffffff',
-        'grauton' => '#f5f5f5',
+        'grauton' => '#e0e0e0',
         'nachtwache' => '#162338',
         'pier' => '#0f1419',
         'mangrove' => '#0a1410',
