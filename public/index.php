@@ -43,8 +43,6 @@ function icon(string $name): string {
         'arrow-left' => '<path d="m12 19-7-7 7-7M19 12H5"/>',
         'panel-bottom' => '<path d="M3 14h18M3 18h18"/><path d="M7 14v4M12 14v4M17 14v4"/><path d="M3 6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4H3V6z"/>',
     ];
-    ];
-    ];
     $p = $paths[$name] ?? '';
     return '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true">' . $p . '</svg>';
 }
