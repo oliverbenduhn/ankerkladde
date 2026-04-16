@@ -14,7 +14,7 @@ const ICON_FALLBACK_MAP = [
     512 => '/public/icons/icon-512.png',
 ];
 
-const BRAND_LOGO_THEMES = ['parchment', 'hafenblau', 'nachtwache', 'pier'];
+const BRAND_LOGO_THEMES = ['parchment', 'hafenblau', 'meeresgruen', 'nachtwache', 'pier', 'abyssus', 'mangrove'];
 
 function iconFail(int $status, string $message): never
 {
