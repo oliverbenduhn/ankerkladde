@@ -106,6 +106,7 @@ export function startApp(version) {
             setNetworkStatus,
             swipeController,
             updateHeaders,
+            applyTabsVisibility,
         });
 
         initWebSocketServer(async (action) => {
