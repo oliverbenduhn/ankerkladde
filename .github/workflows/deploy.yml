@@ -27,18 +27,24 @@ jobs:
   deploy-web:
     runs-on: ubuntu-latest
     steps:
-      - name: Update ankerkladde on web server
+      - name: Update ankerkladde on web server via VPS
         env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
           WEB_SSH_KEY: ${{ secrets.WEB_SSH_KEY }}
         run: |
           mkdir -p ~/.ssh
+          echo "$VPS_SSH_KEY" > ~/.ssh/vps_key
           echo "$WEB_SSH_KEY" > ~/.ssh/web_key
+          chmod 600 ~/.ssh/vps_key
           chmod 600 ~/.ssh/web_key
-          
-          ssh -i ~/.ssh/web_key -o StrictHostKeyChecking=no ansible@192.168.50.10 << 'DEPLOY'
+
+          ssh -i ~/.ssh/vps_key -i ~/.ssh/web_key \
+            -o StrictHostKeyChecking=no \
+            -o ProxyJump=ansible@91.98.42.99 \
+            ansible@192.168.50.10 << 'DEPLOY'
           cd /var/www/projects/ankerkladde
           git pull origin main
           docker-compose up -d --build
           DEPLOY
-          
-          rm ~/.ssh/web_key
+
+          rm ~/.ssh/vps_key ~/.ssh/web_key
