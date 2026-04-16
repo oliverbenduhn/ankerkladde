@@ -2985,6 +2985,68 @@ button, input { font: inherit; }
 /* ===========================================
    THEME SELECTOR (settings)
    =========================================== */
+.theme-mode-list {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.theme-mode-list label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+    color: var(--text-primary);
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+    flex: 1;
+    min-width: 100px;
+    justify-content: center;
+}
+
+.theme-mode-list label:hover {
+    background: var(--done-bg);
+    border-color: var(--accent);
+}
+
+.theme-mode-list label:has(input:checked) {
+    background: var(--done-bg);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px rgba(26, 96, 144, 0.14);
+}
+
+.theme-mode-dot {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(0, 0, 0, 0.24);
+    flex-shrink: 0;
+}
+
+.theme-mode-dot-auto {
+    background: conic-gradient(#cfe0ec 0deg 180deg, #162338 180deg 360deg);
+}
+
+.theme-mode-dot-light {
+    background: #cfe0ec;
+}
+
+.theme-mode-dot-dark {
+    background: #162338;
+    border-color: rgba(255, 255, 255, 0.15);
+}
+
+.theme-mode-list input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
 .theme-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));

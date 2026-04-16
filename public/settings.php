@@ -364,17 +364,22 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
             <input type="hidden" name="action" value="save_theme">
             <div class="settings-block">
-                <div class="settings-row">
-                    <div class="settings-row-meta">
-                        <span class="settings-row-title">Farbschema-Modus</span>
-                    </div>
-                    <div class="settings-row-actions">
-                        <select name="theme_mode" class="settings-input" style="width: 100%; max-width: 200px;">
-                            <option value="auto" <?= ($preferences['theme_mode'] ?? 'auto') === 'auto' ? 'selected' : '' ?>>Automatisch</option>
-                            <option value="light" <?= ($preferences['theme_mode'] ?? 'auto') === 'light' ? 'selected' : '' ?>>Hell</option>
-                            <option value="dark" <?= ($preferences['theme_mode'] ?? 'auto') === 'dark' ? 'selected' : '' ?>>Dunkel</option>
-                        </select>
-                    </div>
+                <div class="theme-mode-list">
+                    <label>
+                        <span class="theme-mode-dot theme-mode-dot-auto"></span>
+                        Automatisch
+                        <input type="radio" name="theme_mode" value="auto" <?= ($preferences['theme_mode'] ?? 'auto') === 'auto' ? 'checked' : '' ?>>
+                    </label>
+                    <label>
+                        <span class="theme-mode-dot theme-mode-dot-light"></span>
+                        Hell
+                        <input type="radio" name="theme_mode" value="light" <?= ($preferences['theme_mode'] ?? 'auto') === 'light' ? 'checked' : '' ?>>
+                    </label>
+                    <label>
+                        <span class="theme-mode-dot theme-mode-dot-dark"></span>
+                        Dunkel
+                        <input type="radio" name="theme_mode" value="dark" <?= ($preferences['theme_mode'] ?? 'auto') === 'dark' ? 'checked' : '' ?>>
+                    </label>
                 </div>
                 <div class="theme-grid" style="margin-top: 16px;">
                     <div>
