@@ -2020,9 +2020,9 @@ button, input { font: inherit; }
 
 .note-editor[hidden] { display: none; }
 
-.note-editor:not([hidden]) ~ .app-header,
-.note-editor:not([hidden]) ~ .search-bar,
-.note-editor:not([hidden]) ~ .input-area {
+.note-editor-open .app-header,
+.note-editor-open .search-bar,
+.note-editor-open .input-area {
     display: flex;
 }
 
