@@ -127,9 +127,17 @@ function renderThemeBootScript(array $preferences): string
     $themes = getAvailableThemes();
 
     $themeColors = [];
+    $validLightThemes = [];
+    $validDarkThemes = [];
+
     foreach (['light', 'dark'] as $mode) {
         foreach ($themes[$mode] ?? [] as $key => $theme) {
             $themeColors[$key] = $theme['color'] ?? '#f5f0eb';
+            if ($mode === 'light') {
+                $validLightThemes[] = $key;
+            } else {
+                $validDarkThemes[] = $key;
+            }
         }
     }
 
@@ -138,6 +146,10 @@ function renderThemeBootScript(array $preferences): string
         'light_theme' => $preferences['light_theme'] ?? $defaults['light_theme'],
         'dark_theme' => $preferences['dark_theme'] ?? $defaults['dark_theme'],
         'theme_colors' => $themeColors,
+        'valid_themes' => [
+            'light' => $validLightThemes,
+            'dark' => $validDarkThemes,
+        ],
     ];
 
     $json = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);

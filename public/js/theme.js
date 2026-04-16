@@ -4,11 +4,8 @@ import { brandMarkEls, svgIcon } from './ui.js';
 
 function getValidThemes() {
     const globalData = window.__ANKERKLADDE_THEME_DATA__;
-    if (globalData && globalData.theme_colors) {
-        return {
-            light: Object.keys(globalData.theme_colors).filter(t => !['nachtwache', 'pier'].includes(t)),
-            dark: Object.keys(globalData.theme_colors).filter(t => ['nachtwache', 'pier'].includes(t)),
-        };
+    if (globalData && globalData.valid_themes) {
+        return globalData.valid_themes;
     }
     return { light: ['parchment', 'hafenblau'], dark: ['nachtwache', 'pier'] };
 }
