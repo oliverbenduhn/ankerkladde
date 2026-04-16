@@ -1811,7 +1811,7 @@ button, input { font: inherit; }
     justify-content: space-between;
     gap: 4px;
     padding: 6px 10px;
-    margin: 0 12px clamp(12px, calc(10px + env(safe-area-inset-bottom, 0px)), 40px);
+    margin: 0 12px clamp(8px, calc(8px + env(safe-area-inset-bottom, 0px)), 40px);
     border: 1.5px solid var(--border);
     border-radius: 18px;
     box-shadow: 0 12px 32px -8px rgba(13, 58, 92, 0.14);
