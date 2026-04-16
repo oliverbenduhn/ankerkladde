@@ -209,7 +209,7 @@ export function createAppUiController() {
     function applyTabsVisibility(hidden) {
         if (!sectionTabsEl) return;
         sectionTabsEl.classList.toggle('tabs-hidden', Boolean(hidden));
-        tabsToggleBtns.forEach(btn => btn.classList.toggle('is-active', Boolean(hidden)));
+        tabsToggleBtns.forEach(btn => btn.classList.toggle('is-active', !hidden));
     }
 
     return {

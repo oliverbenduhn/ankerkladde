@@ -28,6 +28,7 @@ export async function initApp(deps) {
         if (appEl) {
             appEl.dataset.mode = state.mode;
         }
+        deps.applyTabsVisibility(userPreferences.tabs_hidden);
         reorderController.initCategoryTabReorder();
         reorderController.initItemDragReorder();
         swipeController.initCategorySwipe();
