@@ -39,17 +39,28 @@ export function createEditorController(deps) {
     }
 
     async function saveNoteContent(id, title, htmlContent) {
-        await api('update', {
-            method: 'POST',
-            body: new URLSearchParams({ id: String(id), name: title || 'Ohne Titel', content: htmlContent }),
-        });
-        const item = deps.getItemById(id);
-        if (item) {
-            item.name = title || 'Ohne Titel';
-            item.content = htmlContent;
+        try {
+            await api('update', {
+                method: 'POST',
+                body: new URLSearchParams({ id: String(id), name: title || 'Ohne Titel', content: htmlContent }),
+            });
+            const item = deps.getItemById(id);
+            if (item) {
+                item.name = title || 'Ohne Titel';
+                item.content = htmlContent;
+            }
+            cacheCurrentCategoryItems();
+            setNoteSaveStatus('Gespeichert');
+        } catch (error) {
+            if (error.message.includes('Artikel nicht gefunden')) {
+                setNoteSaveStatus('❌ Notiz wurde gelöscht');
+                console.log('[Note] Item was deleted by another user, closing editor');
+                await closeNoteEditor();
+            } else {
+                setNoteSaveStatus('❌ Fehler beim Speichern');
+                console.error('[Note] Save failed:', error);
+            }
         }
-        cacheCurrentCategoryItems();
-        setNoteSaveStatus('Gespeichert');
     }
 
     function scheduleNoteSave() {
