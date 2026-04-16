@@ -26,22 +26,24 @@ $assetVersion = require __DIR__ . '/version.php';
 
 function icon(string $name): string {
     static $paths = [
-        'menu'     => '<line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="18" y2="18"/>',
+        'menu'     => '<path d="M4 6h16M4 12h16M4 18h16"/>',
         'search'   => '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
-        'settings' => '<path d="M20 7h-9"/><path d="M14 17H5"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/>',
-        'theme-auto' => '<path d="M4 12a8 8 0 0 1 8-8v8Z"/><path d="M20 12a8 8 0 0 1-8 8v-8Z"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="M2 12h2"/><path d="M20 12h2"/>',
-        'theme-light' => '<path d="M12 3v2"/><path d="M12 19v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66-1.41-1.41"/><path d="M3 12h2"/><path d="M19 12h2"/><path d="m4.93 19.07 1.41-1.41"/><path d="m17.66 6.34-1.41 1.41"/><circle cx="12" cy="12" r="4"/>',
+        'settings' => '<path d="M3 7h18M3 17h18"/><circle cx="8" cy="7" r="2.5"/><circle cx="16" cy="17" r="2.5"/>',
+        'theme-auto' => '<path d="M12 3a9 9 0 1 0 9 9"/><path d="M12 3v18"/><path d="M12 21a9 9 0 0 0 0-18z" fill="currentColor" fill-opacity="0.1"/>',
+        'theme-light' => '<circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32l1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41m11.32-11.32l1.41-1.41"/>',
         'theme-dark' => '<path d="M12 3a6 6 0 1 0 9 9 7.5 7.5 0 1 1-9-9Z"/>',
         'eye'      => '<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>',
         'pencil'   => '<path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/>',
         'camera'   => '<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/>',
-        'scan'     => '<path d="M4 7V5a1 1 0 0 1 1-1h2"/><path d="M20 7V5a1 1 0 0 0-1-1h-2"/><path d="M4 17v2a1 1 0 0 0 1 1h2"/><path d="M20 17v2a1 1 0 0 1-1 1h-2"/><path d="M7 12h10"/><path d="M8 9v6"/><path d="M11 9v6"/><path d="M14 9v6"/><path d="M16 9v6"/>',
-        'scan-info' => '<path d="M4 7V5a1 1 0 0 1 1-1h2"/><path d="M20 7V5a1 1 0 0 0-1-1h-2"/><path d="M4 17v2a1 1 0 0 0 1 1h2"/><path d="M20 17v2a1 1 0 0 1-1 1h-2"/><path d="M7 12h6"/><path d="M8 9v6"/><path d="M11 9v6"/><circle cx="18" cy="12" r="3"/><path d="M18 10.8h.01"/><path d="M18 12.2v1.4"/>',
-        'x'        => '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
-        'plus'     => '<path d="M5 12h14"/><path d="M12 5v14"/>',
-        'link'     => '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
-        'arrow-left' => '<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>',
-        'panel-bottom' => '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 15h18"/>',
+        'scan'     => '<path d="M4 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M20 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M8 8v8M12 8v8M16 8v8"/>',
+        'scan-info' => '<path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><circle cx="11" cy="11" r="5"/><path d="m20 20-4-4"/>',
+        'x'        => '<path d="M18 6 6 18M6 6l12 12"/>',
+        'plus'     => '<path d="M5 12h14M12 5v14"/>',
+        'link'     => '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+        'arrow-left' => '<path d="m12 19-7-7 7-7M19 12H5"/>',
+        'panel-bottom' => '<path d="M3 14h18M3 18h18"/><path d="M7 14v4M12 14v4M17 14v4"/><path d="M3 6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4H3V6z"/>',
+    ];
+    ];
     ];
     $p = $paths[$name] ?? '';
     return '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true">' . $p . '</svg>';
@@ -90,9 +92,9 @@ $brandMarkSrc = 'icon.php?size=96&theme=' . rawurlencode($effectiveTheme) . '&v=
         <div class="app-title-group clickable-brand" style="cursor: pointer;">
             <img src="<?= htmlspecialchars($brandMarkSrc, ENT_QUOTES, 'UTF-8') ?>" alt="" class="brand-mark brand-mark-app" aria-hidden="true">
             <div class="app-title-stack">
-                <div style="display: flex; align-items: baseline; gap: 6px;">
+                <div class="app-title-row">
                     <h1 class="app-title">Ankerkladde</h1>
-                    <div class="app-version" aria-label="Version <?= htmlspecialchars($assetVersion, ENT_QUOTES, 'UTF-8') ?>" style="font-size: 0.75rem; color: var(--text-muted); font-weight: normal;">v<?= htmlspecialchars($assetVersion, ENT_QUOTES, 'UTF-8') ?></div>
+                    <div class="app-version-badge" aria-label="Version <?= htmlspecialchars($assetVersion, ENT_QUOTES, 'UTF-8') ?>">v<?= htmlspecialchars($assetVersion, ENT_QUOTES, 'UTF-8') ?></div>
                 </div>
                 <div class="app-subtitle" id="titleListe">Listen</div>
             </div>
@@ -117,9 +119,9 @@ $brandMarkSrc = 'icon.php?size=96&theme=' . rawurlencode($effectiveTheme) . '&v=
         <div class="app-title-group clickable-brand" style="cursor: pointer;">
             <img src="<?= htmlspecialchars($brandMarkSrc, ENT_QUOTES, 'UTF-8') ?>" alt="" class="brand-mark brand-mark-app" aria-hidden="true">
             <div class="app-title-stack">
-                <div style="display: flex; align-items: baseline; gap: 6px;">
+                <div class="app-title-row">
                     <h1 class="app-title">Ankerkladde</h1>
-                    <div class="app-version" aria-label="Version <?= htmlspecialchars($assetVersion, ENT_QUOTES, 'UTF-8') ?>" style="font-size: 0.75rem; color: var(--text-muted); font-weight: normal;">v<?= htmlspecialchars($assetVersion, ENT_QUOTES, 'UTF-8') ?></div>
+                    <div class="app-version-badge" aria-label="Version <?= htmlspecialchars($assetVersion, ENT_QUOTES, 'UTF-8') ?>">v<?= htmlspecialchars($assetVersion, ENT_QUOTES, 'UTF-8') ?></div>
                 </div>
                 <div class="app-subtitle" id="titleShopping">Einkaufen</div>
             </div>

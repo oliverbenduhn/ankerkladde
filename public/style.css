@@ -166,37 +166,48 @@ button, input { font: inherit; }
     flex-shrink: 0;
 }
 
+.app-title-row {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    min-width: 0;
+}
+
 .app-title {
     margin: 0;
     font-size: 1.28rem;
-    font-weight: 700;
-    letter-spacing: -0.03em;
+    font-weight: 800;
+    letter-spacing: -0.035em;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    color: var(--text-primary);
 }
 
 .app-subtitle {
     min-width: 0;
     color: var(--text-secondary);
-    font-size: 0.76rem;
+    font-size: 0.78rem;
+    font-weight: 500;
     line-height: 1.2;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    margin-top: -1px;
 }
 
-.app-version {
-    min-width: 0;
-    color: var(--text-secondary);
-    font-size: 0.58rem;
-    line-height: 1.1;
-    letter-spacing: 0.08em;
+.app-version-badge {
+    flex-shrink: 0;
+    color: var(--text-muted);
+    font-size: 0.62rem;
+    line-height: 1;
+    letter-spacing: 0.04em;
     text-transform: uppercase;
-    opacity: 0.78;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    background: var(--border);
+    padding: 2px 5px;
+    border-radius: 4px;
+    font-weight: 600;
+    opacity: 0.8;
 }
 
 .app-title-group,
@@ -1561,21 +1572,28 @@ button, input { font: inherit; }
 .header-icon-btn {
     min-width: 38px;
     min-height: 38px;
-    padding: 0 8px;
-    background: var(--border);
-    border: none;
-    border-radius: 10px;
+    padding: 0;
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 11px;
     cursor: pointer;
     flex-shrink: 0;
-    transition: background 0.15s ease, transform 0.1s ease;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     display: inline-flex;
     align-items: center;
     justify-content: center;
     text-decoration: none;
     color: var(--text-secondary);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
 }
 
-.header-icon-btn:active { background: var(--accent); color: var(--text-primary); transform: scale(0.92); }
+.header-icon-btn:active {
+    background: var(--accent);
+    color: var(--text-primary);
+    border-color: var(--accent);
+    transform: scale(0.94);
+    box-shadow: none;
+}
 
 @media (hover: hover) and (pointer: fine) {
     .header-icon-btn:hover {
@@ -1584,25 +1602,14 @@ button, input { font: inherit; }
     }
 }
 
-@media (max-width: 460px) {
+@media (max-width: 480px) {
     .app-header {
+        gap: 6px;
+        padding: 14px 12px 8px;
+    }
+
+    .app-title-group {
         gap: 8px;
-        padding: 16px 12px 8px;
-    }
-
-    .app-title {
-        font-size: 1.12rem;
-    }
-
-    .app-subtitle {
-        font-size: 0.7rem;
-    }
-
-    .brand-mark-app {
-        width: 32px;
-        height: 32px;
-        border-radius: 10px;
-    }
 
     .header-actions {
         gap: 5px;
