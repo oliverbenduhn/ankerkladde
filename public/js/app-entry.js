@@ -108,15 +108,23 @@ export function startApp(version) {
             updateHeaders,
         });
 
-        initWebSocketServer(async () => {
-            console.log('[WS] update received');
+        initWebSocketServer(async (action) => {
+            console.log('[WS] update received:', action);
 
             try {
-                console.log('[WS] reloading items...');
-                await loadCategories();
-                console.log('[WS] categories loaded, loading items...');
-                await loadItems(undefined, { useCache: false });
-                console.log('[WS] items loaded and rendered');
+                if (action === 'settings_update') {
+                    // Settings changes affect categories and preferences, but not items
+                    console.log('[WS] reloading categories...');
+                    await loadCategories();
+                    console.log('[WS] categories reloaded');
+                } else {
+                    // Generic update: reload both categories and items
+                    console.log('[WS] reloading items...');
+                    await loadCategories();
+                    console.log('[WS] categories loaded, loading items...');
+                    await loadItems(undefined, { useCache: false });
+                    console.log('[WS] items loaded and rendered');
+                }
             } catch (err) {
                 console.error('[WS] update failed:', err);
             }

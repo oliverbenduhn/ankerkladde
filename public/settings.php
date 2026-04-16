@@ -88,6 +88,35 @@ function moveCategorySortOrder(PDO $db, int $userId, int $categoryId, string $di
     }
 }
 
+function notifyWebSocket(int $userId, string $action = 'settings_update'): void
+{
+    $wsHost = getenv('WS_HOST') ?: '127.0.0.1';
+    $wsPort = getenv('WS_PORT') ?: '3000';
+    $wsUrl = "http://{$wsHost}:{$wsPort}/notify";
+
+    $payload = [
+        'action' => $action,
+        'user_id' => $userId,
+    ];
+
+    $ch = curl_init($wsUrl);
+    curl_setopt_array($ch, [
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => json_encode($payload),
+        CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+        CURLOPT_TIMEOUT => 2,
+        CURLOPT_CONNECTTIMEOUT => 1,
+        CURLOPT_RETURNTRANSFER => true,
+    ]);
+
+    $result = curl_exec($ch);
+    if ($result === false) {
+        // Log WS notification failure, but don't crash settings page
+        error_log('[WS] Settings notification failed: ' . curl_error($ch));
+    }
+    curl_close($ch);
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $providedToken = $_POST['csrf_token'] ?? null;
 
@@ -161,6 +190,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $categoryId = (int) $db->lastInsertId();
                 updateExtendedUserPreferences($db, $userId, ['last_category_id' => $categoryId]);
                 $flash = 'Kategorie erstellt.';
+                notifyWebSocket($userId);
             }
         } elseif ($action === 'save_category') {
             $categoryId = filter_var($_POST['category_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
@@ -195,6 +225,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     ]);
 
                     $flash = 'Kategorie gespeichert.';
+                    notifyWebSocket($userId);
                 }
             }
         } elseif ($action === 'move_category_up' || $action === 'move_category_down') {
@@ -206,6 +237,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $flashType = 'err';
             } elseif (moveCategorySortOrder($db, $userId, $categoryId, $direction)) {
                 $flash = 'Reihenfolge aktualisiert.';
+                notifyWebSocket($userId);
             } else {
                 $flash = 'Kategorie konnte nicht verschoben werden.';
                 $flashType = 'err';
@@ -237,6 +269,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             updateExtendedUserPreferences($db, $userId, ['last_category_id' => $fallback]);
                         }
                         $flash = 'Kategorie gelöscht.';
+                        notifyWebSocket($userId);
                     }
                 }
             }
@@ -264,11 +297,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Re-read preferences so that the UI can reflect the new mode right away
             $preferences = getExtendedUserPreferences($db, $userId);
             $flash = 'Themes gespeichert.';
+            notifyWebSocket($userId);
         } elseif ($action === 'save_app_preferences') {
             $preferences = updateExtendedUserPreferences($db, $userId, [
                 'category_swipe_enabled' => isset($_POST['category_swipe_enabled']),
             ]);
             $flash = 'Anzeige-Einstellungen gespeichert.';
+            notifyWebSocket($userId);
         } elseif ($action === 'regenerate_api_key') {
             setUserApiKey($db, $userId);
             $flash = 'API-Key neu erzeugt.';

@@ -65,6 +65,7 @@ $brandMarkSrc = 'icon.php?size=96&theme=' . rawurlencode($effectiveTheme) . '&v=
     <meta name="apple-mobile-web-app-title" content="Ankerkladde">
     <meta name="app-base-path" content="<?= htmlspecialchars($appBasePath, ENT_QUOTES, 'UTF-8') ?>">
     <meta name="csrf-token" content="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
+    <meta name="user-id" content="<?= htmlspecialchars((string)$userId, ENT_QUOTES, 'UTF-8') ?>">
     <link rel="manifest" href="manifest.php?v=<?= urlencode($assetVersion) ?>">
     <link rel="stylesheet" href="style.css?v=<?= urlencode($assetVersion) ?>">
     <title>Ankerkladde</title>

@@ -1,8 +1,12 @@
 const WebSocket = require('ws');
 const http = require('http');
+const { URL } = require('url');
 
 const PORT = process.env.WS_PORT || 3000;
 const BIND_HOST = process.env.WS_HOST || '0.0.0.0';
+
+// Map of userId -> Set of WebSocket connections for that user
+const userRooms = new Map();
 
 // Create HTTP server for incoming notifications (from PHP)
 const server = http.createServer((req, res) => {
@@ -18,16 +22,30 @@ const server = http.createServer((req, res) => {
                 if (body) {
                     data = JSON.parse(body);
                 }
-                
-                // Broadcast to all connected websocket clients
+
+                // If user_id is specified, broadcast only to that user's clients
+                // Otherwise broadcast to all generic notification clients (backward compatibility)
                 let count = 0;
-                wss.clients.forEach(client => {
-                    if (client.readyState === WebSocket.OPEN) {
-                        client.send(JSON.stringify(data));
-                        count++;
+                if (data.user_id) {
+                    const userClients = userRooms.get(String(data.user_id));
+                    if (userClients) {
+                        userClients.forEach(client => {
+                            if (client.readyState === WebSocket.OPEN) {
+                                client.send(JSON.stringify(data));
+                                count++;
+                            }
+                        });
                     }
-                });
-                
+                } else {
+                    // Fallback: broadcast to all connected websocket clients
+                    wss.clients.forEach(client => {
+                        if (client.readyState === WebSocket.OPEN) {
+                            client.send(JSON.stringify(data));
+                            count++;
+                        }
+                    });
+                }
+
                 console.log(`[${new Date().toISOString()}] Broadcasted update to ${count} clients.`);
                 res.writeHead(200, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ success: true, clients: count }));
@@ -47,13 +65,41 @@ const wss = new WebSocket.Server({ noServer: true });
 
 wss.on('connection', (ws, req) => {
     const ip = req.socket.remoteAddress;
-    console.log(`[${new Date().toISOString()}] Client connected from ${ip} for generic updates`);
-    
+
+    // Extract userId from query parameters
+    let userId = null;
+    try {
+        const url = new URL(req.url, `http://${req.headers.host}`);
+        userId = url.searchParams.get('uid');
+    } catch (e) {
+        console.warn(`[${new Date().toISOString()}] Failed to parse URL: ${e.message}`);
+    }
+
+    if (userId) {
+        // Register in user-specific room
+        if (!userRooms.has(userId)) {
+            userRooms.set(userId, new Set());
+        }
+        userRooms.get(userId).add(ws);
+        console.log(`[${new Date().toISOString()}] Client connected from ${ip} for user ${userId}`);
+    } else {
+        console.log(`[${new Date().toISOString()}] Client connected from ${ip} for generic updates (no userId)`);
+    }
+
     // Send initial connection success message (optional)
     ws.send(JSON.stringify({ action: 'connected' }));
 
     ws.on('close', () => {
-        console.log(`[${new Date().toISOString()}] Notification client disconnected`);
+        if (userId && userRooms.has(userId)) {
+            userRooms.get(userId).delete(ws);
+            // Clean up empty user rooms
+            if (userRooms.get(userId).size === 0) {
+                userRooms.delete(userId);
+            }
+            console.log(`[${new Date().toISOString()}] Client disconnected (user ${userId})`);
+        } else {
+            console.log(`[${new Date().toISOString()}] Notification client disconnected`);
+        }
     });
 
     ws.on('error', (err) => {

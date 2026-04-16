@@ -67,7 +67,8 @@ export async function registerServiceWorker(version) {
 
 export function initWebSocketServer(onUpdate) {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws/`;
+    const userId = document.querySelector('meta[name="user-id"]')?.content || '';
+    const wsUrl = `${protocol}//${window.location.host}/ws/?uid=${encodeURIComponent(userId)}`;
     let debounceTimer;
 
     function connect() {
@@ -87,10 +88,11 @@ export function initWebSocketServer(onUpdate) {
             try {
                 const data = JSON.parse(event.data);
                 console.log('[WS] message received:', data.action);
-                if (data.action === 'update') {
+
+                if (data.action === 'update' || data.action === 'settings_update') {
                     clearTimeout(debounceTimer);
                     debounceTimer = setTimeout(() => {
-                        onUpdate();
+                        onUpdate(data.action);
                     }, 600);
                 }
             } catch (e) {
