@@ -370,7 +370,7 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                 <div class="theme-mode-list">
                     <label>
                         <span class="theme-mode-dot theme-mode-dot-auto"></span>
-                        Automatisch
+                        Auto
                         <input type="radio" name="theme_mode" value="auto" <?= ($preferences['theme_mode'] ?? 'auto') === 'auto' ? 'checked' : '' ?>>
                     </label>
                     <label>
