@@ -1,0 +1,51 @@
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - generic [ref=e4]:
+      - img [ref=e5]
+      - heading "Nutzerverwaltung" [level=1] [ref=e6]
+    - link "Abmelden" [ref=e7] [cursor=pointer]:
+      - /url: /logout.php
+  - generic [ref=e8]:
+    - heading "Nutzer anlegen" [level=2] [ref=e9]
+    - generic [ref=e11]:
+      - textbox "Benutzername" [ref=e12]
+      - textbox "Passwort (min. 8 Zeichen)" [ref=e13]
+      - button "Anlegen" [ref=e14] [cursor=pointer]
+  - generic [ref=e15]:
+    - heading "Nutzer" [level=2] [ref=e16]
+    - list [ref=e17]:
+      - listitem [ref=e18]:
+        - generic [ref=e19]: oliverbenduhn
+        - generic [ref=e20]: 2026-04-09
+        - generic [ref=e21]:
+          - textbox "Neues Passwort" [ref=e22]
+          - button "Setzen" [ref=e23] [cursor=pointer]
+        - button "Löschen" [ref=e25] [cursor=pointer]
+      - listitem [ref=e26]:
+        - generic [ref=e27]: christian
+        - generic [ref=e28]: 2026-04-09
+        - generic [ref=e29]:
+          - textbox "Neues Passwort" [ref=e30]
+          - button "Setzen" [ref=e31] [cursor=pointer]
+        - button "Löschen" [ref=e33] [cursor=pointer]
+      - listitem [ref=e34]:
+        - generic [ref=e35]: test
+        - generic [ref=e36]: 2026-04-11
+        - generic [ref=e37]:
+          - textbox "Neues Passwort" [ref=e38]
+          - button "Setzen" [ref=e39] [cursor=pointer]
+        - button "Löschen" [ref=e41] [cursor=pointer]
+      - listitem [ref=e42]:
+        - generic [ref=e43]: elke
+        - generic [ref=e44]: 2026-04-12
+        - generic [ref=e45]:
+          - textbox "Neues Passwort" [ref=e46]
+          - button "Setzen" [ref=e47] [cursor=pointer]
+        - button "Löschen" [ref=e49] [cursor=pointer]
+      - listitem [ref=e50]:
+        - generic [ref=e51]: A
+        - generic [ref=e52]: 2026-04-13
+        - generic [ref=e53]:
+          - textbox "Neues Passwort" [ref=e54]
+          - button "Setzen" [ref=e55] [cursor=pointer]
+        - button "Löschen" [ref=e57] [cursor=pointer]

@@ -1,0 +1,24 @@
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - link "Zurück zur App" [ref=e4] [cursor=pointer]:
+      - /url: /index.php
+      - img
+    - generic [ref=e5]:
+      - img [ref=e6]
+      - generic [ref=e7]:
+        - heading "Produktscanner" [level=1] [ref=e8]
+        - generic [ref=e9]: Lokale Open-Facts-Datenbank
+  - main [ref=e10]:
+    - generic [ref=e12]:
+      - generic [ref=e13]:
+        - generic [ref=e14]:
+          - heading "Barcode scannen" [level=2] [ref=e15]
+          - paragraph [ref=e16]: Kamera starten oder Barcode manuell eingeben.
+        - button "Kamera einschalten" [ref=e17] [cursor=pointer]:
+          - img
+      - generic [ref=e20]: "ZXing: Starte Kamera..."
+      - generic [ref=e21]:
+        - textbox "Barcode manuell eingeben" [ref=e22]
+        - button "Barcode laden" [ref=e23] [cursor=pointer]:
+          - img
+    - generic [ref=e25]: Noch kein Barcode geladen. Nach dem Scan werden hier alle verfügbaren lokalen Produktdaten angezeigt.
