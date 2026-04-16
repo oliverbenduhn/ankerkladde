@@ -1,6 +1,6 @@
 {
   "name": "ankerkladde-ws",
-  "version": "4.0.2",
+  "version": "4.0.3",
   "description": "WebSocket Broadcast Server for Ankerkladde",
   "main": "server.js",
   "scripts": {
