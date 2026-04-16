@@ -466,28 +466,22 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                         <input type="hidden" name="action" value="save_category">
                         <input type="hidden" name="category_id" value="<?= (int) $category['id'] ?>">
                         <div class="settings-row-main">
-                            <label class="settings-field settings-field-icon">
-                                <span>Symbol</span>
-                                <select name="category_icon">
-                                    <?php foreach ($categoryIconOptions as $iconOption): ?>
-                                        <option
-                                            value="<?= htmlspecialchars($iconOption, ENT_QUOTES, 'UTF-8') ?>"
-                                            <?= $iconOption === $categoryIcon ? 'selected' : '' ?>
-                                        ><?= htmlspecialchars($iconOption, ENT_QUOTES, 'UTF-8') ?></option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </label>
-                            <label class="settings-field settings-field-name">
-                                <span>Name</span>
-                                <input
-                                    type="text"
-                                    name="category_name"
-                                    value="<?= htmlspecialchars((string) $category['name'], ENT_QUOTES, 'UTF-8') ?>"
-                                    maxlength="120"
-                                    required
-                                >
-                            </label>
-                        </div>
+                            <select name="category_icon" class="settings-input-inline">
+                                <?php foreach ($categoryIconOptions as $iconOption): ?>
+                                    <option
+                                        value="<?= htmlspecialchars($iconOption, ENT_QUOTES, 'UTF-8') ?>"
+                                        <?= $iconOption === $categoryIcon ? 'selected' : '' ?>
+                                    ><?= htmlspecialchars($iconOption, ENT_QUOTES, 'UTF-8') ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                            <input
+                                type="text"
+                                name="category_name"
+                                value="<?= htmlspecialchars((string) $category['name'], ENT_QUOTES, 'UTF-8') ?>"
+                                maxlength="120"
+                                required
+                                class="settings-input-inline"
+                            >
                         <div class="settings-row-bottom">
                             <div class="settings-row-meta">
                                 <span class="settings-type-badge"><?= htmlspecialchars(categoryTypeLabel((string) $category['type']), ENT_QUOTES, 'UTF-8') ?></span>

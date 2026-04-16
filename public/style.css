@@ -2614,10 +2614,34 @@ button, input { font: inherit; }
 }
 
 .settings-row-main {
-    display: grid;
-    grid-template-columns: 96px minmax(0, 1fr);
-    gap: 14px;
-    align-items: end;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.settings-input-inline {
+    height: 44px;
+    padding: 0 12px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg);
+    color: var(--text-primary);
+    font-size: 0.95rem;
+}
+
+.settings-input-inline:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+}
+
+.settings-input-inline[name="category_icon"] {
+    width: 60px;
+    flex-shrink: 0;
+}
+
+.settings-input-inline[name="category_name"] {
+    flex: 1;
+    min-width: 0;
 }
 
 .settings-row-bottom {
@@ -2745,11 +2769,16 @@ button, input { font: inherit; }
 
 @media (max-width: 640px) {
     .settings-row-main {
-        grid-template-columns: 1fr;
+        flex-wrap: wrap;
     }
 
-    .settings-field-icon {
-        flex-basis: auto;
+    .settings-input-inline[name="category_name"] {
+        flex: 1 1 100%;
+        order: 1;
+    }
+
+    .settings-input-inline[name="category_icon"] {
+        order: 0;
     }
 
     .settings-row-bottom {
