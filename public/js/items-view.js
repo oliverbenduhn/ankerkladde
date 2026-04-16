@@ -389,14 +389,12 @@ export function createItemsViewController(deps) {
     }
 
     function renderSearchResults() {
-        listEl.replaceChildren();
-        clearDoneBtn.disabled = true;
-
         if (state.search.query.trim().length < 2) {
             const li = document.createElement('li');
             li.className = 'empty-state';
             li.textContent = 'Mindestens 2 Zeichen eingeben...';
-            listEl.appendChild(li);
+            listEl.replaceChildren(li);
+            clearDoneBtn.disabled = true;
             return;
         }
 
@@ -404,7 +402,8 @@ export function createItemsViewController(deps) {
             const li = document.createElement('li');
             li.className = 'empty-state';
             li.textContent = 'Keine Ergebnisse gefunden.';
-            listEl.appendChild(li);
+            listEl.replaceChildren(li);
+            clearDoneBtn.disabled = true;
             return;
         }
 
@@ -440,7 +439,8 @@ export function createItemsViewController(deps) {
             fragment.appendChild(li);
         });
 
-        listEl.appendChild(fragment);
+        clearDoneBtn.disabled = true;
+        listEl.replaceChildren(fragment);
     }
 
     function renderItems() {
@@ -448,8 +448,6 @@ export function createItemsViewController(deps) {
             renderSearchResults();
             return;
         }
-
-        listEl.replaceChildren();
 
         const items = getVisibleItems();
         const doneCount = items.filter(item => item.done === 1).length;
@@ -464,13 +462,13 @@ export function createItemsViewController(deps) {
                 : state.mode === 'liste'
                     ? 'Noch nichts auf der Liste. Füge oben etwas hinzu.'
                     : 'Keine Einträge vorhanden.';
-            listEl.appendChild(li);
+            listEl.replaceChildren(li);
             return;
         }
 
         const fragment = document.createDocumentFragment();
         items.forEach(item => fragment.appendChild(buildItemNode(item)));
-        listEl.appendChild(fragment);
+        listEl.replaceChildren(fragment);
     }
 
     return {
