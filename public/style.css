@@ -21,6 +21,8 @@
     --tab-icon-chip-active: rgba(200, 184, 154, 0.28);
     --tab-icon-filter: saturate(0.88) hue-rotate(-4deg);
     --tab-icon-filter-active: saturate(1.08);
+    --button-active-bg: #c8b89a;
+    --button-active-text: #2c2416;
 }
 
 /* THEME OVERRIDES - now generated dynamically via theme-css.php */
@@ -2180,9 +2182,9 @@ button, input { font: inherit; }
 /* ===========================================
    SEARCH BUTTON
    =========================================== */
-.btn-search.is-active { background: var(--accent); color: var(--text-primary); }
-.btn-settings.is-active { background: var(--accent); color: var(--text-primary); }
-.btn-tabs-toggle.is-active { background: var(--accent); color: var(--text-primary); }
+.btn-search.is-active { background: var(--button-active-bg); color: var(--button-active-text); }
+.btn-settings.is-active { background: var(--button-active-bg); color: var(--button-active-text); }
+.btn-tabs-toggle.is-active { background: var(--button-active-bg); color: var(--button-active-text); }
 
 /* ===========================================
    SEARCH BAR
