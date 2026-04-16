@@ -16,11 +16,17 @@ jobs:
           chmod 600 ~/.ssh/vps_key
 
           ssh -i ~/.ssh/vps_key -o StrictHostKeyChecking=no ansible@91.98.42.99 << 'DEPLOY'
-          cd /tmp && git clone https://github.com/oliverbenduhn/ankerkladde.git deploy-temp || cd deploy-temp && git pull
-          cd deploy-temp
-          docker build -t ankerkladde-app .
-          docker build -t ankerkladde-ws ./websocket-server
-          docker-compose up -d --build
+          cd /tmp
+          if [ -d deploy-temp ]; then
+            cd deploy-temp && git pull
+          else
+            git clone https://github.com/oliverbenduhn/ankerkladde.git deploy-temp && cd deploy-temp
+          fi
+
+          docker build -t ghcr.io/oliverbenduhn/ankerkladde:latest .
+          docker build -t ghcr.io/oliverbenduhn/ankerkladde/websocket:latest ./websocket-server
+
+          docker compose -f /opt/ankerkladde/docker-compose.yml up -d --force-recreate
 
           # Notify WebSocket clients of version update
           sleep 2
