@@ -1,0 +1,3 @@
+## 2024-04-16 - Add ARIA Labels to Inputs Relying on Placeholders
+**Learning:** In the main UI (`public/index.php`), many core input fields (search, item name, quantity, note title) lacked explicit `<label>` tags and relied solely on the `placeholder` attribute. Screen readers do not always announce `placeholder` attributes reliably, and the placeholder text disappears once the user starts typing, leaving no context. Adding `aria-label` ensures that the purpose of these inputs remains accessible at all times without changing the visual design.
+**Action:** When creating new inputs or textareas without visible labels (e.g., inline forms or search bars), always provide an `aria-label` attribute describing their purpose, rather than relying exclusively on `placeholder`.
