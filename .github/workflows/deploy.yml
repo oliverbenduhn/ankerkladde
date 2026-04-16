@@ -38,10 +38,22 @@ jobs:
           chmod 600 ~/.ssh/vps_key
           chmod 600 ~/.ssh/web_key
 
-          ssh -i ~/.ssh/vps_key -i ~/.ssh/web_key \
-            -o StrictHostKeyChecking=no \
-            -o ProxyJump=ansible@91.98.42.99 \
-            ansible@192.168.50.10 << 'DEPLOY'
+          cat > ~/.ssh/config << 'SSHCONFIG'
+          Host vps-proxy
+            HostName 91.98.42.99
+            User ansible
+            IdentityFile ~/.ssh/vps_key
+            StrictHostKeyChecking no
+
+          Host web
+            HostName 192.168.50.10
+            User ansible
+            IdentityFile ~/.ssh/web_key
+            StrictHostKeyChecking no
+            ProxyCommand ssh -q -W %h:%p vps-proxy
+          SSHCONFIG
+
+          ssh web << 'DEPLOY'
           cd /var/www/projects/ankerkladde
           git pull origin main
           sudo rc-service php-fpm83 reload
