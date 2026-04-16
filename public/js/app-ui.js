@@ -169,6 +169,9 @@ export function createAppUiController() {
                 quantityInput.type = 'text';
                 quantityInput.placeholder = 'Menge';
                 quantityInput.style.display = '';
+                if (quantityInput.value && /^\d{4}-\d{2}-\d{2}$/.test(quantityInput.value)) {
+                    quantityInput.value = '';
+                }
             } else if (config.quantityMode === 'date') {
                 quantityInput.type = 'date';
                 quantityInput.placeholder = '';
