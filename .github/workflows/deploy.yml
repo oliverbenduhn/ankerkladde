@@ -44,7 +44,7 @@ jobs:
             ansible@192.168.50.10 << 'DEPLOY'
           cd /var/www/projects/ankerkladde
           git pull origin main
-          docker-compose up -d --build
+          sudo rc-service php-fpm83 reload
           DEPLOY
 
           rm ~/.ssh/vps_key ~/.ssh/web_key
