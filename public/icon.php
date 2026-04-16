@@ -86,11 +86,11 @@ function applyBrandThemeVariant(GdImage $image, string $theme): void
             @imagefilter($image, IMG_FILTER_CONTRAST, -4);
             break;
         case 'meeresgruen':
-            @imagefilter($image, IMG_FILTER_COLORIZE, -18, 48, 10, 18);
+            @imagefilter($image, IMG_FILTER_COLORIZE, 30, -10, 48, 16);
             @imagefilter($image, IMG_FILTER_CONTRAST, -4);
             break;
         case 'lavendelsegel':
-            @imagefilter($image, IMG_FILTER_COLORIZE, 30, -10, 48, 16);
+            @imagefilter($image, IMG_FILTER_COLORIZE, -18, 48, 10, 18);
             @imagefilter($image, IMG_FILTER_CONTRAST, -4);
             break;
         case 'nachtwache':
