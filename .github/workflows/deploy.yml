@@ -25,3 +25,22 @@ jobs:
           DEPLOY
           
           rm ~/.ssh/vps_key
+
+  update-web:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Update ankerkladde on web server
+        env:
+          WEB_SSH_KEY: ${{ secrets.WEB_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$WEB_SSH_KEY" > ~/.ssh/web_key
+          chmod 600 ~/.ssh/web_key
+          
+          ssh -i ~/.ssh/web_key -o StrictHostKeyChecking=no komodo@192.168.50.10 << 'DEPLOY'
+          cd /opt/komodo/stacks/ankerkladde
+          git pull origin main
+          docker-compose up -d --build
+          DEPLOY
+          
+          rm ~/.ssh/web_key
