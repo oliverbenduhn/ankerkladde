@@ -90,6 +90,7 @@ $brandMarkSrc = 'icon.php?size=96&theme=' . rawurlencode($effectiveTheme) . '&v=
         <div class="app-title-group clickable-brand" style="cursor: pointer;">
             <img src="<?= htmlspecialchars($brandMarkSrc, ENT_QUOTES, 'UTF-8') ?>" alt="" class="brand-mark brand-mark-app" aria-hidden="true">
             <div class="app-title-stack">
+                <h1 class="app-title">Ankerkladde</h1>
                 <div class="app-subtitle" id="titleListe">Listen</div>
             </div>
         </div>
@@ -113,6 +114,7 @@ $brandMarkSrc = 'icon.php?size=96&theme=' . rawurlencode($effectiveTheme) . '&v=
         <div class="app-title-group clickable-brand" style="cursor: pointer;">
             <img src="<?= htmlspecialchars($brandMarkSrc, ENT_QUOTES, 'UTF-8') ?>" alt="" class="brand-mark brand-mark-app" aria-hidden="true">
             <div class="app-title-stack">
+                <h1 class="app-title">Ankerkladde</h1>
                 <div class="app-subtitle" id="titleShopping">Einkaufen</div>
             </div>
         </div>
