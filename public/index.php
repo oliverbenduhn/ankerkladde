@@ -125,8 +125,8 @@ $brandMarkSrc = 'icon.php?size=96&theme=' . rawurlencode($effectiveTheme) . '&v=
             </div>
         </div>
         <div class="header-actions">
-            <button type="button" class="header-icon-btn btn-tabs-toggle" aria-label="Kategorienleiste ein-/ausblenden"><?= icon('panel-bottom') ?></button>
             <span class="progress" id="progress" aria-live="polite">0 / 0</span>
+            <button type="button" class="header-icon-btn btn-tabs-toggle" aria-label="Kategorienleiste ein-/ausblenden"><?= icon('panel-bottom') ?></button>
             <a href="<?= htmlspecialchars(appPath('barcode.php'), ENT_QUOTES, 'UTF-8') ?>" class="header-icon-btn" aria-label="Produktinfos per Scan öffnen"><?= icon('scan-info') ?></a>
             <button type="button" id="scanShoppingBtn" class="header-icon-btn btn-scan shopping-only" aria-label="Barcode scannen"><?= icon('scan') ?></button>
             <a href="<?= htmlspecialchars(appPath('index.php?view=settings'), ENT_QUOTES, 'UTF-8') ?>" class="header-icon-btn btn-settings" data-settings-tab="app" aria-label="Einstellungen"><?= icon('settings') ?></a>
