@@ -14,14 +14,19 @@ jobs:
           mkdir -p ~/.ssh
           echo "$VPS_SSH_KEY" > ~/.ssh/vps_key
           chmod 600 ~/.ssh/vps_key
-          
+
           ssh -i ~/.ssh/vps_key -o StrictHostKeyChecking=no ansible@91.98.42.99 << 'DEPLOY'
           cd /tmp && git clone https://github.com/oliverbenduhn/ankerkladde.git deploy-temp || cd deploy-temp && git pull
           cd deploy-temp
           docker build -t ankerkladde-app .
           docker build -t ankerkladde-ws ./websocket-server
+          docker-compose up -d --build
+
+          # Notify WebSocket clients of version update
+          sleep 2
+          curl -s -X POST http://localhost:3000/notify -H "Content-Type: application/json" -d '{"action":"version_update"}' || true
           DEPLOY
-          
+
           rm ~/.ssh/vps_key
 
   deploy-web:
@@ -58,5 +63,8 @@ jobs:
           git pull origin main
           sudo rc-service php-fpm83 reload
           DEPLOY
+
+          # Notify WebSocket server of version update (via VPS)
+          ssh vps-proxy curl -s -X POST http://localhost:3000/notify -H \"Content-Type: application/json\" -d \'{\"action\":\"version_update\"}\' || true
 
           rm ~/.ssh/vps_key ~/.ssh/web_key
