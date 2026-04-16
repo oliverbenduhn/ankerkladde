@@ -275,16 +275,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         } elseif ($action === 'save_theme') {
             $themeMode = (string) ($_POST['theme_mode'] ?? 'auto');
-            $lightTheme = (string) ($_POST['light_theme'] ?? 'hafenblau');
-            $darkTheme = (string) ($_POST['dark_theme'] ?? 'nachtwache');
+            $lightTheme = (string) ($_POST['light_theme'] ?? '');
+            $darkTheme = (string) ($_POST['dark_theme'] ?? '');
 
             if (!in_array($themeMode, ['auto', 'light', 'dark'], true)) {
                 $themeMode = 'auto';
             }
-            if (!in_array($lightTheme, ['parchment', 'hafenblau'], true)) {
+
+            $themes = getAvailableThemes();
+            $validLightThemes = array_keys($themes['light'] ?? []);
+            $validDarkThemes = array_keys($themes['dark'] ?? []);
+
+            if (!in_array($lightTheme, $validLightThemes, true)) {
                 $lightTheme = 'hafenblau';
             }
-            if (!in_array($darkTheme, ['nachtwache', 'pier'], true)) {
+            if (!in_array($darkTheme, $validDarkThemes, true)) {
                 $darkTheme = 'nachtwache';
             }
 
