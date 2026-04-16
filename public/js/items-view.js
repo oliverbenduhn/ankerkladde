@@ -443,7 +443,7 @@ export function createItemsViewController(deps) {
         listEl.replaceChildren(fragment);
     }
 
-    function renderItems() {
+    function renderItems(options = {}) {
         if (state.search.open) {
             renderSearchResults();
             return;
@@ -468,7 +468,18 @@ export function createItemsViewController(deps) {
 
         const fragment = document.createDocumentFragment();
         items.forEach(item => fragment.appendChild(buildItemNode(item)));
+
+        if (options.quiet) {
+            listEl.classList.add('no-animations');
+        }
+
         listEl.replaceChildren(fragment);
+
+        if (options.quiet) {
+            // Force a reflow before removing the class to ensure the new nodes aren't animated
+            void listEl.offsetHeight;
+            listEl.classList.remove('no-animations');
+        }
     }
 
     return {

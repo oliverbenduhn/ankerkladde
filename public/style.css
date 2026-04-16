@@ -555,6 +555,10 @@ button, input { font: inherit; }
     transition: opacity 0.2s ease, background 0.2s ease;
 }
 
+#list.no-animations .item-card {
+    animation: none !important;
+}
+
 [data-mode="einkaufen"] .item-card,
 .app.is-searching .item-card {
     cursor: default;
@@ -1680,7 +1684,7 @@ button, input { font: inherit; }
    ANIMATIONS
    =========================================== */
 @keyframes cardIn {
-    from { transform: translateY(6px); }
+    from { transform: translateY(4px); }
     to   { transform: translateY(0);   }
 }
 

@@ -164,7 +164,7 @@ export function createItemsController(deps) {
         }
 
         applyCategoryPayload(resolvedCategoryId, payload);
-        renderItems();
+        renderItems(options);
         updateUploadUi();
     }
 
