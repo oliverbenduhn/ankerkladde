@@ -98,10 +98,14 @@ function getThemeColor(string $theme): string
         'parchment' => '#f5f0eb',
         'meeresgruen' => '#c5e8d8',
         'lavendelsegel' => '#e0d5f0',
+        'monochrom' => '#ffffff',
+        'grauton' => '#f5f5f5',
         'nachtwache' => '#162338',
         'pier' => '#0f1419',
         'mangrove' => '#0a1410',
         'abyssus' => '#1a1030',
+        'monochrom-dark' => '#000000',
+        'grauton-dark' => '#2a2a2a',
         default => '#f5f0eb',
     };
 }
