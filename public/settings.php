@@ -631,6 +631,7 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
         <summary>System & Abmelden</summary>
         <div class="settings-block">
             <p class="settings-copy">Angemeldet als <strong><?= htmlspecialchars((string) ($currentUser['username'] ?? 'unbekannt'), ENT_QUOTES, 'UTF-8') ?></strong>.</p>
+            <p class="settings-copy">Version: <?= htmlspecialchars($assetVersion, ENT_QUOTES, 'UTF-8') ?></p>
             <a href="<?= htmlspecialchars(appPath('logout.php'), ENT_QUOTES, 'UTF-8') ?>" class="settings-link">Abmelden</a>
         </div>
     </details>
