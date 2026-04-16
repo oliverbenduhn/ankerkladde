@@ -1324,21 +1324,26 @@ function getDatabase(): PDO
     }
 
     ensureDefaultCategories($db);
-    migrateLegacyCategories($db);
-    migrateLegacyPreferencesToCategories($db);
-    backfillLegacyCategoryKeys($db);
-    cleanupDuplicateLegacyCategories($db);
 
-    $fillIconsStmt = $db->prepare('UPDATE categories SET icon = :icon WHERE id = :id');
-    $categoryRows = $db->query('SELECT id, type, icon FROM categories')->fetchAll();
-    foreach ($categoryRows as $categoryRow) {
-        $icon = normalizeCategoryIcon((string) ($categoryRow['icon'] ?? ''), (string) ($categoryRow['type'] ?? ''));
-        if ($icon !== (string) ($categoryRow['icon'] ?? '')) {
-            $fillIconsStmt->execute([
-                ':id' => (int) $categoryRow['id'],
-                ':icon' => $icon,
-            ]);
+    $legacyMigrationKey = 'legacy_categories_migration_v2';
+    if (!hasDatabaseMetaFlag($db, $legacyMigrationKey)) {
+        migrateLegacyCategories($db);
+        migrateLegacyPreferencesToCategories($db);
+        backfillLegacyCategoryKeys($db);
+        cleanupDuplicateLegacyCategories($db);
+
+        $fillIconsStmt = $db->prepare('UPDATE categories SET icon = :icon WHERE id = :id');
+        $categoryRows = $db->query('SELECT id, type, icon FROM categories')->fetchAll();
+        foreach ($categoryRows as $categoryRow) {
+            $icon = normalizeCategoryIcon((string) ($categoryRow['icon'] ?? ''), (string) ($categoryRow['type'] ?? ''));
+            if ($icon !== (string) ($categoryRow['icon'] ?? '')) {
+                $fillIconsStmt->execute([
+                    ':id' => (int) $categoryRow['id'],
+                    ':icon' => $icon,
+                ]);
+            }
         }
+        setDatabaseMetaFlag($db, $legacyMigrationKey);
     }
 
     $orphanSortOrderMigrationKey = 'orphan_sort_order_rebuilt_v1';
