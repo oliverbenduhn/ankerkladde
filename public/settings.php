@@ -391,10 +391,16 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                     </label>
                 </div>
                 <div class="theme-grid" style="margin-top: 16px;">
+                    <?php
+                    $themes = getAvailableThemes();
+                    $validLightThemes = array_keys($themes['light'] ?? []);
+                    $validDarkThemes = array_keys($themes['dark'] ?? []);
+                    ?>
                     <div>
                         <h3 class="theme-group-title">Light Theme</h3>
                         <div class="theme-list">
-                            <?php foreach (getAvailableThemes()['light'] ?? [] as $key => $theme): ?>
+                            <?php foreach ($validLightThemes as $key): ?>
+                            <?php $theme = $themes['light'][$key] ?? null; if (!$theme) continue; ?>
                             <label>
                                 <span class="theme-dot" style="background:<?= htmlspecialchars($theme['color'] ?? '#ccc', ENT_QUOTES, 'UTF-8') ?>;"></span>
                                 <?= htmlspecialchars($theme['name'] ?? $key, ENT_QUOTES, 'UTF-8') ?>
@@ -406,7 +412,8 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                     <div>
                         <h3 class="theme-group-title">Dark Theme</h3>
                         <div class="theme-list">
-                            <?php foreach (getAvailableThemes()['dark'] ?? [] as $key => $theme): ?>
+                            <?php foreach ($validDarkThemes as $key): ?>
+                            <?php $theme = $themes['dark'][$key] ?? null; if (!$theme) continue; ?>
                             <label>
                                 <span class="theme-dot" style="background:<?= htmlspecialchars($theme['color'] ?? '#ccc', ENT_QUOTES, 'UTF-8') ?>; border-color:rgba(255,255,255,0.15);"></span>
                                 <?= htmlspecialchars($theme['name'] ?? $key, ENT_QUOTES, 'UTF-8') ?>
