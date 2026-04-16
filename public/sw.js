@@ -10,6 +10,7 @@ const API_URL = new URL('api.php', APP_SCOPE_URL);
 
 const APP_SHELL_ASSET_URLS = [
     'offline.html',
+    'theme-css.php',
     'style.css?v=4.1.1',
     'js/main.js?v=4.1.1',
     'js/api.js?v=4.1.1',

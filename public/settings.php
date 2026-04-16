@@ -339,6 +339,7 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
     <meta name="theme-color" content="<?= htmlspecialchars($themeColor, ENT_QUOTES, 'UTF-8') ?>">
     <?= renderThemeBootScript($preferences) ?>
     <title>Einstellungen — Ankerkladde</title>
+    <link rel="stylesheet" href="<?= htmlspecialchars(appPath('theme-css.php'), ENT_QUOTES, 'UTF-8') ?>">
     <link rel="stylesheet" href="<?= htmlspecialchars(appPath('style.css?v=' . rawurlencode($assetVersion)), ENT_QUOTES, 'UTF-8') ?>">
 </head>
 <body class="settings-page<?= $isEmbedded ? ' settings-page-embedded' : '' ?>" data-theme="<?= htmlspecialchars($effectiveTheme, ENT_QUOTES, 'UTF-8') ?>">
@@ -388,31 +389,25 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                     <div>
                         <h3 class="theme-group-title">Light Theme</h3>
                         <div class="theme-list">
+                            <?php foreach (getAvailableThemes()['light'] ?? [] as $key => $theme): ?>
                             <label>
-                                <span class="theme-dot" style="background:#1a6090;"></span>
-                                Hafenblau
-                                <input type="radio" name="light_theme" value="hafenblau" <?= $preferences['light_theme'] === 'hafenblau' ? 'checked' : '' ?>>
+                                <span class="theme-dot" style="background:<?= htmlspecialchars($theme['color'] ?? '#ccc', ENT_QUOTES, 'UTF-8') ?>;"></span>
+                                <?= htmlspecialchars($theme['name'] ?? $key, ENT_QUOTES, 'UTF-8') ?>
+                                <input type="radio" name="light_theme" value="<?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?>" <?= $preferences['light_theme'] === $key ? 'checked' : '' ?>>
                             </label>
-                            <label>
-                                <span class="theme-dot" style="background:#c8b89a;"></span>
-                                Parchment
-                                <input type="radio" name="light_theme" value="parchment" <?= $preferences['light_theme'] === 'parchment' ? 'checked' : '' ?>>
-                            </label>
+                            <?php endforeach; ?>
                         </div>
                     </div>
                     <div>
                         <h3 class="theme-group-title">Dark Theme</h3>
                         <div class="theme-list">
+                            <?php foreach (getAvailableThemes()['dark'] ?? [] as $key => $theme): ?>
                             <label>
-                                <span class="theme-dot" style="background:#162338; border-color:rgba(255,255,255,0.15);"></span>
-                                Nachtwache
-                                <input type="radio" name="dark_theme" value="nachtwache" <?= $preferences['dark_theme'] === 'nachtwache' ? 'checked' : '' ?>>
+                                <span class="theme-dot" style="background:<?= htmlspecialchars($theme['color'] ?? '#ccc', ENT_QUOTES, 'UTF-8') ?>; border-color:rgba(255,255,255,0.15);"></span>
+                                <?= htmlspecialchars($theme['name'] ?? $key, ENT_QUOTES, 'UTF-8') ?>
+                                <input type="radio" name="dark_theme" value="<?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?>" <?= $preferences['dark_theme'] === $key ? 'checked' : '' ?>>
                             </label>
-                            <label>
-                                <span class="theme-dot" style="background:#0f1419; border-color:rgba(255,255,255,0.15);"></span>
-                                Pier bei Nacht
-                                <input type="radio" name="dark_theme" value="pier" <?= $preferences['dark_theme'] === 'pier' ? 'checked' : '' ?>>
-                            </label>
+                            <?php endforeach; ?>
                         </div>
                     </div>
                 </div>

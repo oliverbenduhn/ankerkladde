@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/theme-definitions.php';
+
 function getThemePreferenceDefaults(): array
 {
     return [
@@ -30,11 +32,15 @@ function normalizeExtendedUserPreferences(array $preferences): array
         $normalized['theme_mode'] = $preferences['theme_mode'];
     }
 
-    if (isset($preferences['light_theme']) && in_array($preferences['light_theme'], ['parchment', 'hafenblau'], true)) {
+    $themes = getAvailableThemes();
+    $lightThemes = array_keys($themes['light'] ?? []);
+    $darkThemes = array_keys($themes['dark'] ?? []);
+
+    if (isset($preferences['light_theme']) && in_array($preferences['light_theme'], $lightThemes, true)) {
         $normalized['light_theme'] = $preferences['light_theme'];
     }
 
-    if (isset($preferences['dark_theme']) && in_array($preferences['dark_theme'], ['nachtwache', 'pier'], true)) {
+    if (isset($preferences['dark_theme']) && in_array($preferences['dark_theme'], $darkThemes, true)) {
         $normalized['dark_theme'] = $preferences['dark_theme'];
     }
 
@@ -118,16 +124,20 @@ function resolveEffectiveTheme(array $preferences, ?bool $prefersDark = null): s
 function renderThemeBootScript(array $preferences): string
 {
     $defaults = getThemePreferenceDefaults();
+    $themes = getAvailableThemes();
+
+    $themeColors = [];
+    foreach (['light', 'dark'] as $mode) {
+        foreach ($themes[$mode] ?? [] as $key => $theme) {
+            $themeColors[$key] = $theme['color'] ?? '#f5f0eb';
+        }
+    }
+
     $payload = [
         'theme_mode' => $preferences['theme_mode'] ?? $defaults['theme_mode'],
         'light_theme' => $preferences['light_theme'] ?? $defaults['light_theme'],
         'dark_theme' => $preferences['dark_theme'] ?? $defaults['dark_theme'],
-        'theme_colors' => [
-            'parchment' => getThemeColor('parchment'),
-            'hafenblau' => getThemeColor('hafenblau'),
-            'nachtwache' => getThemeColor('nachtwache'),
-            'pier' => getThemeColor('pier'),
-        ],
+        'theme_colors' => $themeColors,
     ];
 
     $json = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
@@ -135,4 +145,27 @@ function renderThemeBootScript(array $preferences): string
     return <<<HTML
 <script>(function(){var p={$json};var mq=window.matchMedia?window.matchMedia("(prefers-color-scheme: dark)"):null;function getTheme(){var m=p.theme_mode==="dark"?"dark":(p.theme_mode==="light"?"light":"auto");var d=m==="dark"||(m==="auto"&&mq&&mq.matches);return{mode:m,effectiveTheme:d?(p.dark_theme||"nachtwache"):(p.light_theme||"hafenblau")};}function applyTheme(){var s=getTheme();document.documentElement.dataset.theme=s.effectiveTheme;if(document.body){document.body.dataset.theme=s.effectiveTheme;}var meta=document.querySelector('meta[name="theme-color"]');if(meta&&p.theme_colors&&p.theme_colors[s.effectiveTheme])meta.setAttribute("content",p.theme_colors[s.effectiveTheme]);document.querySelectorAll(".brand-mark").forEach(function(img){if(!(img instanceof HTMLImageElement))return;var src=img.getAttribute("src")||"";if(src.indexOf("icon.php")===-1)return;try{var url=new URL(src,window.location.href);url.searchParams.set("theme",s.effectiveTheme);img.src=url.toString();}catch(e){}});window.__ANKERKLADDE_THEME__=s;}applyTheme();if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",applyTheme,{once:true});}if(mq){if(typeof mq.addEventListener==="function"){mq.addEventListener("change",applyTheme);}else if(typeof mq.addListener==="function"){mq.addListener(applyTheme);}}})();</script>
 HTML;
+}
+
+function renderThemeTokensCSS(): string
+{
+    $themes = getAvailableThemes();
+    $css = '';
+
+    foreach (['light', 'dark'] as $mode) {
+        foreach ($themes[$mode] ?? [] as $key => $theme) {
+            $tokens = $theme['tokens'] ?? [];
+            if (empty($tokens)) {
+                continue;
+            }
+
+            $css .= "[data-theme=\"{$key}\"] {\n";
+            foreach ($tokens as $prop => $value) {
+                $css .= "    {$prop}: {$value};\n";
+            }
+            $css .= "}\n\n";
+        }
+    }
+
+    return $css;
 }
