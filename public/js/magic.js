@@ -1,8 +1,9 @@
 import { appUrl } from './api.js';
-import { appEl, magicBtn, magicBar, magicInput, magicSubmit, magicClose } from './ui.js';
+import { appEl, magicBtns, magicBar, magicInput, magicSubmit, magicClose, magicVoiceBtn } from './ui.js';
 
 export function createMagicController(deps) {
     const { loadCategories, loadItems, setMessage, updateHeaders } = deps;
+    let recognition = null;
 
     function openMagic() {
         if (!magicBar) return;
@@ -12,7 +13,7 @@ export function createMagicController(deps) {
         
         magicBar.hidden = false;
         appEl.classList.add('is-magic-active');
-        magicBtn.classList.add('is-active');
+        magicBtns.forEach(btn => btn.classList.add('is-active'));
         magicInput.focus();
     }
 
@@ -20,8 +21,65 @@ export function createMagicController(deps) {
         if (!magicBar) return;
         magicBar.hidden = true;
         appEl.classList.remove('is-magic-active');
-        magicBtn.classList.remove('is-active');
+        magicBtns.forEach(btn => btn.classList.remove('is-active'));
         magicInput.value = '';
+        if (recognition) {
+            recognition.stop();
+        }
+    }
+
+    function startVoiceRecognition() {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            setMessage('Spracherkennung wird von diesem Browser nicht unterstützt.', true);
+            return;
+        }
+
+        if (recognition) {
+            recognition.stop();
+            return;
+        }
+
+        recognition = new SpeechRecognition();
+        recognition.lang = 'de-DE';
+        recognition.interimResults = true;
+
+        recognition.onstart = () => {
+            magicVoiceBtn.classList.add('is-listening');
+            magicInput.placeholder = 'Höre zu...';
+        };
+
+        recognition.onresult = (event) => {
+            const transcript = Array.from(event.results)
+                .map(result => result[0])
+                .map(result => result.transcript)
+                .join('');
+            
+            magicInput.value = transcript;
+            
+            if (event.results[0].isFinal) {
+                recognition.stop();
+                submitMagic();
+            }
+        };
+
+        recognition.onerror = (event) => {
+            console.error('[Magic Voice] Error:', event.error);
+            magicVoiceBtn.classList.remove('is-listening');
+            magicInput.placeholder = 'KI-Befehl...';
+            if (event.error !== 'no-speech') {
+                setMessage('Sprachfehler: ' + event.error, true);
+            }
+            recognition = null;
+        };
+
+        recognition.onend = () => {
+            magicVoiceBtn.classList.remove('is-listening');
+            magicInput.placeholder = 'KI-Befehl...';
+            recognition = null;
+        };
+
+        recognition.start();
     }
 
     async function submitMagic() {
@@ -70,6 +128,7 @@ export function createMagicController(deps) {
         openMagic,
         closeMagic,
         submitMagic,
+        startVoiceRecognition,
         toggleMagic: () => {
             if (magicBar.hidden) {
                 openMagic();

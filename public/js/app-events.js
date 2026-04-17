@@ -19,13 +19,12 @@ import {
     scannerManualForm,
     scannerManualInput,
     scannerOverlay,
-    searchBtn,
-    searchClose,
     searchInput,
-    magicBtn,
+    magicBtns,
     magicBar,
     magicInput,
     magicSubmit,
+    magicVoiceBtn,
     magicClose,
     sectionTabsEl,
     settingsBtns,
@@ -288,15 +287,21 @@ export function registerAppEventHandlers(deps) {
         }
     });
 
-    magicBtn?.addEventListener('click', () => {
-        if (state.view === 'settings' || state.noteEditorId !== null) return;
-        if (!magicBar.hidden) {
-            magicController.closeMagic();
-            return;
-        }
-        if (scannerState.open) closeScanner();
-        if (state.search.open) closeSearch();
-        magicController.openMagic();
+    magicBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            if (state.view === 'settings' || state.noteEditorId !== null) return;
+            if (!magicBar.hidden) {
+                magicController.closeMagic();
+                return;
+            }
+            if (scannerState.open) closeScanner();
+            if (state.search.open) closeSearch();
+            magicController.openMagic();
+        });
+    });
+
+    magicVoiceBtn?.addEventListener('click', () => {
+        magicController.startVoiceRecognition();
     });
 
     magicClose?.addEventListener('click', () => {

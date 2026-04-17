@@ -28,10 +28,11 @@ export const searchBtn = document.getElementById('searchBtn');
 export const searchBar = document.getElementById('searchBar');
 export const searchInput = document.getElementById('searchInput');
 export const searchClose = document.getElementById('searchClose');
-export const magicBtn = document.getElementById('magicBtn');
+export const magicBtns = document.querySelectorAll('.btn-magic');
 export const magicBar = document.getElementById('magicBar');
 export const magicInput = document.getElementById('magicInput');
 export const magicSubmit = document.getElementById('magicSubmit');
+export const magicVoiceBtn = document.getElementById('magicVoiceBtn');
 export const magicClose = document.getElementById('magicClose');
 export const modeToggleBtns = document.querySelectorAll('.btn-mode-toggle');
 export const settingsBtns = document.querySelectorAll('.btn-settings');
@@ -76,6 +77,7 @@ const ICONS = {
     grip: '<circle cx="9" cy="6" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="18" r="1"/>',
     'arrow-left': '<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>',
     plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
+    mic: '<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/><line x1="8" x2="16" y1="22" y2="22"/>',
     scan: '<path d="M4 7V5a1 1 0 0 1 1-1h2"/><path d="M20 7V5a1 1 0 0 0-1-1h-2"/><path d="M4 17v2a1 1 0 0 0 1 1h2"/><path d="M20 17v2a1 1 0 0 1-1 1h-2"/><path d="M7 12h10"/><path d="M8 9v6"/><path d="M11 9v6"/><path d="M14 9v6"/><path d="M16 9v6"/>',
     'scan-info': '<path d="M4 7V5a1 1 0 0 1 1-1h2"/><path d="M20 7V5a1 1 0 0 0-1-1h-2"/><path d="M4 17v2a1 1 0 0 0 1 1h2"/><path d="M20 17v2a1 1 0 0 1-1 1h-2"/><path d="M7 12h6"/><path d="M8 9v6"/><path d="M11 9v6"/><circle cx="18" cy="12" r="3"/><path d="M18 10.8h.01"/><path d="M18 12.2v1.4"/>',
     link: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',

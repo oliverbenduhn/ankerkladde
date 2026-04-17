@@ -2279,12 +2279,46 @@ button, input { font: inherit; }
 .magic-input {
     flex: 1;
     min-height: 48px;
-    padding: 0 48px 0 14px;
+    padding: 0 48px 0 44px;
     background: transparent;
     border: none;
     font-size: 1rem;
     color: var(--text-primary);
     outline: none;
+}
+
+.btn-magic-voice {
+    position: absolute;
+    left: 4px;
+    top: 4px;
+    bottom: 4px;
+    width: 36px;
+    background: transparent;
+    color: var(--text-muted);
+    border: none;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: color 0.2s ease, background 0.2s ease;
+    z-index: 1;
+}
+
+.btn-magic-voice:hover {
+    color: var(--text-primary);
+    background: rgba(200, 184, 154, 0.1);
+}
+
+.btn-magic-voice.is-listening {
+    color: var(--error);
+    animation: voicePulse 1.2s infinite;
+}
+
+@keyframes voicePulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
 }
 
 .magic-input::placeholder {

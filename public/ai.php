@@ -27,12 +27,36 @@ if ($userInput === '') {
     exit;
 }
 
-$preferences = getExtendedUserPreferences($db, $userId);
-$geminiKey = $preferences['gemini_api_key'] ?? '';
+$preferences = getUserPreferences($db, $userId);
+// Allow testing a key before saving
+$geminiKey = trim((string) ($data['gemini_api_key'] ?? $preferences['gemini_api_key'] ?? ''));
 
 if ($geminiKey === '') {
     http_response_code(403);
     echo json_encode(['error' => 'Bitte hinterlege zuerst deinen Gemini API-Key in den Einstellungen.']);
+    exit;
+}
+
+if (!empty($data['test_only'])) {
+    $apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" . $geminiKey;
+    $postData = [
+        'contents' => [['parts' => [['text' => 'Hi']]]]
+    ];
+    $ch = curl_init($apiUrl);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($postData));
+    curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+    curl_close($ch);
+
+    if ($httpCode === 200) {
+        echo json_encode(['success' => true, 'message' => 'Key ist gültig.']);
+    } else {
+        http_response_code(403);
+        echo json_encode(['error' => 'Key ungültig (HTTP ' . $httpCode . ')']);
+    }
     exit;
 }
 

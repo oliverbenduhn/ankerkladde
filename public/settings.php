@@ -665,9 +665,11 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                 <div class="settings-password-fields">
                     <label class="settings-field">
                         <span>Gemini API-Key</span>
-                        <input type="password" name="gemini_api_key" value="<?= htmlspecialchars((string) ($preferences['gemini_api_key'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="AIzaSy...">
+                        <input type="password" id="gemini_api_key_input" name="gemini_api_key" value="<?= htmlspecialchars((string) ($preferences['gemini_api_key'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="AIzaSy...">
                     </label>
+                    <button type="button" id="test-api-key" class="settings-link">Verbindung testen</button>
                 </div>
+                <div id="api-test-status" class="api-test-status" style="margin-top: 8px; font-size: 0.85rem; display: none;"></div>
                 <?php if ($aiKeyStatus !== null): ?>
                     <p class="settings-inline-status settings-inline-status-<?= htmlspecialchars($aiKeyStatusType, ENT_QUOTES, 'UTF-8') ?>">
                         <?= htmlspecialchars($aiKeyStatus, ENT_QUOTES, 'UTF-8') ?>
@@ -758,6 +760,9 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
     const scrollKey = 'einkauf-settings-scroll-y';
     const copyButton = document.getElementById('copy-api-key');
     const apiKeyInput = document.getElementById('api-key-value');
+    const testApiKeyBtn = document.getElementById('test-api-key');
+    const geminiKeyInput = document.getElementById('gemini_api_key_input');
+    const apiTestStatus = document.getElementById('api-test-status');
 
     const saved = window.sessionStorage.getItem(scrollKey);
     const themeMediaQuery = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
@@ -831,7 +836,44 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
         });
     }
 
+    if (testApiKeyBtn && geminiKeyInput) {
+        testApiKeyBtn.addEventListener('click', async () => {
+            const key = geminiKeyInput.value.trim();
+            if (!key) {
+                apiTestStatus.textContent = 'Bitte zuerst einen Key eingeben.';
+                apiTestStatus.style.color = 'var(--error)';
+                apiTestStatus.style.display = 'block';
+                return;
+            }
 
+            testApiKeyBtn.disabled = true;
+            apiTestStatus.textContent = 'Teste Verbindung...';
+            apiTestStatus.style.color = '';
+            apiTestStatus.style.display = 'block';
+
+            try {
+                const response = await fetch('ai.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ input: 'Hi', test_only: true, gemini_api_key: key })
+                });
+
+                const result = await response.json();
+                if (response.ok) {
+                    apiTestStatus.textContent = '✅ Verbindung erfolgreich!';
+                    apiTestStatus.style.color = 'green';
+                } else {
+                    apiTestStatus.textContent = '❌ Fehler: ' + (result.error || 'Ungültiger Key');
+                    apiTestStatus.style.color = 'var(--error)';
+                }
+            } catch (error) {
+                apiTestStatus.textContent = '❌ Netzwerkfehler beim Testen.';
+                apiTestStatus.style.color = 'var(--error)';
+            } finally {
+                testApiKeyBtn.disabled = false;
+            }
+        });
+    }
 
     window.addEventListener('message', event => {
         if (event.origin !== window.location.origin) return;
