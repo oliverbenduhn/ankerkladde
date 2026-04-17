@@ -19,6 +19,8 @@ import {
     scannerManualForm,
     scannerManualInput,
     scannerOverlay,
+    searchBtn,
+    searchClose,
     searchInput,
     magicBtns,
     magicBar,
