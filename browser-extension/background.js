@@ -5,7 +5,10 @@ const MENU_IDS = {
   saveLink: 'ankerkladde-save-link',
   saveImage: 'ankerkladde-save-image',
   saveSelection: 'ankerkladde-save-selection',
+  saveFile: 'ankerkladde-save-file',
 };
+
+const FILE_EXTENSIONS = /\.(pdf|zip|mp3|mp4|m4a|ogg|wav|flac|webm|avi|mov|mkv|docx?|xlsx?|pptx?|odt|ods|odp|csv|epub|tar|gz|bz2|xz|rar|7z|apk|dmg|exe|msi|deb|rpm|iso|pkg)(\?|#|$)/i;
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.runtime.setUninstallURL('https://ankerkladde.benduhn.de');
@@ -43,6 +46,11 @@ function createContextMenus() {
       id: MENU_IDS.saveSelection,
       title: 'Markierten Text als Notiz speichern',
       contexts: ['selection'],
+    });
+    chrome.contextMenus.create({
+      id: MENU_IDS.saveFile,
+      title: 'Datei zu Ankerkladde speichern',
+      contexts: ['link'],
     });
   });
 }
@@ -358,6 +366,32 @@ async function handleContextMenuClick(info, tab) {
         categoryName: category.name,
       });
       notify('Ankerkladde', 'Notiz gespeichert.');
+      return;
+    }
+
+    if (info.menuItemId === MENU_IDS.saveFile) {
+      const category = chooseCategory(context.visibleCategories, context.preferences, 'files');
+      if (!category || !info.linkUrl) {
+        throw new Error('Keine sichtbare Datei-Kategorie vorhanden.');
+      }
+
+      let filename = 'datei';
+      try {
+        const parsed = new URL(info.linkUrl);
+        const last = parsed.pathname.split('/').pop();
+        if (last) filename = decodeURIComponent(last).slice(0, 120);
+      } catch {}
+
+      await uploadRemoteFile(context.apiUrl, context.apiKey, category.id, info.linkUrl, filename);
+      await rememberLastCategory(context.apiUrl, context.apiKey, category.id);
+      await recordRecentSave(context, {
+        kind: 'Datei',
+        actionType: 'file',
+        title: filename,
+        categoryId: category.id,
+        categoryName: category.name,
+      });
+      notify('Ankerkladde', 'Datei gespeichert.');
     }
   } catch (error) {
     console.error('Kontextmenü-Aktion fehlgeschlagen:', error);

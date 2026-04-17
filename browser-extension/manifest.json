@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Ankerkladde",
-  "version": "2.0.5",
+  "version": "4.2.2",
   "description": "Speichere Links, Bilder und Dateien direkt zu Ankerkladde",
   "icons": {
     "16": "icons/icon16.png",
