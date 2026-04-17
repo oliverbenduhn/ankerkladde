@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require dirname(__DIR__) . '/db.php';
 require dirname(__DIR__) . '/security.php';
+require __DIR__ . '/theme.php';
 
 enforceCanonicalRequest();
 $userId = requireAuth();
@@ -26,7 +27,7 @@ if ($userInput === '') {
     exit;
 }
 
-$preferences = getUserPreferences($db, $userId);
+$preferences = getExtendedUserPreferences($db, $userId);
 $geminiKey = $preferences['gemini_api_key'] ?? '';
 
 if ($geminiKey === '') {
@@ -63,7 +64,8 @@ Regeln:
 2. Wähle die Kategorie sorgfältig. Einkäufe -> list_quantity, Termine/Todos -> list_due_date, Notizen -> notes.
 3. Antworte AUSSCHLIESSLICH mit dem JSON-Array. Kein Text davor oder danach.";
 
-$apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" . $geminiKey;
+$modelName = 'gemini-2.5-flash';
+$apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/' . rawurlencode($modelName) . ':generateContent';
 
 $postData = [
     'contents' => [
@@ -79,22 +81,43 @@ $postData = [
 ];
 
 $ch = curl_init($apiUrl);
+$encodedPostData = json_encode($postData, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 curl_setopt($ch, CURLOPT_POST, true);
-curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($postData));
-curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+curl_setopt($ch, CURLOPT_POSTFIELDS, $encodedPostData === false ? '{}' : $encodedPostData);
+curl_setopt($ch, CURLOPT_TIMEOUT, 20);
+curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
+curl_setopt($ch, CURLOPT_HTTPHEADER, [
+    'Content-Type: application/json',
+    'x-goog-api-key: ' . $geminiKey,
+]);
 $response = curl_exec($ch);
 $httpCode = curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+if ($response === false) {
+    $error = curl_error($ch);
+    curl_close($ch);
+    http_response_code(502);
+    echo json_encode(['error' => 'Gemini konnte nicht erreicht werden: ' . $error]);
+    exit;
+}
 curl_close($ch);
 
 if ($httpCode !== 200) {
+    $errorPayload = json_decode($response, true);
+    $apiMessage = trim((string) ($errorPayload['error']['message'] ?? ''));
     http_response_code(500);
-    echo json_encode(['error' => 'Fehler bei der Kommunikation mit Gemini (HTTP ' . $httpCode . ')']);
+    echo json_encode([
+        'error' => 'Fehler bei der Kommunikation mit Gemini (HTTP ' . $httpCode . ')' . ($apiMessage !== '' ? ': ' . $apiMessage : ''),
+    ]);
     exit;
 }
 
 $result = json_decode($response, true);
 $aiText = $result['candidates'][0]['content']['parts'][0]['text'] ?? '[]';
+$aiText = trim((string) $aiText);
+if (preg_match('/^```(?:json)?\s*(.*?)\s*```$/s', $aiText, $matches)) {
+    $aiText = trim((string) ($matches[1] ?? '[]'));
+}
 $itemsToAdd = json_decode($aiText, true);
 
 if (!is_array($itemsToAdd)) {
@@ -146,5 +169,7 @@ try {
 echo json_encode([
     'success' => true,
     'added_count' => $addedCount,
-    'message' => $addedCount . ' Artikel erfolgreich hinzugefügt.'
+    'message' => $addedCount > 0
+        ? $addedCount . ' Artikel erfolgreich hinzugefügt.'
+        : 'Keine passenden Artikel erkannt.'
 ]);

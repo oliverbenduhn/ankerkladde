@@ -1,3 +1,4 @@
+import { appUrl } from './api.js';
 import { appEl, magicBtn, magicBar, magicInput, magicSubmit, magicClose } from './ui.js';
 
 export function createMagicController(deps) {
@@ -31,13 +32,19 @@ export function createMagicController(deps) {
         setMessage('Magie wird gewirkt...');
 
         try {
-            const response = await fetch('ai.php', {
+            const response = await fetch(appUrl('ai.php'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ input })
             });
 
-            const result = await response.json();
+            const rawText = await response.text();
+            let result = {};
+            try {
+                result = rawText ? JSON.parse(rawText) : {};
+            } catch {
+                throw new Error(rawText || 'KI-Anfrage fehlgeschlagen');
+            }
 
             if (!response.ok) {
                 throw new Error(result.error || 'KI-Anfrage fehlgeschlagen');
