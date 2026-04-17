@@ -2236,9 +2236,103 @@ button, input { font: inherit; }
     background: rgba(200, 184, 154, 0.12);
 }
 
-/* Hide input area and clear button while searching */
-.app.is-searching .input-area  { display: none !important; }
-.app.is-searching .btn-clear   { display: none !important; }
+/* Hide input area and clear button while searching or using magic bar */
+.app.is-searching .input-area,
+.app.is-magic-active .input-area { display: none !important; }
+.app.is-searching .btn-clear,
+.app.is-magic-active .btn-clear { display: none !important; }
+
+/* ===========================================
+   MAGIC BAR
+   =========================================== */
+.btn-magic.is-active { 
+    background: var(--button-active-bg); 
+    color: var(--button-active-text); 
+    box-shadow: 0 0 10px rgba(200, 184, 154, 0.4);
+}
+
+.magic-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 16px 10px;
+    flex-shrink: 0;
+    animation: magicIn 0.3s ease-out;
+}
+
+@keyframes magicIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.magic-bar-inner {
+    flex: 1;
+    display: flex;
+    position: relative;
+    background: var(--surface);
+    border: 2px solid var(--accent);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(200, 184, 154, 0.15);
+}
+
+.magic-input {
+    flex: 1;
+    min-height: 48px;
+    padding: 0 48px 0 14px;
+    background: transparent;
+    border: none;
+    font-size: 1rem;
+    color: var(--text-primary);
+    outline: none;
+}
+
+.magic-input::placeholder {
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+.btn-magic-submit {
+    position: absolute;
+    right: 4px;
+    top: 4px;
+    bottom: 4px;
+    width: 40px;
+    background: var(--accent);
+    color: var(--text-primary);
+    border: none;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.btn-magic-submit:hover {
+    background: var(--border);
+    transform: scale(1.05);
+}
+
+.btn-magic-submit:active {
+    transform: scale(0.95);
+}
+
+.magic-bar.is-loading .magic-input {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+.magic-bar.is-loading .btn-magic-submit {
+    animation: magicPulse 1.5s infinite ease-in-out;
+    pointer-events: none;
+}
+
+@keyframes magicPulse {
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.15); opacity: 0.7; }
+    100% { transform: scale(1); opacity: 1; }
+}
 
 /* ===========================================
    SEARCH RESULTS

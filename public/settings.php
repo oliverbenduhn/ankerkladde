@@ -312,6 +312,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif ($action === 'regenerate_api_key') {
             setUserApiKey($db, $userId);
             $flash = 'API-Key neu erzeugt.';
+        } elseif ($action === 'save_ai_preferences') {
+            $geminiApiKey = trim((string) ($_POST['gemini_api_key'] ?? ''));
+            updateExtendedUserPreferences($db, $userId, [
+                'gemini_api_key' => $geminiApiKey,
+            ]);
+            $flash = 'KI-Einstellungen gespeichert.';
+            notifyWebSocket($userId);
         }
     }
 }
@@ -577,6 +584,26 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
 
             <div class="settings-actions">
                 <button type="submit" class="settings-save">Kategorie anlegen</button>
+            </div>
+        </form>
+    </details>
+
+    <details class="settings-section settings-accordion" open>
+        <summary>KI-Assistent (Magic Bar)</summary>
+        <form method="post" action="<?= htmlspecialchars($settingsAction, ENT_QUOTES, 'UTF-8') ?>" class="settings-form">
+            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
+            <input type="hidden" name="action" value="save_ai_preferences">
+            <div class="settings-block">
+                <p class="settings-copy">Hinterlege hier deinen <strong>Google Gemini API-Key</strong>, um die Magic Bar zu nutzen. Kostenlose Keys gibt es im <a href="https://aistudio.google.com/" target="_blank" rel="noopener">Google AI Studio</a>.</p>
+                <div class="settings-password-fields">
+                    <label class="settings-field">
+                        <span>Gemini API-Key</span>
+                        <input type="password" name="gemini_api_key" value="<?= htmlspecialchars((string) ($preferences['gemini_api_key'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="AIzaSy...">
+                    </label>
+                </div>
+            </div>
+            <div class="settings-actions">
+                <button type="submit" class="settings-save">KI-Einstellungen speichern</button>
             </div>
         </form>
     </details>

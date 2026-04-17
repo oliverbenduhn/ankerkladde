@@ -436,6 +436,7 @@ function getDefaultUserPreferences(): array
         'last_category_id' => null,
         'install_banner_dismissed' => false,
         'theme' => 'parchment',
+        'gemini_api_key' => '',
     ];
 }
 
@@ -468,6 +469,10 @@ function normalizeUserPreferences(array $preferences): array
     $validThemes = ['parchment', 'hafenblau', 'nachtwache', 'pier'];
     if (isset($preferences['theme']) && in_array($preferences['theme'], $validThemes, true)) {
         $normalized['theme'] = $preferences['theme'];
+    }
+
+    if (isset($preferences['gemini_api_key'])) {
+        $normalized['gemini_api_key'] = trim((string) $preferences['gemini_api_key']);
     }
 
     return $normalized;

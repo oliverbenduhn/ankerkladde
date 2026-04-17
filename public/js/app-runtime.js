@@ -10,6 +10,7 @@ import { createRouter } from './router.js';
 import { createScannerController } from './scanner.js';
 import { createSwipeController } from './swipe.js';
 import { createTabsViewController } from './tabs-view.js';
+import { createMagicController } from './magic.js';
 import {
     BARCODE_FORMATS,
     SCANNER_COOLDOWN_MS,
@@ -50,6 +51,7 @@ export function createAppRuntime(deps) {
     let reorderController = null;
     let swipeController = null;
     let tabsViewController = null;
+    let magicController = null;
 
     const getItemById = id => itemsController.getItemById(id);
     const getVisibleCategories = () => itemsController.getVisibleCategories();
@@ -208,6 +210,13 @@ export function createAppRuntime(deps) {
         setCategory,
     });
 
+    magicController = createMagicController({
+        loadCategories,
+        loadItems,
+        setMessage,
+        updateHeaders,
+    });
+
     return {
         addItem: async event => { await itemsActionsController.addItem(event); },
         applyTabsVisibility,
@@ -241,5 +250,6 @@ export function createAppRuntime(deps) {
         triggerUploadSelectedAttachment: async () => { await itemsActionsController.uploadSelectedAttachment(); },
         updateFilePickerLabel,
         updateHeaders,
+        magicController,
     };
 }

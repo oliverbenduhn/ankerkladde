@@ -22,6 +22,11 @@ import {
     searchBtn,
     searchClose,
     searchInput,
+    magicBtn,
+    magicBar,
+    magicInput,
+    magicSubmit,
+    magicClose,
     sectionTabsEl,
     settingsBtns,
     settingsFrameEl,
@@ -61,6 +66,7 @@ export function registerAppEventHandlers(deps) {
         userPreferencesRef,
         editorController,
         addItem,
+        magicController,
     } = deps;
 
     itemForm?.addEventListener('submit', event => {
@@ -263,6 +269,7 @@ export function registerAppEventHandlers(deps) {
             return;
         }
         if (scannerState.open) closeScanner();
+        if (!magicBar.hidden) magicController.closeMagic();
         openSearch();
         navigation.pushHistoryState({ screen: 'search', query: state.search.query });
     });
@@ -279,6 +286,38 @@ export function registerAppEventHandlers(deps) {
         if (event.key === 'Escape') {
             closeSearch();
         }
+    });
+
+    magicBtn?.addEventListener('click', () => {
+        if (state.view === 'settings' || state.noteEditorId !== null) return;
+        if (!magicBar.hidden) {
+            magicController.closeMagic();
+            return;
+        }
+        if (scannerState.open) closeScanner();
+        if (state.search.open) closeSearch();
+        magicController.openMagic();
+    });
+
+    magicClose?.addEventListener('click', () => {
+        magicController.closeMagic();
+    });
+
+    magicSubmit?.addEventListener('click', () => {
+        void magicController.submitMagic();
+    });
+
+    magicInput?.addEventListener('keydown', event => {
+        if (event.key === 'Enter') {
+            void magicController.submitMagic();
+        } else if (event.key === 'Escape') {
+            magicController.closeMagic();
+        }
+    });
+
+    document.addEventListener('ankerkladde-close-bars', () => {
+        if (!magicBar.hidden) magicController.closeMagic();
+        if (state.search.open) closeSearch();
     });
 
     noteEditorBack?.addEventListener('click', () => {
@@ -365,6 +404,9 @@ export function registerAppEventHandlers(deps) {
         }
         if (event.key === 'Escape' && state.view === 'settings') {
             navigation.navigateBackOrReplace({ screen: 'list' });
+        }
+        if (event.key === 'Escape' && !magicBar.hidden) {
+            magicController.closeMagic();
         }
     });
 

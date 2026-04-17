@@ -28,6 +28,11 @@ export const searchBtn = document.getElementById('searchBtn');
 export const searchBar = document.getElementById('searchBar');
 export const searchInput = document.getElementById('searchInput');
 export const searchClose = document.getElementById('searchClose');
+export const magicBtn = document.getElementById('magicBtn');
+export const magicBar = document.getElementById('magicBar');
+export const magicInput = document.getElementById('magicInput');
+export const magicSubmit = document.getElementById('magicSubmit');
+export const magicClose = document.getElementById('magicClose');
 export const modeToggleBtns = document.querySelectorAll('.btn-mode-toggle');
 export const settingsBtns = document.querySelectorAll('.btn-settings');
 export const sectionTabsEl = document.getElementById('sectionTabs');
@@ -74,6 +79,7 @@ const ICONS = {
     scan: '<path d="M4 7V5a1 1 0 0 1 1-1h2"/><path d="M20 7V5a1 1 0 0 0-1-1h-2"/><path d="M4 17v2a1 1 0 0 0 1 1h2"/><path d="M20 17v2a1 1 0 0 1-1 1h-2"/><path d="M7 12h10"/><path d="M8 9v6"/><path d="M11 9v6"/><path d="M14 9v6"/><path d="M16 9v6"/>',
     'scan-info': '<path d="M4 7V5a1 1 0 0 1 1-1h2"/><path d="M20 7V5a1 1 0 0 0-1-1h-2"/><path d="M4 17v2a1 1 0 0 0 1 1h2"/><path d="M20 17v2a1 1 0 0 1-1 1h-2"/><path d="M7 12h6"/><path d="M8 9v6"/><path d="M11 9v6"/><circle cx="18" cy="12" r="3"/><path d="M18 10.8h.01"/><path d="M18 12.2v1.4"/>',
     link: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+    sparkles: '<path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>',
     'more-horizontal': '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
 };
 

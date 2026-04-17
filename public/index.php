@@ -42,6 +42,7 @@ function icon(string $name): string {
         'link'     => '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
         'arrow-left' => '<path d="m12 19-7-7 7-7M19 12H5"/>',
         'panel-bottom' => '<path d="M3 14h18M3 18h18"/><path d="M7 14v4M12 14v4M17 14v4"/><path d="M3 6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4H3V6z"/>',
+        'sparkles' => '<path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>',
     ];
     $p = $paths[$name] ?? '';
     return '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true">' . $p . '</svg>';
@@ -99,6 +100,7 @@ $brandMarkSrc = 'icon.php?size=96&theme=' . rawurlencode($effectiveTheme) . '&v=
             <button type="button" id="tabsToggleBtn" class="header-icon-btn btn-tabs-toggle" aria-label="Kategorienleiste ein-/ausblenden"><?= icon('panel-bottom') ?></button>
             <a href="<?= htmlspecialchars(appPath('barcode.php'), ENT_QUOTES, 'UTF-8') ?>" class="header-icon-btn" aria-label="Produktinfos per Scan öffnen"><?= icon('scan-info') ?></a>
             <button type="button" id="searchBtn" class="header-icon-btn btn-search" aria-label="Suchen"><?= icon('search') ?></button>
+            <button type="button" id="magicBtn" class="header-icon-btn btn-magic" aria-label="KI-Assistent"><?= icon('sparkles') ?></button>
             <a href="<?= htmlspecialchars(appPath('index.php?view=settings'), ENT_QUOTES, 'UTF-8') ?>" class="header-icon-btn btn-settings" data-settings-tab="app" aria-label="Einstellungen"><?= icon('settings') ?></a>
             <button type="button" class="header-icon-btn btn-mode-toggle" data-nav="einkaufen" aria-label="Einkaufs-Modus starten"><?= icon('eye') ?></button>
         </div>
@@ -108,7 +110,16 @@ $brandMarkSrc = 'icon.php?size=96&theme=' . rawurlencode($effectiveTheme) . '&v=
         <input type="search" id="searchInput" class="search-input"
                placeholder="In allen Bereichen suchen…"
                autocomplete="off" enterkeyhint="search" maxlength="120">
-        <button type="button" id="searchClose" class="btn-search-close" aria-label="Suche schließen"><?= icon('x') ?></button>
+    </div>
+
+    <div class="magic-bar liste-only" id="magicBar" hidden>
+        <div class="magic-bar-inner">
+            <input type="text" id="magicInput" class="magic-input"
+                   placeholder="KI-Befehl (z.B. 'Zutaten für Lasagne')"
+                   autocomplete="off" enterkeyhint="go">
+            <button type="button" id="magicSubmit" class="btn-magic-submit" aria-label="KI ausführen"><?= icon('sparkles') ?></button>
+        </div>
+        <button type="button" id="magicClose" class="btn-search-close" aria-label="Schließen"><?= icon('x') ?></button>
     </div>
 
     <header class="app-header shopping-only">
