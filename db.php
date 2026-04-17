@@ -1323,25 +1323,31 @@ function getDatabase(): PDO
 
         if ($catalogTableExists) {
             $productDb = getProductDatabase();
-            $rows = $db->query('SELECT * FROM product_catalog')->fetchAll();
-            if (!empty($rows)) {
-                $insertStmt = $productDb->prepare(
-                    'INSERT OR IGNORE INTO product_catalog
-                     (barcode, product_name, brands, quantity, source, created_at, updated_at)
-                     VALUES (:barcode, :product_name, :brands, :quantity, :source, :created_at, :updated_at)'
-                );
-                foreach ($rows as $row) {
-                    $insertStmt->execute([
-                        ':barcode'      => (string) ($row['barcode'] ?? ''),
-                        ':product_name' => (string) ($row['product_name'] ?? ''),
-                        ':brands'       => (string) ($row['brands'] ?? ''),
-                        ':quantity'     => (string) ($row['quantity'] ?? ''),
-                        ':source'       => (string) ($row['source'] ?? ''),
-                        ':created_at'   => (string) ($row['created_at'] ?? ''),
-                        ':updated_at'   => (string) ($row['updated_at'] ?? ''),
-                    ]);
+            $insertStmt = $productDb->prepare(
+                'INSERT OR IGNORE INTO product_catalog
+                 (barcode, product_name, brands, quantity, source, created_at, updated_at)
+                 VALUES (:barcode, :product_name, :brands, :quantity, :source, :created_at, :updated_at)'
+            );
+            $selectStmt = $db->query('SELECT * FROM product_catalog');
+            $productDb->beginTransaction();
+            $count = 0;
+            while ($row = $selectStmt->fetch()) {
+                $insertStmt->execute([
+                    ':barcode'      => (string) ($row['barcode'] ?? ''),
+                    ':product_name' => (string) ($row['product_name'] ?? ''),
+                    ':brands'       => (string) ($row['brands'] ?? ''),
+                    ':quantity'     => (string) ($row['quantity'] ?? ''),
+                    ':source'       => (string) ($row['source'] ?? ''),
+                    ':created_at'   => (string) ($row['created_at'] ?? ''),
+                    ':updated_at'   => (string) ($row['updated_at'] ?? ''),
+                ]);
+                $count++;
+                if ($count % 5000 === 0) {
+                    $productDb->commit();
+                    $productDb->beginTransaction();
                 }
             }
+            $productDb->commit();
             $db->exec('DROP TABLE product_catalog');
         }
 
