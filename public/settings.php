@@ -11,6 +11,8 @@ $db = getDatabase();
 $csrfToken = getCsrfToken();
 $flash = null;
 $flashType = 'ok';
+$aiKeyStatus = null;
+$aiKeyStatusType = 'ok';
 
 function validateSettingsPassword(string $password): ?string
 {
@@ -31,6 +33,65 @@ function normalizeSettingsName(string $value): string
     }
 
     return substr($value, 0, 120);
+}
+
+function validateGeminiApiKey(string $apiKey): array
+{
+    if ($apiKey === '') {
+        return [
+            'type' => 'info',
+            'message' => 'Noch kein Gemini API-Key hinterlegt.',
+        ];
+    }
+
+    $url = 'https://generativelanguage.googleapis.com/v1beta/models?key=' . rawurlencode($apiKey);
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 8,
+        CURLOPT_CONNECTTIMEOUT => 3,
+        CURLOPT_HTTPGET => true,
+        CURLOPT_HTTPHEADER => ['Accept: application/json'],
+    ]);
+
+    $response = curl_exec($ch);
+    if ($response === false) {
+        $error = curl_error($ch);
+        curl_close($ch);
+
+        return [
+            'type' => 'warn',
+            'message' => 'Key gespeichert, Validierung aktuell nicht möglich (' . $error . ').',
+        ];
+    }
+
+    $httpCode = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+    curl_close($ch);
+
+    if ($httpCode >= 200 && $httpCode < 300) {
+        return [
+            'type' => 'ok',
+            'message' => 'Gemini API-Key ist gültig.',
+        ];
+    }
+
+    $decoded = json_decode($response, true);
+    $apiMessage = '';
+    if (is_array($decoded)) {
+        $apiMessage = trim((string) ($decoded['error']['message'] ?? ''));
+    }
+
+    if ($httpCode === 400 || $httpCode === 401 || $httpCode === 403) {
+        return [
+            'type' => 'err',
+            'message' => 'Gemini API-Key ist ungültig.' . ($apiMessage !== '' ? ' ' . $apiMessage : ''),
+        ];
+    }
+
+    return [
+        'type' => 'warn',
+        'message' => 'Key gespeichert, Google-Validierung antwortete mit HTTP ' . $httpCode . '.' . ($apiMessage !== '' ? ' ' . $apiMessage : ''),
+    ];
 }
 
 function moveCategorySortOrder(PDO $db, int $userId, int $categoryId, string $direction): bool
@@ -317,7 +378,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             updateExtendedUserPreferences($db, $userId, [
                 'gemini_api_key' => $geminiApiKey,
             ]);
-            $flash = 'KI-Einstellungen gespeichert.';
+            $validation = validateGeminiApiKey($geminiApiKey);
+            $aiKeyStatus = $validation['message'];
+            $aiKeyStatusType = $validation['type'];
+            $flash = $geminiApiKey === '' ? 'KI-Einstellungen gespeichert.' : 'KI-Einstellungen gespeichert. ' . $validation['message'];
+            if ($aiKeyStatusType === 'err') {
+                $flashType = 'err';
+            }
             notifyWebSocket($userId);
         }
     }
@@ -601,6 +668,11 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                         <input type="password" name="gemini_api_key" value="<?= htmlspecialchars((string) ($preferences['gemini_api_key'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="AIzaSy...">
                     </label>
                 </div>
+                <?php if ($aiKeyStatus !== null): ?>
+                    <p class="settings-inline-status settings-inline-status-<?= htmlspecialchars($aiKeyStatusType, ENT_QUOTES, 'UTF-8') ?>">
+                        <?= htmlspecialchars($aiKeyStatus, ENT_QUOTES, 'UTF-8') ?>
+                    </p>
+                <?php endif; ?>
             </div>
             <div class="settings-actions">
                 <button type="submit" class="settings-save">KI-Einstellungen speichern</button>
