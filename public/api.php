@@ -1717,7 +1717,8 @@ try {
             }
 
             // 2. product_catalog — OpenFoodFacts-Fallback
-            $stmt = $db->prepare(
+            $productDb = getProductDatabase();
+            $stmt = $productDb->prepare(
                 'SELECT barcode, product_name, brands, quantity
                  FROM product_catalog
                  WHERE barcode = :barcode
@@ -1810,7 +1811,8 @@ try {
                 respond(422, ['error' => 'Ungültiger Barcode.']);
             }
 
-            $summaryStmt = $db->prepare(
+            $productDb = getProductDatabase();
+            $summaryStmt = $productDb->prepare(
                 'SELECT barcode, product_name, brands, quantity, source
                  FROM product_catalog
                  WHERE barcode = :barcode
@@ -1834,15 +1836,15 @@ try {
                 }
 
                 $tableIdentifier = quoteSqlIdentifier($tableName);
-                $exists = (bool) $db->query(
-                    "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = " . $db->quote($tableName)
+                $exists = (bool) $productDb->query(
+                    "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = " . $productDb->quote($tableName)
                 )->fetchColumn();
 
                 if (!$exists) {
                     continue;
                 }
 
-                $stmt = $db->prepare("SELECT * FROM {$tableIdentifier} WHERE code = :barcode LIMIT 1");
+                $stmt = $productDb->prepare("SELECT * FROM {$tableIdentifier} WHERE code = :barcode LIMIT 1");
                 $stmt->execute([':barcode' => $barcode]);
                 $row = $stmt->fetch();
 

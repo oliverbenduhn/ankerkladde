@@ -1027,6 +1027,36 @@ function upsertScannedProduct(PDO $db, string $barcode, array $data, bool $confi
     ]);
 }
 
+function getProductDatabase(): PDO
+{
+    static $productDb = null;
+
+    if ($productDb instanceof PDO) {
+        return $productDb;
+    }
+
+    $dbFile = getDataDirectory() . '/products.db';
+    $productDb = new PDO('sqlite:' . $dbFile);
+    $productDb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $productDb->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+    $productDb->exec('PRAGMA busy_timeout = 3000');
+    $productDb->exec('PRAGMA journal_mode = WAL');
+
+    $productDb->exec(
+        "CREATE TABLE IF NOT EXISTS product_catalog (
+            barcode TEXT PRIMARY KEY,
+            product_name TEXT NOT NULL DEFAULT '',
+            brands TEXT NOT NULL DEFAULT '',
+            quantity TEXT NOT NULL DEFAULT '',
+            source TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )"
+    );
+
+    return $productDb;
+}
+
 function getDatabase(): PDO
 {
     static $db = null;
@@ -1284,21 +1314,38 @@ function getDatabase(): PDO
     $db->exec('CREATE INDEX IF NOT EXISTS idx_categories_user_id ON categories(user_id)');
     $db->exec('CREATE INDEX IF NOT EXISTS idx_categories_user_sort ON categories(user_id, sort_order)');
     $db->exec('CREATE INDEX IF NOT EXISTS idx_items_category_id ON items(category_id)');
-    $db->exec(
-        "CREATE TABLE IF NOT EXISTS product_catalog (
-            barcode TEXT PRIMARY KEY,
-            product_name TEXT NOT NULL DEFAULT '',
-            brands TEXT NOT NULL DEFAULT '',
-            quantity TEXT NOT NULL DEFAULT '',
-            source TEXT NOT NULL DEFAULT '',
-            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-        )"
-    );
-    $productCatalogColumns = $db->query('PRAGMA table_info(product_catalog)')->fetchAll();
-    $productCatalogColumnNames = array_map(static fn(array $column): string => $column['name'], $productCatalogColumns);
-    if (!in_array('source', $productCatalogColumnNames, true)) {
-        $db->exec("ALTER TABLE product_catalog ADD COLUMN source TEXT NOT NULL DEFAULT ''");
+    // One-time migration: product_catalog aus einkaufsliste.db in products.db verschieben
+    $productCatalogMigrationKey = 'product_catalog_migrated_to_products_db_v1';
+    if (!hasDatabaseMetaFlag($db, $productCatalogMigrationKey)) {
+        $catalogTableExists = (bool) $db->query(
+            "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='product_catalog'"
+        )->fetchColumn();
+
+        if ($catalogTableExists) {
+            $productDb = getProductDatabase();
+            $rows = $db->query('SELECT * FROM product_catalog')->fetchAll();
+            if (!empty($rows)) {
+                $insertStmt = $productDb->prepare(
+                    'INSERT OR IGNORE INTO product_catalog
+                     (barcode, product_name, brands, quantity, source, created_at, updated_at)
+                     VALUES (:barcode, :product_name, :brands, :quantity, :source, :created_at, :updated_at)'
+                );
+                foreach ($rows as $row) {
+                    $insertStmt->execute([
+                        ':barcode'      => (string) ($row['barcode'] ?? ''),
+                        ':product_name' => (string) ($row['product_name'] ?? ''),
+                        ':brands'       => (string) ($row['brands'] ?? ''),
+                        ':quantity'     => (string) ($row['quantity'] ?? ''),
+                        ':source'       => (string) ($row['source'] ?? ''),
+                        ':created_at'   => (string) ($row['created_at'] ?? ''),
+                        ':updated_at'   => (string) ($row['updated_at'] ?? ''),
+                    ]);
+                }
+            }
+            $db->exec('DROP TABLE product_catalog');
+        }
+
+        setDatabaseMetaFlag($db, $productCatalogMigrationKey);
     }
 
     $db->exec(

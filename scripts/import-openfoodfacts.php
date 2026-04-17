@@ -201,8 +201,7 @@ foreach (REQUIRED_COLUMNS as $columnName) {
     }
 }
 
-$db = getDatabase();
-$db->exec('PRAGMA journal_mode = WAL');
+$db = getProductDatabase();
 $db->exec('PRAGMA synchronous = NORMAL');
 $db->exec('PRAGMA temp_store = MEMORY');
 
