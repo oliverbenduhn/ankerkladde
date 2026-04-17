@@ -11,6 +11,74 @@ $db = getDatabase();
 
 header('Content-Type: application/json; charset=utf-8');
 
+function magicObjectLabel(string $categoryType): string
+{
+    return match ($categoryType) {
+        'list_quantity' => 'Artikel',
+        'list_due_date' => 'Aufgabe',
+        'notes' => 'Notiz',
+        'images' => 'Bild',
+        'files' => 'Datei',
+        'links' => 'Link',
+        default => 'Eintrag',
+    };
+}
+
+function buildMagicToastMessage(array $createdItems): string
+{
+    $count = count($createdItems);
+    if ($count === 0) {
+        return 'Keine passenden Objekte erkannt.';
+    }
+
+    if ($count === 1) {
+        $item = $createdItems[0];
+        $label = (string) ($item['object_label'] ?? 'Eintrag');
+        $name = trim((string) ($item['name'] ?? ''));
+        $categoryName = trim((string) ($item['category_name'] ?? ''));
+        $message = $label . ' erstellt';
+        if ($name !== '') {
+            $message .= ': ' . $name;
+        }
+        if ($categoryName !== '') {
+            $message .= ' in ' . $categoryName;
+        }
+
+        return $message . '.';
+    }
+
+    $previewNames = array_values(array_filter(array_map(
+        static fn(array $item): string => trim((string) ($item['name'] ?? '')),
+        array_slice($createdItems, 0, 3)
+    )));
+    $preview = implode(', ', $previewNames);
+
+    return $count . ' Objekte erstellt' . ($preview !== '' ? ': ' . $preview : '') . ($count > 3 ? ' ...' : '') . '.';
+}
+
+function resolveMagicTargetCategory(array $createdItems): array
+{
+    if ($createdItems === []) {
+        return [
+            'id' => null,
+            'name' => '',
+            'ambiguous' => false,
+        ];
+    }
+
+    $firstItem = $createdItems[0];
+    $categoryIds = array_values(array_unique(array_map(
+        static fn(array $item): int => (int) ($item['category_id'] ?? 0),
+        $createdItems
+    )));
+
+    return [
+        'id' => (int) ($firstItem['category_id'] ?? 0),
+        'name' => (string) ($firstItem['category_name'] ?? ''),
+        'ambiguous' => count($categoryIds) > 1,
+    ];
+}
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
     echo json_encode(['error' => 'Nur POST erlaubt.']);
@@ -161,6 +229,7 @@ if (!is_array($itemsToAdd)) {
 }
 
 $addedCount = 0;
+$createdItems = [];
 $db->beginTransaction();
 try {
     foreach ($itemsToAdd as $item) {
@@ -170,9 +239,11 @@ try {
         $catId = (int) ($item['category_id'] ?? 0);
         // Verify category belongs to user
         $validCat = false;
+        $matchedCategory = null;
         foreach ($categories as $c) {
             if ($c['id'] === $catId) {
                 $validCat = true;
+                $matchedCategory = $c;
                 break;
             }
         }
@@ -191,6 +262,15 @@ try {
             ':user_id' => $userId,
         ]);
         $addedCount++;
+        $createdItems[] = [
+            'name' => mb_substr($name, 0, 120),
+            'category_id' => $catId,
+            'category_name' => (string) ($matchedCategory['name'] ?? ''),
+            'category_type' => (string) ($matchedCategory['type'] ?? ''),
+            'object_label' => magicObjectLabel((string) ($matchedCategory['type'] ?? '')),
+            'quantity' => mb_substr((string) ($item['quantity'] ?? ''), 0, 40),
+            'due_date' => (string) ($item['due_date'] ?? ''),
+        ];
     }
     $db->commit();
 } catch (Exception $e) {
@@ -200,9 +280,16 @@ try {
     exit;
 }
 
+$targetCategory = resolveMagicTargetCategory($createdItems);
+
 echo json_encode([
     'success' => true,
     'added_count' => $addedCount,
+    'created_items' => $createdItems,
+    'toast_message' => buildMagicToastMessage($createdItems),
+    'target_category_id' => $targetCategory['id'],
+    'target_category_name' => $targetCategory['name'],
+    'target_category_ambiguous' => $targetCategory['ambiguous'],
     'message' => $addedCount > 0
         ? $addedCount . ' Artikel erfolgreich hinzugefügt.'
         : 'Keine passenden Artikel erkannt.'

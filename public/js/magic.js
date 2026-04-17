@@ -2,7 +2,7 @@ import { appUrl } from './api.js';
 import { appEl, magicBtns, magicBar, magicInput, magicSubmit, magicClose, magicVoiceBtn } from './ui.js';
 
 export function createMagicController(deps) {
-    const { loadCategories, loadItems, setMessage, updateHeaders } = deps;
+    const { loadCategories, loadItems, setCategory, setMessage, updateHeaders } = deps;
     let recognition = null;
 
     function openMagic() {
@@ -108,12 +108,16 @@ export function createMagicController(deps) {
                 throw new Error(result.error || 'KI-Anfrage fehlgeschlagen');
             }
 
-            setMessage(result.message || 'Erledigt!');
-            
-            // Reload everything to show new items
-            await loadCategories();
-            await loadItems();
-            updateHeaders();
+            setMessage(result.toast_message || result.message || 'Erledigt!');
+
+            const targetCategoryId = Number(result.target_category_id);
+            if (Number.isInteger(targetCategoryId) && targetCategoryId > 0) {
+                await setCategory(targetCategoryId);
+            } else {
+                await loadCategories();
+                await loadItems();
+                updateHeaders();
+            }
             
             closeMagic();
         } catch (error) {

@@ -213,6 +213,7 @@ export function createAppRuntime(deps) {
     magicController = createMagicController({
         loadCategories,
         loadItems,
+        setCategory,
         setMessage,
         updateHeaders,
     });

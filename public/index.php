@@ -269,6 +269,7 @@ $brandMarkSrc = 'icon.php?size=96&theme=' . rawurlencode($effectiveTheme) . '&v=
     const searchBar = document.getElementById('searchBar');
     const searchInput = document.getElementById('searchInput');
     const aiUrl = <?= json_encode(appPath('ai.php'), JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+    const localPrefsStorageKey = 'ankerkladde_local_prefs';
 
     let recognition = null;
 
@@ -414,7 +415,17 @@ $brandMarkSrc = 'icon.php?size=96&theme=' . rawurlencode($effectiveTheme) . '&v=
                 throw new Error(payload.error || 'KI-Anfrage fehlgeschlagen');
             }
 
-            setMessage(payload.message || 'Erledigt!');
+            setMessage(payload.toast_message || payload.message || 'Erledigt!');
+            const targetCategoryId = Number(payload.target_category_id);
+            if (Number.isInteger(targetCategoryId) && targetCategoryId > 0) {
+                try {
+                    const currentPrefs = JSON.parse(window.localStorage.getItem(localPrefsStorageKey) || '{}');
+                    window.localStorage.setItem(localPrefsStorageKey, JSON.stringify({
+                        ...currentPrefs,
+                        last_category_id: targetCategoryId,
+                    }));
+                } catch {}
+            }
             window.setTimeout(() => window.location.reload(), 350);
         } catch (error) {
             setMessage(error instanceof Error ? error.message : 'KI-Anfrage fehlgeschlagen', true);
