@@ -8,13 +8,27 @@
     <style>
         :root {
             --bg: #f5f0eb;
-            --surface: #fffdf9;
-            --border: #e8e0d5;
-            --text: #2c2416;
-            --muted: #7a6350;
+            --surface: #ffffff;
+            --border: rgba(139, 111, 71, 0.15);
+            --text: #3a3026;
+            --muted: #8b7a68;
+            --accent: #8b6f47;
+            --accent-text: #ffffff;
         }
 
-        * { box-sizing: border-box; }
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #111c2d;
+                --surface: #162338;
+                --border: rgba(204, 228, 244, 0.1);
+                --text: #cce4f4;
+                --muted: #7a9cb8;
+                --accent: #1a6090;
+                --accent-text: #ffffff;
+            }
+        }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
         body {
             margin: 0;
@@ -25,44 +39,79 @@
             background: var(--bg);
             color: var(--text);
             font-family: system-ui, -apple-system, sans-serif;
+            transition: background-color 0.3s ease;
         }
 
         main {
-            width: min(100%, 420px);
-            padding: 28px 24px;
+            width: min(100%, 400px);
+            padding: 32px 24px;
             background: var(--surface);
-            border: 1.5px solid var(--border);
-            border-radius: 18px;
+            border: 1px solid var(--border);
+            border-radius: 24px;
             text-align: center;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15);
+            animation: slide-up 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        @keyframes slide-up {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .brand-mark {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 24px;
+            border-radius: 20px;
+            display: block;
+            object-fit: cover;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
         }
 
         h1 {
             margin: 0 0 12px;
-            font-size: 1.4rem;
-        }
-
-        .brand-mark {
-            width: 72px;
-            height: 72px;
-            margin: 0 auto 16px;
-            border-radius: 18px;
-            display: block;
-            object-fit: cover;
-            box-shadow: 0 10px 28px rgba(44, 36, 22, 0.12);
+            font-size: 1.5rem;
+            font-weight: 700;
         }
 
         p {
-            margin: 0;
+            margin: 0 0 24px;
             color: var(--muted);
-            line-height: 1.5;
+            line-height: 1.6;
+            font-size: 0.95rem;
+        }
+
+        .btn-retry {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 12px 24px;
+            background: var(--accent);
+            color: var(--accent-text);
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease, opacity 0.2s ease;
+            text-decoration: none;
+        }
+
+        .btn-retry:active {
+            transform: scale(0.96);
+        }
+
+        .btn-retry:hover {
+            opacity: 0.9;
         }
     </style>
 </head>
 <body>
 <main>
-    <img src="icon.php?size=192&v=2.0.4" alt="" class="brand-mark" aria-hidden="true">
+    <img src="icon.php?size=192&v=4.2.1" alt="" class="brand-mark" aria-hidden="true">
     <h1>Gerade offline</h1>
-    <p>Die zuletzt geladene App ist weiter verfuegbar. Sobald die Verbindung wieder da ist, werden neue Daten geladen.</p>
+    <p>Die Liste konnte nicht geladen werden. Bitte überprüfe deine Internetverbindung und versuche es erneut.</p>
+    <button type="button" class="btn-retry" onclick="window.location.reload()">Wiederholen</button>
 </main>
 </body>
 </html>
