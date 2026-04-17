@@ -106,7 +106,7 @@ $brandMarkSrc = 'icon.php?size=96&theme=' . rawurlencode($effectiveTheme) . '&v=
 
     <div class="search-bar liste-only" id="searchBar" hidden>
         <input type="search" id="searchInput" class="search-input"
-               placeholder="In allen Bereichen suchen…"
+               placeholder="In allen Bereichen suchen…" aria-label="In allen Bereichen suchen"
                autocomplete="off" enterkeyhint="search" maxlength="120">
         <button type="button" id="searchClose" class="btn-search-close" aria-label="Suche schließen"><?= icon('x') ?></button>
     </div>
@@ -132,10 +132,10 @@ $brandMarkSrc = 'icon.php?size=96&theme=' . rawurlencode($effectiveTheme) . '&v=
     <section class="input-area liste-only" id="inputArea">
         <form id="itemForm" novalidate>
             <textarea id="itemInput" name="name"
-                      placeholder="Artikel..." maxlength="120"
+                      placeholder="Artikel..." aria-label="Artikel eingeben" maxlength="120"
                       autocomplete="off" enterkeyhint="done" rows="3" required></textarea>
             <textarea id="linkDescriptionInput" name="content"
-                      class="link-description-input" placeholder="Beschreibung optional"
+                      class="link-description-input" placeholder="Beschreibung optional" aria-label="Beschreibung optional"
                       autocomplete="off" enterkeyhint="done" rows="2" hidden></textarea>
             <div class="file-input-group" id="fileInputGroup" hidden>
                 <label for="fileInput" class="file-picker-button" id="filePickerButton">Datei wählen</label>
@@ -146,7 +146,7 @@ $brandMarkSrc = 'icon.php?size=96&theme=' . rawurlencode($effectiveTheme) . '&v=
                 <span class="disk-free-display" id="diskFreeDisplay" hidden></span>
             </div>
             <input type="text" id="quantityInput" name="quantity"
-                   placeholder="Menge" maxlength="40" autocomplete="off" enterkeyhint="done">
+                   placeholder="Menge" aria-label="Menge" maxlength="40" autocomplete="off" enterkeyhint="done">
             <button type="button" class="btn-add btn-scan-input" id="scanAddBtn" aria-label="Barcode scannen"><?= icon('scan') ?></button>
             <button type="submit" class="btn-add" aria-label="Artikel hinzufügen"><?= icon('plus') ?></button>
         </form>
@@ -201,7 +201,7 @@ $brandMarkSrc = 'icon.php?size=96&theme=' . rawurlencode($effectiveTheme) . '&v=
             </div>
             <div class="scanner-status" id="scannerStatus" aria-live="polite"></div>
             <form class="scanner-manual-form" id="scannerManualForm" novalidate>
-                <input type="text" id="scannerManualInput" inputmode="numeric" autocomplete="off" placeholder="Barcode manuell eingeben" maxlength="64">
+                <input type="text" id="scannerManualInput" inputmode="numeric" autocomplete="off" placeholder="Barcode manuell eingeben" aria-label="Barcode manuell eingeben" maxlength="64">
                 <button type="submit" class="btn-add" aria-label="Barcode übernehmen"><?= icon('check') ?></button>
             </form>
         </div>
@@ -211,7 +211,7 @@ $brandMarkSrc = 'icon.php?size=96&theme=' . rawurlencode($effectiveTheme) . '&v=
         <div class="note-editor-top">
             <button type="button" id="noteEditorBack" class="btn-note-back" aria-label="Zurück"><?= icon('arrow-left') ?></button>
             <input type="text" id="noteTitleInput" class="note-title-input"
-                   placeholder="Titel..." maxlength="120" autocomplete="off">
+                   placeholder="Titel..." aria-label="Titel" maxlength="120" autocomplete="off">
             <span class="note-save-status" id="noteSaveStatus" aria-live="polite"></span>
         </div>
         <div class="note-toolbar" id="noteToolbar" role="toolbar" aria-label="Formatierung">
