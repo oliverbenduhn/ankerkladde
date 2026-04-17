@@ -13,6 +13,7 @@ $flash = null;
 $flashType = 'ok';
 $aiKeyStatus = null;
 $aiKeyStatusType = 'ok';
+$geminiModels = getAvailableGeminiModels();
 
 function validateSettingsPassword(string $password): ?string
 {
@@ -35,7 +36,7 @@ function normalizeSettingsName(string $value): string
     return substr($value, 0, 120);
 }
 
-function validateGeminiApiKey(string $apiKey): array
+function validateGeminiApiKey(string $apiKey, string $modelName): array
 {
     if ($apiKey === '') {
         return [
@@ -44,14 +45,26 @@ function validateGeminiApiKey(string $apiKey): array
         ];
     }
 
-    $url = 'https://generativelanguage.googleapis.com/v1beta/models?key=' . rawurlencode($apiKey);
+    $url = 'https://generativelanguage.googleapis.com/v1beta/models/' . rawurlencode($modelName) . ':generateContent';
     $ch = curl_init($url);
+    $payload = json_encode([
+        'contents' => [[
+            'parts' => [[
+                'text' => 'Hi',
+            ]],
+        ]],
+    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_TIMEOUT => 8,
         CURLOPT_CONNECTTIMEOUT => 3,
-        CURLOPT_HTTPGET => true,
-        CURLOPT_HTTPHEADER => ['Accept: application/json'],
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => $payload === false ? '{}' : $payload,
+        CURLOPT_HTTPHEADER => [
+            'Accept: application/json',
+            'Content-Type: application/json',
+            'x-goog-api-key: ' . $apiKey,
+        ],
     ]);
 
     $response = curl_exec($ch);
@@ -71,7 +84,7 @@ function validateGeminiApiKey(string $apiKey): array
     if ($httpCode >= 200 && $httpCode < 300) {
         return [
             'type' => 'ok',
-            'message' => 'Gemini API-Key ist gültig.',
+            'message' => 'Gemini API-Key ist gültig für ' . $modelName . '.',
         ];
     }
 
@@ -84,7 +97,7 @@ function validateGeminiApiKey(string $apiKey): array
     if ($httpCode === 400 || $httpCode === 401 || $httpCode === 403) {
         return [
             'type' => 'err',
-            'message' => 'Gemini API-Key ist ungültig.' . ($apiMessage !== '' ? ' ' . $apiMessage : ''),
+            'message' => 'Gemini API-Key oder Modell ist ungültig.' . ($apiMessage !== '' ? ' ' . $apiMessage : ''),
         ];
     }
 
@@ -375,10 +388,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $flash = 'API-Key neu erzeugt.';
         } elseif ($action === 'save_ai_preferences') {
             $geminiApiKey = trim((string) ($_POST['gemini_api_key'] ?? ''));
+            $geminiModel = (string) ($_POST['gemini_model'] ?? 'gemini-2.5-flash');
+            if (!array_key_exists($geminiModel, $geminiModels)) {
+                $geminiModel = 'gemini-2.5-flash';
+            }
             updateExtendedUserPreferences($db, $userId, [
                 'gemini_api_key' => $geminiApiKey,
+                'gemini_model' => $geminiModel,
             ]);
-            $validation = validateGeminiApiKey($geminiApiKey);
+            $validation = validateGeminiApiKey($geminiApiKey, $geminiModel);
             $aiKeyStatus = $validation['message'];
             $aiKeyStatusType = $validation['type'];
             $flash = $geminiApiKey === '' ? 'KI-Einstellungen gespeichert.' : 'KI-Einstellungen gespeichert. ' . $validation['message'];
@@ -667,6 +685,16 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                         <span>Gemini API-Key</span>
                         <input type="password" id="gemini_api_key_input" name="gemini_api_key" value="<?= htmlspecialchars((string) ($preferences['gemini_api_key'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="AIzaSy...">
                     </label>
+                    <label class="settings-field">
+                        <span>Gemini-Modell</span>
+                        <select id="gemini_model_select" name="gemini_model">
+                            <?php foreach ($geminiModels as $modelValue => $modelLabel): ?>
+                                <option value="<?= htmlspecialchars($modelValue, ENT_QUOTES, 'UTF-8') ?>" <?= ($preferences['gemini_model'] ?? 'gemini-2.5-flash') === $modelValue ? 'selected' : '' ?>>
+                                    <?= htmlspecialchars($modelLabel, ENT_QUOTES, 'UTF-8') ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </label>
                     <button type="button" id="test-api-key" class="settings-link">Verbindung testen</button>
                 </div>
                 <div id="api-test-status" class="api-test-status" style="margin-top: 8px; font-size: 0.85rem; display: none;"></div>
@@ -762,6 +790,7 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
     const apiKeyInput = document.getElementById('api-key-value');
     const testApiKeyBtn = document.getElementById('test-api-key');
     const geminiKeyInput = document.getElementById('gemini_api_key_input');
+    const geminiModelSelect = document.getElementById('gemini_model_select');
     const apiTestStatus = document.getElementById('api-test-status');
 
     const saved = window.sessionStorage.getItem(scrollKey);
@@ -836,9 +865,10 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
         });
     }
 
-    if (testApiKeyBtn && geminiKeyInput) {
+    if (testApiKeyBtn && geminiKeyInput && geminiModelSelect) {
         testApiKeyBtn.addEventListener('click', async () => {
             const key = geminiKeyInput.value.trim();
+            const model = geminiModelSelect.value;
             if (!key) {
                 apiTestStatus.textContent = 'Bitte zuerst einen Key eingeben.';
                 apiTestStatus.style.color = 'var(--error)';
@@ -855,12 +885,12 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                 const response = await fetch('ai.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ input: 'Hi', test_only: true, gemini_api_key: key })
+                    body: JSON.stringify({ input: 'Hi', test_only: true, gemini_api_key: key, gemini_model: model })
                 });
 
                 const result = await response.json();
                 if (response.ok) {
-                    apiTestStatus.textContent = '✅ Verbindung erfolgreich!';
+                    apiTestStatus.textContent = '✅ Verbindung erfolgreich mit ' + model + '!';
                     apiTestStatus.style.color = 'green';
                 } else {
                     apiTestStatus.textContent = '❌ Fehler: ' + (result.error || 'Ungültiger Key');

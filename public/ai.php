@@ -30,6 +30,11 @@ if ($userInput === '') {
 $preferences = getUserPreferences($db, $userId);
 // Allow testing a key before saving
 $geminiKey = trim((string) ($data['gemini_api_key'] ?? $preferences['gemini_api_key'] ?? ''));
+$availableGeminiModels = getAvailableGeminiModels();
+$geminiModel = (string) ($data['gemini_model'] ?? $preferences['gemini_model'] ?? 'gemini-2.5-flash');
+if (!array_key_exists($geminiModel, $availableGeminiModels)) {
+    $geminiModel = 'gemini-2.5-flash';
+}
 
 if ($geminiKey === '') {
     http_response_code(403);
@@ -38,24 +43,30 @@ if ($geminiKey === '') {
 }
 
 if (!empty($data['test_only'])) {
-    $apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" . $geminiKey;
+    $apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/' . rawurlencode($geminiModel) . ':generateContent';
     $postData = [
         'contents' => [['parts' => [['text' => 'Hi']]]]
     ];
     $ch = curl_init($apiUrl);
+    $encodedPostData = json_encode($postData, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_POST, true);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($postData));
-    curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $encodedPostData === false ? '{}' : $encodedPostData);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Content-Type: application/json',
+        'x-goog-api-key: ' . $geminiKey,
+    ]);
     $response = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
     curl_close($ch);
 
     if ($httpCode === 200) {
-        echo json_encode(['success' => true, 'message' => 'Key ist gültig.']);
+        echo json_encode(['success' => true, 'message' => 'Key ist gültig für ' . $geminiModel . '.']);
     } else {
+        $errorPayload = json_decode(is_string($response) ? $response : '', true);
+        $apiMessage = trim((string) ($errorPayload['error']['message'] ?? ''));
         http_response_code(403);
-        echo json_encode(['error' => 'Key ungültig (HTTP ' . $httpCode . ')']);
+        echo json_encode(['error' => 'Key oder Modell ungültig (HTTP ' . $httpCode . ')' . ($apiMessage !== '' ? ': ' . $apiMessage : '')]);
     }
     exit;
 }
@@ -88,8 +99,7 @@ Regeln:
 2. Wähle die Kategorie sorgfältig. Einkäufe -> list_quantity, Termine/Todos -> list_due_date, Notizen -> notes.
 3. Antworte AUSSCHLIESSLICH mit dem JSON-Array. Kein Text davor oder danach.";
 
-$modelName = 'gemini-2.5-flash';
-$apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/' . rawurlencode($modelName) . ':generateContent';
+$apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/' . rawurlencode($geminiModel) . ':generateContent';
 
 $postData = [
     'contents' => [

@@ -437,6 +437,15 @@ function getDefaultUserPreferences(): array
         'install_banner_dismissed' => false,
         'theme' => 'parchment',
         'gemini_api_key' => '',
+        'gemini_model' => 'gemini-2.5-flash',
+    ];
+}
+
+function getAvailableGeminiModels(): array
+{
+    return [
+        'gemini-2.5-flash' => 'Gemini 2.5 Flash',
+        'gemini-3-flash-preview' => 'Gemini 3 Flash Preview',
     ];
 }
 
@@ -473,6 +482,11 @@ function normalizeUserPreferences(array $preferences): array
 
     if (isset($preferences['gemini_api_key'])) {
         $normalized['gemini_api_key'] = trim((string) $preferences['gemini_api_key']);
+    }
+
+    $validGeminiModels = array_keys(getAvailableGeminiModels());
+    if (isset($preferences['gemini_model']) && in_array($preferences['gemini_model'], $validGeminiModels, true)) {
+        $normalized['gemini_model'] = (string) $preferences['gemini_model'];
     }
 
     return $normalized;

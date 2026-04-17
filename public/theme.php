@@ -24,6 +24,7 @@ function normalizeExtendedUserPreferences(array $preferences): array
         'last_category_id' => $base['last_category_id'] ?? null,
         'install_banner_dismissed' => (bool) ($base['install_banner_dismissed'] ?? false),
         'gemini_api_key' => (string) ($base['gemini_api_key'] ?? ''),
+        'gemini_model' => (string) ($base['gemini_model'] ?? 'gemini-2.5-flash'),
         'theme_mode' => $defaults['theme_mode'],
         'light_theme' => $defaults['light_theme'],
         'dark_theme' => $defaults['dark_theme'],
