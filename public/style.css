@@ -2732,27 +2732,33 @@ button, input { font: inherit; }
     padding: 12px 14px;
     border-radius: 14px;
     font-size: 0.95rem;
+    font-weight: 500;
     text-align: center;
-    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.18);
+    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.22);
     z-index: 250;
     pointer-events: none;
-    animation: toast-fade 3s forwards;
+    animation: toast-premium-fade 3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
 }
 
-@keyframes toast-fade {
-    0% { opacity: 1; }
-    70% { opacity: 1; }
-    100% { opacity: 0; }
+@keyframes toast-premium-fade {
+    0% { opacity: 0; transform: translateX(-50%) translateY(12px) scale(0.96); }
+    10% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+    70% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+    100% { opacity: 0; transform: translateX(-50%) translateY(-6px) scale(0.98); }
 }
 
 .settings-flash-ok {
     background: var(--toast-success-bg, rgba(137, 200, 120, 0.12));
     color: var(--toast-success-text, #2d5a1d);
+    border: 1px solid color-mix(in srgb, var(--toast-success-text) 15%, transparent);
 }
 
 .settings-flash-err {
     background: var(--toast-error-bg, rgba(220, 53, 69, 0.12));
     color: var(--toast-error-text, #8b2c1b);
+    border: 1px solid color-mix(in srgb, var(--toast-error-text) 15%, transparent);
 }
 
 .settings-link {
