@@ -29,6 +29,7 @@ export const searchBar = document.getElementById('searchBar');
 export const searchInput = document.getElementById('searchInput');
 export const searchClose = document.getElementById('searchClose');
 export const magicBtns = document.querySelectorAll('.btn-magic');
+export const productScannerLinks = document.querySelectorAll('[href$="barcode.php"]');
 export const magicBar = document.getElementById('magicBar');
 export const magicInput = document.getElementById('magicInput');
 export const magicSubmit = document.getElementById('magicSubmit');

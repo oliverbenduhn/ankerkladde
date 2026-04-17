@@ -33,7 +33,7 @@ export function createAppRuntime(deps) {
         setUserPreferences,
     } = deps;
 
-    const appUiController = createAppUiController();
+    const appUiController = createAppUiController({ getUserPreferences });
 
     const updateFilePickerLabel = () => appUiController.updateFilePickerLabel();
     const helpersController = createHelpersController({
@@ -85,6 +85,10 @@ export function createAppRuntime(deps) {
     const makeUploadProgressCallback = () => appUiController.makeUploadProgressCallback();
     const updateHeaders = () => appUiController.updateHeaders();
     const updateUploadUi = () => appUiController.updateUploadUi();
+    const applyUserPreferences = preferences => appUiController.updateFeatureVisibility(preferences, {
+        closeMagic: () => magicController?.closeMagic(),
+        closeScanner: () => scannerController?.closeScanner(),
+    });
     const setScannerStatus = (text, isError = false) => appUiController.setScannerStatus(text, isError);
     const setNetworkStatus = () => appUiController.setNetworkStatus();
     const applyTabsVisibility = hidden => appUiController.applyTabsVisibility(hidden);
@@ -169,6 +173,7 @@ export function createAppRuntime(deps) {
         getItemById,
         getScannerCooldownMs: () => SCANNER_COOLDOWN_MS,
         getScannerSupportedFormats: () => BARCODE_FORMATS,
+        getUserPreferences,
         handleToggle: async (id, done) => { await itemsActionsController.handleToggle(id, done); },
         invalidateCategoryCache,
         loadItems,
@@ -211,6 +216,7 @@ export function createAppRuntime(deps) {
     });
 
     magicController = createMagicController({
+        getUserPreferences,
         loadCategories,
         loadItems,
         setCategory,
@@ -240,6 +246,7 @@ export function createAppRuntime(deps) {
         router,
         savePreferences,
         scheduleNoteSave,
+        applyUserPreferences,
         setMessage,
         setNetworkStatus,
         setScannerStatus,

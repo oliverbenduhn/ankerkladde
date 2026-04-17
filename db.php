@@ -433,6 +433,9 @@ function getDefaultUserPreferences(): array
         'mode' => 'liste',
         'tabs_hidden' => false,
         'category_swipe_enabled' => true,
+        'product_scanner_enabled' => true,
+        'shopping_list_scanner_enabled' => true,
+        'magic_button_enabled' => true,
         'last_category_id' => null,
         'install_banner_dismissed' => false,
         'theme' => 'parchment',
@@ -464,6 +467,18 @@ function normalizeUserPreferences(array $preferences): array
 
     if (array_key_exists('category_swipe_enabled', $preferences)) {
         $normalized['category_swipe_enabled'] = (bool) $preferences['category_swipe_enabled'];
+    }
+
+    if (array_key_exists('product_scanner_enabled', $preferences)) {
+        $normalized['product_scanner_enabled'] = (bool) $preferences['product_scanner_enabled'];
+    }
+
+    if (array_key_exists('shopping_list_scanner_enabled', $preferences)) {
+        $normalized['shopping_list_scanner_enabled'] = (bool) $preferences['shopping_list_scanner_enabled'];
+    }
+
+    if (array_key_exists('magic_button_enabled', $preferences)) {
+        $normalized['magic_button_enabled'] = (bool) $preferences['magic_button_enabled'];
     }
 
     if (array_key_exists('install_banner_dismissed', $preferences)) {
@@ -848,6 +863,9 @@ function migrateLegacyPreferencesToCategories(PDO $db): void
             'mode' => $base['mode'] ?? 'liste',
             'tabs_hidden' => (bool) ($base['tabs_hidden'] ?? false),
             'category_swipe_enabled' => (bool) ($base['category_swipe_enabled'] ?? true),
+            'product_scanner_enabled' => (bool) ($base['product_scanner_enabled'] ?? true),
+            'shopping_list_scanner_enabled' => (bool) ($base['shopping_list_scanner_enabled'] ?? true),
+            'magic_button_enabled' => (bool) ($base['magic_button_enabled'] ?? true),
             'last_category_id' => $base['last_category_id'] ?? null,
             'install_banner_dismissed' => (bool) ($base['install_banner_dismissed'] ?? false),
             'theme_mode' => 'auto',

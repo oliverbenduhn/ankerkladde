@@ -9,9 +9,11 @@ export function startApp(version) {
     let userPreferences = readInitialPreferences();
     let noteSaveTimer = null;
     let tiptapEditor = null;
+    let applyUserPreferences = () => {};
 
     function setUserPreferences(nextPreferences) {
         userPreferences = nextPreferences;
+        applyUserPreferences(nextPreferences);
     }
 
     const runtime = createAppRuntime({
@@ -26,6 +28,7 @@ export function startApp(version) {
     const {
         addItem,
         applyTabsVisibility,
+        applyUserPreferences: runtimeApplyUserPreferences,
         clearDone,
         closeScanner,
         closeSearch,
@@ -57,6 +60,9 @@ export function startApp(version) {
         updateFilePickerLabel,
         updateHeaders,
     } = runtime;
+
+    applyUserPreferences = runtimeApplyUserPreferences;
+    applyUserPreferences(userPreferences);
 
     registerAppEventHandlers({
         addItem,
@@ -116,10 +122,8 @@ export function startApp(version) {
 
             try {
                 if (action === 'settings_update') {
-                    // Settings changes affect categories and preferences, but not items
-                    console.log('[WS] reloading categories...');
-                    await loadCategories();
-                    console.log('[WS] categories reloaded');
+                    window.location.reload();
+                    return;
                 } else {
                     // Generic update: reload both categories and items
                     console.log('[WS] reloading items...');

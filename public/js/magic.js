@@ -2,10 +2,14 @@ import { appUrl } from './api.js';
 import { appEl, magicBtns, magicBar, magicInput, magicSubmit, magicClose, magicVoiceBtn } from './ui.js';
 
 export function createMagicController(deps) {
-    const { loadCategories, loadItems, setCategory, setMessage, updateHeaders } = deps;
+    const { getUserPreferences, loadCategories, loadItems, setCategory, setMessage, updateHeaders } = deps;
     let recognition = null;
 
     function openMagic() {
+        if (getUserPreferences().magic_button_enabled === false) {
+            setMessage('Der Magic Button ist in den Einstellungen deaktiviert.', true);
+            return;
+        }
         if (!magicBar) return;
         
         // Close other bars if needed (handled by app-events usually, but good to be sure)
@@ -83,6 +87,10 @@ export function createMagicController(deps) {
     }
 
     async function submitMagic() {
+        if (getUserPreferences().magic_button_enabled === false) {
+            setMessage('Der Magic Button ist in den Einstellungen deaktiviert.', true);
+            return;
+        }
         const input = magicInput.value.trim();
         if (!input) return;
 

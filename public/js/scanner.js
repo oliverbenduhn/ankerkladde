@@ -10,6 +10,7 @@ export function createScannerController(deps) {
      * @property {function(number): Object|null} getItemById
      * @property {function(): number} getScannerCooldownMs
      * @property {function(): string[]} getScannerSupportedFormats
+     * @property {function(): Object} getUserPreferences
      * @property {function(number, number): Promise<void>} handleToggle
      * @property {function(number): void} invalidateCategoryCache
      * @property {function(number=, Object=): Promise<void>} loadItems
@@ -26,6 +27,7 @@ export function createScannerController(deps) {
         getItemById,
         getScannerCooldownMs,
         getScannerSupportedFormats,
+        getUserPreferences,
         handleToggle,
         invalidateCategoryCache,
         loadItems,
@@ -316,6 +318,10 @@ export function createScannerController(deps) {
 
     async function openScanner(action = state.mode === 'einkaufen' ? 'toggle' : 'add') {
         if (scannerState.open) {
+            return;
+        }
+        if (getUserPreferences().shopping_list_scanner_enabled === false) {
+            setMessage('Die Scanfunktion für die Einkaufsliste ist in den Einstellungen deaktiviert.', true);
             return;
         }
         const category = getCurrentCategory();

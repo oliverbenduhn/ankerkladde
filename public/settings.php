@@ -383,6 +383,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ]);
             $flash = 'Anzeige-Einstellungen gespeichert.';
             notifyWebSocket($userId);
+        } elseif ($action === 'save_feature_preferences') {
+            $preferences = updateExtendedUserPreferences($db, $userId, [
+                'product_scanner_enabled' => isset($_POST['product_scanner_enabled']),
+                'shopping_list_scanner_enabled' => isset($_POST['shopping_list_scanner_enabled']),
+                'magic_button_enabled' => isset($_POST['magic_button_enabled']),
+            ]);
+            $flash = 'Funktions-Einstellungen gespeichert.';
+            notifyWebSocket($userId);
         } elseif ($action === 'regenerate_api_key') {
             setUserApiKey($db, $userId);
             $flash = 'API-Key neu erzeugt.';
@@ -459,7 +467,7 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
         </div>
     <?php endif; ?>
 
-    <details class="settings-section settings-accordion" open>
+    <details class="settings-section settings-accordion" data-settings-panel="appearance" open>
         <summary>Erscheinungsbild</summary>
         <form method="post" action="<?= htmlspecialchars($settingsAction, ENT_QUOTES, 'UTF-8') ?>" class="settings-form">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
@@ -522,7 +530,51 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
         </form>
     </details>
 
-    <details class="settings-section settings-section-secondary settings-accordion">
+    <details class="settings-section settings-section-secondary settings-accordion" data-settings-panel="features">
+        <summary>Funktionen</summary>
+        <form method="post" action="<?= htmlspecialchars($settingsAction, ENT_QUOTES, 'UTF-8') ?>" class="settings-form">
+            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
+            <input type="hidden" name="action" value="save_feature_preferences">
+            <div class="settings-block">
+                <p class="settings-copy">Ausgeschaltete Funktionen verschwinden in der App komplett aus der Oberfläche.</p>
+                <div class="settings-options">
+                    <label class="settings-option">
+                        <input
+                            type="checkbox"
+                            name="product_scanner_enabled"
+                            value="1"
+                            <?= !array_key_exists('product_scanner_enabled', $preferences) || !empty($preferences['product_scanner_enabled']) ? 'checked' : '' ?>
+                        >
+                        <span>Produktscanner anzeigen</span>
+                    </label>
+                    <label class="settings-option">
+                        <input
+                            type="checkbox"
+                            name="shopping_list_scanner_enabled"
+                            value="1"
+                            <?= !array_key_exists('shopping_list_scanner_enabled', $preferences) || !empty($preferences['shopping_list_scanner_enabled']) ? 'checked' : '' ?>
+                        >
+                        <span>Scanfunktion für die Einkaufsliste anzeigen</span>
+                    </label>
+                    <label class="settings-option">
+                        <input
+                            type="checkbox"
+                            name="magic_button_enabled"
+                            value="1"
+                            <?= !array_key_exists('magic_button_enabled', $preferences) || !empty($preferences['magic_button_enabled']) ? 'checked' : '' ?>
+                        >
+                        <span>Magic Button anzeigen</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="settings-actions">
+                <button type="submit" class="settings-save">Funktionen speichern</button>
+            </div>
+        </form>
+    </details>
+
+    <details class="settings-section settings-section-secondary settings-accordion" data-settings-panel="display">
         <summary>Anzeige</summary>
         <form method="post" action="<?= htmlspecialchars($settingsAction, ENT_QUOTES, 'UTF-8') ?>" class="settings-form">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
@@ -547,7 +599,7 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
         </form>
     </details>
 
-    <details class="settings-section settings-accordion" open>
+    <details class="settings-section settings-accordion" data-settings-panel="categories" open>
         <summary>Kategorien</summary>
         <div class="settings-block">
             <p class="settings-copy">Neue Kategorien werden direkt angelegt. Bestehende Kategorien speicherst du pro Zeile.</p>
@@ -635,7 +687,7 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
         </div>
     </details>
 
-    <details class="settings-section settings-accordion">
+    <details class="settings-section settings-accordion" data-settings-panel="new-category">
         <summary>Neue Kategorie</summary>
         <form method="post" action="<?= htmlspecialchars($settingsAction, ENT_QUOTES, 'UTF-8') ?>" class="settings-form">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
@@ -673,7 +725,8 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
         </form>
     </details>
 
-    <details class="settings-section settings-accordion" open>
+    <?php if (!empty($preferences['magic_button_enabled'])): ?>
+    <details class="settings-section settings-accordion" data-settings-panel="ai" open>
         <summary>KI-Assistent (Magic Bar)</summary>
         <form method="post" action="<?= htmlspecialchars($settingsAction, ENT_QUOTES, 'UTF-8') ?>" class="settings-form">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
@@ -709,8 +762,9 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
             </div>
         </form>
     </details>
+    <?php endif; ?>
 
-    <details class="settings-section settings-accordion">
+    <details class="settings-section settings-accordion" data-settings-panel="extension">
         <summary>Browser-Extension</summary>
         <div class="settings-block">
             <p class="settings-copy">Diesen API-Key in die Extension kopieren. Er verbindet die Erweiterung direkt mit deinem Account.</p>
@@ -734,7 +788,7 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
         </div>
     </details>
 
-    <details class="settings-section settings-section-secondary settings-accordion">
+    <details class="settings-section settings-section-secondary settings-accordion" data-settings-panel="password">
         <summary>Passwort ändern</summary>
         <form method="post" action="<?= htmlspecialchars($settingsAction, ENT_QUOTES, 'UTF-8') ?>" class="settings-form">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
@@ -763,7 +817,7 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
         </form>
     </details>
 
-    <details class="settings-section settings-section-secondary settings-accordion">
+    <details class="settings-section settings-section-secondary settings-accordion" data-settings-panel="system">
         <summary>System & Abmelden</summary>
         <div class="settings-block">
             <p class="settings-copy">Angemeldet als <strong><?= htmlspecialchars((string) ($currentUser['username'] ?? 'unbekannt'), ENT_QUOTES, 'UTF-8') ?></strong>.</p>
@@ -786,15 +840,37 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
         ],
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
     const scrollKey = 'einkauf-settings-scroll-y';
+    const panelsKey = 'einkauf-settings-open-panels';
     const copyButton = document.getElementById('copy-api-key');
     const apiKeyInput = document.getElementById('api-key-value');
     const testApiKeyBtn = document.getElementById('test-api-key');
     const geminiKeyInput = document.getElementById('gemini_api_key_input');
     const geminiModelSelect = document.getElementById('gemini_model_select');
     const apiTestStatus = document.getElementById('api-test-status');
+    const settingsPanels = Array.from(document.querySelectorAll('details[data-settings-panel]'));
 
     const saved = window.sessionStorage.getItem(scrollKey);
     const themeMediaQuery = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+
+    function readOpenPanels() {
+        try {
+            const raw = window.localStorage.getItem(panelsKey);
+            const parsed = raw ? JSON.parse(raw) : [];
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (error) {
+            return [];
+        }
+    }
+
+    function saveOpenPanels() {
+        try {
+            const openPanels = settingsPanels
+                .filter(panel => panel.open)
+                .map(panel => panel.dataset.settingsPanel)
+                .filter(Boolean);
+            window.localStorage.setItem(panelsKey, JSON.stringify(openPanels));
+        } catch (error) {}
+    }
 
     function getEffectiveTheme() {
         const mode = themePreferences.theme_mode === 'dark'
@@ -837,6 +913,20 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
     }
 
     applySettingsTheme();
+
+    const savedPanels = readOpenPanels();
+    if (savedPanels.length > 0) {
+        const openPanels = new Set(savedPanels);
+        settingsPanels.forEach(panel => {
+            panel.open = openPanels.has(panel.dataset.settingsPanel || '');
+        });
+    }
+
+    settingsPanels.forEach(panel => {
+        panel.addEventListener('toggle', () => {
+            saveOpenPanels();
+        });
+    });
 
     if (saved !== null) {
         window.sessionStorage.removeItem(scrollKey);

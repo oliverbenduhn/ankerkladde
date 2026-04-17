@@ -18,14 +18,18 @@ import {
     scanShoppingBtn,
     scannerStatus,
     searchInput,
+    productScannerLinks,
     sectionTabsEl,
     tabsToggleBtns,
     uploadProgressBarEl,
     uploadProgressEl,
+    magicBar,
+    magicBtns,
 } from './ui.js';
 import { syncAutoHeight } from './utils.js';
 
-export function createAppUiController() {
+export function createAppUiController(deps = {}) {
+    const { getUserPreferences = () => ({}) } = deps;
     let messageTimer = null;
 
     function setMessage(text, isError = false) {
@@ -96,6 +100,8 @@ export function createAppUiController() {
         const imageCategory = type === 'images';
         const barcodeCategory = type === 'list_quantity';
         const linkCategory = type === 'links';
+        const userPreferences = getUserPreferences();
+        const shoppingListScannerEnabled = userPreferences.shopping_list_scanner_enabled !== false;
 
         if (fileInputGroup) fileInputGroup.hidden = !uploadCategory;
         if (linkDescriptionInput) {
@@ -112,8 +118,8 @@ export function createAppUiController() {
 
         const submitBtn = itemForm?.querySelector('[type="submit"]');
         if (submitBtn) submitBtn.hidden = uploadCategory;
-        if (scanAddBtn) scanAddBtn.hidden = !barcodeCategory || uploadCategory;
-        if (scanShoppingBtn) scanShoppingBtn.hidden = !barcodeCategory;
+        if (scanAddBtn) scanAddBtn.hidden = !shoppingListScannerEnabled || !barcodeCategory || uploadCategory;
+        if (scanShoppingBtn) scanShoppingBtn.hidden = !shoppingListScannerEnabled || !barcodeCategory;
 
         if (filePickerButton) filePickerButton.textContent = imageCategory ? 'Bild wählen' : 'Datei wählen';
         if (fileInput) {
@@ -137,6 +143,34 @@ export function createAppUiController() {
         }
 
         updateFilePickerLabel();
+    }
+
+    function updateFeatureVisibility(preferences = getUserPreferences(), actions = {}) {
+        const productScannerEnabled = preferences.product_scanner_enabled !== false;
+        const shoppingListScannerEnabled = preferences.shopping_list_scanner_enabled !== false;
+        const magicButtonEnabled = preferences.magic_button_enabled !== false;
+
+        productScannerLinks.forEach(link => {
+            link.hidden = !productScannerEnabled;
+        });
+
+        magicBtns.forEach(button => {
+            button.hidden = !magicButtonEnabled;
+        });
+
+        if (magicBar) {
+            magicBar.hidden = !magicButtonEnabled || magicBar.hidden;
+        }
+
+        if (!magicButtonEnabled && typeof actions.closeMagic === 'function') {
+            actions.closeMagic();
+        }
+
+        if (!shoppingListScannerEnabled && typeof actions.closeScanner === 'function') {
+            actions.closeScanner();
+        }
+
+        updateUploadUi();
     }
 
     function updateHeaders() {
@@ -223,6 +257,7 @@ export function createAppUiController() {
         setNetworkStatus,
         setScannerStatus,
         setUploadProgress,
+        updateFeatureVisibility,
         updateFilePickerLabel,
         updateHeaders,
         updateUploadUi,

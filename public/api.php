@@ -1894,6 +1894,18 @@ try {
                 $patch['category_swipe_enabled'] = filter_var($data['category_swipe_enabled'], FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? false;
             }
 
+            if (array_key_exists('product_scanner_enabled', $data)) {
+                $patch['product_scanner_enabled'] = filter_var($data['product_scanner_enabled'], FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? false;
+            }
+
+            if (array_key_exists('shopping_list_scanner_enabled', $data)) {
+                $patch['shopping_list_scanner_enabled'] = filter_var($data['shopping_list_scanner_enabled'], FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? false;
+            }
+
+            if (array_key_exists('magic_button_enabled', $data)) {
+                $patch['magic_button_enabled'] = filter_var($data['magic_button_enabled'], FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? false;
+            }
+
             if (array_key_exists('install_banner_dismissed', $data)) {
                 $patch['install_banner_dismissed'] = filter_var($data['install_banner_dismissed'], FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? false;
             }
