@@ -1,3 +1,3 @@
 import { startApp } from './app-entry.js';
 
-startApp('2.0.55');
+startApp('4.2.4');
