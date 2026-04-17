@@ -263,11 +263,14 @@ $brandMarkSrc = 'icon.php?size=96&theme=' . rawurlencode($effectiveTheme) . '&v=
     const magicBar = document.getElementById('magicBar');
     const magicInput = document.getElementById('magicInput');
     const magicSubmit = document.getElementById('magicSubmit');
+    const magicVoiceBtn = document.getElementById('magicVoiceBtn');
     const magicClose = document.getElementById('magicClose');
     const messageEl = document.getElementById('message');
     const searchBar = document.getElementById('searchBar');
     const searchInput = document.getElementById('searchInput');
     const aiUrl = <?= json_encode(appPath('ai.php'), JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+
+    let recognition = null;
 
     if (!appEl || !magicBtn || !magicBar || !magicInput || !magicSubmit || !magicClose || !messageEl) {
         return;
@@ -304,6 +307,75 @@ $brandMarkSrc = 'icon.php?size=96&theme=' . rawurlencode($effectiveTheme) . '&v=
         magicBtn.classList.remove('is-active');
         magicBar.classList.remove('is-loading');
         magicInput.value = '';
+        if (recognition) {
+            recognition.stop();
+        }
+    };
+
+    const startVoiceRecognition = event => {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+
+        if (magicBar.hidden) {
+            openMagic();
+        }
+
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            setMessage('Spracherkennung wird von diesem Browser nicht unterstützt.', true);
+            return;
+        }
+
+        if (recognition) {
+            recognition.stop();
+            return;
+        }
+
+        recognition = new SpeechRecognition();
+        recognition.lang = 'de-DE';
+        recognition.interimResults = true;
+
+        recognition.onstart = () => {
+            if (magicVoiceBtn) {
+                magicVoiceBtn.classList.add('is-listening');
+            }
+            magicInput.placeholder = 'Höre zu...';
+        };
+
+        recognition.onresult = voiceEvent => {
+            const transcript = Array.from(voiceEvent.results)
+                .map(result => result[0])
+                .map(result => result.transcript)
+                .join('');
+            magicInput.value = transcript;
+
+            const lastResult = voiceEvent.results[voiceEvent.results.length - 1];
+            if (lastResult?.isFinal) {
+                recognition.stop();
+                void submitMagic(new Event('submit'));
+            }
+        };
+
+        recognition.onerror = voiceErrorEvent => {
+            if (magicVoiceBtn) {
+                magicVoiceBtn.classList.remove('is-listening');
+            }
+            magicInput.placeholder = "KI-Befehl (z.B. 'Zutaten für Lasagne')";
+            if (voiceErrorEvent.error !== 'no-speech') {
+                setMessage('Sprachfehler: ' + voiceErrorEvent.error, true);
+            }
+            recognition = null;
+        };
+
+        recognition.onend = () => {
+            if (magicVoiceBtn) {
+                magicVoiceBtn.classList.remove('is-listening');
+            }
+            magicInput.placeholder = "KI-Befehl (z.B. 'Zutaten für Lasagne')";
+            recognition = null;
+        };
+
+        recognition.start();
     };
 
     const toggleMagic = event => {
@@ -356,6 +428,7 @@ $brandMarkSrc = 'icon.php?size=96&theme=' . rawurlencode($effectiveTheme) . '&v=
         event.stopImmediatePropagation();
         closeMagic();
     }, true);
+    magicVoiceBtn?.addEventListener('click', startVoiceRecognition, true);
     magicSubmit.addEventListener('click', submitMagic, true);
     magicInput.addEventListener('keydown', event => {
         if (event.key === 'Enter' && !event.shiftKey) {
