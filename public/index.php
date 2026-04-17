@@ -253,6 +253,118 @@ $brandMarkSrc = 'icon.php?size=96&theme=' . rawurlencode($effectiveTheme) . '&v=
 <script id="userPreferences" type="application/json"><?= json_encode($userPreferences, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
 <script src="<?= htmlspecialchars(appPath('vendor/zxing/browser-0.1.5.js?v=' . $assetVersion), ENT_QUOTES, 'UTF-8') ?>"></script>
 <script type="module" src="js/main.js?v=<?= urlencode($assetVersion) ?>"></script>
+<script>
+(() => {
+    const appEl = document.getElementById('app');
+    const magicBtn = document.getElementById('magicBtn');
+    const magicBar = document.getElementById('magicBar');
+    const magicInput = document.getElementById('magicInput');
+    const magicSubmit = document.getElementById('magicSubmit');
+    const magicClose = document.getElementById('magicClose');
+    const messageEl = document.getElementById('message');
+    const searchBar = document.getElementById('searchBar');
+    const searchInput = document.getElementById('searchInput');
+    const aiUrl = <?= json_encode(appPath('ai.php'), JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+
+    if (!appEl || !magicBtn || !magicBar || !magicInput || !magicSubmit || !magicClose || !messageEl) {
+        return;
+    }
+
+    const setMessage = (text, isError = false) => {
+        messageEl.textContent = text;
+        messageEl.classList.toggle('is-error', isError);
+        messageEl.classList.add('is-visible');
+        window.clearTimeout(window.__ankerkladdeMagicMessageTimer);
+        window.__ankerkladdeMagicMessageTimer = window.setTimeout(() => {
+            messageEl.classList.remove('is-visible');
+        }, 2500);
+    };
+
+    const closeSearchIfOpen = () => {
+        if (!searchBar) return;
+        searchBar.hidden = true;
+        appEl.classList.remove('is-searching');
+        if (searchInput) searchInput.value = '';
+    };
+
+    const openMagic = () => {
+        closeSearchIfOpen();
+        magicBar.hidden = false;
+        appEl.classList.add('is-magic-active');
+        magicBtn.classList.add('is-active');
+        magicInput.focus();
+    };
+
+    const closeMagic = () => {
+        magicBar.hidden = true;
+        appEl.classList.remove('is-magic-active');
+        magicBtn.classList.remove('is-active');
+        magicBar.classList.remove('is-loading');
+        magicInput.value = '';
+    };
+
+    const toggleMagic = event => {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        if (magicBar.hidden) {
+            openMagic();
+        } else {
+            closeMagic();
+        }
+    };
+
+    const submitMagic = async event => {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+
+        const input = magicInput.value.trim();
+        if (!input) {
+            setMessage('Bitte zuerst etwas eingeben.', true);
+            magicInput.focus();
+            return;
+        }
+
+        magicBar.classList.add('is-loading');
+        setMessage('Magie wird gewirkt...');
+
+        try {
+            const response = await fetch(aiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ input }),
+            });
+            const payload = await response.json().catch(() => ({}));
+
+            if (!response.ok) {
+                throw new Error(payload.error || 'KI-Anfrage fehlgeschlagen');
+            }
+
+            setMessage(payload.message || 'Erledigt!');
+            window.setTimeout(() => window.location.reload(), 350);
+        } catch (error) {
+            setMessage(error instanceof Error ? error.message : 'KI-Anfrage fehlgeschlagen', true);
+            magicBar.classList.remove('is-loading');
+        }
+    };
+
+    magicBtn.addEventListener('click', toggleMagic, true);
+    magicClose.addEventListener('click', event => {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        closeMagic();
+    }, true);
+    magicSubmit.addEventListener('click', submitMagic, true);
+    magicInput.addEventListener('keydown', event => {
+        if (event.key === 'Enter' && !event.shiftKey) {
+            void submitMagic(event);
+        } else if (event.key === 'Escape') {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            closeMagic();
+        }
+    }, true);
+})();
+</script>
 <script type="module">
 import { Editor } from 'https://esm.sh/@tiptap/core@2';
 import StarterKit from 'https://esm.sh/@tiptap/starter-kit@2';
