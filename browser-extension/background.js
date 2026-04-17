@@ -97,22 +97,14 @@ function normalizeUrl(rawUrl) {
   }
 }
 
-function originPatternForUrl(rawUrl) {
-  const url = new URL(rawUrl);
-  return `${url.origin}/*`;
-}
-
-async function ensureOriginAccess(rawUrl) {
-  const originPattern = originPatternForUrl(rawUrl);
-  const alreadyGranted = await chrome.permissions.contains({ origins: [originPattern] });
-  if (alreadyGranted) {
-    return;
-  }
-
-  const granted = await chrome.permissions.request({ origins: [originPattern] });
-  if (!granted) {
-    throw new Error('Zugriff auf die Bildquelle wurde nicht erlaubt.');
-  }
+function fixEncoding(text) {
+  try {
+    const bytes = Uint8Array.from(String(text || ''), c => c.charCodeAt(0));
+    if (bytes.some(b => b > 0x7f)) {
+      return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+    }
+  } catch {}
+  return text;
 }
 
 async function getSettings() {
@@ -263,8 +255,6 @@ async function findDuplicateLink(apiUrl, apiKey, categoryId, url) {
 }
 
 async function uploadRemoteFile(apiUrl, apiKey, categoryId, url, fallbackName) {
-  await ensureOriginAccess(url);
-
   const response = await fetch(url);
   if (!response.ok) {
     throw new Error('Datei konnte nicht geladen werden.');
@@ -352,9 +342,10 @@ async function handleContextMenuClick(info, tab) {
 
       const pageUrl = tab?.url || '';
       const normalizedPageUrl = normalizeUrl(pageUrl);
-      const content = normalizedPageUrl ? `${info.selectionText}\n\nQuelle: ${normalizedPageUrl}` : info.selectionText;
+      const selectionText = fixEncoding(info.selectionText);
+      const content = normalizedPageUrl ? `${selectionText}\n\nQuelle: ${normalizedPageUrl}` : selectionText;
       await addItem(context.apiUrl, context.apiKey, category.id, {
-        name: (tab?.title || 'Markierter Text').slice(0, 120),
+        name: fixEncoding(tab?.title || 'Markierter Text').slice(0, 120),
         content,
       });
       await rememberLastCategory(context.apiUrl, context.apiKey, category.id);

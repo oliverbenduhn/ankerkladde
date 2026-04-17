@@ -1123,4 +1123,19 @@ Object.entries(DEFAULT_CATEGORY_KEYS).forEach(([type, elementId]) => {
   
   setupDropzone();
   applyCurrentTabDefaults();
+
+  document.getElementById('topbarHome')?.addEventListener('click', async () => {
+    const url = (state.apiUrl || DEFAULT_API_URL).replace(/\/$/, '');
+    const tabs = await chrome.tabs.query({});
+    const existing = tabs.find(t => t.url && (t.url === url || t.url === url + '/' || t.url.startsWith(url + '/')));
+    if (existing) {
+      await chrome.tabs.update(existing.id, { active: true });
+      if (existing.windowId) {
+        await chrome.windows.update(existing.windowId, { focused: true });
+      }
+    } else {
+      await chrome.tabs.create({ url });
+    }
+    window.close();
+  });
 })();
