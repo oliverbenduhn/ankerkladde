@@ -112,7 +112,7 @@ $brandMarkSrc = 'icon.php?size=96&theme=' . rawurlencode($effectiveTheme) . '&v=
                autocomplete="off" enterkeyhint="search" maxlength="120">
     </div>
 
-    <div class="magic-bar liste-only" id="magicBar" hidden>
+    <div class="magic-bar" id="magicBar" hidden>
         <div class="magic-bar-inner">
             <input type="text" id="magicInput" class="magic-input"
                    placeholder="KI-Befehl (z.B. 'Zutaten für Lasagne')"
