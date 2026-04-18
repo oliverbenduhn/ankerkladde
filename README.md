@@ -215,6 +215,38 @@ php scripts/test-security.php     # Sicherheits-Unit-Tests (isTrustedProxyPeer, 
 find . -path './.git' -prune -o -path './.worktrees' -prune -o -path './data' -prune -o -name '*.php' -print | sort | xargs -r -n1 php -l
 ```
 
+### UI-Tests im Browser
+
+Ein schlanker Playwright-Stack ist im Repo vorbereitet. Damit lassen sich echte Browser-Checks fuer Login, Settings und Theme-Verhalten ausfuehren.
+
+Einmalig:
+
+```bash
+npm install
+npm run test:ui:install
+```
+
+Ausfuehren:
+
+```bash
+npm run test:ui
+npm run test:ui:headed
+```
+
+Wichtige Voraussetzungen:
+
+- `php` muss lokal verfuegbar sein
+- das PHP braucht `pdo_sqlite`, weil der UI-Test eine isolierte SQLite-Testinstanz startet
+- der Test-Server legt temporaere Daten unter `.tmp/ui-test-data/` an
+
+Der erste Smoke-Test liegt in `tests/ui/settings-theme.spec.js` und prueft:
+
+- Login mit Testnutzer
+- Oeffnen der eingebetteten Settings
+- Theme-Wechsel auf `monochrom`
+- sichtbaren Kontrast des Plus-Buttons im hellen Schwarz-Weiss-Theme
+- stabile Wiederherstellung von offenen/geschlossenen Settings-Bereichen nach `F5`
+
 ### Barcode-Scanner & Produktkatalog
 
 Der eingebaute Barcode-Scanner funktioniert ohne lokalen Produktkatalog. Wird ein Barcode nicht erkannt, legt die App einen Eintrag mit der Barcode-Nummer als Namen an — das reicht für den Alltag vollständig aus.

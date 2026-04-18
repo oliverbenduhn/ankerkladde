@@ -18,7 +18,6 @@ const APP_SHELL_ASSET_URLS = [
     `js/state.js?v=${ASSET_VERSION}`,
     `js/ui.js?v=${ASSET_VERSION}`,
     `js/utils.js?v=${ASSET_VERSION}`,
-    `js/shared.js?v=${ASSET_VERSION}`,
     `js/theme.js?v=${ASSET_VERSION}`,
     `js/navigation.js?v=${ASSET_VERSION}`,
     `js/router.js?v=${ASSET_VERSION}`,

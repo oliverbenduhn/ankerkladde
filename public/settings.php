@@ -1010,6 +1010,8 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                 return;
             }
 
+            const actionUrl = form.getAttribute('action') || window.location.href;
+
             if (form.dataset.themeForm === '1') {
                 const formData = new FormData(form);
                 themePreferences.theme_mode = String(formData.get('theme_mode') || themePreferences.theme_mode || 'auto');
@@ -1024,7 +1026,7 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
             const controller = new AbortController();
             autoSaveControllers.set(form, controller);
 
-            fetch(form.action, {
+            fetch(actionUrl, {
                 method: 'POST',
                 body: new FormData(form),
                 headers: {

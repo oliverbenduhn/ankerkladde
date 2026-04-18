@@ -13,3 +13,7 @@
 /docs/Symbolleiste.png
 /docs/superpowers/
 *.log
+/.tmp/
+/node_modules/
+/playwright-report/
+/test-results/
