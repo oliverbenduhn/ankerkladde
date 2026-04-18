@@ -122,6 +122,7 @@ export function readInitialPreferences() {
 
 export function normalizePreferences(preferences) {
     const validThemes = getValidThemes();
+    const rawLight = preferences?.light_theme === 'grauton' ? 'regenbogen' : preferences?.light_theme;
 
     return {
         mode: preferences?.mode === 'einkaufen' ? 'einkaufen' : 'liste',
@@ -133,7 +134,7 @@ export function normalizePreferences(preferences) {
         last_category_id: Number.isInteger(Number(preferences?.last_category_id)) ? Number(preferences.last_category_id) : null,
         install_banner_dismissed: Boolean(preferences?.install_banner_dismissed),
         theme_mode: THEME_MODE_ORDER.includes(preferences?.theme_mode) ? preferences.theme_mode : 'auto',
-        light_theme: validThemes.light.includes(preferences?.light_theme) ? preferences.light_theme : 'hafenblau',
+        light_theme: validThemes.light.includes(rawLight) ? rawLight : 'hafenblau',
         dark_theme: validThemes.dark.includes(preferences?.dark_theme) ? preferences.dark_theme : 'nachtwache',
     };
 }

@@ -85,7 +85,7 @@ const THEMES = {
     surfaceHover: '#f0f0f0',
     error: '#c0392b',
   },
-  grauton: {
+  regenbogen: {
     bg: '#fef9f3',
     surface: '#fffbf8',
     surfaceWhite: '#fff',

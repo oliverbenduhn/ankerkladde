@@ -41,12 +41,17 @@ function normalizeExtendedUserPreferences(array $preferences): array
     $lightThemes = array_keys($themes['light'] ?? []);
     $darkThemes = array_keys($themes['dark'] ?? []);
 
-    if (isset($preferences['light_theme']) && in_array($preferences['light_theme'], $lightThemes, true)) {
-        $normalized['light_theme'] = $preferences['light_theme'];
+    $lightThemeValue = $preferences['light_theme'] ?? null;
+    if ($lightThemeValue === 'grauton') {
+        $lightThemeValue = 'regenbogen';
+    }
+    if (isset($lightThemeValue) && in_array($lightThemeValue, $lightThemes, true)) {
+        $normalized['light_theme'] = $lightThemeValue;
     }
 
-    if (isset($preferences['dark_theme']) && in_array($preferences['dark_theme'], $darkThemes, true)) {
-        $normalized['dark_theme'] = $preferences['dark_theme'];
+    $darkThemeValue = $preferences['dark_theme'] ?? null;
+    if (isset($darkThemeValue) && in_array($darkThemeValue, $darkThemes, true)) {
+        $normalized['dark_theme'] = $darkThemeValue;
     }
 
     return $normalized;
@@ -104,7 +109,7 @@ function getThemeColor(string $theme): string
         'meeresgruen' => '#c5e8d8',
         'lavendelsegel' => '#e0d5f0',
         'monochrom' => '#ffffff',
-        'grauton' => '#f5e6ff',
+        'regenbogen', 'grauton' => '#f5e6ff',
         'nachtwache' => '#162338',
         'pier' => '#0f1419',
         'mangrove' => '#0a1410',

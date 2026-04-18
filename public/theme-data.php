@@ -154,7 +154,7 @@ return [
                 '--toast-error-text' => '#c0392b',
             ],
         ],
-        'grauton' => [
+        'regenbogen' => [
             'name' => 'Regenbogen',
             'color' => '#f5e6ff',
             'tokens' => [
