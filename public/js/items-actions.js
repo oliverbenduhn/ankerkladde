@@ -14,13 +14,18 @@ export function createItemsActionsController(deps) {
         makeUploadProgressCallback,
         openNoteEditorWithNavigation,
         renderItems,
-        removeItemById,
         resetItemForm,
         setCategory,
         setMessage,
         setNetworkStatus,
         invalidateCategoryCache,
     } = deps;
+
+    // Local helper for removing items (needs state import)
+    function removeItemById(id) {
+        state.items = state.items.filter(item => item.id !== id);
+        cacheCurrentCategoryItems();
+    }
 
     async function fetchLinkMetadata(url) {
         try {
