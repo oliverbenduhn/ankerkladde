@@ -537,26 +537,50 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                     ?>
                     <div>
                         <h3 class="theme-group-title">Light Theme</h3>
-                        <div class="theme-list">
+                        <p class="theme-group-hint">Empfohlen: <strong>Hafenblau</strong> · Warm: <strong>Pergament</strong></p>
+                        <div class="theme-cards">
                             <?php foreach ($validLightThemes as $key): ?>
                             <?php $theme = $themes['light'][$key] ?? null; if (!$theme) continue; ?>
-                            <label>
-                                <span class="theme-dot" style="background:<?= htmlspecialchars($theme['color'] ?? '#ccc', ENT_QUOTES, 'UTF-8') ?>;"></span>
-                                <?= htmlspecialchars($theme['name'] ?? $key, ENT_QUOTES, 'UTF-8') ?>
+                            <?php
+                            $cardBg      = htmlspecialchars($theme['tokens']['--bg']      ?? $theme['color'] ?? '#fff', ENT_QUOTES, 'UTF-8');
+                            $cardSurface = htmlspecialchars($theme['tokens']['--surface'] ?? $theme['color'] ?? '#fff', ENT_QUOTES, 'UTF-8');
+                            $cardAccent  = htmlspecialchars($theme['tokens']['--accent']  ?? '#000', ENT_QUOTES, 'UTF-8');
+                            ?>
+                            <label class="theme-card-label">
                                 <input type="radio" name="light_theme" value="<?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?>" <?= $preferences['light_theme'] === $key ? 'checked' : '' ?>>
+                                <span class="theme-card">
+                                    <span class="theme-card-preview">
+                                        <span style="flex:5;background:<?= $cardBg ?>"></span>
+                                        <span style="flex:3;background:<?= $cardSurface ?>"></span>
+                                        <span style="flex:2;background:<?= $cardAccent ?>"></span>
+                                    </span>
+                                    <span class="theme-card-name"><?= htmlspecialchars($theme['name'] ?? $key, ENT_QUOTES, 'UTF-8') ?></span>
+                                </span>
                             </label>
                             <?php endforeach; ?>
                         </div>
                     </div>
                     <div>
                         <h3 class="theme-group-title">Dark Theme</h3>
-                        <div class="theme-list">
+                        <p class="theme-group-hint">Empfohlen: <strong>Nachtwache</strong> · Editorial: <strong>Pier</strong></p>
+                        <div class="theme-cards">
                             <?php foreach ($validDarkThemes as $key): ?>
                             <?php $theme = $themes['dark'][$key] ?? null; if (!$theme) continue; ?>
-                            <label>
-                                <span class="theme-dot" style="background:<?= htmlspecialchars($theme['color'] ?? '#ccc', ENT_QUOTES, 'UTF-8') ?>; border-color:rgba(255,255,255,0.15);"></span>
-                                <?= htmlspecialchars($theme['name'] ?? $key, ENT_QUOTES, 'UTF-8') ?>
+                            <?php
+                            $cardBg      = htmlspecialchars($theme['tokens']['--bg']      ?? $theme['color'] ?? '#1a1a1a', ENT_QUOTES, 'UTF-8');
+                            $cardSurface = htmlspecialchars($theme['tokens']['--surface'] ?? $theme['color'] ?? '#1a1a1a', ENT_QUOTES, 'UTF-8');
+                            $cardAccent  = htmlspecialchars($theme['tokens']['--accent']  ?? '#fff', ENT_QUOTES, 'UTF-8');
+                            ?>
+                            <label class="theme-card-label">
                                 <input type="radio" name="dark_theme" value="<?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?>" <?= $preferences['dark_theme'] === $key ? 'checked' : '' ?>>
+                                <span class="theme-card">
+                                    <span class="theme-card-preview">
+                                        <span style="flex:5;background:<?= $cardBg ?>"></span>
+                                        <span style="flex:3;background:<?= $cardSurface ?>"></span>
+                                        <span style="flex:2;background:<?= $cardAccent ?>"></span>
+                                    </span>
+                                    <span class="theme-card-name"><?= htmlspecialchars($theme['name'] ?? $key, ENT_QUOTES, 'UTF-8') ?></span>
+                                </span>
                             </label>
                             <?php endforeach; ?>
                         </div>
