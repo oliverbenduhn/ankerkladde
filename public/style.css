@@ -702,6 +702,14 @@ button, input { font: inherit; }
     gap: 0;
 }
 
+[data-mode="einkaufen"] .item-card:not(.is-editing) .item-content:not(.item-content-attachment):not(.item-content-link) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    column-gap: 10px;
+    row-gap: 6px;
+}
+
 .item-link-meta {
     min-width: 0;
     display: flex;
@@ -986,6 +994,11 @@ button, input { font: inherit; }
 
 [data-mode="einkaufen"] .item-name { font-size: 1rem; font-weight: 500; }
 
+[data-mode="einkaufen"] .item-card:not(.is-editing) .item-content:not(.item-content-attachment):not(.item-content-link) .item-name {
+    flex: none;
+    min-width: 0;
+}
+
 .quantity-badge {
     padding: 2px 8px;
     background: var(--border);
@@ -995,6 +1008,11 @@ button, input { font: inherit; }
     font-weight: 600;
     flex-shrink: 0;
     white-space: nowrap;
+}
+
+[data-mode="einkaufen"] .item-card:not(.is-editing) .item-content:not(.item-content-attachment):not(.item-content-link) .quantity-badge {
+    justify-self: end;
+    align-self: start;
 }
 
 .item-actions {

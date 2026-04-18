@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ankerkladde – Vorstellung</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --accent: #4f7cff;
+      --accent-soft: #e8eeff;
+      --text: #1a1a2e;
+      --text-muted: #5a5a7a;
+      --bg: #f7f8fc;
+      --card: #ffffff;
+      --border: #e2e4f0;
+      --radius: 14px;
+      --radius-sm: 8px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.65;
+    }
+
+    /* ── Hero ── */
+    .hero {
+      background: linear-gradient(145deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%);
+      color: #fff;
+      padding: 80px 24px 72px;
+      text-align: center;
+    }
+    .hero img.logo {
+      width: 100px;
+      height: 100px;
+      border-radius: 22px;
+      box-shadow: 0 12px 40px rgba(0,0,0,.45);
+      margin-bottom: 28px;
+    }
+    .hero h1 {
+      font-size: clamp(2rem, 5vw, 3.2rem);
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      margin-bottom: 14px;
+    }
+    .hero h1 span { color: #7fa8ff; }
+    .hero p.tagline {
+      font-size: clamp(1rem, 2.5vw, 1.25rem);
+      color: rgba(255,255,255,.75);
+      max-width: 620px;
+      margin: 0 auto 36px;
+    }
+    .badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+    }
+    .badge {
+      background: rgba(255,255,255,.12);
+      border: 1px solid rgba(255,255,255,.2);
+      color: #e8eeff;
+      padding: 6px 16px;
+      border-radius: 100px;
+      font-size: .85rem;
+      font-weight: 500;
+    }
+
+    /* ── Sections ── */
+    .section {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 64px 24px;
+    }
+    .section + .section { padding-top: 0; }
+
+    .section-label {
+      display: inline-block;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: .78rem;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      padding: 4px 12px;
+      border-radius: 100px;
+      margin-bottom: 12px;
+    }
+    h2 {
+      font-size: clamp(1.4rem, 3vw, 2rem);
+      font-weight: 800;
+      line-height: 1.2;
+      margin-bottom: 10px;
+    }
+    .section > p.intro {
+      color: var(--text-muted);
+      font-size: 1.05rem;
+      max-width: 680px;
+      margin-bottom: 40px;
+    }
+
+    /* ── Feature Grid ── */
+    .features {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 20px;
+    }
+    .feature-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+    }
+    .feature-icon {
+      font-size: 1.8rem;
+      margin-bottom: 12px;
+    }
+    .feature-card h3 {
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    .feature-card p {
+      font-size: .9rem;
+      color: var(--text-muted);
+    }
+
+    /* ── Screenshot Showcase ── */
+    .showcase-title {
+      font-size: clamp(1.4rem, 3vw, 2rem);
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+    .showcase-sub {
+      color: var(--text-muted);
+      font-size: 1rem;
+      margin-bottom: 40px;
+    }
+
+    /* Mobile pair */
+    .mobile-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 20px;
+    }
+    .mobile-frame {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: 0 4px 18px rgba(0,0,0,.07);
+    }
+    .mobile-frame img {
+      width: 100%;
+      display: block;
+    }
+    .mobile-frame .caption {
+      padding: 10px 14px;
+      font-size: .8rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      border-top: 1px solid var(--border);
+    }
+
+    /* Desktop screenshots */
+    .desktop-shot {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: 0 4px 18px rgba(0,0,0,.07);
+      margin-bottom: 28px;
+    }
+    .desktop-shot .bar {
+      background: #f0f1f5;
+      border-bottom: 1px solid var(--border);
+      padding: 9px 16px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+    .desktop-shot .bar .dot {
+      width: 11px; height: 11px; border-radius: 50%;
+    }
+    .desktop-shot .bar .dot:nth-child(1) { background: #ff5f57; }
+    .desktop-shot .bar .dot:nth-child(2) { background: #febc2e; }
+    .desktop-shot .bar .dot:nth-child(3) { background: #28c840; }
+    .desktop-shot .bar .label {
+      margin-left: 8px;
+      font-size: .8rem;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+    .desktop-shot img {
+      width: 100%;
+      display: block;
+    }
+
+    .desktop-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+    @media (max-width: 700px) {
+      .desktop-grid { grid-template-columns: 1fr; }
+    }
+
+    /* ── Divider ── */
+    .divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 0 24px;
+    }
+
+    /* ── Tech strip ── */
+    .tech-strip {
+      background: linear-gradient(135deg, #1a1a2e, #16213e);
+      color: #fff;
+      padding: 60px 24px;
+      text-align: center;
+    }
+    .tech-strip h2 { color: #fff; margin-bottom: 8px; }
+    .tech-strip p { color: rgba(255,255,255,.65); max-width: 560px; margin: 0 auto 36px; font-size: .95rem; }
+    .tech-list {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 12px;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    .tech-pill {
+      background: rgba(255,255,255,.1);
+      border: 1px solid rgba(255,255,255,.18);
+      color: #d0d8ff;
+      padding: 8px 20px;
+      border-radius: 100px;
+      font-size: .88rem;
+      font-weight: 500;
+    }
+
+    /* ── CTA ── */
+    .cta {
+      text-align: center;
+      padding: 72px 24px;
+      background: var(--bg);
+    }
+    .cta h2 { margin-bottom: 10px; }
+    .cta p { color: var(--text-muted); margin-bottom: 32px; font-size: 1.05rem; }
+    .btn {
+      display: inline-block;
+      background: var(--accent);
+      color: #fff;
+      padding: 14px 32px;
+      border-radius: 100px;
+      font-weight: 700;
+      font-size: .95rem;
+      text-decoration: none;
+      box-shadow: 0 4px 18px rgba(79,124,255,.35);
+    }
+    .btn:hover { opacity: .9; }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center;
+      padding: 24px;
+      font-size: .82rem;
+      color: var(--text-muted);
+      border-top: 1px solid var(--border);
+    }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════ HERO ═══════════════════════ -->
+<header class="hero">
+  <img src="ankerkladde-logo.png" alt="Ankerkladde Logo" class="logo">
+  <h1>Anker<span>kladde</span></h1>
+  <p class="tagline">Einkaufslisten, Todos, Notizen, Bilder und Links – alles in einer selbst gehosteten Web-App, die sich wie eine native App anfühlt.</p>
+  <div class="badges">
+    <span class="badge">PWA – installierbar</span>
+    <span class="badge">Self-hosted</span>
+    <span class="badge">PHP + SQLite</span>
+    <span class="badge">Kein Framework</span>
+    <span class="badge">Open Source</span>
+    <span class="badge">Browser-Erweiterung</span>
+  </div>
+</header>
+
+<!-- ═══════════════════════ FEATURES ═══════════════════════ -->
+<div class="section">
+  <span class="section-label">Was Ankerkladde kann</span>
+  <h2>Alles, was du täglich brauchst</h2>
+  <p class="intro">Ankerkladde vereint sechs Kategorie-Typen in einer einzigen App – frei konfigurierbar, ohne Cloud-Abhängigkeit.</p>
+
+  <div class="features">
+    <div class="feature-card">
+      <div class="feature-icon">🛒</div>
+      <h3>Einkaufslisten</h3>
+      <p>Mit Mengenangaben und Barcode-Scanner. Einkaufen-Modus zum einfachen Abhaken unterwegs – ohne Ablenkung.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">✅</div>
+      <h3>Aufgaben mit Fälligkeiten</h3>
+      <p>Datepicker, Sortierung und Sammelbereinigung erledigter Einträge. Privat und Arbeit – beliebig viele Kategorien.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📝</div>
+      <h3>Rich-Text-Notizen</h3>
+      <p>TipTap-Editor mit Formatierung. Live-Sync über WebSocket, sodass Änderungen sofort in anderen Tabs erscheinen.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🖼️</div>
+      <h3>Bilder & Dateien</h3>
+      <p>Upload mit Thumbnail-Erzeugung und Lightbox-Preview. Sicheres Streaming – Dateien liegen außerhalb des Webroots.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🔗</div>
+      <h3>Links</h3>
+      <p>Serverseitiges Nachladen von Titel, Beschreibung und Vorschaubild. Direkter Aufruf per Klick.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🔍</div>
+      <h3>Volltextsuche</h3>
+      <p>SQLite FTS5 durchsucht alle Kategorien gleichzeitig – schnell und ohne Umwege.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">✨</div>
+      <h3>Magic Bar mit KI</h3>
+      <p>Freitext wie „Zutaten für Lasagne" anlegen – Google Gemini zerlegt das in fertige Einträge, optional per Spracheingabe.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🌈</div>
+      <h3>Themes</h3>
+      <p>Kuratierte Light- und Dark-Themes mit Vorschaukarten in den Einstellungen. Auto-Modus folgt dem System.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🧩</div>
+      <h3>Browser-Erweiterung</h3>
+      <p>Chrome, Edge und Firefox. Seiten, Links, Bilder und Dateien direkt aus dem Browser nach Ankerkladde schicken.</p>
+    </div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ═══════════════════════ MOBILE SCREENSHOTS ═══════════════════════ -->
+<div class="section">
+  <span class="section-label">Mobile</span>
+  <div class="showcase-title">Smartphone-First</div>
+  <p class="showcase-sub">Optimiert für den täglichen Einsatz am Handy – installierbar als PWA, offline-fähig.</p>
+
+  <div class="mobile-grid">
+    <div class="mobile-frame">
+      <img src="screenshots/mobile-01-login.png" alt="Login">
+      <div class="caption">Login & PWA-Install</div>
+    </div>
+    <div class="mobile-frame">
+      <img src="screenshots/mobile-02-einkauf.png" alt="Einkaufsliste">
+      <div class="caption">Einkaufsliste</div>
+    </div>
+    <div class="mobile-frame">
+      <img src="screenshots/mobile-03-einkaufen-modus.png" alt="Einkaufen-Modus">
+      <div class="caption">Einkaufen-Modus</div>
+    </div>
+    <div class="mobile-frame">
+      <img src="screenshots/mobile-04-privat-todos.png" alt="Privat Todos">
+      <div class="caption">Aufgaben: Privat</div>
+    </div>
+    <div class="mobile-frame">
+      <img src="screenshots/mobile-05-arbeit-todos.png" alt="Arbeit Todos">
+      <div class="caption">Aufgaben: Arbeit</div>
+    </div>
+    <div class="mobile-frame">
+      <img src="screenshots/mobile-06-notizen.png" alt="Notizenliste">
+      <div class="caption">Notizenliste</div>
+    </div>
+    <div class="mobile-frame">
+      <img src="screenshots/mobile-07-notiz-offen.png" alt="Notiz offen">
+      <div class="caption">Notiz (Editor)</div>
+    </div>
+    <div class="mobile-frame">
+      <img src="screenshots/mobile-08-bilder.png" alt="Bilder">
+      <div class="caption">Bilder-Galerie</div>
+    </div>
+    <div class="mobile-frame">
+      <img src="screenshots/mobile-09-links.png" alt="Links">
+      <div class="caption">Links</div>
+    </div>
+    <div class="mobile-frame">
+      <img src="screenshots/mobile-10-suche.png" alt="Suche">
+      <div class="caption">Volltextsuche</div>
+    </div>
+    <div class="mobile-frame">
+      <img src="screenshots/mobile-11-settings-themes.png" alt="Themes">
+      <div class="caption">Themes & Einstellungen</div>
+    </div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ═══════════════════════ DESKTOP SCREENSHOTS ═══════════════════════ -->
+<div class="section">
+  <span class="section-label">Desktop</span>
+  <div class="showcase-title">Genauso zuhause am großen Bildschirm</div>
+  <p class="showcase-sub">Responsives Layout, das auf jedem Bildschirm funktioniert – vom Laptop bis zum Ultrawide-Monitor.</p>
+
+  <div class="desktop-shot">
+    <div class="bar">
+      <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+      <span class="label">Einkaufsliste</span>
+    </div>
+    <img src="screenshots/desktop-01-einkauf.png" alt="Desktop Einkaufsliste">
+  </div>
+
+  <div class="desktop-grid">
+    <div class="desktop-shot">
+      <div class="bar">
+        <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+        <span class="label">Einkaufen-Modus</span>
+      </div>
+      <img src="screenshots/desktop-02-einkaufen-modus.png" alt="Desktop Einkaufen-Modus">
+    </div>
+    <div class="desktop-shot">
+      <div class="bar">
+        <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+        <span class="label">Aufgaben: Privat</span>
+      </div>
+      <img src="screenshots/desktop-03-privat.png" alt="Desktop Privat">
+    </div>
+    <div class="desktop-shot">
+      <div class="bar">
+        <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+        <span class="label">Notizen</span>
+      </div>
+      <img src="screenshots/desktop-04-notizen.png" alt="Desktop Notizen">
+    </div>
+    <div class="desktop-shot">
+      <div class="bar">
+        <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+        <span class="label">Notiz (Editor)</span>
+      </div>
+      <img src="screenshots/desktop-05-notiz-offen.png" alt="Desktop Notiz offen">
+    </div>
+    <div class="desktop-shot">
+      <div class="bar">
+        <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+        <span class="label">Bilder-Galerie</span>
+      </div>
+      <img src="screenshots/desktop-06-bilder.png" alt="Desktop Bilder">
+    </div>
+    <div class="desktop-shot">
+      <div class="bar">
+        <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+        <span class="label">Links</span>
+      </div>
+      <img src="screenshots/desktop-07-links.png" alt="Desktop Links">
+    </div>
+    <div class="desktop-shot">
+      <div class="bar">
+        <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+        <span class="label">Volltextsuche</span>
+      </div>
+      <img src="screenshots/desktop-08-suche.png" alt="Desktop Suche">
+    </div>
+    <div class="desktop-shot">
+      <div class="bar">
+        <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+        <span class="label">Themes & Einstellungen</span>
+      </div>
+      <img src="screenshots/desktop-09-settings-themes.png" alt="Desktop Settings Themes">
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════ TECH STRIP ═══════════════════════ -->
+<div class="tech-strip">
+  <h2>Technologie</h2>
+  <p>Kein Mega-Framework, keine Build-Pipeline. Nur das, was wirklich gebraucht wird.</p>
+  <div class="tech-list">
+    <span class="tech-pill">PHP 8.1+</span>
+    <span class="tech-pill">SQLite / FTS5</span>
+    <span class="tech-pill">Vanilla JS (ESM)</span>
+    <span class="tech-pill">TipTap Editor</span>
+    <span class="tech-pill">Yjs / WebSocket</span>
+    <span class="tech-pill">Service Worker</span>
+    <span class="tech-pill">PWA</span>
+    <span class="tech-pill">Docker</span>
+    <span class="tech-pill">Google Gemini API</span>
+    <span class="tech-pill">Open Food Facts</span>
+    <span class="tech-pill">Playwright UI-Tests</span>
+    <span class="tech-pill">Browser-Extension</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════ CTA ═══════════════════════ -->
+<div class="cta">
+  <h2>Selbst ausprobieren</h2>
+  <p>Ankerkladde läuft auf jedem Server mit PHP 8.1+. Mit Docker ist es ein Einzeiler.</p>
+  <a href="https://github.com/oliverbenduhn/ankerkladde" class="btn">GitHub &rarr;</a>
+</div>
+
+<footer>
+  &copy; 2025 Oliver Benduhn &middot; Ankerkladde &middot; MIT-Lizenz
+</footer>
+
+</body>
+</html>
