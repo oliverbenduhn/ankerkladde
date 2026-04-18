@@ -163,6 +163,18 @@ Version is centralized in `public/version.php` (returns string like `'2.0.34'`).
 | `ANKERKLADDE_CANONICAL_HOST` | Production domain for redirect enforcement | `ankerkladde.benduhn.de` |
 | `EINKAUF_TRUST_PROXY_HEADERS` | Trust X-Forwarded-* headers | Auto (true if request from 127.0.0.1) |
 
+## Token Efficiency
+
+Small, focused changes keep context windows lean and save token cost. Here's how:
+
+- **One step, one session**: After each "weiter" point, close the session if moving to a completely different feature/area. Starting fresh costs less than carrying full context forward.
+- **Use `/clear` between unrelated tasks**: If switching from a bug fix to a new feature, or between different components, `/clear` resets the context window mid-session.
+- **Inline work, not subagents**: Simple tasks (Glob, Grep, reading a single file, editing one file) run inline. Only spawn subagents for 2+ truly independent parallel work — each subagent runs its own full context.
+- **Cheaper models for simple subagents**: If a subagent task is purely exploratory (codebase search, simple reads) or low-risk (Grep patterns, file checks), configure it with `model: "haiku"` instead of the default. Reserve Sonnet/Opus for complex logic or code generation.
+- **Avoid exploratory sprawl**: "Let me read a few files first" and "let me check what changed" in one step adds unnecessary history. Be direct: state what needs doing, then do it.
+
+Example: Bug fix in component A, then new feature in component B → `/clear` between them, rather than letting both accumulate in the context. Or: Exploratory search across multiple files → use Explore agent with `model: "haiku"`.
+
 ## Working Process
 
 Work in small, isolated release steps — one clearly scoped change at a time.
@@ -174,6 +186,8 @@ State in 1–2 sentences:
 - why this step comes next
 
 Then implement immediately — no planning without action.
+
+If the previous step is fully complete and you're starting a completely different feature or bug context, use `/clear` to reset the session context. This keeps token usage efficient.
 
 ### After every single step
 
@@ -208,3 +222,4 @@ Then wait for the user to test and say "weiter" before continuing.
 - Cut changes so the user can test exactly that area.
 - Never discard the user's existing uncommitted changes.
 - Always use the Edit tool (not sed/awk) for file modifications.
+- Use subagents only for truly independent parallel tasks, not as default. For simple file reads, Glob, Grep, or single-file edits, work inline to save token cost.

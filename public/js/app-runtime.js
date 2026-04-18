@@ -11,6 +11,8 @@ import { createScannerController } from './scanner.js';
 import { createSwipeController } from './swipe.js';
 import { createTabsViewController } from './tabs-view.js';
 import { createMagicController } from './magic.js';
+import { flushQueue, getPendingCount } from './offline-queue.js';
+import { api } from './api.js';
 import {
     BARCODE_FORMATS,
     SCANNER_COOLDOWN_MS,
@@ -33,7 +35,7 @@ export function createAppRuntime(deps) {
         setUserPreferences,
     } = deps;
 
-    const appUiController = createAppUiController({ getUserPreferences });
+    const appUiController = createAppUiController({ getUserPreferences, getPendingCount });
 
     const updateFilePickerLabel = () => appUiController.updateFilePickerLabel();
     const helpersController = createHelpersController({
@@ -94,6 +96,14 @@ export function createAppRuntime(deps) {
     const applyTabsVisibility = hidden => appUiController.applyTabsVisibility(hidden);
     const formatBytes = sizeBytes => appUiController.formatBytes(sizeBytes);
 
+    const flushOfflineQueue = async () => {
+        const hadItems = await flushQueue(api);
+        if (hadItems) {
+            invalidateCategoryCache(state.categoryId);
+            await loadItems();
+        }
+    };
+
     router = createRouter({
         closeNoteEditor,
         closeScanner,
@@ -123,9 +133,11 @@ export function createAppRuntime(deps) {
         makeUploadProgressCallback,
         openNoteEditorWithNavigation,
         renderItems,
+        removeItemById: id => itemsController.removeItemById(id),
         resetItemForm,
         setCategory,
         setMessage,
+        setNetworkStatus,
     });
 
     tabsViewController = createTabsViewController({
@@ -232,6 +244,7 @@ export function createAppRuntime(deps) {
         closeSearch,
         doSearch,
         editorController,
+        flushOfflineQueue,
         handleIncomingShare: async () => { await itemsActionsController.handleIncomingShare(); },
         handleScannedBarcode,
         loadCategories,

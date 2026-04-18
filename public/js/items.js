@@ -236,6 +236,11 @@ export function createItemsController(deps) {
         renderItems();
     }
 
+    function removeItemById(id) {
+        state.items = state.items.filter(item => item.id !== id);
+        cacheCurrentCategoryItems();
+    }
+
     return {
         cacheCurrentCategoryItems,
         doSearch,
@@ -248,6 +253,7 @@ export function createItemsController(deps) {
         openSearch,
         closeSearch,
         prefetchAdjacentCategories,
+        removeItemById,
         savePreferences,
         setCategory,
     };

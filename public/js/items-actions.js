@@ -2,6 +2,7 @@ import { appUrl, api, apiUpload } from './api.js';
 import { getCurrentCategory, isAttachmentCategory, state } from './state.js';
 import { fileInput, itemInput, linkDescriptionInput, quantityInput } from './ui.js';
 import { escapeRegExp } from './utils.js';
+import { enqueueAction } from './offline-queue.js';
 
 export function createItemsActionsController(deps) {
     const {
@@ -13,9 +14,11 @@ export function createItemsActionsController(deps) {
         makeUploadProgressCallback,
         openNoteEditorWithNavigation,
         renderItems,
+        removeItemById,
         resetItemForm,
         setCategory,
         setMessage,
+        setNetworkStatus,
         invalidateCategoryCache,
     } = deps;
 
@@ -232,37 +235,55 @@ export function createItemsActionsController(deps) {
             body.set('due_date', quantityInput.value.trim());
         }
 
-        await api('add', { method: 'POST', body });
-        resetItemForm();
-        invalidateCategoryCache(category.id);
-        await loadItems();
-        setMessage('Artikel hinzugefügt.');
+        try {
+            await api('add', { method: 'POST', body });
+            resetItemForm();
+            invalidateCategoryCache(category.id);
+            await loadItems();
+            setMessage('Artikel hinzugefügt.');
+        } catch {
+            enqueueAction('add', Object.fromEntries(body.entries()));
+            resetItemForm();
+            setNetworkStatus();
+            setMessage('Offline gespeichert – wird synchronisiert wenn du wieder online bist.');
+        }
     }
 
     async function handleToggle(id, done) {
-        await api('toggle', {
-            method: 'POST',
-            body: new URLSearchParams({ id: String(id), done: String(done) }),
-        });
+        // Optimistisch lokal sofort anwenden
         const item = getItemById(id);
         if (item) {
             item.done = done;
             cacheCurrentCategoryItems();
             renderItems();
-        } else {
-            invalidateCategoryCache(state.categoryId);
-            await loadItems();
+        }
+        try {
+            await api('toggle', {
+                method: 'POST',
+                body: new URLSearchParams({ id: String(id), done: String(done) }),
+            });
+        } catch {
+            enqueueAction('toggle', { id: String(id), done: String(done) });
+            setNetworkStatus();
         }
     }
 
     async function handleDelete(id) {
-        await api('delete', { method: 'POST', body: new URLSearchParams({ id: String(id) }) });
+        // Optimistisch lokal sofort entfernen
+        removeItemById(id);
         if (state.noteEditorId === id) {
             await closeNoteEditor();
         }
-        invalidateCategoryCache(state.categoryId);
-        await loadItems();
-        setMessage('Artikel gelöscht.');
+        renderItems();
+        try {
+            await api('delete', { method: 'POST', body: new URLSearchParams({ id: String(id) }) });
+            invalidateCategoryCache(state.categoryId);
+            setMessage('Artikel gelöscht.');
+        } catch {
+            enqueueAction('delete', { id: String(id) });
+            setNetworkStatus();
+            setMessage('Offline gelöscht – wird synchronisiert wenn du wieder online bist.');
+        }
     }
 
     async function handlePin(id, isPinned) {

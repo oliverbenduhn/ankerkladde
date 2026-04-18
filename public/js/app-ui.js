@@ -29,7 +29,7 @@ import {
 import { syncAutoHeight } from './utils.js';
 
 export function createAppUiController(deps = {}) {
-    const { getUserPreferences = () => ({}) } = deps;
+    const { getUserPreferences = () => ({}), getPendingCount = () => 0 } = deps;
     let messageTimer = null;
 
     function setMessage(text, isError = false) {
@@ -238,8 +238,11 @@ export function createAppUiController(deps = {}) {
             networkStatusEl.hidden = true;
             networkStatusEl.textContent = '';
         } else {
+            const count = getPendingCount();
             networkStatusEl.hidden = false;
-            networkStatusEl.textContent = 'Offline: Die zuletzt geladene Liste bleibt sichtbar.';
+            networkStatusEl.textContent = count > 0
+                ? `Offline — ${count} Änderung${count === 1 ? '' : 'en'} ausstehend.`
+                : 'Offline: Die zuletzt geladene Liste bleibt sichtbar.';
         }
     }
 

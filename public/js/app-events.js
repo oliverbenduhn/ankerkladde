@@ -44,6 +44,7 @@ export function registerAppEventHandlers(deps) {
         closeScanner,
         closeSearch,
         doSearch,
+        flushOfflineQueue,
         handleScannedBarcode,
         loadCategories,
         loadItems,
@@ -396,7 +397,11 @@ export function registerAppEventHandlers(deps) {
         });
     });
 
-    window.addEventListener('online', setNetworkStatus);
+    window.addEventListener('online', () => {
+        void flushOfflineQueue().catch(() => {});
+        setNetworkStatus();
+        void loadItems().catch(() => {});
+    });
     if (themeMediaQuery) {
         const onThemeMediaChange = () => {
             if (userPreferencesRef().theme_mode === 'auto') applyThemePreferences(userPreferencesRef());
