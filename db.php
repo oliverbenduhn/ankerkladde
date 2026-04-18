@@ -858,6 +858,18 @@ function migrateLegacyPreferencesToCategories(PDO $db): void
 {
     $fallbackThemeNormalizer = static function (array $preferences): array {
         $base = normalizeUserPreferences($preferences);
+        $lightThemes = ['parchment', 'hafenblau'];
+        $darkThemes = ['nachtwache', 'pier'];
+
+        $themeDefinitionsPath = __DIR__ . '/public/theme-definitions.php';
+        if (is_file($themeDefinitionsPath)) {
+            require_once $themeDefinitionsPath;
+            if (function_exists('getAvailableThemes')) {
+                $themes = getAvailableThemes();
+                $lightThemes = array_keys($themes['light'] ?? []) ?: $lightThemes;
+                $darkThemes = array_keys($themes['dark'] ?? []) ?: $darkThemes;
+            }
+        }
 
         $normalized = [
             'mode' => $base['mode'] ?? 'liste',
@@ -877,11 +889,11 @@ function migrateLegacyPreferencesToCategories(PDO $db): void
             $normalized['theme_mode'] = $preferences['theme_mode'];
         }
 
-        if (isset($preferences['light_theme']) && in_array($preferences['light_theme'], ['parchment', 'hafenblau'], true)) {
+        if (isset($preferences['light_theme']) && in_array($preferences['light_theme'], $lightThemes, true)) {
             $normalized['light_theme'] = $preferences['light_theme'];
         }
 
-        if (isset($preferences['dark_theme']) && in_array($preferences['dark_theme'], ['nachtwache', 'pier'], true)) {
+        if (isset($preferences['dark_theme']) && in_array($preferences['dark_theme'], $darkThemes, true)) {
             $normalized['dark_theme'] = $preferences['dark_theme'];
         }
 
