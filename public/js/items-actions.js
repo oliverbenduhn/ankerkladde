@@ -274,26 +274,22 @@ export function createItemsActionsController(deps) {
     }
 
     async function handleDelete(id) {
-        try {
-            // Optimistisch lokal sofort entfernen
-            removeItemById(id);
-            if (state.noteEditorId === id) {
-                await closeNoteEditor();
-            }
-            renderItems();
-            setMessage('Artikel gelöscht.');
+        // Optimistisch lokal sofort entfernen
+        removeItemById(id);
+        if (state.noteEditorId === id) {
+            await closeNoteEditor();
+        }
+        renderItems();
+        setMessage('Artikel gelöscht.');
 
-            // Versuch API-Call (nicht-blocking, Fehler werden still ignoriert)
-            try {
-                await api('delete', { method: 'POST', body: new URLSearchParams({ id: String(id) }) });
-                invalidateCategoryCache(state.categoryId);
-            } catch {
-                // Offline: enqueue für späteren sync
-                enqueueAction('delete', { id: String(id) });
-                setNetworkStatus();
-            }
+        // Versuch API-Call (nicht-blocking)
+        try {
+            await api('delete', { method: 'POST', body: new URLSearchParams({ id: String(id) }) });
+            invalidateCategoryCache(state.categoryId);
         } catch (error) {
-            setMessage(error instanceof Error ? error.message : 'Löschen fehlgeschlagen.', true);
+            // Offline: enqueue für späteren sync
+            enqueueAction('delete', { id: String(id) });
+            setNetworkStatus();
         }
     }
 

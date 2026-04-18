@@ -42,7 +42,11 @@ export function createItemMenuController(deps) {
             button.addEventListener('click', async event => {
                 event.stopPropagation();
                 close();
-                await onClick();
+                try {
+                    await onClick();
+                } catch (error) {
+                    console.error('Action failed:', error);
+                }
             });
             actions.appendChild(button);
         }
