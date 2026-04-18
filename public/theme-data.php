@@ -308,7 +308,7 @@ return [
             ],
         ],
         'monochrom-dark' => [
-            'name' => 'Schwarz-Weiß (Dunkel)',
+            'name' => 'Schwarz-Weiß',
             'color' => '#000000',
             'tokens' => [
                 '--bg'                => '#000000',
