@@ -117,6 +117,7 @@ $magicButtonEnabled = !array_key_exists('magic_button_enabled', $userPreferences
     <div class="search-bar liste-only" id="searchBar" hidden>
         <input type="search" id="searchInput" class="search-input"
                placeholder="In allen Bereichen suchen…"
+               aria-label="In allen Bereichen suchen…"
                autocomplete="off" enterkeyhint="search" maxlength="120">
     </div>
 
@@ -126,6 +127,7 @@ $magicButtonEnabled = !array_key_exists('magic_button_enabled', $userPreferences
             <button type="button" id="magicVoiceBtn" class="btn-magic-voice" aria-label="Spracheingabe"><?= icon('mic') ?></button>
             <input type="text" id="magicInput" class="magic-input"
                    placeholder="KI-Befehl (z.B. 'Zutaten für Lasagne')"
+                   aria-label="KI-Befehl"
                    autocomplete="off" enterkeyhint="go">
             <button type="button" id="magicSubmit" class="btn-magic-submit" aria-label="KI ausführen"><?= icon('sparkles') ?></button>
         </div>
@@ -162,9 +164,11 @@ $magicButtonEnabled = !array_key_exists('magic_button_enabled', $userPreferences
         <form id="itemForm" novalidate>
             <textarea id="itemInput" name="name"
                       placeholder="Artikel..." maxlength="120"
+                      aria-label="Artikel eingeben"
                       autocomplete="off" enterkeyhint="done" rows="3" required></textarea>
             <textarea id="linkDescriptionInput" name="content"
                       class="link-description-input" placeholder="Beschreibung optional"
+                      aria-label="Beschreibung optional"
                       autocomplete="off" enterkeyhint="done" rows="2" hidden></textarea>
             <div class="file-input-group" id="fileInputGroup" hidden>
                 <label for="fileInput" class="file-picker-button" id="filePickerButton">Datei wählen</label>
@@ -175,7 +179,7 @@ $magicButtonEnabled = !array_key_exists('magic_button_enabled', $userPreferences
                 <span class="disk-free-display" id="diskFreeDisplay" hidden></span>
             </div>
             <input type="text" id="quantityInput" name="quantity"
-                   placeholder="Menge" maxlength="40" autocomplete="off" enterkeyhint="done">
+                   placeholder="Menge" aria-label="Menge" maxlength="40" autocomplete="off" enterkeyhint="done">
             <?php if ($shoppingListScannerEnabled): ?>
             <button type="button" class="btn-add btn-scan-input" id="scanAddBtn" aria-label="Barcode scannen"><?= icon('scan') ?></button>
             <?php endif; ?>
@@ -233,7 +237,7 @@ $magicButtonEnabled = !array_key_exists('magic_button_enabled', $userPreferences
             </div>
             <div class="scanner-status" id="scannerStatus" aria-live="polite"></div>
             <form class="scanner-manual-form" id="scannerManualForm" novalidate>
-                <input type="text" id="scannerManualInput" inputmode="numeric" autocomplete="off" placeholder="Barcode manuell eingeben" maxlength="64">
+                <input type="text" id="scannerManualInput" inputmode="numeric" autocomplete="off" placeholder="Barcode manuell eingeben" aria-label="Barcode manuell eingeben" maxlength="64">
                 <button type="submit" class="btn-add" aria-label="Barcode übernehmen"><?= icon('check') ?></button>
             </form>
         </div>
@@ -244,7 +248,7 @@ $magicButtonEnabled = !array_key_exists('magic_button_enabled', $userPreferences
         <div class="note-editor-top">
             <button type="button" id="noteEditorBack" class="btn-note-back" aria-label="Zurück"><?= icon('arrow-left') ?></button>
             <input type="text" id="noteTitleInput" class="note-title-input"
-                   placeholder="Titel..." maxlength="120" autocomplete="off">
+                   placeholder="Titel..." aria-label="Titel" maxlength="120" autocomplete="off">
             <span class="note-save-status" id="noteSaveStatus" aria-live="polite"></span>
         </div>
         <div class="note-toolbar" id="noteToolbar" role="toolbar" aria-label="Formatierung">

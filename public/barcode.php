@@ -64,7 +64,7 @@ function icon(string $name): string {
                 </div>
                 <div class="scanner-status" id="barcodePageStatus" aria-live="polite"></div>
                 <form class="scanner-manual-form" id="barcodePageManualForm" novalidate>
-                    <input type="text" id="barcodePageManualInput" inputmode="numeric" autocomplete="off" placeholder="Barcode manuell eingeben" maxlength="64">
+                    <input type="text" id="barcodePageManualInput" inputmode="numeric" autocomplete="off" placeholder="Barcode manuell eingeben" aria-label="Barcode manuell eingeben" maxlength="64">
                     <button type="submit" class="btn-add" aria-label="Barcode laden"><?= icon('scan') ?></button>
                 </form>
             </div>

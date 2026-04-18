@@ -204,8 +204,8 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
             <input type="hidden" name="action" value="create">
             <div class="admin-form-row">
-                <input type="text" name="username" placeholder="Benutzername" required autocomplete="off">
-                <input type="password" name="password" placeholder="Passwort (min. 8 Zeichen)" required>
+                <input type="text" name="username" placeholder="Benutzername" aria-label="Benutzername" required autocomplete="off">
+                <input type="password" name="password" placeholder="Passwort (min. 8 Zeichen)" aria-label="Passwort" required>
                 <button type="submit" class="admin-btn">Anlegen</button>
             </div>
         </form>
@@ -226,7 +226,7 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
                         <input type="hidden" name="action" value="reset_password">
                         <input type="hidden" name="user_id" value="<?= (int) $user['id'] ?>">
-                        <input type="password" name="new_password" placeholder="Neues Passwort" required>
+                        <input type="password" name="new_password" placeholder="Neues Passwort" aria-label="Neues Passwort" required>
                         <button type="submit" class="admin-btn-sm">Setzen</button>
                     </form>
 
