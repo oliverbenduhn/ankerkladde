@@ -133,14 +133,18 @@ function getProductDatabaseStatus(PDO $db, PDO $productDb): array
         )->fetchColumn();
 
         $rowCount = 0;
-        $updatedAt = null;
+        $updatedAt = getAdminMetaValue($db, importMetaKeyForDataset($datasetKey));
         if ($exists) {
             $rowCount = (int) $productDb->query('SELECT COUNT(*) FROM ' . quoteAdminIdentifier($tableName))->fetchColumn();
-            $hasUpdatedAt = (bool) $productDb->query("SELECT COUNT(*) FROM pragma_table_info(" . $productDb->quote($tableName) . ") WHERE name='updated_at'")->fetchColumn();
-            $updatedAt = $hasUpdatedAt ? ($productDb->query('SELECT MAX(updated_at) FROM ' . quoteAdminIdentifier($tableName))->fetchColumn() ?: null) : null;
         }
 
         $filePath = getOpenFactsDataDirectory() . '/' . $config['file'];
+        if ($updatedAt === null && $rowCount > 0 && is_file($filePath)) {
+            $mtime = filemtime($filePath);
+            if (is_int($mtime) && $mtime > 0) {
+                $updatedAt = date('Y-m-d H:i:s', $mtime);
+            }
+        }
         $datasets[] = [
             'key' => $datasetKey,
             'label' => $config['label'],
@@ -178,6 +182,35 @@ function formatBytesAdmin(int $bytes): string
     }
 
     return number_format($value, $unitIndex === 0 ? 0 : 1, ',', '.') . ' ' . $units[$unitIndex];
+}
+
+function getAdminMetaValue(PDO $db, string $key): ?string
+{
+    $stmt = $db->prepare('SELECT meta_value FROM database_meta WHERE meta_key = :meta_key LIMIT 1');
+    $stmt->execute([':meta_key' => $key]);
+    $value = $stmt->fetchColumn();
+
+    return is_string($value) && $value !== '' ? $value : null;
+}
+
+function setAdminMetaValue(PDO $db, string $key, string $value): void
+{
+    $stmt = $db->prepare(
+        'INSERT INTO database_meta (meta_key, meta_value, updated_at)
+         VALUES (:meta_key, :meta_value, CURRENT_TIMESTAMP)
+         ON CONFLICT(meta_key) DO UPDATE SET
+            meta_value = excluded.meta_value,
+            updated_at = CURRENT_TIMESTAMP'
+    );
+    $stmt->execute([
+        ':meta_key' => $key,
+        ':meta_value' => $value,
+    ]);
+}
+
+function importMetaKeyForDataset(string $dataset): string
+{
+    return 'product_catalog_imported_at_' . $dataset;
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -355,6 +388,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     @set_time_limit(0);
                     downloadFileToPath($config['url'], $targetFile);
                     runOpenFactsImport($dataset, $targetFile, $truncate);
+                    setAdminMetaValue($db, importMetaKeyForDataset($dataset), date('Y-m-d H:i:s'));
                     $flash = $config['label'] . ' wurde heruntergeladen und importiert.';
                 } catch (Throwable $e) {
                     $flash = 'Produktdatenbank-Update fehlgeschlagen: ' . $e->getMessage();
@@ -511,35 +545,44 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
 
     <div class="admin-section">
         <h2>Produktdatenbank</h2>
-        <p class="admin-notice">
-            Gesamt: <?= (int) $productStatus['summary_count'] ?> Produkte
-            <?php if ($productStatus['summary_updated_at'] !== null): ?>
-                · zuletzt aktualisiert am <?= htmlspecialchars(substr((string) $productStatus['summary_updated_at'], 0, 16), ENT_QUOTES, 'UTF-8') ?>
-            <?php endif; ?>
-            · DB-Größe <?= htmlspecialchars(formatBytesAdmin((int) $productStatus['db_file_size']), ENT_QUOTES, 'UTF-8') ?>
-        </p>
+        <div class="admin-product-summary">
+            <div class="admin-product-stat">
+                <span class="admin-product-stat-label">Gesamt</span>
+                <strong class="admin-product-stat-value"><?= number_format((int) $productStatus['summary_count'], 0, ',', '.') ?></strong>
+            </div>
+            <div class="admin-product-stat">
+                <span class="admin-product-stat-label">Letztes Update</span>
+                <strong class="admin-product-stat-value"><?= $productStatus['summary_updated_at'] !== null ? htmlspecialchars(substr((string) $productStatus['summary_updated_at'], 0, 16), ENT_QUOTES, 'UTF-8') : 'Unbekannt' ?></strong>
+            </div>
+            <div class="admin-product-stat">
+                <span class="admin-product-stat-label">DB-Größe</span>
+                <strong class="admin-product-stat-value"><?= htmlspecialchars(formatBytesAdmin((int) $productStatus['db_file_size']), ENT_QUOTES, 'UTF-8') ?></strong>
+            </div>
+        </div>
 
-        <ul class="admin-user-list">
+        <div class="admin-product-grid">
             <?php foreach ($productStatus['datasets'] as $dataset): ?>
-                <li class="admin-user-item">
-                    <span class="admin-user-name"><?= htmlspecialchars((string) $dataset['label'], ENT_QUOTES, 'UTF-8') ?></span>
-                    <span class="admin-user-date"><?= (int) $dataset['row_count'] ?> Datensätze</span>
-                    <span class="admin-user-date">
-                        Datei <?= !empty($dataset['file_exists']) ? htmlspecialchars(formatBytesAdmin((int) $dataset['file_size']), ENT_QUOTES, 'UTF-8') : 'fehlt' ?>
-                    </span>
-                    <span class="admin-user-date">
-                        <?= $dataset['updated_at'] !== null ? 'Import: ' . htmlspecialchars(substr((string) $dataset['updated_at'], 0, 16), ENT_QUOTES, 'UTF-8') : 'Noch nicht importiert' ?>
-                    </span>
-
-                    <form method="post" action="<?= htmlspecialchars(appPath('admin.php'), ENT_QUOTES, 'UTF-8') ?>" class="admin-inline-form">
+                <section class="admin-product-card">
+                    <div class="admin-product-card-head">
+                        <h3><?= htmlspecialchars((string) $dataset['label'], ENT_QUOTES, 'UTF-8') ?></h3>
+                        <span class="admin-product-badge<?= (int) $dataset['row_count'] > 0 ? ' is-ready' : '' ?>">
+                            <?= (int) $dataset['row_count'] > 0 ? 'Importiert' : 'Leer' ?>
+                        </span>
+                    </div>
+                    <div class="admin-product-meta">
+                        <span><?= number_format((int) $dataset['row_count'], 0, ',', '.') ?> Datensätze</span>
+                        <span>Datei: <?= !empty($dataset['file_exists']) ? htmlspecialchars(formatBytesAdmin((int) $dataset['file_size']), ENT_QUOTES, 'UTF-8') : 'fehlt' ?></span>
+                        <span><?= $dataset['updated_at'] !== null ? 'Import: ' . htmlspecialchars(substr((string) $dataset['updated_at'], 0, 16), ENT_QUOTES, 'UTF-8') : 'Importzeit unbekannt' ?></span>
+                    </div>
+                    <form method="post" action="<?= htmlspecialchars(appPath('admin.php'), ENT_QUOTES, 'UTF-8') ?>" class="admin-product-actions">
                         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
                         <input type="hidden" name="action" value="refresh_product_dataset">
                         <input type="hidden" name="dataset" value="<?= htmlspecialchars((string) $dataset['key'], ENT_QUOTES, 'UTF-8') ?>">
                         <button type="submit" class="admin-btn-sm">Herunterladen &amp; importieren</button>
                     </form>
-                </li>
+                </section>
             <?php endforeach; ?>
-        </ul>
+        </div>
 
         <form method="post" action="<?= htmlspecialchars(appPath('admin.php'), ENT_QUOTES, 'UTF-8') ?>" class="admin-inline-form"
               onsubmit="return confirm('Produktdatenbank wirklich leeren?')">
