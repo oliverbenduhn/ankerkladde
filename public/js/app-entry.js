@@ -122,16 +122,18 @@ export function startApp(version) {
 
             try {
                 if (action === 'settings_update') {
-                    window.location.reload();
-                    return;
-                } else {
-                    // Generic update: reload both categories and items
-                    console.log('[WS] reloading items...');
+                    console.log('[WS] reloading settings-dependent state...');
                     await loadCategories();
-                    console.log('[WS] categories loaded, loading items...');
                     await loadItems(undefined, { useCache: false });
-                    console.log('[WS] items loaded and rendered');
+                    return;
                 }
+
+                // Generic update: reload both categories and items
+                console.log('[WS] reloading items...');
+                await loadCategories();
+                console.log('[WS] categories loaded, loading items...');
+                await loadItems(undefined, { useCache: false });
+                console.log('[WS] items loaded and rendered');
             } catch (err) {
                 console.error('[WS] update failed:', err);
             }

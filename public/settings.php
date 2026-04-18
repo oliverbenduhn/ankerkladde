@@ -191,6 +191,25 @@ function notifyWebSocket(int $userId, string $action = 'settings_update'): void
     curl_close($ch);
 }
 
+function wantsJsonResponse(): bool
+{
+    $requestedWith = strtolower((string) ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? ''));
+    if ($requestedWith === 'fetch') {
+        return true;
+    }
+
+    $accept = strtolower((string) ($_SERVER['HTTP_ACCEPT'] ?? ''));
+    return str_contains($accept, 'application/json');
+}
+
+function sendJsonResponse(array $payload, int $statusCode = 200): never
+{
+    http_response_code($statusCode);
+    header('Content-Type: application/json; charset=UTF-8');
+    echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    exit;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $providedToken = $_POST['csrf_token'] ?? null;
 
@@ -388,6 +407,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'product_scanner_enabled' => isset($_POST['product_scanner_enabled']),
                 'shopping_list_scanner_enabled' => isset($_POST['shopping_list_scanner_enabled']),
                 'magic_button_enabled' => isset($_POST['magic_button_enabled']),
+                'category_swipe_enabled' => isset($_POST['category_swipe_enabled']),
             ]);
             $flash = 'Funktions-Einstellungen gespeichert.';
             notifyWebSocket($userId);
@@ -413,6 +433,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             notifyWebSocket($userId);
         }
+    }
+
+    if (wantsJsonResponse()) {
+        $jsonPreferences = getExtendedUserPreferences($db, $userId);
+        sendJsonResponse([
+            'ok' => $flashType !== 'err',
+            'flash' => $flash,
+            'flash_type' => $flashType,
+            'preferences' => [
+                'theme_mode' => $jsonPreferences['theme_mode'] ?? 'auto',
+                'light_theme' => $jsonPreferences['light_theme'] ?? 'hafenblau',
+                'dark_theme' => $jsonPreferences['dark_theme'] ?? 'nachtwache',
+                'product_scanner_enabled' => !array_key_exists('product_scanner_enabled', $jsonPreferences) || !empty($jsonPreferences['product_scanner_enabled']),
+                'shopping_list_scanner_enabled' => !array_key_exists('shopping_list_scanner_enabled', $jsonPreferences) || !empty($jsonPreferences['shopping_list_scanner_enabled']),
+                'magic_button_enabled' => !array_key_exists('magic_button_enabled', $jsonPreferences) || !empty($jsonPreferences['magic_button_enabled']),
+                'category_swipe_enabled' => !array_key_exists('category_swipe_enabled', $jsonPreferences) || !empty($jsonPreferences['category_swipe_enabled']),
+            ],
+        ], $flashType === 'err' ? 400 : 200);
     }
 }
 
@@ -469,10 +507,11 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
 
     <details class="settings-section settings-accordion" data-settings-panel="appearance" open>
         <summary>Erscheinungsbild</summary>
-        <form method="post" action="<?= htmlspecialchars($settingsAction, ENT_QUOTES, 'UTF-8') ?>" class="settings-form">
+        <form method="post" action="<?= htmlspecialchars($settingsAction, ENT_QUOTES, 'UTF-8') ?>" class="settings-form" data-auto-submit="change" data-theme-form="1">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
             <input type="hidden" name="action" value="save_theme">
             <div class="settings-block">
+                <p class="settings-copy">Änderungen werden sofort übernommen.</p>
                 <div class="theme-mode-list">
                     <label>
                         <span class="theme-mode-dot theme-mode-dot-auto"></span>
@@ -524,19 +563,17 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                     </div>
                 </div>
             </div>
-            <div class="settings-actions">
-                <button type="submit" class="settings-save">Themes speichern</button>
-            </div>
         </form>
     </details>
 
     <details class="settings-section settings-section-secondary settings-accordion" data-settings-panel="features">
         <summary>Funktionen</summary>
-        <form method="post" action="<?= htmlspecialchars($settingsAction, ENT_QUOTES, 'UTF-8') ?>" class="settings-form">
+        <form method="post" action="<?= htmlspecialchars($settingsAction, ENT_QUOTES, 'UTF-8') ?>" class="settings-form" data-auto-submit="change">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
             <input type="hidden" name="action" value="save_feature_preferences">
             <div class="settings-block">
                 <p class="settings-copy">Ausgeschaltete Funktionen verschwinden in der App komplett aus der Oberfläche.</p>
+                <p class="settings-copy">Änderungen werden sofort gespeichert.</p>
                 <div class="settings-options">
                     <label class="settings-option">
                         <input
@@ -565,22 +602,6 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                         >
                         <span>Magic Button anzeigen</span>
                     </label>
-                </div>
-            </div>
-
-            <div class="settings-actions">
-                <button type="submit" class="settings-save">Funktionen speichern</button>
-            </div>
-        </form>
-    </details>
-
-    <details class="settings-section settings-section-secondary settings-accordion" data-settings-panel="display">
-        <summary>Anzeige</summary>
-        <form method="post" action="<?= htmlspecialchars($settingsAction, ENT_QUOTES, 'UTF-8') ?>" class="settings-form">
-            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
-            <input type="hidden" name="action" value="save_app_preferences">
-            <div class="settings-block">
-                <div class="settings-options">
                     <label class="settings-option">
                         <input
                             type="checkbox"
@@ -591,10 +612,6 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                         <span>Wischgeste für Kategorien aktivieren</span>
                     </label>
                 </div>
-            </div>
-
-            <div class="settings-actions">
-                <button type="submit" class="settings-save">Anzeige speichern</button>
             </div>
         </form>
     </details>
@@ -828,16 +845,30 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
 </div>
 <script>
 (() => {
+    const allThemeColors = <?= json_encode((static function (): array {
+        $colors = [];
+        foreach (getAvailableThemes() as $themeGroup) {
+            foreach (array_keys($themeGroup ?? []) as $themeKey) {
+                $colors[$themeKey] = getThemeColor((string) $themeKey);
+            }
+        }
+
+        return $colors;
+    })(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
     const themePreferences = <?= json_encode([
         'theme_mode' => $preferences['theme_mode'] ?? 'auto',
         'light_theme' => $preferences['light_theme'] ?? 'hafenblau',
         'dark_theme' => $preferences['dark_theme'] ?? 'nachtwache',
-        'theme_colors' => [
-            'parchment' => getThemeColor('parchment'),
-            'hafenblau' => getThemeColor('hafenblau'),
-            'nachtwache' => getThemeColor('nachtwache'),
-            'pier' => getThemeColor('pier'),
-        ],
+        'theme_colors' => (static function (): array {
+            $colors = [];
+            foreach (getAvailableThemes() as $themeGroup) {
+                foreach (array_keys($themeGroup ?? []) as $themeKey) {
+                    $colors[$themeKey] = getThemeColor((string) $themeKey);
+                }
+            }
+
+            return $colors;
+        })(),
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
     const scrollKey = 'einkauf-settings-scroll-y';
     const panelsKey = 'einkauf-settings-open-panels';
@@ -912,6 +943,31 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
         });
     }
 
+    function renderFlash(message, type = 'ok') {
+        if (!message) return;
+
+        const currentFlash = document.querySelector('.settings-flash');
+        if (currentFlash) {
+            currentFlash.remove();
+        }
+
+        const flash = document.createElement('div');
+        flash.className = `settings-flash settings-flash-${type === 'err' ? 'err' : 'ok'}`;
+        flash.textContent = message;
+        document.body.appendChild(flash);
+    }
+
+    function postPreferencesUpdate(preferences) {
+        if (!preferences || typeof preferences !== 'object' || !window.parent || window.parent === window) {
+            return;
+        }
+
+        window.parent.postMessage({
+            type: 'ankerkladde-settings-preferences-update',
+            preferences,
+        }, window.location.origin);
+    }
+
     applySettingsTheme();
 
     const savedPanels = readOpenPanels();
@@ -938,6 +994,70 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
     document.querySelectorAll('form.settings-form, form.settings-category-row').forEach(form => {
         form.addEventListener('submit', () => {
             window.sessionStorage.setItem(scrollKey, String(window.scrollY || window.pageYOffset || 0));
+        });
+    });
+
+    const autoSaveControllers = new WeakMap();
+
+    document.querySelectorAll('form[data-auto-submit=\"change\"]').forEach(form => {
+        form.addEventListener('change', event => {
+            const target = event.target;
+            if (!(target instanceof HTMLInputElement || target instanceof HTMLSelectElement || target instanceof HTMLTextAreaElement)) {
+                return;
+            }
+
+            if (form.dataset.themeForm === '1') {
+                const formData = new FormData(form);
+                themePreferences.theme_mode = String(formData.get('theme_mode') || themePreferences.theme_mode || 'auto');
+                themePreferences.light_theme = String(formData.get('light_theme') || themePreferences.light_theme || 'hafenblau');
+                themePreferences.dark_theme = String(formData.get('dark_theme') || themePreferences.dark_theme || 'nachtwache');
+                applySettingsTheme();
+            }
+
+            const previousController = autoSaveControllers.get(form);
+            previousController?.abort();
+
+            const controller = new AbortController();
+            autoSaveControllers.set(form, controller);
+
+            fetch(form.action, {
+                method: 'POST',
+                body: new FormData(form),
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'fetch',
+                },
+                signal: controller.signal,
+            })
+                .then(async response => {
+                    const payload = await response.json().catch(() => null);
+                    if (!response.ok || !payload || payload.ok === false) {
+                        const message = payload?.flash || 'Einstellung konnte nicht gespeichert werden.';
+                        throw new Error(message);
+                    }
+
+                    if (payload.preferences && typeof payload.preferences === 'object') {
+                        themePreferences.theme_mode = payload.preferences.theme_mode || themePreferences.theme_mode;
+                        themePreferences.light_theme = payload.preferences.light_theme || themePreferences.light_theme;
+                        themePreferences.dark_theme = payload.preferences.dark_theme || themePreferences.dark_theme;
+                        themePreferences.theme_colors = allThemeColors;
+                        applySettingsTheme();
+                        postPreferencesUpdate(payload.preferences);
+                    }
+
+                    renderFlash(payload.flash || 'Gespeichert.', payload.flash_type || 'ok');
+                })
+                .catch(error => {
+                    if (error.name === 'AbortError') {
+                        return;
+                    }
+                    renderFlash(error instanceof Error ? error.message : 'Einstellung konnte nicht gespeichert werden.', 'err');
+                })
+                .finally(() => {
+                    if (autoSaveControllers.get(form) === controller) {
+                        autoSaveControllers.delete(form);
+                    }
+                });
         });
     });
 

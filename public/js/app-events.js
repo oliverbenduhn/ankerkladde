@@ -1,4 +1,4 @@
-import { state, scannerState, themeMediaQuery, isAttachmentCategory } from './state.js';
+import { state, scannerState, themeMediaQuery, isAttachmentCategory, normalizePreferences } from './state.js';
 import {
     appEl,
     cameraBtn,
@@ -205,6 +205,16 @@ export function registerAppEventHandlers(deps) {
         if (event.data?.type === 'ankerkladde-settings-close') {
             router.closeSettings();
             navigation.navigateBackOrReplace({ screen: 'list' });
+            return;
+        }
+
+        if (event.data?.type === 'ankerkladde-settings-preferences-update') {
+            const nextPreferences = normalizePreferences({
+                ...userPreferencesRef(),
+                ...(event.data?.preferences || {}),
+            });
+            setUserPreferences(nextPreferences);
+            applyThemePreferences(nextPreferences);
         }
     });
 

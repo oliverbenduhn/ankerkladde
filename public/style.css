@@ -291,6 +291,7 @@ button, input { font: inherit; }
 
 .file-picker-button:hover {
     background: var(--accent);
+    color: var(--accent-contrast, var(--text-primary));
 }
 
 .file-picker-name {
@@ -342,7 +343,7 @@ button, input { font: inherit; }
 .drop-zone.drop-active {
     border-color: var(--accent);
     background: rgba(200, 184, 154, 0.1);
-    color: var(--text-primary);
+    color: var(--accent-contrast, var(--text-primary));
 }
 
 .btn-add {
@@ -350,7 +351,7 @@ button, input { font: inherit; }
     min-height: 48px;
     padding: 0;
     background: var(--accent);
-    color: var(--text-primary);
+    color: var(--accent-contrast, var(--text-primary));
     border: none;
     border-radius: 12px;
     cursor: pointer;
@@ -371,7 +372,7 @@ button, input { font: inherit; }
 
 .btn-scan-input:hover {
     background: var(--accent);
-    color: var(--text-primary);
+    color: var(--accent-contrast, var(--text-primary));
 }
 
 /* ===========================================
@@ -1527,7 +1528,7 @@ button, input { font: inherit; }
 
 .header-icon-btn:active {
     background: var(--accent);
-    color: var(--text-primary);
+    color: var(--accent-contrast, var(--text-primary));
     border-color: var(--accent);
     transform: scale(0.94);
     box-shadow: none;
@@ -1536,13 +1537,13 @@ button, input { font: inherit; }
 @media (hover: hover) and (pointer: fine) {
     .header-icon-btn:hover {
         background: var(--accent);
-        color: var(--text-primary);
+        color: var(--accent-contrast, var(--text-primary));
     }
 }
 
 .header-icon-btn.is-active {
     background: var(--accent);
-    color: var(--text-primary);
+    color: var(--accent-contrast, var(--text-primary));
     border-color: var(--accent);
 }
 
@@ -1983,7 +1984,10 @@ button, input { font: inherit; }
     transition: background 0.15s ease;
 }
 
-.btn-note-back:hover { background: var(--accent); }
+.btn-note-back:hover {
+    background: var(--accent);
+    color: var(--accent-contrast, var(--text-primary));
+}
 
 .note-title-input {
     flex: 1;
@@ -2333,7 +2337,7 @@ button, input { font: inherit; }
     bottom: 4px;
     width: 40px;
     background: var(--accent);
-    color: var(--text-primary);
+    color: var(--accent-contrast, var(--text-primary));
     border: none;
     border-radius: 8px;
     display: flex;
@@ -2559,6 +2563,7 @@ button, input { font: inherit; }
 
 .settings-back:hover {
     background: var(--accent);
+    color: var(--accent-contrast, var(--text-primary));
 }
 
 .settings-close-inline {
