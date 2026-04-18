@@ -4,6 +4,8 @@
   <img src="public/branding/ankerkladde-logo.png" alt="Ankerkladde" width="180">
 </p>
 
+[Projektvorstellung ansehen →](https://htmlpreview.github.io/?https://github.com/oliverbenduhn/ankerkladde/blob/main/vorstellung/index.html)
+
 Mobile-first PHP-Webanwendung und PWA fuer Einkaufslisten, Todos, Notizen, Bilder, Dateien und Links. Die App speichert ihre Daten in SQLite, laeuft ohne grosses Framework und bringt fuer Live-Updates sowie den Notizeditor optional einen separaten WebSocket-Dienst mit.
 
 ## Kurzueberblick
