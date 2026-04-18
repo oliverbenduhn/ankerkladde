@@ -51,7 +51,10 @@ function createUser(PDO $db, string $username, string $password, bool $isAdmin):
         ':password_hash' => password_hash($password, PASSWORD_BCRYPT),
         ':is_admin'      => $isAdmin ? 1 : 0,
     ]);
-    return (int) $db->lastInsertId();
+    $userId = (int) $db->lastInsertId();
+    createDefaultCategoriesForUser($db, $userId);
+
+    return $userId;
 }
 
 $db = getDatabase();

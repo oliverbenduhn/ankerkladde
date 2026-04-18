@@ -51,6 +51,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         ':username'      => $newUsername,
                         ':password_hash' => password_hash($newPassword, PASSWORD_BCRYPT),
                     ]);
+                    createDefaultCategoriesForUser($db, (int) $db->lastInsertId());
                     $flash = "Nutzer '{$newUsername}' angelegt.";
                 } catch (PDOException $e) {
                     if (str_contains($e->getMessage(), 'UNIQUE')) {

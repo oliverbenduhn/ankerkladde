@@ -62,7 +62,10 @@ function createRegularUser(PDO $db, string $username, string $password): int
         ':password_hash' => password_hash($password, PASSWORD_BCRYPT),
     ]);
 
-    return (int) $db->lastInsertId();
+    $userId = (int) $db->lastInsertId();
+    createDefaultCategoriesForUser($db, $userId);
+
+    return $userId;
 }
 
 $db = getDatabase();

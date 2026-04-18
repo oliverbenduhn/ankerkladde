@@ -740,6 +740,48 @@ function backfillLegacyCategoryKeys(PDO $db): void
     }
 }
 
+function createDefaultCategoriesForUser(PDO $db, int $userId): void
+{
+    $stmt = $db->prepare('SELECT user_id, name, type, icon, legacy_key, sort_order FROM categories WHERE user_id = :user_id');
+    $stmt->execute([':user_id' => $userId]);
+    $userCategories = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $toInsert = [];
+    foreach (LEGACY_CATEGORY_DEFINITIONS as $legacyKey => $definition) {
+        if (findLegacyCategoryIdInMemory($userCategories, $legacyKey, $definition) !== null) {
+            continue;
+        }
+
+        $toInsert[] = [
+            'user_id' => $userId,
+            'name' => $definition['name'],
+            'type' => $definition['type'],
+            'icon' => $definition['icon'],
+            'legacy_key' => $legacyKey,
+            'sort_order' => $definition['sort_order'],
+            'is_hidden' => 0,
+        ];
+    }
+
+    if (!empty($toInsert)) {
+        $rowPlaceholders = [];
+        $values = [];
+        foreach ($toInsert as $row) {
+            $rowPlaceholders[] = '(?, ?, ?, ?, ?, ?, ?)';
+            $values[] = $row['user_id'];
+            $values[] = $row['name'];
+            $values[] = $row['type'];
+            $values[] = $row['icon'];
+            $values[] = $row['legacy_key'];
+            $values[] = $row['sort_order'];
+            $values[] = $row['is_hidden'];
+        }
+
+        $sql = 'INSERT INTO categories (user_id, name, type, icon, legacy_key, sort_order, is_hidden) VALUES ' . implode(', ', $rowPlaceholders);
+        $db->prepare($sql)->execute($values);
+    }
+}
+
 function ensureDefaultCategories(PDO $db): void
 {
     $users = $db->query('SELECT id FROM users')->fetchAll(PDO::FETCH_COLUMN);
@@ -1413,7 +1455,11 @@ function getDatabase(): PDO
         $db->exec("ALTER TABLE categories ADD COLUMN legacy_key TEXT NOT NULL DEFAULT ''");
     }
 
-    ensureDefaultCategories($db);
+    $ensureDefaultCategoriesMigrationKey = 'ensure_default_categories_migrated_v1';
+    if (!hasDatabaseMetaFlag($db, $ensureDefaultCategoriesMigrationKey)) {
+        ensureDefaultCategories($db);
+        setDatabaseMetaFlag($db, $ensureDefaultCategoriesMigrationKey);
+    }
 
     $legacyMigrationKey = 'legacy_categories_migration_v2';
     if (!hasDatabaseMetaFlag($db, $legacyMigrationKey)) {
