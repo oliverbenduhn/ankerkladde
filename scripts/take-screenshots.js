@@ -192,7 +192,12 @@ async function clickTab(page, nameRegex) {
             await shot(page, 'mobile-10-suche');
         }
 
-        // 11 Settings – Themes-Panel
+        // 11 Admin
+        await page.goto(`${BASE}/admin.php`);
+        await page.waitForTimeout(1000);
+        await shot(page, 'mobile-11-admin');
+
+        // 12 Settings – Themes-Panel
         await page.goto(`${BASE}/settings.php`);
         await page.waitForSelector('details[data-settings-panel="appearance"]', { timeout: 8000 }).catch(() => {});
         await page.waitForTimeout(600);
@@ -201,7 +206,7 @@ async function clickTab(page, nameRegex) {
             if (d) { d.open = true; d.scrollIntoView({ behavior: 'instant', block: 'start' }); }
         });
         await page.waitForTimeout(500);
-        await shot(page, 'mobile-11-settings-themes');
+        await shot(page, 'mobile-12-settings-themes');
 
         await ctx.close();
     }

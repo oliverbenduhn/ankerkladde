@@ -136,7 +136,8 @@ function getProductDatabaseStatus(PDO $db, PDO $productDb): array
         $updatedAt = null;
         if ($exists) {
             $rowCount = (int) $productDb->query('SELECT COUNT(*) FROM ' . quoteAdminIdentifier($tableName))->fetchColumn();
-            $updatedAt = $productDb->query('SELECT MAX(updated_at) FROM ' . quoteAdminIdentifier($tableName))->fetchColumn() ?: null;
+            $hasUpdatedAt = (bool) $productDb->query("SELECT COUNT(*) FROM pragma_table_info(" . $productDb->quote($tableName) . ") WHERE name='updated_at'")->fetchColumn();
+            $updatedAt = $hasUpdatedAt ? ($productDb->query('SELECT MAX(updated_at) FROM ' . quoteAdminIdentifier($tableName))->fetchColumn() ?: null) : null;
         }
 
         $filePath = getOpenFactsDataDirectory() . '/' . $config['file'];
