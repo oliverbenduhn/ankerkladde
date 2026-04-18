@@ -46,6 +46,7 @@ export function registerAppEventHandlers(deps) {
         doSearch,
         handleScannedBarcode,
         loadCategories,
+        loadItems,
         navigation,
         openScanner,
         openSearch,
@@ -171,6 +172,7 @@ export function registerAppEventHandlers(deps) {
             if (state.view === 'settings' && state.settingsTab === targetTab) {
                 router.closeSettings();
                 navigation.navigateBackOrReplace({ screen: 'list' });
+                void loadCategories().then(() => loadItems(undefined, { useCache: false })).catch(() => {});
                 return;
             }
             void router.openSettings(targetTab).then(() => {
@@ -205,6 +207,7 @@ export function registerAppEventHandlers(deps) {
         if (event.data?.type === 'ankerkladde-settings-close') {
             router.closeSettings();
             navigation.navigateBackOrReplace({ screen: 'list' });
+            void loadCategories().then(() => loadItems(undefined, { useCache: false })).catch(() => {});
             return;
         }
 

@@ -74,6 +74,7 @@ export function startApp(version) {
         editorController,
         handleScannedBarcode,
         loadCategories,
+        loadItems,
         modeToggleBtns,
         navigation,
         openScanner,
