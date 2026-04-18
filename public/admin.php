@@ -125,6 +125,8 @@ function runOpenFactsImport(string $dataset, string $sourcePath, bool $truncate 
 
 function getProductDatabaseStatus(PDO $db, PDO $productDb): array
 {
+    $summaryCount = (int) $productDb->query('SELECT COUNT(*) FROM product_catalog')->fetchColumn();
+    $summaryUpdated = $productDb->query('SELECT MAX(updated_at) FROM product_catalog')->fetchColumn() ?: null;
     $datasets = [];
     foreach (PRODUCT_FACTS_DATASETS as $datasetKey => $config) {
         $tableName = datasetTableNameAdmin($datasetKey);
@@ -145,6 +147,15 @@ function getProductDatabaseStatus(PDO $db, PDO $productDb): array
                 $updatedAt = date('Y-m-d H:i:s', $mtime);
             }
         }
+
+        // Backward compatibility: older installs may only have the summary catalog populated.
+        if ($datasetKey === 'food' && $rowCount === 0 && $summaryCount > 0) {
+            $rowCount = $summaryCount;
+            if ($updatedAt === null && is_string($summaryUpdated) && $summaryUpdated !== '') {
+                $updatedAt = $summaryUpdated;
+            }
+        }
+
         $datasets[] = [
             'key' => $datasetKey,
             'label' => $config['label'],
@@ -155,8 +166,6 @@ function getProductDatabaseStatus(PDO $db, PDO $productDb): array
         ];
     }
 
-    $summaryCount = (int) $productDb->query('SELECT COUNT(*) FROM product_catalog')->fetchColumn();
-    $summaryUpdated = $productDb->query('SELECT MAX(updated_at) FROM product_catalog')->fetchColumn() ?: null;
     $dbFile = getDataDirectory() . '/products.db';
 
     return [
