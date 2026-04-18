@@ -102,13 +102,9 @@ $magicButtonEnabled = !array_key_exists('magic_button_enabled', $userPreferences
         </div>
         <div class="header-actions">
             <button type="button" id="tabsToggleBtn" class="header-icon-btn btn-tabs-toggle" aria-label="Kategorienleiste ein-/ausblenden"><?= icon('panel-bottom') ?></button>
-            <?php if ($productScannerEnabled): ?>
-            <a href="<?= htmlspecialchars(appPath('barcode.php'), ENT_QUOTES, 'UTF-8') ?>" class="header-icon-btn" aria-label="Produktinfos per Scan öffnen"><?= icon('scan-info') ?></a>
-            <?php endif; ?>
+            <a href="<?= htmlspecialchars(appPath('barcode.php'), ENT_QUOTES, 'UTF-8') ?>" class="header-icon-btn" aria-label="Produktinfos per Scan öffnen"<?= !$productScannerEnabled ? ' hidden' : '' ?>><?= icon('scan-info') ?></a>
             <button type="button" id="searchBtn" class="header-icon-btn btn-search" aria-label="Suchen"><?= icon('search') ?></button>
-            <?php if ($magicButtonEnabled): ?>
-            <button type="button" id="magicBtn" class="header-icon-btn btn-magic" aria-label="KI-Assistent"><?= icon('sparkles') ?></button>
-            <?php endif; ?>
+            <button type="button" id="magicBtn" class="header-icon-btn btn-magic" aria-label="KI-Assistent"<?= !$magicButtonEnabled ? ' hidden' : '' ?>><?= icon('sparkles') ?></button>
             <a href="<?= htmlspecialchars(appPath('index.php?view=settings'), ENT_QUOTES, 'UTF-8') ?>" class="header-icon-btn btn-settings" data-settings-tab="app" aria-label="Einstellungen"><?= icon('settings') ?></a>
             <button type="button" class="header-icon-btn btn-mode-toggle" data-nav="einkaufen" aria-label="Einkaufs-Modus starten"><?= icon('eye') ?></button>
         </div>
@@ -120,7 +116,6 @@ $magicButtonEnabled = !array_key_exists('magic_button_enabled', $userPreferences
                autocomplete="off" enterkeyhint="search" maxlength="120">
     </div>
 
-    <?php if ($magicButtonEnabled): ?>
     <div class="magic-bar" id="magicBar" hidden>
         <div class="magic-bar-inner">
             <button type="button" id="magicVoiceBtn" class="btn-magic-voice" aria-label="Spracheingabe"><?= icon('mic') ?></button>
@@ -131,7 +126,6 @@ $magicButtonEnabled = !array_key_exists('magic_button_enabled', $userPreferences
         </div>
         <button type="button" id="magicClose" class="btn-search-close" aria-label="Schließen"><?= icon('x') ?></button>
     </div>
-    <?php endif; ?>
 
     <header class="app-header shopping-only">
         <div class="app-title-group clickable-brand" style="cursor: pointer;">
@@ -144,15 +138,9 @@ $magicButtonEnabled = !array_key_exists('magic_button_enabled', $userPreferences
         <div class="header-actions">
             <span class="progress" id="progress" aria-live="polite">0 / 0</span>
             <button type="button" class="header-icon-btn btn-tabs-toggle" aria-label="Kategorienleiste ein-/ausblenden"><?= icon('panel-bottom') ?></button>
-            <?php if ($productScannerEnabled): ?>
-            <a href="<?= htmlspecialchars(appPath('barcode.php'), ENT_QUOTES, 'UTF-8') ?>" class="header-icon-btn" aria-label="Produktinfos per Scan öffnen"><?= icon('scan-info') ?></a>
-            <?php endif; ?>
-            <?php if ($shoppingListScannerEnabled): ?>
-            <button type="button" id="scanShoppingBtn" class="header-icon-btn btn-scan shopping-only" aria-label="Barcode scannen"><?= icon('scan') ?></button>
-            <?php endif; ?>
-            <?php if ($magicButtonEnabled): ?>
-            <button type="button" class="header-icon-btn btn-magic" id="magicBtnShopping" aria-label="KI-Assistent"><?= icon('sparkles') ?></button>
-            <?php endif; ?>
+            <a href="<?= htmlspecialchars(appPath('barcode.php'), ENT_QUOTES, 'UTF-8') ?>" class="header-icon-btn" aria-label="Produktinfos per Scan öffnen"<?= !$productScannerEnabled ? ' hidden' : '' ?>><?= icon('scan-info') ?></a>
+            <button type="button" id="scanShoppingBtn" class="header-icon-btn btn-scan shopping-only" aria-label="Barcode scannen"<?= !$shoppingListScannerEnabled ? ' hidden' : '' ?>><?= icon('scan') ?></button>
+            <button type="button" class="header-icon-btn btn-magic" id="magicBtnShopping" aria-label="KI-Assistent"<?= !$magicButtonEnabled ? ' hidden' : '' ?>><?= icon('sparkles') ?></button>
             <a href="<?= htmlspecialchars(appPath('index.php?view=settings'), ENT_QUOTES, 'UTF-8') ?>" class="header-icon-btn btn-settings" data-settings-tab="app" aria-label="Einstellungen"><?= icon('settings') ?></a>
             <button type="button" class="header-icon-btn btn-mode-toggle" data-nav="liste" aria-label="Liste bearbeiten"><?= icon('pencil') ?></button>
         </div>
@@ -176,9 +164,7 @@ $magicButtonEnabled = !array_key_exists('magic_button_enabled', $userPreferences
             </div>
             <input type="text" id="quantityInput" name="quantity"
                    placeholder="Menge" maxlength="40" autocomplete="off" enterkeyhint="done">
-            <?php if ($shoppingListScannerEnabled): ?>
-            <button type="button" class="btn-add btn-scan-input" id="scanAddBtn" aria-label="Barcode scannen"><?= icon('scan') ?></button>
-            <?php endif; ?>
+            <button type="button" class="btn-add btn-scan-input" id="scanAddBtn" aria-label="Barcode scannen"<?= !$shoppingListScannerEnabled ? ' hidden' : '' ?>><?= icon('scan') ?></button>
             <button type="submit" class="btn-add" aria-label="Artikel hinzufügen"><?= icon('plus') ?></button>
         </form>
         <p class="input-hint" id="inputHint" hidden></p>
