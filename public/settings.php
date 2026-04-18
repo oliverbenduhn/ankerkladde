@@ -514,7 +514,11 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                 <p class="settings-copy">Änderungen werden sofort übernommen.</p>
                 <div class="theme-mode-list">
                     <label>
-                        <span class="theme-mode-dot theme-mode-dot-auto"></span>
+                        <?php
+                        $autoDotLight = htmlspecialchars(getThemeColor($preferences['light_theme'] ?? 'hafenblau'), ENT_QUOTES, 'UTF-8');
+                        $autoDotDark  = htmlspecialchars(getThemeColor($preferences['dark_theme']  ?? 'nachtwache'), ENT_QUOTES, 'UTF-8');
+                        ?>
+                        <span class="theme-mode-dot theme-mode-dot-auto" style="background:conic-gradient(<?= $autoDotLight ?> 0deg 180deg,<?= $autoDotDark ?> 180deg 360deg)"></span>
                         Auto
                         <input type="radio" name="theme_mode" value="auto" <?= ($preferences['theme_mode'] ?? 'auto') === 'auto' ? 'checked' : '' ?>>
                     </label>
@@ -950,6 +954,14 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
             : (themePreferences.light_theme || 'hafenblau');
     }
 
+    function updateAutoModeDot() {
+        const dot = document.querySelector('.theme-mode-dot-auto');
+        if (!dot) return;
+        const lightColor = allThemeColors[themePreferences.light_theme] || '#cfe0ec';
+        const darkColor  = allThemeColors[themePreferences.dark_theme]  || '#162338';
+        dot.style.background = `conic-gradient(${lightColor} 0deg 180deg, ${darkColor} 180deg 360deg)`;
+    }
+
     function applySettingsTheme() {
         const theme = getEffectiveTheme();
         document.documentElement.dataset.theme = theme;
@@ -969,6 +981,8 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                 image.src = url.toString();
             } catch (error) {}
         });
+
+        updateAutoModeDot();
     }
 
     function renderFlash(message, type = 'ok') {

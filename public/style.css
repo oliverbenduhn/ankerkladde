@@ -3138,9 +3138,6 @@ button, input { font: inherit; }
     flex-shrink: 0;
 }
 
-.theme-mode-dot-auto {
-    background: conic-gradient(#cfe0ec 0deg 180deg, #162338 180deg 360deg);
-}
 
 .theme-mode-dot-light {
     background: #cfe0ec;
