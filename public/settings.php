@@ -14,6 +14,7 @@ $flashType = 'ok';
 $aiKeyStatus = null;
 $aiKeyStatusType = 'ok';
 $geminiModels = getAvailableGeminiModels();
+$passwordChangeRequired = isPasswordChangeRequired();
 
 function validateSettingsPassword(string $password): ?string
 {
@@ -231,7 +232,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $newPassword = (string) ($_POST['new_password'] ?? '');
             $newPasswordConfirm = (string) ($_POST['new_password_confirm'] ?? '');
 
-            if ($currentPassword === '' || $newPassword === '' || $newPasswordConfirm === '') {
+            if (($passwordChangeRequired ? false : $currentPassword === '') || $newPassword === '' || $newPasswordConfirm === '') {
                 $flash = 'Bitte alle Passwort-Felder ausfüllen.';
                 $flashType = 'err';
             } elseif (($passwordError = validateSettingsPassword($newPassword)) !== null) {
@@ -240,6 +241,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } elseif ($newPassword !== $newPasswordConfirm) {
                 $flash = 'Die neuen Passwörter stimmen nicht überein.';
                 $flashType = 'err';
+            } elseif ($passwordChangeRequired) {
+                $db->prepare('UPDATE users SET password_hash = :password_hash, must_change_password = 0 WHERE id = :id')
+                    ->execute([
+                        ':password_hash' => password_hash($newPassword, PASSWORD_BCRYPT),
+                        ':id' => $userId,
+                    ]);
+                $_SESSION['must_change_password'] = false;
+                $passwordChangeRequired = false;
+                $flash = 'Passwort geändert.';
             } else {
                 $stmt = $db->prepare('SELECT password_hash FROM users WHERE id = :id LIMIT 1');
                 $stmt->execute([':id' => $userId]);
@@ -249,11 +259,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $flash = 'Aktuelles Passwort ist nicht korrekt.';
                     $flashType = 'err';
                 } else {
-                    $db->prepare('UPDATE users SET password_hash = :password_hash WHERE id = :id')
+                    $db->prepare('UPDATE users SET password_hash = :password_hash, must_change_password = 0 WHERE id = :id')
                         ->execute([
                             ':password_hash' => password_hash($newPassword, PASSWORD_BCRYPT),
                             ':id' => $userId,
                         ]);
+                    $_SESSION['must_change_password'] = false;
+                    $passwordChangeRequired = false;
                     $flash = 'Passwort geändert.';
                 }
             }
@@ -464,7 +476,7 @@ $stmt->execute([':id' => $userId]);
 $currentUser = $stmt->fetch();
 $categories = loadUserCategories($db, $userId);
 $iconOptions = getCategoryIconOptions();
-$currentTab = $_GET['tab'] ?? 'app';
+$currentTab = $_GET['tab'] ?? ($passwordChangeRequired ? 'password' : 'app');
 $isEmbedded = isset($_GET['embed']) && $_GET['embed'] === '1';
 $settingsAction = appPath('settings.php' . ($isEmbedded ? '?embed=1&tab=' . rawurlencode((string) $currentTab) : ''));
 $assetVersion = require __DIR__ . '/version.php';
@@ -502,6 +514,12 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
     <?php if ($flash !== null): ?>
         <div class="settings-flash settings-flash-<?= htmlspecialchars($flashType, ENT_QUOTES, 'UTF-8') ?>">
             <?= htmlspecialchars($flash, ENT_QUOTES, 'UTF-8') ?>
+        </div>
+    <?php endif; ?>
+
+    <?php if ($passwordChangeRequired): ?>
+        <div class="settings-flash settings-flash-err">
+            Beim ersten Login musst du dein Passwort ändern, bevor du die App weiter nutzen kannst.
         </div>
     <?php endif; ?>
 
@@ -833,7 +851,7 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
         </div>
     </details>
 
-    <details class="settings-section settings-section-secondary settings-accordion" data-settings-panel="password">
+    <details class="settings-section settings-section-secondary settings-accordion" data-settings-panel="password"<?= $passwordChangeRequired ? ' open' : '' ?>>
         <summary>Passwort ändern</summary>
         <form method="post" action="<?= htmlspecialchars($settingsAction, ENT_QUOTES, 'UTF-8') ?>" class="settings-form">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
@@ -841,10 +859,12 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
             <div class="settings-block">
                 <p class="settings-copy">Dein neues Passwort muss mindestens 8 Zeichen lang sein.</p>
                 <div class="settings-password-fields">
-                    <label class="settings-field">
-                        <span>Aktuelles Passwort</span>
-                        <input type="password" name="current_password" autocomplete="current-password" required>
-                    </label>
+                    <?php if (!$passwordChangeRequired): ?>
+                        <label class="settings-field">
+                            <span>Aktuelles Passwort</span>
+                            <input type="password" name="current_password" autocomplete="current-password" required>
+                        </label>
+                    <?php endif; ?>
                     <label class="settings-field">
                         <span>Neues Passwort</span>
                         <input type="password" name="new_password" autocomplete="new-password" required>

@@ -133,8 +133,17 @@ php scripts/create-user.php
 Nicht-interaktiv funktionieren auch die Umgebungsvariablen:
 
 - `EINKAUF_ADMIN_USER` / `EINKAUF_ADMIN_PASS`
+- `EINKAUF_ADMIN_FORCE_PASSWORD_CHANGE`
 - `EINKAUF_REGULAR_USER` / `EINKAUF_REGULAR_PASS`
 - `EINKAUF_USER` / `EINKAUF_PASS`
+
+Im Docker-Container wird bei einer frischen Installation automatisch ein initialer Admin angelegt, falls noch kein Admin existiert:
+
+- Benutzername: `admin`
+- Passwort: `admin1234`
+- Beim ersten Login ist ein Passwortwechsel zwingend erforderlich
+
+Optional kannst du die Standardwerte mit `EINKAUF_BOOTSTRAP_ADMIN_USER` und `EINKAUF_BOOTSTRAP_ADMIN_PASS` ueberschreiben.
 
 Wichtig:
 
@@ -152,6 +161,8 @@ Wichtig:
 | `WS_NOTIFY_URL` | `http://127.0.0.1:3000/notify` | Ziel fuer Update-Broadcasts aus `api.php` |
 | `WS_HOST` | `127.0.0.1` | Host fuer WebSocket-Benachrichtigungen aus `settings.php` |
 | `WS_PORT` | `3000` | Port fuer denselben Zweck |
+| `EINKAUF_BOOTSTRAP_ADMIN_USER` | `admin` | Standard-Admin fuer frische Docker-Installationen |
+| `EINKAUF_BOOTSTRAP_ADMIN_PASS` | `admin1234` | Initiales Passwort fuer denselben Admin; Passwortwechsel beim ersten Login bleibt aktiv |
 
 ## API in Kurzform
 

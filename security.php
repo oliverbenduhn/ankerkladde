@@ -219,6 +219,33 @@ function getCurrentUserId(): ?int
     return is_int($id) ? $id : null;
 }
 
+function isPasswordChangeRequired(): bool
+{
+    if (session_status() !== PHP_SESSION_ACTIVE) {
+        return false;
+    }
+
+    return ($_SESSION['must_change_password'] ?? false) === true;
+}
+
+function enforcePasswordChangeRedirect(): void
+{
+    if (!isPasswordChangeRequired()) {
+        return;
+    }
+
+    $scriptName = basename((string) ($_SERVER['SCRIPT_NAME'] ?? ''));
+    $allowedScripts = ['settings.php', 'logout.php', 'login.php'];
+
+    if (in_array($scriptName, $allowedScripts, true)) {
+        return;
+    }
+
+    http_response_code(302);
+    header('Location: ' . appPath('settings.php?tab=password&required=1'));
+    exit;
+}
+
 function requireAuth(): int
 {
     startAppSession();
@@ -229,6 +256,8 @@ function requireAuth(): int
         header('Location: ' . appPath('login.php'));
         exit;
     }
+
+    enforcePasswordChangeRedirect();
 
     return $userId;
 }
@@ -259,6 +288,13 @@ function requireApiAuth(): int
         exit;
     }
 
+    if (isPasswordChangeRequired()) {
+        http_response_code(403);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['error' => 'Passwortwechsel erforderlich. Bitte zuerst in den Einstellungen ein neues Passwort setzen.'], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
     return $userId;
 }
 
@@ -268,6 +304,12 @@ function requireApiAuthWithKey(PDO $db): int
 
     $userId = getCurrentUserId();
     if ($userId !== null) {
+        if (isPasswordChangeRequired()) {
+            http_response_code(403);
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['error' => 'Passwortwechsel erforderlich. Bitte zuerst in den Einstellungen ein neues Passwort setzen.'], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
         $_SERVER['ANKERKLADDE_API_AUTH_KIND'] = 'session';
         return $userId;
     }

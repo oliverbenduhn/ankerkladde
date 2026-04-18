@@ -35,7 +35,7 @@ function promptPassword(string $prompt): string
     return $value;
 }
 
-function createUser(PDO $db, string $username, string $password, bool $isAdmin): int
+function createUser(PDO $db, string $username, string $password, bool $isAdmin, bool $mustChangePassword = false): int
 {
     $username = normalizeUsername($username);
 
@@ -44,12 +44,14 @@ function createUser(PDO $db, string $username, string $password, bool $isAdmin):
     }
 
     $stmt = $db->prepare(
-        'INSERT INTO users (username, password_hash, is_admin) VALUES (:username, :password_hash, :is_admin)'
+        'INSERT INTO users (username, password_hash, is_admin, must_change_password)
+         VALUES (:username, :password_hash, :is_admin, :must_change_password)'
     );
     $stmt->execute([
         ':username'      => $username,
         ':password_hash' => password_hash($password, PASSWORD_BCRYPT),
         ':is_admin'      => $isAdmin ? 1 : 0,
+        ':must_change_password' => $mustChangePassword ? 1 : 0,
     ]);
     return (int) $db->lastInsertId();
 }
@@ -68,11 +70,19 @@ $envVal = getenv('EINKAUF_ADMIN_USER');
 $envAdminUser = is_string($envVal) ? normalizeUsername($envVal) : '';
 $envVal = getenv('EINKAUF_ADMIN_PASS');
 $envAdminPass = is_string($envVal) ? $envVal : '';
+$envVal = getenv('EINKAUF_ADMIN_FORCE_PASSWORD_CHANGE');
+$envAdminForcePasswordChange = is_string($envVal)
+    ? in_array(strtolower(trim($envVal)), ['1', 'true', 'yes', 'on'], true)
+    : false;
 
 if ($envAdminUser !== '' && $envAdminPass !== '') {
     try {
-        $adminId = createUser($db, $envAdminUser, $envAdminPass, true);
-        echo "Admin '{$envAdminUser}' angelegt (ID: {$adminId}).\n";
+        $adminId = createUser($db, $envAdminUser, $envAdminPass, true, $envAdminForcePasswordChange);
+        echo "Admin '{$envAdminUser}' angelegt (ID: {$adminId}).";
+        if ($envAdminForcePasswordChange) {
+            echo " Passwortwechsel beim ersten Login ist aktiviert.";
+        }
+        echo "\n";
     } catch (PDOException $e) {
         if (str_contains($e->getMessage(), 'UNIQUE constraint failed')) {
             fwrite(STDERR, "Fehler: Benutzername '{$envAdminUser}' ist bereits vergeben.\n");

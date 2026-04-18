@@ -17,7 +17,11 @@ $brandMarkSrc = appPath('icon.php?size=192&theme=' . rawurlencode($effectiveThem
 // Already logged in → redirect to appropriate page
 $alreadyLoggedIn = getCurrentUserId() !== null;
 if ($alreadyLoggedIn) {
-    header('Location: ' . (empty($_SESSION['is_admin']) ? appPath('index.php') : appPath('admin.php')));
+    if (isPasswordChangeRequired()) {
+        header('Location: ' . appPath('settings.php?tab=password&required=1'));
+    } else {
+        header('Location: ' . (empty($_SESSION['is_admin']) ? appPath('index.php') : appPath('admin.php')));
+    }
     exit;
 }
 
@@ -37,7 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $db = getDatabase();
             $stmt = $db->prepare(
-                'SELECT id, password_hash, is_admin FROM users WHERE username = :username LIMIT 1'
+                'SELECT id, password_hash, is_admin, must_change_password FROM users WHERE username = :username LIMIT 1'
             );
             $stmt->execute([':username' => $username]);
             $user = $stmt->fetch();
@@ -46,7 +50,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 session_regenerate_id(true);
                 $_SESSION['user_id']  = (int) $user['id'];
                 $_SESSION['is_admin'] = (bool) $user['is_admin'];
-                header('Location: ' . ($user['is_admin'] ? appPath('admin.php') : appPath('index.php')));
+                $_SESSION['must_change_password'] = (bool) ($user['must_change_password'] ?? false);
+                if ($_SESSION['must_change_password']) {
+                    header('Location: ' . appPath('settings.php?tab=password&required=1'));
+                } else {
+                    header('Location: ' . ($user['is_admin'] ? appPath('admin.php') : appPath('index.php')));
+                }
                 exit;
             }
 

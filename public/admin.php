@@ -14,12 +14,169 @@ $adminPreferences = getExtendedUserPreferences($db, $currentUserId);
 $flash      = null;
 $flashType  = 'ok';
 
+const PRODUCT_FACTS_DATASETS = [
+    'food' => [
+        'label' => 'Open Food Facts',
+        'url' => 'https://static.openfoodfacts.org/data/en.openfoodfacts.org.products.csv.gz',
+        'file' => 'en.openfoodfacts.org.products.csv.gz',
+    ],
+    'beauty' => [
+        'label' => 'Open Beauty Facts',
+        'url' => 'https://static.openbeautyfacts.org/data/en.openbeautyfacts.org.products.csv.gz',
+        'file' => 'en.openbeautyfacts.org.products.csv.gz',
+    ],
+    'petfood' => [
+        'label' => 'Open Pet Food Facts',
+        'url' => 'https://static.openpetfoodfacts.org/data/en.openpetfoodfacts.org.products.csv.gz',
+        'file' => 'en.openpetfoodfacts.org.products.csv.gz',
+    ],
+    'products' => [
+        'label' => 'Open Products Facts',
+        'url' => 'https://static.openproductsfacts.org/data/en.openproductsfacts.org.products.csv.gz',
+        'file' => 'en.openproductsfacts.org.products.csv.gz',
+    ],
+];
+
 function validateNewPassword(string $password): ?string
 {
     if (strlen($password) < 8) {
         return 'Passwort muss mindestens 8 Zeichen lang sein.';
     }
     return null;
+}
+
+function setPasswordChangeRequired(PDO $db, int $userId, bool $required): void
+{
+    $db->prepare('UPDATE users SET must_change_password = :required WHERE id = :id')
+        ->execute([
+            ':required' => $required ? 1 : 0,
+            ':id' => $userId,
+        ]);
+}
+
+function quoteAdminIdentifier(string $identifier): string
+{
+    return '"' . str_replace('"', '""', $identifier) . '"';
+}
+
+function datasetTableNameAdmin(string $dataset): string
+{
+    return 'product_catalog_' . $dataset;
+}
+
+function getOpenFactsDataDirectory(): string
+{
+    $dir = getDataDirectory() . '/openfoodfacts';
+    ensureDirectoryExists($dir);
+    return $dir;
+}
+
+function downloadFileToPath(string $url, string $targetPath): void
+{
+    $directory = dirname($targetPath);
+    ensureDirectoryExists($directory);
+
+    $tmpPath = $targetPath . '.tmp';
+    $fp = fopen($tmpPath, 'wb');
+    if ($fp === false) {
+        throw new RuntimeException('Temporäre Datei konnte nicht erstellt werden.');
+    }
+
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_FILE => $fp,
+        CURLOPT_FOLLOWLOCATION => true,
+        CURLOPT_FAILONERROR => true,
+        CURLOPT_CONNECTTIMEOUT => 10,
+        CURLOPT_TIMEOUT => 0,
+        CURLOPT_USERAGENT => 'Ankerkladde Admin Import',
+    ]);
+
+    $ok = curl_exec($ch);
+    $error = $ok === false ? curl_error($ch) : null;
+    curl_close($ch);
+    fclose($fp);
+
+    if ($ok === false) {
+        @unlink($tmpPath);
+        throw new RuntimeException('Download fehlgeschlagen: ' . ($error ?: 'Unbekannter Fehler'));
+    }
+
+    if (!rename($tmpPath, $targetPath)) {
+        @unlink($tmpPath);
+        throw new RuntimeException('Download konnte nicht final gespeichert werden.');
+    }
+}
+
+function runOpenFactsImport(string $dataset, string $sourcePath, bool $truncate = false): void
+{
+    $rootDir = dirname(__DIR__);
+    $command = 'php ' . escapeshellarg($rootDir . '/scripts/import-openfoodfacts.php') . ' ';
+    if ($truncate) {
+        $command .= '--truncate ';
+    }
+    $command .= '--dataset=' . escapeshellarg($dataset) . ' ' . escapeshellarg($sourcePath) . ' 2>&1';
+
+    exec($command, $output, $exitCode);
+    if ($exitCode !== 0) {
+        throw new RuntimeException(trim(implode("\n", $output)) ?: 'Import fehlgeschlagen.');
+    }
+}
+
+function getProductDatabaseStatus(PDO $db, PDO $productDb): array
+{
+    $datasets = [];
+    foreach (PRODUCT_FACTS_DATASETS as $datasetKey => $config) {
+        $tableName = datasetTableNameAdmin($datasetKey);
+        $exists = (bool) $productDb->query(
+            "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = " . $productDb->quote($tableName)
+        )->fetchColumn();
+
+        $rowCount = 0;
+        $updatedAt = null;
+        if ($exists) {
+            $rowCount = (int) $productDb->query('SELECT COUNT(*) FROM ' . quoteAdminIdentifier($tableName))->fetchColumn();
+            $updatedAt = $productDb->query('SELECT MAX(updated_at) FROM ' . quoteAdminIdentifier($tableName))->fetchColumn() ?: null;
+        }
+
+        $filePath = getOpenFactsDataDirectory() . '/' . $config['file'];
+        $datasets[] = [
+            'key' => $datasetKey,
+            'label' => $config['label'],
+            'row_count' => $rowCount,
+            'updated_at' => is_string($updatedAt) ? $updatedAt : null,
+            'file_exists' => is_file($filePath),
+            'file_size' => is_file($filePath) ? (int) filesize($filePath) : 0,
+        ];
+    }
+
+    $summaryCount = (int) $productDb->query('SELECT COUNT(*) FROM product_catalog')->fetchColumn();
+    $summaryUpdated = $productDb->query('SELECT MAX(updated_at) FROM product_catalog')->fetchColumn() ?: null;
+    $dbFile = getDataDirectory() . '/products.db';
+
+    return [
+        'summary_count' => $summaryCount,
+        'summary_updated_at' => is_string($summaryUpdated) ? $summaryUpdated : null,
+        'db_file_size' => is_file($dbFile) ? (int) filesize($dbFile) : 0,
+        'datasets' => $datasets,
+    ];
+}
+
+function formatBytesAdmin(int $bytes): string
+{
+    if ($bytes <= 0) {
+        return '0 B';
+    }
+
+    $units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    $value = (float) $bytes;
+    $unitIndex = 0;
+    while ($value >= 1024 && $unitIndex < count($units) - 1) {
+        $value /= 1024;
+        $unitIndex++;
+    }
+
+    return number_format($value, $unitIndex === 0 ? 0 : 1, ',', '.') . ' ' . $units[$unitIndex];
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -34,6 +191,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($postAction === 'create') {
             $newUsername = normalizeUsername((string) ($_POST['username'] ?? ''));
             $newPassword = (string) ($_POST['password'] ?? '');
+            $mustChangePassword = isset($_POST['must_change_password']);
 
             if ($newUsername === '') {
                 $flash = 'Benutzername darf nicht leer sein.';
@@ -44,14 +202,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 try {
                     $stmt = $db->prepare(
-                        'INSERT INTO users (username, password_hash, is_admin)
-                         VALUES (:username, :password_hash, 0)'
+                        'INSERT INTO users (username, password_hash, is_admin, must_change_password)
+                         VALUES (:username, :password_hash, 0, :must_change_password)'
                     );
                     $stmt->execute([
                         ':username'      => $newUsername,
                         ':password_hash' => password_hash($newPassword, PASSWORD_BCRYPT),
+                        ':must_change_password' => $mustChangePassword ? 1 : 0,
                     ]);
-                    $flash = "Nutzer '{$newUsername}' angelegt.";
+                    $flash = "Nutzer '{$newUsername}' angelegt." . ($mustChangePassword ? ' Passwortwechsel beim ersten Login ist aktiviert.' : '');
                 } catch (PDOException $e) {
                     if (str_contains($e->getMessage(), 'UNIQUE')) {
                         $flash = "Benutzername '{$newUsername}' ist bereits vergeben.";
@@ -145,13 +304,84 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $flashType = 'err';
                 } else {
                     $db->prepare(
-                        'UPDATE users SET password_hash = :hash WHERE id = :id'
+                        'UPDATE users SET password_hash = :hash, must_change_password = 1 WHERE id = :id'
                     )->execute([
                         ':hash' => password_hash($newPassword, PASSWORD_BCRYPT),
                         ':id'   => $targetId,
                     ]);
-                    $flash = "Passwort für '{$targetUser['username']}' zurückgesetzt.";
+                    $flash = "Passwort für '{$targetUser['username']}' zurückgesetzt. Passwortwechsel beim nächsten Login ist aktiviert.";
                 }
+            }
+        } elseif ($postAction === 'toggle_password_change') {
+            $targetId = filter_var($_POST['user_id'] ?? null, FILTER_VALIDATE_INT, [
+                'options' => ['min_range' => 1],
+            ]);
+            $required = isset($_POST['required']);
+
+            if (!$targetId) {
+                $flash = 'Ungültige Nutzer-ID.';
+                $flashType = 'err';
+            } else {
+                $targetStmt = $db->prepare('SELECT username, is_admin FROM users WHERE id = :id LIMIT 1');
+                $targetStmt->execute([':id' => $targetId]);
+                $targetUser = $targetStmt->fetch();
+
+                if (!is_array($targetUser)) {
+                    $flash = 'Nutzer nicht gefunden.';
+                    $flashType = 'err';
+                } elseif ((bool) $targetUser['is_admin']) {
+                    $flash = 'Für Admin-Konten bitte die Einstellungen nutzen.';
+                    $flashType = 'err';
+                } else {
+                    setPasswordChangeRequired($db, $targetId, $required);
+                    $flash = $required
+                        ? "Passwortwechsel für '{$targetUser['username']}' aktiviert."
+                        : "Passwortwechsel für '{$targetUser['username']}' aufgehoben.";
+                }
+            }
+        } elseif ($postAction === 'refresh_product_dataset') {
+            $dataset = (string) ($_POST['dataset'] ?? '');
+
+            if (!array_key_exists($dataset, PRODUCT_FACTS_DATASETS)) {
+                $flash = 'Ungültiges Produkt-Dataset.';
+                $flashType = 'err';
+            } else {
+                $config = PRODUCT_FACTS_DATASETS[$dataset];
+                $targetFile = getOpenFactsDataDirectory() . '/' . $config['file'];
+                $truncate = $dataset === 'food';
+
+                try {
+                    @set_time_limit(0);
+                    downloadFileToPath($config['url'], $targetFile);
+                    runOpenFactsImport($dataset, $targetFile, $truncate);
+                    $flash = $config['label'] . ' wurde heruntergeladen und importiert.';
+                } catch (Throwable $e) {
+                    $flash = 'Produktdatenbank-Update fehlgeschlagen: ' . $e->getMessage();
+                    $flashType = 'err';
+                }
+            }
+        } elseif ($postAction === 'clear_product_database') {
+            try {
+                $productDb = getProductDatabase();
+                $productDb->beginTransaction();
+                $productDb->exec('DELETE FROM product_catalog');
+                foreach (array_keys(PRODUCT_FACTS_DATASETS) as $dataset) {
+                    $tableName = datasetTableNameAdmin($dataset);
+                    $exists = (bool) $productDb->query(
+                        "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = " . $productDb->quote($tableName)
+                    )->fetchColumn();
+                    if ($exists) {
+                        $productDb->exec('DELETE FROM ' . quoteAdminIdentifier($tableName));
+                    }
+                }
+                $productDb->commit();
+                $flash = 'Produktdatenbank geleert.';
+            } catch (Throwable $e) {
+                if (isset($productDb) && $productDb instanceof PDO && $productDb->inTransaction()) {
+                    $productDb->rollBack();
+                }
+                $flash = 'Produktdatenbank konnte nicht geleert werden: ' . $e->getMessage();
+                $flashType = 'err';
             }
         }
     }
@@ -161,8 +391,22 @@ $csrfToken = getCsrfToken();
 
 // Load all non-admin users
 $users = $db->query(
-    "SELECT id, username, created_at FROM users WHERE is_admin = 0 ORDER BY created_at ASC"
+    "SELECT
+        u.id,
+        u.username,
+        u.created_at,
+        u.must_change_password,
+        COUNT(DISTINCT c.id) AS category_count,
+        COUNT(DISTINCT i.id) AS item_count
+     FROM users u
+     LEFT JOIN categories c ON c.user_id = u.id
+     LEFT JOIN items i ON i.user_id = u.id
+     WHERE u.is_admin = 0
+     GROUP BY u.id, u.username, u.created_at, u.must_change_password
+     ORDER BY u.created_at ASC"
 )->fetchAll();
+$productDb = getProductDatabase();
+$productStatus = getProductDatabaseStatus($db, $productDb);
 ?>
 <!DOCTYPE html>
 <html lang="de">
@@ -206,6 +450,10 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
             <div class="admin-form-row">
                 <input type="text" name="username" placeholder="Benutzername" required autocomplete="off">
                 <input type="password" name="password" placeholder="Passwort (min. 8 Zeichen)" required>
+                <label class="admin-inline-check">
+                    <input type="checkbox" name="must_change_password" checked>
+                    <span>Wechsel erzwingen</span>
+                </label>
                 <button type="submit" class="admin-btn">Anlegen</button>
             </div>
         </form>
@@ -221,6 +469,11 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                 <li class="admin-user-item">
                     <span class="admin-user-name"><?= htmlspecialchars((string) $user['username'], ENT_QUOTES, 'UTF-8') ?></span>
                     <span class="admin-user-date"><?= htmlspecialchars(substr((string) $user['created_at'], 0, 10), ENT_QUOTES, 'UTF-8') ?></span>
+                    <span class="admin-user-date"><?= (int) $user['category_count'] ?> Kategorien</span>
+                    <span class="admin-user-date"><?= (int) $user['item_count'] ?> Einträge</span>
+                    <?php if (!empty($user['must_change_password'])): ?>
+                        <span class="admin-user-date">Passwortwechsel offen</span>
+                    <?php endif; ?>
 
                     <form method="post" action="<?= htmlspecialchars(appPath('admin.php'), ENT_QUOTES, 'UTF-8') ?>" class="admin-inline-form">
                         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
@@ -228,6 +481,18 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                         <input type="hidden" name="user_id" value="<?= (int) $user['id'] ?>">
                         <input type="password" name="new_password" placeholder="Neues Passwort" required>
                         <button type="submit" class="admin-btn-sm">Setzen</button>
+                    </form>
+
+                    <form method="post" action="<?= htmlspecialchars(appPath('admin.php'), ENT_QUOTES, 'UTF-8') ?>" class="admin-inline-form">
+                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
+                        <input type="hidden" name="action" value="toggle_password_change">
+                        <input type="hidden" name="user_id" value="<?= (int) $user['id'] ?>">
+                        <?php if (empty($user['must_change_password'])): ?>
+                            <input type="hidden" name="required" value="1">
+                            <button type="submit" class="admin-btn-sm">Wechsel erzwingen</button>
+                        <?php else: ?>
+                            <button type="submit" class="admin-btn-sm">Freigeben</button>
+                        <?php endif; ?>
                     </form>
 
                     <form method="post" action="<?= htmlspecialchars(appPath('admin.php'), ENT_QUOTES, 'UTF-8') ?>" class="admin-inline-form"
@@ -241,6 +506,46 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
             <?php endforeach; ?>
             </ul>
         <?php endif; ?>
+    </div>
+
+    <div class="admin-section">
+        <h2>Produktdatenbank</h2>
+        <p class="admin-notice">
+            Gesamt: <?= (int) $productStatus['summary_count'] ?> Produkte
+            <?php if ($productStatus['summary_updated_at'] !== null): ?>
+                · zuletzt aktualisiert am <?= htmlspecialchars(substr((string) $productStatus['summary_updated_at'], 0, 16), ENT_QUOTES, 'UTF-8') ?>
+            <?php endif; ?>
+            · DB-Größe <?= htmlspecialchars(formatBytesAdmin((int) $productStatus['db_file_size']), ENT_QUOTES, 'UTF-8') ?>
+        </p>
+
+        <ul class="admin-user-list">
+            <?php foreach ($productStatus['datasets'] as $dataset): ?>
+                <li class="admin-user-item">
+                    <span class="admin-user-name"><?= htmlspecialchars((string) $dataset['label'], ENT_QUOTES, 'UTF-8') ?></span>
+                    <span class="admin-user-date"><?= (int) $dataset['row_count'] ?> Datensätze</span>
+                    <span class="admin-user-date">
+                        Datei <?= !empty($dataset['file_exists']) ? htmlspecialchars(formatBytesAdmin((int) $dataset['file_size']), ENT_QUOTES, 'UTF-8') : 'fehlt' ?>
+                    </span>
+                    <span class="admin-user-date">
+                        <?= $dataset['updated_at'] !== null ? 'Import: ' . htmlspecialchars(substr((string) $dataset['updated_at'], 0, 16), ENT_QUOTES, 'UTF-8') : 'Noch nicht importiert' ?>
+                    </span>
+
+                    <form method="post" action="<?= htmlspecialchars(appPath('admin.php'), ENT_QUOTES, 'UTF-8') ?>" class="admin-inline-form">
+                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
+                        <input type="hidden" name="action" value="refresh_product_dataset">
+                        <input type="hidden" name="dataset" value="<?= htmlspecialchars((string) $dataset['key'], ENT_QUOTES, 'UTF-8') ?>">
+                        <button type="submit" class="admin-btn-sm">Herunterladen &amp; importieren</button>
+                    </form>
+                </li>
+            <?php endforeach; ?>
+        </ul>
+
+        <form method="post" action="<?= htmlspecialchars(appPath('admin.php'), ENT_QUOTES, 'UTF-8') ?>" class="admin-inline-form"
+              onsubmit="return confirm('Produktdatenbank wirklich leeren?')">
+            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
+            <input type="hidden" name="action" value="clear_product_database">
+            <button type="submit" class="admin-btn-sm admin-btn-sm-danger">Produktdatenbank leeren</button>
+        </form>
     </div>
 
 </div>

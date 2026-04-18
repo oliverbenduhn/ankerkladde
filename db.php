@@ -1288,6 +1288,7 @@ function getDatabase(): PDO
             username TEXT NOT NULL UNIQUE,
             password_hash TEXT NOT NULL,
             is_admin INTEGER NOT NULL DEFAULT 0 CHECK(is_admin IN (0, 1)),
+            must_change_password INTEGER NOT NULL DEFAULT 0 CHECK(must_change_password IN (0, 1)),
             api_key TEXT,
             api_key_created_at TEXT,
             preferences_json TEXT NOT NULL DEFAULT '{}',
@@ -1308,6 +1309,10 @@ function getDatabase(): PDO
 
     if (!in_array('api_key_created_at', $userColumnNames, true)) {
         $db->exec("ALTER TABLE users ADD COLUMN api_key_created_at TEXT");
+    }
+
+    if (!in_array('must_change_password', $userColumnNames, true)) {
+        $db->exec('ALTER TABLE users ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 0');
     }
 
     $db->exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_api_key ON users(api_key)');
