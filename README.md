@@ -4,296 +4,247 @@
   <img src="public/branding/ankerkladde-logo.png" alt="Ankerkladde" width="180">
 </p>
 
-Mobile-freundliche PHP-Webanwendung für Einkaufslisten, Todos, Notizen, Bilder, Dateien und Links – gespeichert in SQLite.
+Mobile-first PHP-Webanwendung und PWA fuer Einkaufslisten, Todos, Notizen, Bilder, Dateien und Links. Die App speichert ihre Daten in SQLite, laeuft ohne grosses Framework und bringt fuer Live-Updates sowie den Notizeditor optional einen separaten WebSocket-Dienst mit.
 
-**Produktion:** erreichbar unter [ankerkladde.benduhn.de](https://ankerkladde.benduhn.de).
+## Kurzueberblick
 
----
+- Frei konfigurierbare Kategorien pro Nutzer mit Typen fuer Einkaufslisten, Aufgaben, Notizen, Bilder, Dateien und Links
+- Zwei Arbeitsmodi: `Liste` zum Bearbeiten und `Einkaufen` zum Abhaken unterwegs
+- Inline-Bearbeitung, Drag and Drop, Anheften, Sammelloeschen erledigter Eintraege und Volltextsuche per FTS5
+- Bild- und Dateiupload mit Thumbnail-Erzeugung, sicherem Streaming und Austausch vorhandener Anhaenge
+- Rich-Text-Notizen mit TipTap; Live-Sync im Editor ueber Yjs/WebSocket
+- Barcode-Scanner fuer Einkaufslisten sowie separate Produktseite mit lokalem Open-Food-Facts-Katalog
+- "Magic Bar" mit Google Gemini fuer freie Eingaben wie "Zutaten fuer Lasagne", optional mit Spracheingabe im Browser
+- Installierbare PWA mit Service Worker, Offline-Seite, Share Target und Update-Reload
+- Kuratierte Light- und Dark-Themes mit Vorschaukarten in den Einstellungen
+- Browser-Erweiterung fuer Chrome/Edge und Firefox, authentifiziert ueber `X-API-Key`
 
-## Funktionsübersicht
+## Was aktuell im Repo steckt
 
-### Bereiche
+### Produktfunktionen
 
-Jeder Nutzer verwaltet eigene **Kategorien** – Anzahl, Namen, Icons und Reihenfolge sind frei konfigurierbar. Sechs Typen stehen zur Wahl:
+- Kategorien sind frei anlegbar, umbenennbar, ausblendbar und sortierbar.
+- Verfuegbare Kategorien-Typen: `list_quantity`, `list_due_date`, `notes`, `images`, `files`, `links`
+- Einkaufslisten koennen Mengen und Barcodes speichern.
+- Aufgabenlisten unterstuetzen Faelligkeitsdaten.
+- Links koennen Metadaten wie Titel und Beschreibung serverseitig nachladen.
+- Die Suche durchsucht alle Kategorien eines Nutzers.
 
-| Typ | Zweites Feld | Besonderheit |
-|---|---|---|
-| `list_quantity` | Menge (Text) | Einkaufslisten-Stil |
-| `list_due_date` | Fälligkeitsdatum | Datepicker, Datumsanzeige im Item |
-| `notes` | – | Rich-Text-Editor (TipTap) |
-| `images` | – | Bild-Upload, Lightbox-Vorschau |
-| `files` | – | Datei-Upload, Download |
-| `links` | – | URL, direkt anklickbar |
+### Medien und Uploads
 
-### Navigation
+- Genau ein Anhang pro Item
+- Bilder und Dateien werden unter `data/uploads/` gespeichert, nicht im Webroot
+- Bilder koennen Thumbnails bekommen, wenn `gd` verfuegbar ist
+- Bilder werden inline ausgeliefert, Dateien standardmaessig als Download
+- In `public/.user.ini` sind hohe Upload-Grenzen fuer Datei-Workflows vorbereitet
 
-- **Bottom-Navigation**: bis zu 4 Kategorien direkt sichtbar, weitere über **···-Menü**
-- **☰-Button**: blendet die Navigationsleiste aus/ein (Zustand wird gespeichert)
-- **Wischgeste** (horizontal) zum Wechseln zwischen Kategorien
-- Letzter Bereich und Modus bleiben nach Reload erhalten
+### Notizen und Echtzeit
 
-### Items
+- Der Notizeditor basiert auf TipTap
+- Bei laufendem WebSocket-Dienst werden Notizen ueber Yjs live synchronisiert
+- Aenderungen an Listen und Einstellungen koennen ohne Reload an andere offene Tabs verteilt werden
+- Versionsaenderungen loesen einen automatischen Reload aus
 
-- **Zwei Modi** je Bereich: Bearbeiten (✏️) und Ansicht (👁️)
-- **Drag & Drop** zum Umsortieren (Griff links am Item ziehen)
-- **Inline-Bearbeitung** direkt in der Liste
-- **Anheften** (⚓): Items an den Anfang der Liste heften
-- **Erledigte löschen**: Schaltfläche entfernt alle abgehakten Items auf einmal
-- **Volltextsuche** über alle Kategorien (FTS5, Mindestlänge 2 Zeichen)
+### Scanner und KI
 
-### Bilder & Dateien
+- Produktscan in der App fuer Einkaufslisten
+- Separate Seite `public/barcode.php` fuer Produktdetails aus dem lokalen Katalog
+- Ohne Produktkatalog funktioniert der Scan trotzdem; unbekannte Codes werden als generischer Artikel angelegt
+- Mit hinterlegtem Gemini-Key kann die Magic Bar mehrere Eintraege aus Freitext erzeugen
+- Derselbe Key kann auch zur Aufbereitung importierter Produktdaten genutzt werden
 
-| Upload-Weg | Beschreibung |
-|---|---|
-| Datei-Picker | Klassischer Dialog |
-| 📷 Kamera | Öffnet Gerätekamera direkt |
-| Drag & Drop | Datei auf die gestrichelte Zone ziehen |
-| Zwischenablage | `Strg+V` / `Cmd+V` |
+### PWA, Settings und Erweiterung
 
-- Klick auf Vorschaubild öffnet Lightbox (kein Tab-Wechsel)
-- **Anhang ersetzen**: vorhandene Datei über ✎ im Bearbeiten-Modus tauschen
-- Genau ein Anhang pro Item; alter Anhang wird beim Ersetzen oder Löschen vom Dateisystem entfernt
+- Install-Banner auf Login und App
+- Manifest mit Share Target fuer Links und Dateien
+- Einstellungen fuer Themes, Feature-Toggles, Kategorien, Passwort, KI und Browser-Erweiterung
+- Direktdownloads fuer die Browser-Erweiterung werden in der App on demand als ZIP erzeugt
 
-### Notizen-Editor
+### Nutzer und Sicherheit
 
-- **TipTap** (ProseMirror), geladen via CDN (esm.sh)
-- Toolbar: H1–H3, Fett, Kursiv, Durchgestrichen, Liste, Zitat, Code, Link, Undo/Redo
-- **Auto-Speichern** mit 800 ms Debounce
+- Session-basierter Login mit Admin- und Normalnutzer-Rollen
+- CSRF-Schutz fuer schreibende Requests
+- Kanonische Host-Weiterleitung fuer produktive Deployments
+- Proxy-Header werden nur gezielt vertraut
+- Attachment-Pfade werden ausschliesslich serverseitig aus Datenbankwerten gebildet
+- Link-Metadaten duerfen nur von externen, oeffentlichen HTTP(S)-Zielen geladen werden
 
-### PWA & Offline
-
-- **Installierbar** als PWA – Installations-Banner erscheint sowohl auf der Login-Seite als auch in der App
-- **Service Worker** cached App-Shell für Offline-Nutzung
-- Update-Banner bei neuer Version
-- **Share Target**: URLs und Dateien können aus anderen Apps direkt an Ankerkladde weitergegeben werden
-
-### Einstellungen
-
-- Passwort ändern
-- Kategorien anlegen, umbenennen, Icon wählen, ausblenden, umsortieren, löschen
-- Wischnavigation aktivieren/deaktivieren
-- Freier Speicherplatz wird angezeigt
-- API-Key und Download-Links für die Browser-Erweiterung
-
-### Nutzer & Admin
-
-- Login mit Benutzername + Passwort, Session-basiert
-- Benutzernamen werden beim Anlegen getrimmt und ohne Steuerzeichen gespeichert
-- Admins sehen eine separate Verwaltungsseite (`admin.php`) zur Nutzerverwaltung
-- CSRF-Schutz auf allen schreibenden Aktionen
-
----
-
-## Technischer Überblick
-
-### Dateistruktur
+## Architektur
 
 | Pfad | Zweck |
-|---|---|
-| `public/index.php` | HTML-Oberfläche (App-Shell) |
-| `public/js/main.js` | Minimaler Frontend-Entry-Point |
-| `public/js/*.js` | ESM-Module: `app-entry`, `app-runtime`, `app-init`, `app-events`, `state`, `api`, `ui`, `theme`, `navigation`, `router`, `items`, `items-view`, `items-actions`, `item-menu`, `lightbox`, `scanner`, `editor`, `swipe`, `reorder`, `helpers`, `app-ui`, `tabs-view`, `utils` |
-| `public/style.css` | CSS (Design-Tokens, Layout, Komponenten) |
-| `public/api.php` | JSON-REST-API |
-| `public/media.php` | Sicheres Streamen von Anhängen |
-| `public/login.php` | Login-Seite (inkl. PWA-Manifest + Install-Banner) |
-| `public/settings.php` | Einstellungen |
-| `public/admin.php` | Admin-Nutzerverwaltung |
-| `public/sw.js` | Service Worker |
-| `public/manifest.php` | Web App Manifest |
-| `public/version.php` | Zentrale Versionsnummer |
-| `public/extension-download.php` | Baut Browser-Extension-ZIP on demand für Chrome/Edge oder Firefox |
-| `public/.user.ini` | PHP-Upload-Limits (20 MB Bild, 5 GB Datei) |
-| `db.php` | SQLite-Init + automatische Migrationen |
-| `security.php` | Session, CSRF, kanonische Host-Weiterleitung |
+| --- | --- |
+| `public/` | App-Shell, Login, Settings, JSON-API, PWA-Assets |
+| `public/js/` | Frontend als ESM-Module |
+| `db.php` | SQLite-Initialisierung, Migrationen, Kategorien-, Nutzer- und Produkt-Helper |
+| `security.php` | Session, CSRF, Host-/Proxy-Logik, Basis-Pfade |
+| `websocket-server/` | Live-Updates, Versionsbroadcasts und Yjs-Raeume fuer Notizen |
+| `browser-extension/` | Browser-Erweiterung fuer Chromium und Firefox |
+| `scripts/` | Nutzeranlage, Smoke-Tests, DB-Migrationstests, Open-Food-Facts-Import |
+| `tests/ui/` | Playwright-UI-Tests |
+| `deploy/` | Apache-/Docker-Konfiguration und Deploy-Helfer |
 
-### API-Aktionen
+### Datenhaltung
 
-| Action | Methode | Beschreibung |
-|---|---|---|
-| `categories_list` | GET | Kategorien + Präferenzen des Nutzers |
-| `categories_create` | POST | Neue Kategorie anlegen |
-| `categories_update` | POST | Kategorie umbenennen / Icon / Sichtbarkeit |
-| `categories_reorder` | POST | Reihenfolge per ID-Array |
-| `categories_delete` | POST | Leere Kategorie löschen |
-| `list` | GET | Items einer Kategorie inkl. Anhang-Metadaten |
-| `add` | POST | Neues Item (ohne Datei) |
-| `upload` | POST | Neues Item mit Anhang; mit `item_id` → Anhang ersetzen |
-| `update` | POST | Name/Menge/Datum eines Items ändern |
-| `toggle` | POST | Erledigt-Status umschalten |
-| `pin` | POST | Item anheften/lösen |
-| `delete` | POST | Item + Anhang löschen |
-| `clear` | POST | Alle erledigten Items einer Kategorie löschen |
-| `reorder` | POST | Reihenfolge per ID-Array |
-| `search` | GET | Volltextsuche (FTS5) über alle Kategorien |
-| `preferences` | GET/POST | Nutzer-Präferenzen lesen/schreiben |
+- Hauptdatenbank: `data/einkaufsliste.db`
+- Optionaler Produktkatalog: `data/products.db`
+- Schema-Migrationen laufen automatisch beim Start der App bzw. beim ersten Request
 
-Browser-Erweiterung: Der API-Key in den Einstellungen authentifiziert Requests direkt gegen `public/api.php` über den Header `X-API-Key`. Kategorien werden dabei per `category_id` angesprochen.
+## Voraussetzungen
 
-### Datenbank
+- PHP 8.1+; empfohlen ist die Docker-Variante mit PHP 8.3
+- PHP-Erweiterungen: `pdo_sqlite`, `curl`, `mbstring`
+- Fuer Bild-Thumbnails zusaetzlich `gd`
+- Node.js nur fuer den WebSocket-Server, Playwright-Tests und Browser-Extension-Workflows
 
-SQLite unter `data/einkaufsliste.db` (überschreibbar per `EINKAUF_DATA_DIR`). Schema wird bei jedem Request automatisch migriert – ausschließlich additive `ALTER TABLE`-Migrationen.
+## Schnellstart mit Docker
 
-**Kerntabellen:** `users`, `categories`, `items`, `attachments`, `items_fts` (FTS5-Volltextindex, per Trigger synchron gehalten)
-
-### Sicherheit
-
-- CSRF-Token per Session, als `X-CSRF-Token`-Header bei jeder schreibenden Anfrage
-- Attachment-Pfade werden ausschließlich serverseitig aus DB-Daten gebildet, nie aus Request-Parametern
-- Kanonische Host-Weiterleitung auf Produktions-Domain (außer localhost)
-
----
-
-## Docker
-
-### Schnellstart
+Die Compose-Konfiguration startet die Web-App und den WebSocket-Dienst zusammen.
 
 ```bash
 git clone https://github.com/oliverbenduhn/ankerkladde.git
 cd ankerkladde
-docker compose up -d
-```
-
-Danach unter [http://localhost:8083](http://localhost:8083) erreichbar.
-
-Ersten Admin-User anlegen:
-
-```bash
+docker compose up -d --build
 docker exec -it ankerkladde php scripts/create-admin.php
 ```
 
-### Umgebungsvariablen
+Danach ist die App unter [http://localhost:8083](http://localhost:8083) erreichbar.
 
-| Variable | Standard | Beschreibung |
-|---|---|---|
-| `EINKAUF_DATA_DIR` | `/data` | Pfad zur SQLite-Datenbank im Container |
-| `ANKERKLADDE_CANONICAL_HOST` | `ankerkladde.benduhn.de` | Produktions-Domain (leer lassen für localhost) |
-| `EINKAUF_TRUST_PROXY_HEADERS` | – | Auf `true` setzen wenn hinter Reverse Proxy |
+Hinweise:
 
-### Hinter einem Reverse Proxy
+- Die Daten landen per Default in `./data`.
+- Apache proxyt `/ws/` auf den WebSocket-Container.
+- Der Docker-Stack stellt ausserdem `/healthz` bereit.
 
-```yaml
-environment:
-  ANKERKLADDE_CANONICAL_HOST: meine-domain.de
-  EINKAUF_TRUST_PROXY_HEADERS: 'true'
-```
-
-### Daten-Backup
+## Lokal ohne Docker entwickeln
 
 ```bash
-docker run --rm -v ankerkladde_data:/data -v $(pwd):/backup alpine tar czf /backup/backup.tar.gz -C /data .
-docker run --rm -v ankerkladde_data:/data -v $(pwd):/backup alpine tar xzf /backup/backup.tar.gz -C /data
-```
-
----
-
-## Lokal entwickeln
-
-```bash
-# PHP Dev-Server
-php -S 127.0.0.1:8000 -t public
-
-# Docker
-docker compose up
-```
-
-`localhost` gilt als sicherer Kontext – Service Worker und PWA-Installation funktionieren ohne TLS.
-
-### Nutzer anlegen
-
-```bash
+php -S 127.0.0.1:8000 -t public public/router.php
 php scripts/create-admin.php
-php scripts/create-user.php   # EINKAUF_USER / EINKAUF_PASS für nicht-interaktiven Aufruf
 ```
 
-### Tests
+Dann im Browser `http://127.0.0.1:8000/login.php` aufrufen.
+
+Optional kannst du weitere Nutzer anlegen:
 
 ```bash
-bash scripts/smoke-test.sh        # Uploads, Streaming, CSRF, Anhang-Ersetzung, Fehlerfälle
-bash scripts/test-db-migration.sh # Migrationen auf frischer DB
-php scripts/test-security.php     # Sicherheits-Unit-Tests (isTrustedProxyPeer, etc.)
-find . -path './.git' -prune -o -path './.worktrees' -prune -o -path './data' -prune -o -name '*.php' -print | sort | xargs -r -n1 php -l
+php scripts/create-user.php
 ```
 
-### UI-Tests im Browser
+Nicht-interaktiv funktionieren auch die Umgebungsvariablen:
 
-Ein schlanker Playwright-Stack ist im Repo vorbereitet. Damit lassen sich echte Browser-Checks fuer Login, Settings und Theme-Verhalten ausfuehren.
+- `EINKAUF_ADMIN_USER` / `EINKAUF_ADMIN_PASS`
+- `EINKAUF_REGULAR_USER` / `EINKAUF_REGULAR_PASS`
+- `EINKAUF_USER` / `EINKAUF_PASS`
 
-Einmalig:
+Wichtig:
 
-```bash
-npm install
-npm run test:ui:install
-```
+- `localhost` und `127.0.0.1` gelten als Entwicklungsumgebung und werden nicht auf den kanonischen Produktionshost umgeleitet.
+- Kamera, PWA-Installation und einige Browser-APIs brauchen HTTPS oder localhost.
+- Beim nackten `php -S` ist kein Reverse Proxy fuer `/ws/` vorhanden. Die App laeuft trotzdem, aber Live-Updates und Yjs-Notizen funktionieren erst mit zusaetzlichem WebSocket-Setup.
 
-Ausfuehren:
+## Wichtige Umgebungsvariablen
 
-```bash
-npm run test:ui
-npm run test:ui:headed
-```
+| Variable | Standard | Zweck |
+| --- | --- | --- |
+| `EINKAUF_DATA_DIR` | `./data` bzw. `/data` im Container | Speicherort fuer SQLite-Dateien und Uploads |
+| `ANKERKLADDE_CANONICAL_HOST` | `ankerkladde.benduhn.de` | Produktiver Hostname; leer fuer freie Hostnamen |
+| `EINKAUF_TRUST_PROXY_HEADERS` | automatisch nur lokal vertraut | Aktiviert Vertrauen in `X-Forwarded-*` |
+| `WS_NOTIFY_URL` | `http://127.0.0.1:3000/notify` | Ziel fuer Update-Broadcasts aus `api.php` |
+| `WS_HOST` | `127.0.0.1` | Host fuer WebSocket-Benachrichtigungen aus `settings.php` |
+| `WS_PORT` | `3000` | Port fuer denselben Zweck |
 
-Wichtige Voraussetzungen:
+## API in Kurzform
 
-- `php` muss lokal verfuegbar sein
-- das PHP braucht `pdo_sqlite`, weil der UI-Test eine isolierte SQLite-Testinstanz startet
-- der Test-Server legt temporaere Daten unter `.tmp/ui-test-data/` an
+Die JSON-API liegt unter `public/api.php` und wird sowohl vom Frontend als auch von der Browser-Erweiterung genutzt.
 
-Der erste Smoke-Test liegt in `tests/ui/settings-theme.spec.js` und prueft:
+| Action | Methode | Zweck |
+| --- | --- | --- |
+| `categories_list`, `categories_create`, `categories_update`, `categories_reorder`, `categories_delete` | `GET` / `POST` | Kategorien laden und verwalten |
+| `list`, `add`, `upload`, `update`, `toggle`, `delete`, `clear`, `reorder`, `pin` | `GET` / `POST` | Items und Anhaenge bearbeiten |
+| `search` | `GET` | Nutzerweite Volltextsuche |
+| `product_lookup`, `product_details` | `GET` | Produktdaten per Barcode laden |
+| `fetch_metadata` | `GET` | Titel/Beschreibung/Bild zu einer externen URL holen |
+| `preferences` | `GET` / `POST` | Nutzerpraeferenzen lesen und speichern |
 
-- Login mit Testnutzer
-- Oeffnen der eingebetteten Settings
-- Theme-Wechsel auf `monochrom`
-- sichtbaren Kontrast des Plus-Buttons im hellen Schwarz-Weiss-Theme
-- stabile Wiederherstellung von offenen/geschlossenen Settings-Bereichen nach `F5`
+Die Browser-Erweiterung authentifiziert sich mit `X-API-Key`. Regulare Browser-Sessions verwenden Session-Cookies und CSRF-Token.
 
-### Barcode-Scanner & Produktkatalog
+## WebSocket und Live-Sync
 
-Der eingebaute Barcode-Scanner funktioniert ohne lokalen Produktkatalog. Wird ein Barcode nicht erkannt, legt die App einen Eintrag mit der Barcode-Nummer als Namen an — das reicht für den Alltag vollständig aus.
+Wenn du Live-Updates und kollaborative Notizen nutzen willst, brauchst du den Dienst aus `websocket-server/`.
 
-Wer beim Scan automatisch **Produktnamen und Marken** eingetragen haben möchte, kann den Open-Food-Facts-Katalog importieren:
+Mit Docker ist das bereits verdrahtet. Fuer einen klassischen Apache- oder Nginx-Betrieb brauchst du zusaetzlich:
+
+1. den Node-Dienst aus `websocket-server/`
+2. einen Reverse Proxy fuer `/ws/`
+3. einen erreichbaren `/notify`-Endpoint fuer PHP
+
+Die Details stehen in:
+
+- [WEBSOCKET-SETUP.md](WEBSOCKET-SETUP.md)
+- [TipTapWebsocket.md](TipTapWebsocket.md)
+
+## Open Food Facts importieren
+
+Der Produktkatalog ist optional. Ohne Import funktioniert die App weiter, nur Produktnamen und Detailseiten bleiben dann begrenzt.
+
+Import:
 
 ```bash
 bash scripts/update-openfoodfacts.sh
 ```
 
-> **Achtung: Der Import ist optional und benötigt viel Speicherplatz.** Die komprimierten CSV-Dateien sind ~3 GB groß; die resultierende SQLite-Datenbank wächst auf **~35 GB**. Nur ausführen, wenn der Speicherplatz vorhanden ist und Produktnamen beim Scannen gewünscht werden.
+Das Skript schreibt in `data/products.db` und kann je nach Datensatz sehr viel Speicherplatz brauchen.
 
-### Browser-Erweiterung
+## Browser-Erweiterung
+
+Die Erweiterung kann Seiten, Links, Bilder und Dateien direkt nach Ankerkladde schicken.
+
+Direkt im Repo bauen:
 
 ```bash
-php browser-extension/build-icons.php    # nur wenn PNG-Icons neu erzeugt werden sollen
 php browser-extension/build-extension.php
 php browser-extension/build-firefox.php
 ```
 
-Die Builds erzeugen versionierte ZIP-Dateien direkt im Ordner `browser-extension/`. In der App stehen unter `Einstellungen -> Browser-Extension` zusätzlich direkte Download-Links und der zugehörige API-Key bereit.
-
----
-
-## Deployment (Produktion)
-
-Läuft auf `web` (Alpine LXC, nginx + PHP-FPM 8.3), erreichbar unter `ankerkladde.benduhn.de` (intern Port 8083, Caddy leitet weiter).
-
-```
-Git Push → GitHub Webhook → deploy.sh → git pull + php-fpm reload
-```
+Optional fuer neu erzeugte PNG-Icons:
 
 ```bash
-# Manuell
-ssh ansible@web "sudo /var/www/projects/ankerkladde/deploy.sh"
-ssh ansible@web "tail -f /var/log/ankerkladde/deploy.log"
+php browser-extension/build-icons.php
 ```
 
-### Upload-Limits
+Mehr Details stehen in [browser-extension/README.md](browser-extension/README.md).
 
-| Ebene | Datei | Limit |
-|---|---|---|
-| nginx | `/etc/nginx/http.d/ankerkladde.conf` | 5200 MB |
-| PHP | `public/.user.ini` | 5 GB / 5200 MB |
+## Tests
 
-### Voraussetzungen
+### Backend und Smoke-Tests
 
-- PHP 8.1+ mit `pdo_sqlite` und `mbstring`
-- Schreibrechte für den Webserver-Prozess auf `data/` (nicht auf den Webroot)
-# Dummy update
+```bash
+bash scripts/smoke-test.sh
+bash scripts/test-db-migration.sh
+php scripts/test-security.php
+find . -path './.git' -prune -o -path './.worktrees' -prune -o -path './data' -prune -o -name '*.php' -print | sort | xargs -r -n1 php -l
+```
+
+### UI-Tests mit Playwright
+
+```bash
+npm install
+npm run test:ui:install
+npm run test:ui
+```
+
+Die UI-Tests starten ihren eigenen PHP-Testserver und legen temporare Daten unter `.tmp/ui-test-data/` an.
+
+## Deployment-Hinweise
+
+- Die Docker-Variante nutzt `php:8.3-apache` und aktiviert `rewrite`, `headers`, `proxy`, `proxy_http` und `proxy_wstunnel`.
+- Upload-Grenzen sind in `public/.user.ini` vorbereitet.
+- Die mitgelieferte Apache-Konfiguration verweist den Dokumentenstamm auf `public/`.
+- Fuer PWA, Kamera und installierbare Browser-Erlebnisse sollte die App hinter HTTPS laufen.
+
+## Weiterfuehrende Dateien
+
+- [WEBSOCKET-SETUP.md](WEBSOCKET-SETUP.md)
+- [TipTapWebsocket.md](TipTapWebsocket.md)
+- [browser-extension/README.md](browser-extension/README.md)
+- [public/theme_update.md](public/theme_update.md)
