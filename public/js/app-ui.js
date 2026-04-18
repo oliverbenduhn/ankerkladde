@@ -237,12 +237,16 @@ export function createAppUiController(deps = {}) {
         if (navigator.onLine) {
             networkStatusEl.hidden = true;
             networkStatusEl.textContent = '';
+            networkStatusEl.innerHTML = '';
         } else {
             const count = getPendingCount();
             networkStatusEl.hidden = false;
-            networkStatusEl.textContent = count > 0
-                ? `Offline — ${count} Änderung${count === 1 ? '' : 'en'} ausstehend.`
-                : 'Offline: Die zuletzt geladene Liste bleibt sichtbar.';
+            if (count > 0) {
+                const msg = `Offline — ${count} Änderung${count === 1 ? '' : 'en'} ausstehend.`;
+                networkStatusEl.innerHTML = `<span>${msg}</span> <button type="button" id="syncBtn" class="btn-network-sync" aria-label="Jetzt synchronisieren">Sync</button>`;
+            } else {
+                networkStatusEl.textContent = 'Offline: Die zuletzt geladene Liste bleibt sichtbar.';
+            }
         }
     }
 
