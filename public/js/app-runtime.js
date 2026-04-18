@@ -139,7 +139,10 @@ export function createAppRuntime(deps) {
         makeUploadProgressCallback,
         openNoteEditorWithNavigation,
         renderItems,
-        removeItemById: id => itemsController.removeItemById(id),
+        removeItemById: id => {
+            // Lazy reference to itemsController (not yet initialized)
+            return itemsController?.removeItemById(id);
+        },
         resetItemForm,
         setCategory,
         setMessage,
