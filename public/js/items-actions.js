@@ -269,20 +269,24 @@ export function createItemsActionsController(deps) {
     }
 
     async function handleDelete(id) {
-        // Optimistisch lokal sofort entfernen
-        removeItemById(id);
-        if (state.noteEditorId === id) {
-            await closeNoteEditor();
-        }
-        renderItems();
         try {
-            await api('delete', { method: 'POST', body: new URLSearchParams({ id: String(id) }) });
-            invalidateCategoryCache(state.categoryId);
-            setMessage('Artikel gelöscht.');
-        } catch {
-            enqueueAction('delete', { id: String(id) });
-            setNetworkStatus();
-            setMessage('Offline gelöscht – wird synchronisiert wenn du wieder online bist.');
+            // Optimistisch lokal sofort entfernen
+            removeItemById(id);
+            if (state.noteEditorId === id) {
+                await closeNoteEditor();
+            }
+            renderItems();
+            try {
+                await api('delete', { method: 'POST', body: new URLSearchParams({ id: String(id) }) });
+                invalidateCategoryCache(state.categoryId);
+                setMessage('Artikel gelöscht.');
+            } catch {
+                enqueueAction('delete', { id: String(id) });
+                setNetworkStatus();
+                setMessage('Offline gelöscht – wird synchronisiert wenn du wieder online bist.');
+            }
+        } catch (error) {
+            setMessage(error instanceof Error ? error.message : 'Löschen fehlgeschlagen.', true);
         }
     }
 

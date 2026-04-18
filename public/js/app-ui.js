@@ -29,7 +29,7 @@ import {
 import { syncAutoHeight } from './utils.js';
 
 export function createAppUiController(deps = {}) {
-    const { getUserPreferences = () => ({}), getPendingCount = () => 0 } = deps;
+    const { getUserPreferences = () => ({}), getPendingCount = () => 0, onSyncClick = () => {} } = deps;
     let messageTimer = null;
 
     function setMessage(text, isError = false) {
@@ -243,7 +243,14 @@ export function createAppUiController(deps = {}) {
             networkStatusEl.hidden = false;
             if (count > 0) {
                 const msg = `Offline — ${count} Änderung${count === 1 ? '' : 'en'} ausstehend.`;
-                networkStatusEl.innerHTML = `<span>${msg}</span> <button type="button" id="syncBtn" class="btn-network-sync" aria-label="Jetzt synchronisieren">Sync</button>`;
+                networkStatusEl.innerHTML = `<span>${msg}</span> <button type="button" class="btn-network-sync" aria-label="Jetzt synchronisieren">Sync</button>`;
+                const syncBtn = networkStatusEl.querySelector('.btn-network-sync');
+                if (syncBtn) {
+                    syncBtn.addEventListener('click', e => {
+                        e.preventDefault();
+                        onSyncClick();
+                    });
+                }
             } else {
                 networkStatusEl.textContent = 'Offline: Die zuletzt geladene Liste bleibt sichtbar.';
             }

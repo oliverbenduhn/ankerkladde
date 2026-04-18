@@ -35,7 +35,13 @@ export function createAppRuntime(deps) {
         setUserPreferences,
     } = deps;
 
-    const appUiController = createAppUiController({ getUserPreferences, getPendingCount });
+    const onSyncClick = async () => {
+        await flushOfflineQueue();
+        setNetworkStatus();
+        await loadItems();
+    };
+
+    const appUiController = createAppUiController({ getUserPreferences, getPendingCount, onSyncClick });
 
     const updateFilePickerLabel = () => appUiController.updateFilePickerLabel();
     const helpersController = createHelpersController({

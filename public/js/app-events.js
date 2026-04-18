@@ -414,15 +414,6 @@ export function registerAppEventHandlers(deps) {
     }
     window.addEventListener('offline', setNetworkStatus);
 
-    // Manual sync button in offline banner
-    document.addEventListener('click', event => {
-        if (event.target?.id === 'syncBtn') {
-            void flushOfflineQueue().catch(() => {});
-            setNetworkStatus();
-            void loadItems().catch(() => {});
-        }
-    });
-
     // Polling fallback: Check navigator.onLine every 3 seconds
     // (some mobile browsers don't fire 'online' event reliably)
     let lastOnlineState = navigator.onLine;
