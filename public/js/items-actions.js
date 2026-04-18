@@ -281,14 +281,16 @@ export function createItemsActionsController(deps) {
                 await closeNoteEditor();
             }
             renderItems();
+            setMessage('Artikel gelöscht.');
+
+            // Versuch API-Call (nicht-blocking, Fehler werden still ignoriert)
             try {
                 await api('delete', { method: 'POST', body: new URLSearchParams({ id: String(id) }) });
                 invalidateCategoryCache(state.categoryId);
-                setMessage('Artikel gelöscht.');
             } catch {
+                // Offline: enqueue für späteren sync
                 enqueueAction('delete', { id: String(id) });
                 setNetworkStatus();
-                setMessage('Offline gelöscht – wird synchronisiert wenn du wieder online bist.');
             }
         } catch (error) {
             setMessage(error instanceof Error ? error.message : 'Löschen fehlgeschlagen.', true);
