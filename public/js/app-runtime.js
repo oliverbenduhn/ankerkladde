@@ -108,6 +108,7 @@ export function createAppRuntime(deps) {
             invalidateCategoryCache(state.categoryId);
             await loadItems();
         }
+        return hadItems;
     };
 
     router = createRouter({

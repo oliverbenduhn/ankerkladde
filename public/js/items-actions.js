@@ -336,13 +336,36 @@ export function createItemsActionsController(deps) {
         const category = getCurrentCategory();
         if (!category) return;
 
-        await api('clear', {
-            method: 'POST',
-            body: new URLSearchParams({ category_id: String(category.id) }),
-        });
-        invalidateCategoryCache(category.id);
-        await loadItems();
+        const removedItemIds = state.items
+            .filter(item => item.done === 1)
+            .map(item => item.id);
+
+        if (removedItemIds.length === 0) return;
+
+        state.items = state.items.filter(item => item.done !== 1);
+        cacheCurrentCategoryItems();
+
+        if (removedItemIds.includes(state.noteEditorId)) {
+            try {
+                await closeNoteEditor();
+            } catch {
+                // Ignore errors from closing editor
+            }
+        }
+
+        renderItems();
         setMessage('Erledigte Artikel entfernt.');
+
+        try {
+            await api('clear', {
+                method: 'POST',
+                body: new URLSearchParams({ category_id: String(category.id) }),
+            });
+            invalidateCategoryCache(category.id);
+        } catch {
+            enqueueAction('clear', { category_id: String(category.id) });
+            setNetworkStatus();
+        }
     }
 
     return {

@@ -234,15 +234,16 @@ export function createAppUiController(deps = {}) {
 
     function setNetworkStatus() {
         if (!networkStatusEl) return;
-        if (navigator.onLine) {
+        const count = getPendingCount();
+        if (navigator.onLine && count === 0) {
             networkStatusEl.hidden = true;
             networkStatusEl.textContent = '';
             networkStatusEl.innerHTML = '';
         } else {
-            const count = getPendingCount();
             networkStatusEl.hidden = false;
             if (count > 0) {
-                const msg = `Offline — ${count} Änderung${count === 1 ? '' : 'en'} ausstehend.`;
+                const prefix = navigator.onLine ? 'Synchronisierung' : 'Offline';
+                const msg = `${prefix} — ${count} Änderung${count === 1 ? '' : 'en'} ausstehend.`;
                 networkStatusEl.innerHTML = `<span>${msg}</span> <button type="button" class="btn-network-sync" aria-label="Jetzt synchronisieren">Sync</button>`;
                 const syncBtn = networkStatusEl.querySelector('.btn-network-sync');
                 if (syncBtn) {

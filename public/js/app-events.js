@@ -397,10 +397,22 @@ export function registerAppEventHandlers(deps) {
         });
     });
 
+    let onlineSyncRunning = false;
+    const runOnlineSync = async () => {
+        if (onlineSyncRunning) return;
+        onlineSyncRunning = true;
+        try {
+            await flushOfflineQueue();
+        } catch {
+            // Keep queued actions for the next retry.
+        } finally {
+            setNetworkStatus();
+            onlineSyncRunning = false;
+        }
+    };
+
     window.addEventListener('online', () => {
-        void flushOfflineQueue().catch(() => {});
-        setNetworkStatus();
-        void loadItems().catch(() => {});
+        void runOnlineSync();
     });
     if (themeMediaQuery) {
         const onThemeMediaChange = () => {
@@ -414,18 +426,11 @@ export function registerAppEventHandlers(deps) {
     }
     window.addEventListener('offline', setNetworkStatus);
 
-    // Polling fallback: Check navigator.onLine every 3 seconds
-    // (some mobile browsers don't fire 'online' event reliably)
-    let lastOnlineState = navigator.onLine;
+    // Polling fallback: mobile browsers do not always fire online/offline reliably.
     setInterval(() => {
-        const isNowOnline = navigator.onLine;
-        if (!lastOnlineState && isNowOnline) {
-            // Transitioned from offline to online
-            void flushOfflineQueue().catch(() => {});
-            setNetworkStatus();
-            void loadItems().catch(() => {});
+        if (navigator.onLine) {
+            void runOnlineSync();
         }
-        lastOnlineState = isNowOnline;
     }, 3000);
 
     document.addEventListener('keydown', event => {

@@ -21,13 +21,20 @@ export function getPendingCount() {
 export async function flushQueue(apiFn) {
     const queue = getQueue();
     if (queue.length === 0) return false;
-    localStorage.removeItem(QUEUE_KEY);
-    for (const { type, payload } of queue) {
+
+    let flushedAny = false;
+    for (let index = 0; index < queue.length; index += 1) {
+        const { type, payload } = queue[index];
         try {
             await apiFn(type, { method: 'POST', body: new URLSearchParams(payload) });
+            flushedAny = true;
         } catch {
-            // Still ignorieren
+            const remaining = queue.slice(index);
+            localStorage.setItem(QUEUE_KEY, JSON.stringify(remaining));
+            return false;
         }
     }
-    return true;
+
+    localStorage.removeItem(QUEUE_KEY);
+    return flushedAny;
 }
