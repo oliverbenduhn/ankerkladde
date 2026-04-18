@@ -25,7 +25,14 @@ export async function api(action, options = {}) {
         ? appUrl(`api.php?action=${encodeURIComponent(actionName)}${queryParts.length > 0 ? `&${queryParts.join('&')}` : ''}`)
         : appUrl(`api.php?action=${encodeURIComponent(actionName)}`);
 
-    const response = await fetch(url, fetchOptions);
+    let response;
+    try {
+        response = await fetch(url, fetchOptions);
+    } catch (error) {
+        // Network error - could be offline or actual network failure
+        throw new Error('Offline oder Netzwerkfehler');
+    }
+
     const payload = await response.json().catch(() => ({}));
 
     if (response.status === 401) {

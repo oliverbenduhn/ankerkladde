@@ -45,7 +45,8 @@ export function createItemMenuController(deps) {
                 try {
                     await onClick();
                 } catch (error) {
-                    console.error('Action failed:', error);
+                    // Silently ignore errors from actions (they should handle themselves)
+                    // This prevents unhandled rejections from showing in console
                 }
             });
             actions.appendChild(button);
