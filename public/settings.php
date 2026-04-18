@@ -870,8 +870,8 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
             return $colors;
         })(),
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
-    const scrollKey = 'einkauf-settings-scroll-y';
-    const panelsKey = 'einkauf-settings-open-panels';
+    const scrollKey = 'einkauf-settings-scroll-y:<?= htmlspecialchars($currentTab, ENT_QUOTES, 'UTF-8') ?>';
+    const panelsKey = 'einkauf-settings-open-panels:<?= htmlspecialchars($currentTab, ENT_QUOTES, 'UTF-8') ?>';
     const copyButton = document.getElementById('copy-api-key');
     const apiKeyInput = document.getElementById('api-key-value');
     const testApiKeyBtn = document.getElementById('test-api-key');
@@ -886,10 +886,14 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
     function readOpenPanels() {
         try {
             const raw = window.localStorage.getItem(panelsKey);
-            const parsed = raw ? JSON.parse(raw) : [];
-            return Array.isArray(parsed) ? parsed : [];
+            if (raw === null) {
+                return null;
+            }
+
+            const parsed = JSON.parse(raw);
+            return Array.isArray(parsed) ? parsed : null;
         } catch (error) {
-            return [];
+            return null;
         }
     }
 
@@ -971,7 +975,7 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
     applySettingsTheme();
 
     const savedPanels = readOpenPanels();
-    if (savedPanels.length > 0) {
+    if (savedPanels !== null) {
         const openPanels = new Set(savedPanels);
         settingsPanels.forEach(panel => {
             panel.open = openPanels.has(panel.dataset.settingsPanel || '');
