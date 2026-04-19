@@ -86,6 +86,7 @@ validatePassword($password);
 
 try {
     $userId = createRegularUser($db, $username, $password);
+    createDefaultCategoriesForUser($db, $userId);
     echo "Nutzer '{$username}' angelegt (ID: {$userId}).\n";
 } catch (PDOException $e) {
     if (str_contains($e->getMessage(), 'UNIQUE constraint failed')) {

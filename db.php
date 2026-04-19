@@ -740,6 +740,26 @@ function backfillLegacyCategoryKeys(PDO $db): void
     }
 }
 
+function createDefaultCategoriesForUser(PDO $db, int $userId): void
+{
+    $stmt = $db->prepare(
+        'INSERT INTO categories (user_id, name, type, icon, legacy_key, sort_order, is_hidden)
+         VALUES (:user_id, :name, :type, :icon, :legacy_key, :sort_order, :is_hidden)'
+    );
+
+    foreach (LEGACY_CATEGORY_DEFINITIONS as $legacyKey => $definition) {
+        $stmt->execute([
+            ':user_id' => $userId,
+            ':name' => $definition['name'],
+            ':type' => $definition['type'],
+            ':icon' => $definition['icon'],
+            ':legacy_key' => $legacyKey,
+            ':sort_order' => $definition['sort_order'],
+            ':is_hidden' => 0,
+        ]);
+    }
+}
+
 function ensureDefaultCategories(PDO $db): void
 {
     $users = $db->query('SELECT id FROM users')->fetchAll(PDO::FETCH_COLUMN);
@@ -1430,7 +1450,11 @@ function getDatabase(): PDO
         $db->exec("ALTER TABLE categories ADD COLUMN legacy_key TEXT NOT NULL DEFAULT ''");
     }
 
-    ensureDefaultCategories($db);
+    $ensureDefaultCategoriesKey = 'default_categories_ensured_v1';
+    if (!hasDatabaseMetaFlag($db, $ensureDefaultCategoriesKey)) {
+        ensureDefaultCategories($db);
+        setDatabaseMetaFlag($db, $ensureDefaultCategoriesKey);
+    }
 
     $legacyMigrationKey = 'legacy_categories_migration_v2';
     if (!hasDatabaseMetaFlag($db, $legacyMigrationKey)) {
