@@ -708,7 +708,15 @@ function backfillLegacyCategoryKeys(PDO $db): void
 
 function ensureDefaultCategories(PDO $db): void
 {
-    $users = $db->query('SELECT id FROM users')->fetchAll(PDO::FETCH_COLUMN);
+    // ⚡ Bolt: Use a database-level filter to skip users who already have categories.
+    // This dramatically reduces overhead by avoiding an iteration over all users
+    // and subsequent checks on every single request.
+    $stmt = $db->query('
+        SELECT u.id
+        FROM users u
+        WHERE NOT EXISTS (SELECT 1 FROM categories c WHERE c.user_id = u.id)
+    ');
+    $users = $stmt->fetchAll(PDO::FETCH_COLUMN);
     if (empty($users)) {
         return;
     }
