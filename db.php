@@ -1420,7 +1420,16 @@ function getDatabase(): PDO
     );
     $db->exec('CREATE INDEX IF NOT EXISTS idx_categories_user_id ON categories(user_id)');
     $db->exec('CREATE INDEX IF NOT EXISTS idx_categories_user_sort ON categories(user_id, sort_order)');
-    $db->exec('CREATE INDEX IF NOT EXISTS idx_items_category_id ON items(category_id)');
+    // Composite index: the hot `action=list` query always filters both category_id AND user_id.
+    // A single-column index on category_id forces SQLite to post-filter by user_id across all
+    // matching rows. The composite (category_id, user_id) satisfies both predicates in one lookup.
+    // category_id stays leading so the index also covers any query that filters only by category_id.
+    // Expected impact: reduces per-request row scans on the most frequent query path (tab switch).
+    $db->exec('CREATE INDEX IF NOT EXISTS idx_items_category_user ON items(category_id, user_id)');
+    // Index on user_id alone covers the full-text search join (items_fts → items WHERE user_id = ?)
+    // which currently has no dedicated index, forcing a full scan of the joined items rows.
+    // Expected impact: faster search results, especially as item counts grow.
+    $db->exec('CREATE INDEX IF NOT EXISTS idx_items_user_id ON items(user_id)');
     // One-time migration: product_catalog aus einkaufsliste.db in products.db verschieben
     $productCatalogMigrationKey = 'product_catalog_migrated_to_products_db_v1';
     if (!hasDatabaseMetaFlag($db, $productCatalogMigrationKey)) {
