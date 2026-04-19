@@ -5,6 +5,8 @@ require dirname(__DIR__) . '/db.php';
 require dirname(__DIR__) . '/security.php';
 require __DIR__ . '/theme.php';
 
+
+sendDefaultSecurityHeaders();
 enforceCanonicalRequest();
 $userId = requireAuth();
 

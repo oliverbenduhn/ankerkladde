@@ -305,3 +305,11 @@ function isApiKeyAuthRequest(): bool
 {
     return (string) ($_SERVER['ANKERKLADDE_API_AUTH_KIND'] ?? '') === 'key';
 }
+
+
+function sendDefaultSecurityHeaders(): void
+{
+    header('X-Frame-Options: SAMEORIGIN');
+    header('Content-Security-Policy: frame-ancestors \'self\'');
+    header('X-Content-Type-Options: nosniff');
+}
