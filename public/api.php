@@ -259,65 +259,56 @@ function isHtmlContentType(string $contentType): bool
     return str_contains($contentType, 'text/html') || str_contains($contentType, 'application/xhtml+xml');
 }
 
-function fetchRemoteHtml(string $url): array
+function fetchWithCurl(string $url, int $connectTimeoutSeconds, int $requestTimeoutSeconds, int $maxRedirects, array $headers): array
 {
-    $connectTimeoutSeconds = 3;
-    $requestTimeoutSeconds = 6;
-    $maxRedirects = 3;
-
-    $headers = [
-        'Accept: text/html,application/xhtml+xml',
-        'Accept-Language: de-DE,de;q=0.9,en;q=0.8',
-        'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
-    ];
-
-    if (extension_loaded('curl')) {
-        $ch = curl_init($url);
-        if ($ch === false) {
-            return ['html' => null, 'error' => 'cURL konnte nicht initialisiert werden.'];
-        }
-
-        curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_MAXREDIRS => $maxRedirects,
-            CURLOPT_TIMEOUT => $requestTimeoutSeconds,
-            CURLOPT_CONNECTTIMEOUT => $connectTimeoutSeconds,
-            CURLOPT_HTTPHEADER => $headers,
-            CURLOPT_ENCODING => '',
-            CURLOPT_SSL_VERIFYPEER => true,
-            CURLOPT_SSL_VERIFYHOST => 2,
-        ]);
-
-        if (defined('CURLOPT_PROTOCOLS')) {
-            curl_setopt($ch, CURLOPT_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS);
-        }
-
-        if (defined('CURLOPT_REDIR_PROTOCOLS')) {
-            curl_setopt($ch, CURLOPT_REDIR_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS);
-        }
-
-        $body = curl_exec($ch);
-        $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
-        $contentType = strtolower((string) curl_getinfo($ch, CURLINFO_CONTENT_TYPE));
-        $error = curl_errno($ch) !== 0 ? curl_error($ch) : '';
-        curl_close($ch);
-
-        if (!is_string($body) || $body === '') {
-            return ['html' => null, 'error' => $error !== '' ? $error : 'Seite nicht abrufbar.'];
-        }
-
-        if ($status >= 400) {
-            return ['html' => null, 'error' => 'HTTP ' . $status];
-        }
-
-        if (!isHtmlContentType($contentType)) {
-            return ['html' => null, 'error' => 'Ziel liefert kein HTML.'];
-        }
-
-        return ['html' => truncateText($body, 512000), 'error' => null];
+    $ch = curl_init($url);
+    if ($ch === false) {
+        return ['html' => null, 'error' => 'cURL konnte nicht initialisiert werden.'];
     }
 
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_FOLLOWLOCATION => true,
+        CURLOPT_MAXREDIRS => $maxRedirects,
+        CURLOPT_TIMEOUT => $requestTimeoutSeconds,
+        CURLOPT_CONNECTTIMEOUT => $connectTimeoutSeconds,
+        CURLOPT_HTTPHEADER => $headers,
+        CURLOPT_ENCODING => '',
+        CURLOPT_SSL_VERIFYPEER => true,
+        CURLOPT_SSL_VERIFYHOST => 2,
+    ]);
+
+    if (defined('CURLOPT_PROTOCOLS')) {
+        curl_setopt($ch, CURLOPT_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS);
+    }
+
+    if (defined('CURLOPT_REDIR_PROTOCOLS')) {
+        curl_setopt($ch, CURLOPT_REDIR_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS);
+    }
+
+    $body = curl_exec($ch);
+    $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+    $contentType = strtolower((string) curl_getinfo($ch, CURLINFO_CONTENT_TYPE));
+    $error = curl_errno($ch) !== 0 ? curl_error($ch) : '';
+    curl_close($ch);
+
+    if (!is_string($body) || $body === '') {
+        return ['html' => null, 'error' => $error !== '' ? $error : 'Seite nicht abrufbar.'];
+    }
+
+    if ($status >= 400) {
+        return ['html' => null, 'error' => 'HTTP ' . $status];
+    }
+
+    if (!isHtmlContentType($contentType)) {
+        return ['html' => null, 'error' => 'Ziel liefert kein HTML.'];
+    }
+
+    return ['html' => truncateText($body, 512000), 'error' => null];
+}
+
+function fetchWithStream(string $url, int $requestTimeoutSeconds, int $maxRedirects, array $headers): array
+{
     $context = stream_context_create([
         'http' => [
             'timeout' => $requestTimeoutSeconds,
@@ -349,6 +340,25 @@ function fetchRemoteHtml(string $url): array
     }
 
     return ['html' => truncateText($body, 512000), 'error' => null];
+}
+
+function fetchRemoteHtml(string $url): array
+{
+    $connectTimeoutSeconds = 3;
+    $requestTimeoutSeconds = 6;
+    $maxRedirects = 3;
+
+    $headers = [
+        'Accept: text/html,application/xhtml+xml',
+        'Accept-Language: de-DE,de;q=0.9,en;q=0.8',
+        'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+    ];
+
+    if (extension_loaded('curl')) {
+        return fetchWithCurl($url, $connectTimeoutSeconds, $requestTimeoutSeconds, $maxRedirects, $headers);
+    }
+
+    return fetchWithStream($url, $requestTimeoutSeconds, $maxRedirects, $headers);
 }
 
 function extractMetaContent(string $html, string $attributeName, string $attributeValue): string
