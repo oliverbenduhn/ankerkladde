@@ -680,7 +680,21 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
                         <input type="hidden" name="action" value="save_category">
                         <input type="hidden" name="category_id" value="<?= (int) $category['id'] ?>">
+                        <div class="settings-category-preview">
+                            <span class="settings-category-preview-icon" aria-hidden="true"><?= htmlspecialchars($categoryIcon, ENT_QUOTES, 'UTF-8') ?></span>
+                            <span class="settings-category-preview-name"><?= htmlspecialchars((string) $category['name'], ENT_QUOTES, 'UTF-8') ?></span>
+                        </div>
                         <div class="settings-row-main">
+                            <label class="settings-field settings-field-name">
+                                <span>Name</span>
+                                <input
+                                    type="text"
+                                    name="category_name"
+                                    value="<?= htmlspecialchars((string) $category['name'], ENT_QUOTES, 'UTF-8') ?>"
+                                    maxlength="120"
+                                    required
+                                >
+                            </label>
                             <label class="settings-field settings-field-icon">
                                 <span>Symbol</span>
                                 <select name="category_icon">
@@ -692,46 +706,43 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                                     <?php endforeach; ?>
                                 </select>
                             </label>
-                            <label class="settings-field settings-field-name">
-                                <span>Name</span>
-                                <input
-                                    type="text"
-                                    name="category_name"
-                                    value="<?= htmlspecialchars((string) $category['name'], ENT_QUOTES, 'UTF-8') ?>"
-                                    maxlength="120"
-                                    required
-                                >
-                            </label>
                         </div>
                         <div class="settings-row-bottom">
                             <div class="settings-row-meta">
-                                <span class="settings-type-badge"><?= htmlspecialchars(categoryTypeLabel((string) $category['type']), ENT_QUOTES, 'UTF-8') ?></span>
-                                <label class="settings-toggle">
-                                    <input
-                                        type="checkbox"
-                                        name="category_hidden"
-                                        value="1"
-                                        <?= (int) $category['is_hidden'] === 1 ? 'checked' : '' ?>
-                                    >
-                                    <span>Ausblenden</span>
-                                </label>
-                                <div class="settings-move-group" aria-label="Reihenfolge">
-                                    <button
-                                        type="submit"
-                                        name="move_direction"
-                                        value="up"
-                                        formnovalidate
-                                        class="settings-move-button"
-                                        title="Nach oben"
-                                    >↑</button>
-                                    <button
-                                        type="submit"
-                                        name="move_direction"
-                                        value="down"
-                                        formnovalidate
-                                        class="settings-move-button"
-                                        title="Nach unten"
-                                    >↓</button>
+                                <div class="settings-row-options">
+                                    <span class="settings-type-badge"><?= htmlspecialchars(categoryTypeLabel((string) $category['type']), ENT_QUOTES, 'UTF-8') ?></span>
+                                    <label class="settings-toggle settings-toggle-line">
+                                        <input
+                                            type="checkbox"
+                                            name="category_hidden"
+                                            value="1"
+                                            <?= (int) $category['is_hidden'] === 1 ? 'checked' : '' ?>
+                                        >
+                                        <span>Ausblenden</span>
+                                    </label>
+                                </div>
+                                <div class="settings-order-control">
+                                    <span>Reihenfolge</span>
+                                    <div class="settings-move-group" aria-label="Reihenfolge">
+                                        <button
+                                            type="submit"
+                                            name="move_direction"
+                                            value="up"
+                                            formnovalidate
+                                            class="settings-move-button"
+                                            title="Nach oben"
+                                            aria-label="Nach oben"
+                                        >↑</button>
+                                        <button
+                                            type="submit"
+                                            name="move_direction"
+                                            value="down"
+                                            formnovalidate
+                                            class="settings-move-button"
+                                            title="Nach unten"
+                                            aria-label="Nach unten"
+                                        >↓</button>
+                                    </div>
                                 </div>
                             </div>
                             <div class="settings-row-actions">
@@ -742,7 +753,7 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                                     value="delete_category"
                                     class="settings-link settings-delete-button"
                                     formnovalidate
-                                >Löschen</button>
+                                >Kategorie löschen</button>
                             </div>
                         </div>
                     </form>

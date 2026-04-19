@@ -2806,12 +2806,44 @@ button, input { font: inherit; }
 
 .settings-category-row {
     display: grid;
-    gap: 14px;
+    gap: 16px;
+    align-items: stretch;
+    padding: 16px;
+}
+
+.settings-category-preview {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    padding-bottom: 2px;
+}
+
+.settings-category-preview-icon {
+    display: inline-grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    flex: 0 0 40px;
+    border-radius: 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    font-size: 1.25rem;
+}
+
+.settings-category-preview-name {
+    min-width: 0;
+    overflow: hidden;
+    color: var(--text-primary);
+    font-size: 1.05rem;
+    font-weight: 700;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .settings-row-main {
     display: grid;
-    grid-template-columns: 96px minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) minmax(96px, 140px);
     gap: 14px;
     align-items: end;
 }
@@ -2825,7 +2857,14 @@ button, input { font: inherit; }
 }
 
 .settings-row-meta {
-    display: inline-flex;
+    display: flex;
+    align-items: flex-end;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.settings-row-options {
+    display: flex;
     align-items: center;
     gap: 12px;
     flex-wrap: wrap;
@@ -2891,6 +2930,10 @@ button, input { font: inherit; }
     cursor: pointer;
 }
 
+.settings-toggle-line {
+    padding: 0 2px;
+}
+
 .settings-type-badge {
     display: inline-flex;
     align-items: center;
@@ -2909,8 +2952,22 @@ button, input { font: inherit; }
     gap: 8px;
 }
 
+.settings-order-control {
+    display: grid;
+    gap: 6px;
+}
+
+.settings-order-control > span {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
 .settings-delete-button {
     align-self: end;
+    border: 1px solid color-mix(in srgb, var(--danger, #b42318) 28%, var(--border));
+    background: transparent;
+    color: var(--danger, #b42318);
     white-space: nowrap;
 }
 
@@ -2941,8 +2998,13 @@ button, input { font: inherit; }
 }
 
 @media (max-width: 640px) {
+    .settings-category-row {
+        padding: 14px;
+    }
+
     .settings-row-main {
         grid-template-columns: 1fr;
+        gap: 12px;
     }
 
     .settings-field-icon {
@@ -2958,12 +3020,42 @@ button, input { font: inherit; }
         width: 100%;
     }
 
+    .settings-row-meta {
+        display: grid;
+        gap: 14px;
+    }
+
+    .settings-row-options {
+        display: grid;
+        gap: 10px;
+    }
+
+    .settings-toggle-line {
+        justify-content: space-between;
+        width: 100%;
+        min-height: 44px;
+        padding: 0;
+    }
+
+    .settings-toggle-line input {
+        order: 2;
+    }
+
+    .settings-order-control {
+        width: 100%;
+    }
+
     .settings-row-actions {
+        display: grid;
         justify-content: stretch;
     }
 
     .settings-row-actions > * {
-        flex: 1 1 0;
+        width: 100%;
+    }
+
+    .settings-delete-button {
+        color: var(--danger, #b42318);
     }
 }
 
