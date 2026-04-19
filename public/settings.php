@@ -348,6 +348,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $flash = 'Kategorie konnte nicht verschoben werden.';
                 $flashType = 'err';
             }
+        } elseif ($action === 'reorder_categories') {
+            $rawOrder = (string) ($_POST['order'] ?? '');
+            $orderIds = json_decode($rawOrder, true);
+
+            if (!is_array($orderIds)) {
+                $flash = 'Ungültige Reihenfolge.';
+                $flashType = 'err';
+            } else {
+                $validStmt = $db->prepare('SELECT id FROM categories WHERE user_id = :user_id');
+                $validStmt->execute([':user_id' => $userId]);
+                $validIds = array_column($validStmt->fetchAll(), 'id');
+
+                $filteredIds = [];
+                foreach ($orderIds as $rawId) {
+                    $id = (int) $rawId;
+                    if ($id > 0 && in_array($id, $validIds, true)) {
+                        $filteredIds[] = $id;
+                    }
+                }
+
+                $db->beginTransaction();
+                try {
+                    $updateStmt = $db->prepare(
+                        'UPDATE categories
+                         SET sort_order = :sort_order, updated_at = CURRENT_TIMESTAMP
+                         WHERE id = :id AND user_id = :user_id'
+                    );
+                    foreach ($filteredIds as $i => $id) {
+                        $updateStmt->execute([':sort_order' => $i + 1, ':id' => $id, ':user_id' => $userId]);
+                    }
+                    $db->commit();
+                    $flash = 'Reihenfolge gespeichert.';
+                    notifyWebSocket($userId);
+                } catch (Throwable $e) {
+                    if ($db->inTransaction()) {
+                        $db->rollBack();
+                    }
+                    $flash = 'Reihenfolge konnte nicht gespeichert werden.';
+                    $flashType = 'err';
+                }
+            }
         } elseif ($action === 'delete_category') {
             $deleteCategoryId = filter_var($_POST['category_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
 
@@ -676,42 +717,52 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                         array_unshift($categoryIconOptions, $categoryIcon);
                     }
                     ?>
-                    <form method="post" action="<?= htmlspecialchars($settingsAction, ENT_QUOTES, 'UTF-8') ?>" class="settings-option settings-category-row">
+                    <form method="post" action="<?= htmlspecialchars($settingsAction, ENT_QUOTES, 'UTF-8') ?>" class="settings-option settings-category-row" data-category-id="<?= (int) $category['id'] ?>">
                         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
                         <input type="hidden" name="action" value="save_category">
                         <input type="hidden" name="category_id" value="<?= (int) $category['id'] ?>">
-                        <div class="settings-category-preview">
-                            <span class="settings-category-preview-icon" aria-hidden="true"><?= htmlspecialchars($categoryIcon, ENT_QUOTES, 'UTF-8') ?></span>
-                            <span class="settings-category-preview-name"><?= htmlspecialchars((string) $category['name'], ENT_QUOTES, 'UTF-8') ?></span>
-                        </div>
-                        <div class="settings-row-main">
-                            <label class="settings-field settings-field-name">
-                                <span>Name</span>
-                                <input
-                                    type="text"
-                                    name="category_name"
-                                    value="<?= htmlspecialchars((string) $category['name'], ENT_QUOTES, 'UTF-8') ?>"
-                                    maxlength="120"
-                                    required
-                                >
-                            </label>
-                            <label class="settings-field settings-field-icon">
-                                <span>Symbol</span>
-                                <select name="category_icon">
-                                    <?php foreach ($categoryIconOptions as $iconOption): ?>
-                                        <option
-                                            value="<?= htmlspecialchars($iconOption, ENT_QUOTES, 'UTF-8') ?>"
-                                            <?= $iconOption === $categoryIcon ? 'selected' : '' ?>
-                                        ><?= htmlspecialchars($iconOption, ENT_QUOTES, 'UTF-8') ?></option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </label>
-                        </div>
-                        <div class="settings-row-bottom">
-                            <div class="settings-row-meta">
-                                <div class="settings-row-options">
-                                    <span class="settings-type-badge"><?= htmlspecialchars(categoryTypeLabel((string) $category['type']), ENT_QUOTES, 'UTF-8') ?></span>
-                                    <label class="settings-toggle settings-toggle-line">
+                        <details class="settings-category-details">
+                            <summary class="settings-category-summary">
+                                <span class="settings-drag-handle" aria-hidden="true" title="Zum Verschieben ziehen">
+                                    <svg width="16" height="20" viewBox="0 0 16 20" fill="currentColor" aria-hidden="true">
+                                        <circle cx="5" cy="4" r="2"/><circle cx="11" cy="4" r="2"/>
+                                        <circle cx="5" cy="10" r="2"/><circle cx="11" cy="10" r="2"/>
+                                        <circle cx="5" cy="16" r="2"/><circle cx="11" cy="16" r="2"/>
+                                    </svg>
+                                </span>
+                                <span class="settings-category-preview-icon" aria-hidden="true"><?= htmlspecialchars($categoryIcon, ENT_QUOTES, 'UTF-8') ?></span>
+                                <span class="settings-category-preview-name"><?= htmlspecialchars((string) $category['name'], ENT_QUOTES, 'UTF-8') ?></span>
+                                <span class="settings-type-badge"><?= htmlspecialchars(categoryTypeLabel((string) $category['type']), ENT_QUOTES, 'UTF-8') ?></span>
+                                <svg class="settings-summary-chevron" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <polyline points="4 6 8 10 12 6"/>
+                                </svg>
+                            </summary>
+                            <div class="settings-category-body">
+                                <div class="settings-row-main">
+                                    <label class="settings-field settings-field-name">
+                                        <span>Name</span>
+                                        <input
+                                            type="text"
+                                            name="category_name"
+                                            value="<?= htmlspecialchars((string) $category['name'], ENT_QUOTES, 'UTF-8') ?>"
+                                            maxlength="120"
+                                            required
+                                        >
+                                    </label>
+                                    <label class="settings-field settings-field-icon">
+                                        <span>Symbol</span>
+                                        <select name="category_icon">
+                                            <?php foreach ($categoryIconOptions as $iconOption): ?>
+                                                <option
+                                                    value="<?= htmlspecialchars($iconOption, ENT_QUOTES, 'UTF-8') ?>"
+                                                    <?= $iconOption === $categoryIcon ? 'selected' : '' ?>
+                                                ><?= htmlspecialchars($iconOption, ENT_QUOTES, 'UTF-8') ?></option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </label>
+                                </div>
+                                <div class="settings-row-bottom">
+                                    <label class="settings-toggle">
                                         <input
                                             type="checkbox"
                                             name="category_hidden"
@@ -720,42 +771,20 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                                         >
                                         <span>Ausblenden</span>
                                     </label>
-                                </div>
-                                <div class="settings-order-control">
-                                    <span>Reihenfolge</span>
-                                    <div class="settings-move-group" aria-label="Reihenfolge">
+                                    <div class="settings-row-actions">
+                                        <button type="submit" class="settings-save settings-row-save">Speichern</button>
                                         <button
                                             type="submit"
-                                            name="move_direction"
-                                            value="up"
+                                            name="action"
+                                            value="delete_category"
+                                            class="settings-delete-button"
                                             formnovalidate
-                                            class="settings-move-button"
-                                            title="Nach oben"
-                                            aria-label="Nach oben"
-                                        >↑</button>
-                                        <button
-                                            type="submit"
-                                            name="move_direction"
-                                            value="down"
-                                            formnovalidate
-                                            class="settings-move-button"
-                                            title="Nach unten"
-                                            aria-label="Nach unten"
-                                        >↓</button>
+                                            onclick="return confirm('Kategorie wirklich löschen?')"
+                                        >Löschen</button>
                                     </div>
                                 </div>
                             </div>
-                            <div class="settings-row-actions">
-                                <button type="submit" class="settings-save settings-row-save">Speichern</button>
-                                <button
-                                    type="submit"
-                                    name="action"
-                                    value="delete_category"
-                                    class="settings-link settings-delete-button"
-                                    formnovalidate
-                                >Kategorie löschen</button>
-                            </div>
-                        </div>
+                        </details>
                     </form>
                 <?php endforeach; ?>
             </div>
@@ -1066,11 +1095,33 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
         });
     }
 
-    document.querySelectorAll('form.settings-form, form.settings-category-row').forEach(form => {
+    const openCategoryKey = 'einkauf-settings-open-category:' + scrollKey;
+
+    document.querySelectorAll('form.settings-category-row').forEach(form => {
+        form.addEventListener('submit', () => {
+            window.sessionStorage.setItem(scrollKey, String(window.scrollY || window.pageYOffset || 0));
+            const details = form.querySelector('.settings-category-details');
+            if (details instanceof HTMLDetailsElement && details.open) {
+                window.sessionStorage.setItem(openCategoryKey, form.dataset.categoryId || '');
+            }
+        });
+    });
+
+    document.querySelectorAll('form.settings-form').forEach(form => {
         form.addEventListener('submit', () => {
             window.sessionStorage.setItem(scrollKey, String(window.scrollY || window.pageYOffset || 0));
         });
     });
+
+    const savedCategoryId = window.sessionStorage.getItem(openCategoryKey);
+    if (savedCategoryId) {
+        window.sessionStorage.removeItem(openCategoryKey);
+        const targetForm = document.querySelector('form[data-category-id="' + savedCategoryId + '"]');
+        const targetDetails = targetForm && targetForm.querySelector('.settings-category-details');
+        if (targetDetails instanceof HTMLDetailsElement) {
+            targetDetails.open = true;
+        }
+    }
 
     const autoSaveControllers = new WeakMap();
 
@@ -1218,6 +1269,87 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
             themeMediaQuery.addListener(onThemeChange);
         }
     }
+
+    (function initCategoryDragReorder() {
+        const categoryList = document.querySelector('.settings-options');
+        if (!categoryList) return;
+
+        let dragEl = null;
+        let pointerStartY = 0;
+        let dragMoved = false;
+
+        categoryList.addEventListener('pointerdown', (e) => {
+            const handle = e.target.closest('.settings-drag-handle');
+            if (!handle) return;
+            const row = handle.closest('.settings-category-row');
+            if (!row) return;
+
+            e.preventDefault();
+            dragEl = row;
+            dragMoved = false;
+            pointerStartY = e.clientY;
+            dragEl.classList.add('settings-category-dragging');
+            handle.setPointerCapture(e.pointerId);
+        });
+
+        categoryList.addEventListener('pointermove', (e) => {
+            if (!dragEl) return;
+
+            const dy = Math.abs(e.clientY - pointerStartY);
+            if (dy > 4) dragMoved = true;
+            if (!dragMoved) return;
+
+            const rows = Array.from(categoryList.querySelectorAll('.settings-category-row'));
+            const y = e.clientY;
+
+            for (let i = 0; i < rows.length; i++) {
+                const item = rows[i];
+                if (item === dragEl) continue;
+                const rect = item.getBoundingClientRect();
+                if (y < rect.top + rect.height / 2) {
+                    categoryList.insertBefore(dragEl, item);
+                    return;
+                }
+            }
+            const last = rows[rows.length - 1];
+            if (last && last !== dragEl) {
+                categoryList.appendChild(dragEl);
+            }
+        });
+
+        categoryList.addEventListener('pointerup', async () => {
+            if (!dragEl) return;
+            dragEl.classList.remove('settings-category-dragging');
+            const wasDragged = dragMoved;
+            dragEl = null;
+            dragMoved = false;
+
+            if (!wasDragged) return;
+
+            const order = Array.from(categoryList.querySelectorAll('.settings-category-row'))
+                .map(row => parseInt(row.dataset.categoryId || '', 10))
+                .filter(id => id > 0);
+
+            if (!order.length) return;
+
+            const csrfToken = (categoryList.querySelector('input[name="csrf_token"]') || document.querySelector('input[name="csrf_token"]'))?.value || '';
+            try {
+                await fetch(window.location.href, {
+                    method: 'POST',
+                    headers: { 'Accept': 'application/json', 'X-Requested-With': 'fetch' },
+                    body: new URLSearchParams({ action: 'reorder_categories', csrf_token: csrfToken, order: JSON.stringify(order) }),
+                });
+            } catch (_) {}
+        });
+
+        categoryList.addEventListener('pointercancel', () => {
+            if (dragEl) {
+                dragEl.classList.remove('settings-category-dragging');
+                dragEl = null;
+                dragMoved = false;
+            }
+        });
+    })();
 })();
 </script>
 </body>
