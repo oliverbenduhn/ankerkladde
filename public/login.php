@@ -137,7 +137,7 @@ $csrfToken = getCsrfToken();
         <h1>Ankerkladde</h1>
     </div>
     <?php if ($error !== null): ?>
-        <p class="login-error"><?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?></p>
+        <p class="login-error" role="alert"><?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?></p>
     <?php endif; ?>
     <form method="post" action="<?= htmlspecialchars(appPath('login.php'), ENT_QUOTES, 'UTF-8') ?>">
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
@@ -145,12 +145,15 @@ $csrfToken = getCsrfToken();
             <label for="username">Benutzername</label>
             <input type="text" id="username" name="username"
                    autocomplete="username" required autofocus
+                   <?= $error !== null ? 'aria-invalid="true"' : '' ?>
                    value="<?= htmlspecialchars((string) ($_POST['username'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
         </div>
         <div class="login-field">
             <label for="password">Passwort</label>
             <input type="password" id="password" name="password"
-                   autocomplete="current-password" required>
+                   autocomplete="current-password" required
+                   <?= $error !== null ? 'aria-invalid="true"' : '' ?>
+                   enterkeyhint="go">
         </div>
         <button type="submit" class="login-btn">Anmelden</button>
     </form>
