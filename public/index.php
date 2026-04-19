@@ -235,24 +235,24 @@ $magicButtonEnabled = !array_key_exists('magic_button_enabled', $userPreferences
             <span class="note-save-status" id="noteSaveStatus" aria-live="polite"></span>
         </div>
         <div class="note-toolbar" id="noteToolbar" role="toolbar" aria-label="Formatierung">
-            <button type="button" data-cmd="heading" data-level="1" title="Überschrift 1">H1</button>
-            <button type="button" data-cmd="heading" data-level="2" title="Überschrift 2">H2</button>
-            <button type="button" data-cmd="heading" data-level="3" title="Überschrift 3">H3</button>
-            <span class="toolbar-sep"></span>
-            <button type="button" data-cmd="bold" title="Fett"><b>B</b></button>
-            <button type="button" data-cmd="italic" title="Kursiv"><i>I</i></button>
-            <button type="button" data-cmd="strike" title="Durchgestrichen"><s>S</s></button>
-            <span class="toolbar-sep"></span>
-            <button type="button" data-cmd="bulletList" title="Liste">≡</button>
-            <button type="button" data-cmd="orderedList" title="Nummerierte Liste">1.</button>
-            <span class="toolbar-sep"></span>
-            <button type="button" data-cmd="blockquote" title="Zitat">❝</button>
-            <button type="button" data-cmd="codeBlock" title="Code">&lt;/&gt;</button>
-            <span class="toolbar-sep"></span>
-            <button type="button" data-cmd="link" title="Link"><?= icon('link') ?></button>
-            <span class="toolbar-sep"></span>
-            <button type="button" data-cmd="undo" title="Rückgängig">↩</button>
-            <button type="button" data-cmd="redo" title="Wiederholen">↪</button>
+            <button type="button" data-cmd="heading" data-level="1" title="Überschrift 1" aria-label="Überschrift 1">H1</button>
+            <button type="button" data-cmd="heading" data-level="2" title="Überschrift 2" aria-label="Überschrift 2">H2</button>
+            <button type="button" data-cmd="heading" data-level="3" title="Überschrift 3" aria-label="Überschrift 3">H3</button>
+            <span class="toolbar-sep" aria-hidden="true"></span>
+            <button type="button" data-cmd="bold" title="Fett" aria-label="Fett"><b aria-hidden="true">B</b></button>
+            <button type="button" data-cmd="italic" title="Kursiv" aria-label="Kursiv"><i aria-hidden="true">I</i></button>
+            <button type="button" data-cmd="strike" title="Durchgestrichen" aria-label="Durchgestrichen"><s aria-hidden="true">S</s></button>
+            <span class="toolbar-sep" aria-hidden="true"></span>
+            <button type="button" data-cmd="bulletList" title="Liste" aria-label="Liste">≡</button>
+            <button type="button" data-cmd="orderedList" title="Nummerierte Liste" aria-label="Nummerierte Liste">1.</button>
+            <span class="toolbar-sep" aria-hidden="true"></span>
+            <button type="button" data-cmd="blockquote" title="Zitat" aria-label="Zitat">❝</button>
+            <button type="button" data-cmd="codeBlock" title="Code" aria-label="Code-Block">&lt;/&gt;</button>
+            <span class="toolbar-sep" aria-hidden="true"></span>
+            <button type="button" data-cmd="link" title="Link" aria-label="Link einfügen"><?= icon('link') ?></button>
+            <span class="toolbar-sep" aria-hidden="true"></span>
+            <button type="button" data-cmd="undo" title="Rückgängig" aria-label="Rückgängig">↩</button>
+            <button type="button" data-cmd="redo" title="Wiederholen" aria-label="Wiederholen">↪</button>
         </div>
         <div class="note-editor-body" id="noteEditorEl"></div>
     </div>
