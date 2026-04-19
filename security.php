@@ -347,3 +347,41 @@ function isApiKeyAuthRequest(): bool
 {
     return (string) ($_SERVER['ANKERKLADDE_API_AUTH_KIND'] ?? '') === 'key';
 }
+
+/**
+ * Sends Content-Security-Policy and X-Frame-Options headers for HTML pages.
+ *
+ * Call this before any output is sent on every PHP page that returns HTML.
+ *
+ * $allowEsmSh — set to true only for pages that load TipTap from esm.sh
+ * (currently index.php). All other pages use a tighter policy.
+ */
+function sendHtmlPageSecurityHeaders(bool $allowEsmSh = false): void
+{
+    // Prevent the page from being embedded in frames (clickjacking protection)
+    header('X-Frame-Options: DENY');
+
+    $scriptSrc = "'self' 'unsafe-inline'";
+    $connectSrc = "'self'";
+
+    if ($allowEsmSh) {
+        // TipTap and its transitive ESM dependencies are loaded from esm.sh
+        $scriptSrc  .= ' https://esm.sh';
+        $connectSrc .= ' https://esm.sh';
+    }
+
+    $csp = implode('; ', [
+        "default-src 'self'",
+        "script-src $scriptSrc",
+        "style-src 'self' 'unsafe-inline'",
+        "img-src 'self' data: blob:",
+        "media-src 'self' blob:",
+        "connect-src $connectSrc",
+        "worker-src 'self'",
+        "frame-ancestors 'none'",
+        "object-src 'none'",
+        "base-uri 'self'",
+    ]);
+
+    header("Content-Security-Policy: $csp");
+}

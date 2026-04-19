@@ -6,6 +6,7 @@ require dirname(__DIR__) . '/security.php';
 require __DIR__ . '/theme.php';
 
 enforceCanonicalRequest();
+sendHtmlPageSecurityHeaders();
 startAppSession();
 $basePath = appPath();
 $assetVersion = require __DIR__ . '/version.php';
@@ -27,6 +28,42 @@ if ($alreadyLoggedIn) {
 
 $error = null;
 
+// Brute-force protection: track failed login attempts in the session.
+// After 5 failures an exponential delay (up to 30 s) is applied before
+// each attempt, making automated password guessing impractical.
+const LOGIN_ATTEMPT_DELAY_FREE = 5;       // attempts before delay kicks in
+const LOGIN_ATTEMPT_DELAY_MAX_US = 30_000_000; // 30 s ceiling in microseconds
+
+function getLoginFailureCount(): int
+{
+    return (int) ($_SESSION['login_failures'] ?? 0);
+}
+
+function incrementLoginFailureCount(): void
+{
+    $_SESSION['login_failures'] = getLoginFailureCount() + 1;
+}
+
+function resetLoginFailureCount(): void
+{
+    unset($_SESSION['login_failures']);
+}
+
+function applyLoginBruteForceDelay(): void
+{
+    $failures = getLoginFailureCount();
+    if ($failures < LOGIN_ATTEMPT_DELAY_FREE) {
+        return;
+    }
+
+    // 2^(failures-5) seconds, capped at LOGIN_ATTEMPT_DELAY_MAX_US
+    $delayUs = min(
+        (int) (1_000_000 * (2 ** ($failures - LOGIN_ATTEMPT_DELAY_FREE))),
+        LOGIN_ATTEMPT_DELAY_MAX_US
+    );
+    usleep($delayUs);
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $providedToken = $_POST['csrf_token'] ?? null;
 
@@ -39,6 +76,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($username === '' || $password === '') {
             $error = 'Benutzername und Passwort sind erforderlich.';
         } else {
+            // Apply delay before verifying — delay scales with prior failures
+            applyLoginBruteForceDelay();
+
             $db = getDatabase();
             $stmt = $db->prepare(
                 'SELECT id, password_hash, is_admin, must_change_password FROM users WHERE username = :username LIMIT 1'
@@ -47,6 +87,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $user = $stmt->fetch();
 
             if (is_array($user) && password_verify($password, (string) $user['password_hash'])) {
+                resetLoginFailureCount();
                 session_regenerate_id(true);
                 $_SESSION['user_id']  = (int) $user['id'];
                 $_SESSION['is_admin'] = (bool) $user['is_admin'];
@@ -59,6 +100,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 exit;
             }
 
+            incrementLoginFailureCount();
             $error = 'Ungültige Anmeldedaten.';
         }
     }

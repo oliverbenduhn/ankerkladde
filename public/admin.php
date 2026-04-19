@@ -6,6 +6,7 @@ require dirname(__DIR__) . '/security.php';
 require __DIR__ . '/theme.php';
 
 enforceCanonicalRequest();
+sendHtmlPageSecurityHeaders();
 $currentUserId = requireAdmin();
 
 $db = getDatabase();

@@ -6,6 +6,7 @@ require dirname(__DIR__) . '/security.php';
 require __DIR__ . '/theme.php';
 
 enforceCanonicalRequest();
+sendHtmlPageSecurityHeaders(allowEsmSh: true); // TipTap is loaded from esm.sh
 $userId = requireAuth();
 
 $db = getDatabase();
