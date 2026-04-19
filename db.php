@@ -427,6 +427,68 @@ function hasInvalidSortOrder(PDO $db, string $whereClause = '', array $params = 
     return $total > 0 && ($distinctCount !== $total || $minSortOrder < 1);
 }
 
+/**
+ * Checks in a single query whether any category group (or orphan section group)
+ * has a broken sort_order — replacing the previous N+1 per-category loop.
+ *
+ * Expected impact: reduces sort_order validation from N+1 queries to 1 query
+ * on every PHP worker startup (once per process lifetime via the static $db cache).
+ */
+function hasAnyInvalidSortOrderByGroup(PDO $db, bool $hasCategoryId, bool $hasSection): bool
+{
+    if ($hasCategoryId) {
+        // Check all category groups in one pass
+        $stmt = $db->query(
+            'SELECT COUNT(*) AS total,
+                    COUNT(DISTINCT sort_order) AS distinct_count,
+                    MIN(sort_order) AS min_sort_order
+             FROM items
+             WHERE category_id IS NOT NULL
+             GROUP BY category_id
+             HAVING total > 0 AND (distinct_count != total OR min_sort_order < 1)
+             LIMIT 1'
+        );
+        if ($stmt->fetch() !== false) {
+            return true;
+        }
+
+        if ($hasSection) {
+            // Check orphan (legacy) section groups in one pass
+            $stmt = $db->query(
+                'SELECT COUNT(*) AS total,
+                        COUNT(DISTINCT sort_order) AS distinct_count,
+                        MIN(sort_order) AS min_sort_order
+                 FROM items
+                 WHERE category_id IS NULL
+                 GROUP BY section
+                 HAVING total > 0 AND (distinct_count != total OR min_sort_order < 1)
+                 LIMIT 1'
+            );
+            if ($stmt->fetch() !== false) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    if ($hasSection) {
+        $stmt = $db->query(
+            'SELECT COUNT(*) AS total,
+                    COUNT(DISTINCT sort_order) AS distinct_count,
+                    MIN(sort_order) AS min_sort_order
+             FROM items
+             GROUP BY section
+             HAVING total > 0 AND (distinct_count != total OR min_sort_order < 1)
+             LIMIT 1'
+        );
+        return $stmt->fetch() !== false;
+    }
+
+    // No grouping columns — check the whole table
+    return hasInvalidSortOrder($db);
+}
+
 function getDefaultUserPreferences(): array
 {
     return [
@@ -1182,39 +1244,10 @@ function getDatabase(): PDO
         $db->exec("ALTER TABLE items ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0");
         rebuildSortOrder($db);
     } else {
-        $needsRebuild = false;
-
-        if (in_array('category_id', $columnNames, true)) {
-            $categoryIds = $db->query('SELECT DISTINCT category_id FROM items WHERE category_id IS NOT NULL')->fetchAll(PDO::FETCH_COLUMN);
-            foreach ($categoryIds as $categoryId) {
-                if (hasInvalidSortOrder($db, 'category_id = :category_id', [':category_id' => (int) $categoryId])) {
-                    $needsRebuild = true;
-                    break;
-                }
-            }
-
-            if (!$needsRebuild && in_array('section', $columnNames, true)) {
-                $orphanSections = $db->query('SELECT DISTINCT section FROM items WHERE category_id IS NULL')->fetchAll(PDO::FETCH_COLUMN);
-                foreach ($orphanSections as $section) {
-                    if (hasInvalidSortOrder($db, 'section = :section AND category_id IS NULL', [':section' => (string) $section])) {
-                        $needsRebuild = true;
-                        break;
-                    }
-                }
-            }
-        } elseif (in_array('section', $columnNames, true)) {
-            $sections = $db->query('SELECT DISTINCT section FROM items')->fetchAll(PDO::FETCH_COLUMN);
-            foreach ($sections as $section) {
-                if (hasInvalidSortOrder($db, 'section = :section', [':section' => (string) $section])) {
-                    $needsRebuild = true;
-                    break;
-                }
-            }
-        } elseif (hasInvalidSortOrder($db)) {
-            $needsRebuild = true;
-        }
-
-        if ($needsRebuild) {
+        // Single grouped query replaces the previous N+1 per-category loop
+        $hasCategoryId = in_array('category_id', $columnNames, true);
+        $hasSectionCol = in_array('section', $columnNames, true);
+        if (hasAnyInvalidSortOrderByGroup($db, $hasCategoryId, $hasSectionCol)) {
             rebuildSortOrder($db);
         }
     }
