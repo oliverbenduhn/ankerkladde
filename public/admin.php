@@ -267,6 +267,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
 
+        } elseif ($postAction === 'save_upload_limits') {
+            $imageLimit = filter_var($_POST['image_upload_max_mb'] ?? null, FILTER_VALIDATE_INT, [
+                'options' => ['min_range' => 1, 'max_range' => 10240],
+            ]);
+            $fileLimit = filter_var($_POST['file_upload_max_mb'] ?? null, FILTER_VALIDATE_INT, [
+                'options' => ['min_range' => 1, 'max_range' => 10240],
+            ]);
+            $remoteLimit = filter_var($_POST['remote_file_import_max_mb'] ?? null, FILTER_VALIDATE_INT, [
+                'options' => ['min_range' => 1, 'max_range' => 10240],
+            ]);
+
+            if (!is_int($imageLimit) || !is_int($fileLimit) || !is_int($remoteLimit)) {
+                $flash = 'Upload-Grenzen müssen zwischen 1 MB und 10240 MB liegen.';
+                $flashType = 'err';
+            } else {
+                updateUploadLimitSettings($db, [
+                    'image_upload_max_mb' => $imageLimit,
+                    'file_upload_max_mb' => $fileLimit,
+                    'remote_file_import_max_mb' => $remoteLimit,
+                ]);
+                $flash = 'Upload-Grenzen gespeichert.';
+            }
+
         } elseif ($postAction === 'delete') {
             $targetId = filter_var($_POST['user_id'] ?? null, FILTER_VALIDATE_INT, [
                 'options' => ['min_range' => 1],
@@ -454,6 +477,7 @@ $users = $db->query(
 )->fetchAll();
 $productDb = getProductDatabase();
 $productStatus = getProductDatabaseStatus($db, $productDb);
+$uploadLimits = getUploadLimitSettings($db);
 ?>
 <!DOCTYPE html>
 <html lang="de">
@@ -488,6 +512,41 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
             <?= htmlspecialchars($flash, ENT_QUOTES, 'UTF-8') ?>
         </div>
     <?php endif; ?>
+
+    <div class="admin-section">
+        <h2>Upload-Grenzen</h2>
+        <form method="post" action="<?= htmlspecialchars(appPath('admin.php'), ENT_QUOTES, 'UTF-8') ?>">
+            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
+            <input type="hidden" name="action" value="save_upload_limits">
+            <div class="admin-limit-grid">
+                <label class="admin-limit-field">
+                    <span>Bilder</span>
+                    <input type="number" name="image_upload_max_mb" min="1" max="10240" step="1" required
+                           value="<?= (int) $uploadLimits['image_upload_max_mb'] ?>"
+                           aria-label="Maximale Bildgröße in MB">
+                    <small>MB pro Bild-Upload</small>
+                </label>
+                <label class="admin-limit-field">
+                    <span>Dateien</span>
+                    <input type="number" name="file_upload_max_mb" min="1" max="10240" step="1" required
+                           value="<?= (int) $uploadLimits['file_upload_max_mb'] ?>"
+                           aria-label="Maximale Dateigröße in MB">
+                    <small>MB pro Datei-Upload</small>
+                </label>
+                <label class="admin-limit-field">
+                    <span>URL-Import</span>
+                    <input type="number" name="remote_file_import_max_mb" min="1" max="10240" step="1" required
+                           value="<?= (int) $uploadLimits['remote_file_import_max_mb'] ?>"
+                           aria-label="Maximale URL-Importgröße in MB">
+                    <small>MB pro serverseitigem Download</small>
+                </label>
+            </div>
+            <p class="admin-notice">Die tatsaechliche Obergrenze kann zusaetzlich durch PHP- oder Webserver-Limits begrenzt sein.</p>
+            <div class="admin-actions">
+                <button type="submit" class="admin-btn">Speichern</button>
+            </div>
+        </form>
+    </div>
 
     <div class="admin-section">
         <h2>Nutzer anlegen</h2>

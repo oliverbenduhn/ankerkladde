@@ -18,8 +18,6 @@ const IMAGE_UPLOAD_MIME_TYPES = [
     'image/webp' => 'webp',
     'image/gif' => 'gif',
 ];
-const IMAGE_UPLOAD_MAX_BYTES = 20971520;
-const REMOTE_FILE_IMPORT_MAX_BYTES = 524288000;
 const MIME_TYPE_EXTENSIONS = [
     'application/pdf' => 'pdf',
     'application/zip' => 'zip',
@@ -1202,6 +1200,40 @@ function uploadedFileErrorMessage(int $errorCode): array
     };
 }
 
+function activeUploadLimits(): array
+{
+    static $limits = null;
+
+    if ($limits === null) {
+        $limits = getUploadLimitSettings(getDatabase());
+    }
+
+    return $limits;
+}
+
+function activeUploadLimitBytes(string $key): int
+{
+    $limits = activeUploadLimits();
+    $megabytes = (int) ($limits[$key] ?? DEFAULT_UPLOAD_LIMITS_MB[$key] ?? 1);
+
+    return uploadLimitMegabytesToBytes($megabytes);
+}
+
+function formatBytesForMessage(int $bytes): string
+{
+    if ($bytes >= 1073741824 && $bytes % 1073741824 === 0) {
+        return (int) ($bytes / 1073741824) . ' GB';
+    }
+    if ($bytes >= 1048576 && $bytes % 1048576 === 0) {
+        return (int) ($bytes / 1048576) . ' MB';
+    }
+    if ($bytes >= 1024 && $bytes % 1024 === 0) {
+        return (int) ($bytes / 1024) . ' KB';
+    }
+
+    return $bytes . ' B';
+}
+
 function getSingleUploadedFile(): array
 {
     if ($_FILES === []) {
@@ -1247,8 +1279,9 @@ function getSingleUploadedFile(): array
 
 function validateImageUpload(array $uploadedFile): array
 {
-    if ((int) $uploadedFile['size_bytes'] > IMAGE_UPLOAD_MAX_BYTES) {
-        respond(413, ['error' => 'Bilder dürfen maximal 20 MB groß sein.']);
+    $maxBytes = activeUploadLimitBytes('image_upload_max_mb');
+    if ((int) $uploadedFile['size_bytes'] > $maxBytes) {
+        respond(413, ['error' => 'Bilder dürfen maximal ' . formatBytesForMessage($maxBytes) . ' groß sein.']);
     }
 
     $mediaType = detectMimeType((string) $uploadedFile['tmp_name']);
@@ -1268,8 +1301,13 @@ function validateImageUpload(array $uploadedFile): array
     ];
 }
 
-function validateFileUpload(array $uploadedFile): array
+function validateFileUpload(array $uploadedFile, string $limitKey = 'file_upload_max_mb'): array
 {
+    $maxBytes = activeUploadLimitBytes($limitKey);
+    if ((int) $uploadedFile['size_bytes'] > $maxBytes) {
+        respond(413, ['error' => 'Dateien dürfen maximal ' . formatBytesForMessage($maxBytes) . ' groß sein.']);
+    }
+
     $pathInfoExtension = pathinfo((string) $uploadedFile['original_name'], PATHINFO_EXTENSION);
     $extension = normalizeStoredExtension(is_string($pathInfoExtension) ? $pathInfoExtension : '');
     $mediaType = detectMimeType((string) $uploadedFile['tmp_name']);
@@ -1327,6 +1365,7 @@ function downloadRemoteFile(string $url): array
 
     $contentType = '';
     $originalName = extractFilenameFromUrl($url);
+    $maxBytes = activeUploadLimitBytes('remote_file_import_max_mb');
 
     if (function_exists('curl_init')) {
         $handle = @fopen($tmpPath, 'wb');
@@ -1352,8 +1391,8 @@ function downloadRemoteFile(string $url): array
             CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
             CURLOPT_REDIR_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
             CURLOPT_NOPROGRESS => false,
-            CURLOPT_PROGRESSFUNCTION => static function ($resource, float $downloadTotal, float $downloadNow): int {
-                return $downloadNow > REMOTE_FILE_IMPORT_MAX_BYTES || $downloadTotal > REMOTE_FILE_IMPORT_MAX_BYTES ? 1 : 0;
+            CURLOPT_PROGRESSFUNCTION => static function ($resource, float $downloadTotal, float $downloadNow) use ($maxBytes): int {
+                return $downloadNow > $maxBytes || $downloadTotal > $maxBytes ? 1 : 0;
             },
             CURLOPT_HEADERFUNCTION => static function ($resource, string $headerLine) use (&$headers): int {
                 $trimmed = trim($headerLine);
@@ -1378,9 +1417,9 @@ function downloadRemoteFile(string $url): array
             @unlink($tmpPath);
             return ['error' => $error !== '' ? $error : 'Datei konnte nicht geladen werden.'];
         }
-        if ($sizeBytes > REMOTE_FILE_IMPORT_MAX_BYTES) {
+        if ($sizeBytes > $maxBytes) {
             @unlink($tmpPath);
-            return ['error' => 'Dateien dürfen maximal 500 MB groß sein.'];
+            return ['error' => 'Dateien dürfen maximal ' . formatBytesForMessage($maxBytes) . ' groß sein.'];
         }
 
         $contentType = preg_replace('/;.*$/', '', (string) ($headers['content-type'] ?? '')) ?? '';
@@ -1416,11 +1455,11 @@ function downloadRemoteFile(string $url): array
         $chunk = fread($source, 1048576);
         if ($chunk === false) break;
         $sizeBytes += strlen($chunk);
-        if ($sizeBytes > REMOTE_FILE_IMPORT_MAX_BYTES) {
+        if ($sizeBytes > $maxBytes) {
             fclose($source);
             fclose($target);
             @unlink($tmpPath);
-            return ['error' => 'Dateien dürfen maximal 500 MB groß sein.'];
+            return ['error' => 'Dateien dürfen maximal ' . formatBytesForMessage($maxBytes) . ' groß sein.'];
         }
         fwrite($target, $chunk);
     }
@@ -2094,7 +2133,7 @@ try {
                 'size_bytes' => (int) $downloaded['size_bytes'],
                 'original_name' => (string) $downloaded['original_name'],
             ];
-            $uploadMeta = validateFileUpload($uploadedFile);
+            $uploadMeta = validateFileUpload($uploadedFile, 'remote_file_import_max_mb');
             $name = normalizeName($data['name'] ?? null);
             if ($name === '') {
                 $name = normalizeName((string) $uploadedFile['original_name']);

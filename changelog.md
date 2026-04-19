@@ -6,6 +6,13 @@ Aktuelle Version: `4.2.27`
 
 ## 4.2.27 - 2026-04-19
 
+### Dateien
+
+- Dateien-Kategorien koennen nun wahlweise eine lokale Datei hochladen oder eine Datei serverseitig von einer HTTP(S)-URL importieren.
+- Der URL-Import speichert heruntergeladene Dateien als normale Attachments mit zufaelligem Storage-Namen, Dateityp-Erkennung und Download-Link in der Liste.
+- Unsichere Remote-Ziele wie `localhost`, private IP-Bereiche und nicht erlaubte Protokolle werden blockiert; Downloads sind auf 500 MB und HTTP(S)-Redirects begrenzt.
+- Admins koennen Upload-Grenzen fuer Bilder, Dateien und URL-Importe nun auf der Admin-Seite einstellen.
+
 ### Barrierefreiheit
 
 - Einstellungen melden Status- und Fehlermeldungen jetzt per `role="alert"` an Screenreader.
@@ -88,4 +95,3 @@ Aktuelle Version: `4.2.27`
 - Magic-Controller korrekt in den App-Start eingebunden.
 - AI-Request-Handling und Fehlermeldungen verbessert.
 - Klassen und Versionsangaben fuer Magic Bar, `main.js` und Service Worker aktualisiert.
-

@@ -5,6 +5,11 @@ date_default_timezone_set('Europe/Berlin');
 
 const CATEGORY_TYPES = ['list_quantity', 'list_due_date', 'notes', 'images', 'files', 'links'];
 const ATTACHMENT_CATEGORY_TYPES = ['images', 'files'];
+const DEFAULT_UPLOAD_LIMITS_MB = [
+    'image_upload_max_mb' => 20,
+    'file_upload_max_mb' => 500,
+    'remote_file_import_max_mb' => 500,
+];
 const CATEGORY_ICON_OPTIONS = [
     '🛒', '💊', '✅', '💼', '📝', '🖼️', '📁', '🔗',
     '⭐', '📌', '🏠', '🚗', '🍎', '🥦', '🧴', '🎁',
@@ -402,6 +407,55 @@ function setDatabaseMetaFlag(PDO $db, string $key): void
         ':meta_key' => $key,
         ':meta_value' => '1',
     ]);
+}
+
+function normalizeUploadLimitSettings(array $settings): array
+{
+    $normalized = DEFAULT_UPLOAD_LIMITS_MB;
+
+    foreach (array_keys(DEFAULT_UPLOAD_LIMITS_MB) as $key) {
+        $value = filter_var($settings[$key] ?? null, FILTER_VALIDATE_INT, [
+            'options' => ['min_range' => 1, 'max_range' => 10240],
+        ]);
+        if (is_int($value)) {
+            $normalized[$key] = $value;
+        }
+    }
+
+    return $normalized;
+}
+
+function getUploadLimitSettings(PDO $db): array
+{
+    $stmt = $db->prepare('SELECT meta_value FROM database_meta WHERE meta_key = :meta_key LIMIT 1');
+    $stmt->execute([':meta_key' => 'upload_limit_settings']);
+    $raw = $stmt->fetchColumn();
+    $decoded = json_decode(is_string($raw) ? $raw : '{}', true);
+
+    return normalizeUploadLimitSettings(is_array($decoded) ? $decoded : []);
+}
+
+function updateUploadLimitSettings(PDO $db, array $settings): array
+{
+    $normalized = normalizeUploadLimitSettings($settings);
+    $stmt = $db->prepare(
+        'INSERT INTO database_meta (meta_key, meta_value, updated_at)
+         VALUES (:meta_key, :meta_value, CURRENT_TIMESTAMP)
+         ON CONFLICT(meta_key) DO UPDATE SET
+            meta_value = excluded.meta_value,
+            updated_at = CURRENT_TIMESTAMP'
+    );
+    $stmt->execute([
+        ':meta_key' => 'upload_limit_settings',
+        ':meta_value' => json_encode($normalized, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+    ]);
+
+    return $normalized;
+}
+
+function uploadLimitMegabytesToBytes(int $megabytes): int
+{
+    return $megabytes * 1024 * 1024;
 }
 
 function hasInvalidSortOrder(PDO $db, string $whereClause = '', array $params = []): bool
