@@ -5,6 +5,7 @@ import {
     dropZoneEl,
     fileInput,
     fileInputGroup,
+    filePickerArea,
     filePickerButton,
     filePickerName,
     inputHintEl,
@@ -23,6 +24,10 @@ import {
     tabsToggleBtns,
     uploadProgressBarEl,
     uploadProgressEl,
+    uploadModeFileBtn,
+    uploadModeToggle,
+    uploadModeUrlBtn,
+    urlImportArea,
     magicBar,
     magicBtns,
 } from './ui.js';
@@ -31,6 +36,8 @@ import { syncAutoHeight } from './utils.js';
 export function createAppUiController(deps = {}) {
     const { getUserPreferences = () => ({}), getPendingCount = () => 0, onSyncClick = () => {} } = deps;
     let messageTimer = null;
+    let uploadMode = 'file';
+    let lastUploadCategoryId = null;
 
     function setMessage(text, isError = false) {
         clearTimeout(messageTimer);
@@ -75,6 +82,23 @@ export function createAppUiController(deps = {}) {
         filePickerName.textContent = attachment ? attachment.name : 'Keine Datei ausgewählt';
     }
 
+    function setUploadMode(mode) {
+        uploadMode = mode === 'url' ? 'url' : 'file';
+        const isUrlMode = uploadMode === 'url';
+
+        uploadModeFileBtn?.classList.toggle('is-active', !isUrlMode);
+        uploadModeUrlBtn?.classList.toggle('is-active', isUrlMode);
+        uploadModeFileBtn?.setAttribute('aria-pressed', String(!isUrlMode));
+        uploadModeUrlBtn?.setAttribute('aria-pressed', String(isUrlMode));
+
+        if (filePickerArea) filePickerArea.hidden = isUrlMode;
+        if (urlImportArea) urlImportArea.hidden = !isUrlMode;
+    }
+
+    function getUploadMode() {
+        return uploadMode;
+    }
+
     function formatBytes(sizeBytes) {
         const size = Number(sizeBytes);
         if (!Number.isFinite(size) || size < 0) return 'Unbekannt';
@@ -96,6 +120,7 @@ export function createAppUiController(deps = {}) {
 
     function updateUploadUi() {
         const type = getCurrentType();
+        const category = getCurrentCategory();
         const uploadCategory = isAttachmentCategory(type);
         const imageCategory = type === 'images';
         const barcodeCategory = type === 'list_quantity';
@@ -103,7 +128,19 @@ export function createAppUiController(deps = {}) {
         const userPreferences = getUserPreferences();
         const shoppingListScannerEnabled = userPreferences.shopping_list_scanner_enabled !== false;
 
+        if (category?.id !== lastUploadCategoryId) {
+            lastUploadCategoryId = category?.id ?? null;
+            setUploadMode('file');
+        }
+
+        if (type !== 'files' && uploadMode !== 'file') {
+            setUploadMode('file');
+        } else {
+            setUploadMode(uploadMode);
+        }
+
         if (fileInputGroup) fileInputGroup.hidden = !uploadCategory;
+        if (uploadModeToggle) uploadModeToggle.hidden = type !== 'files';
         if (linkDescriptionInput) {
             linkDescriptionInput.hidden = !linkCategory;
             if (!linkCategory && linkDescriptionInput.value !== '') {
@@ -117,7 +154,7 @@ export function createAppUiController(deps = {}) {
         }
 
         const submitBtn = itemForm?.querySelector('[type="submit"]');
-        if (submitBtn) submitBtn.hidden = uploadCategory;
+        if (submitBtn) submitBtn.hidden = uploadCategory && uploadMode === 'file';
         if (scanAddBtn) scanAddBtn.hidden = !shoppingListScannerEnabled || !barcodeCategory || uploadCategory;
         if (scanShoppingBtn) scanShoppingBtn.hidden = !shoppingListScannerEnabled || !barcodeCategory;
 
@@ -276,5 +313,7 @@ export function createAppUiController(deps = {}) {
         updateFilePickerLabel,
         updateHeaders,
         updateUploadUi,
+        getUploadMode,
+        setUploadMode,
     };
 }

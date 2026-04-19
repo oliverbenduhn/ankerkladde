@@ -33,6 +33,9 @@ import {
     settingsFrameEl,
     tabsToggleBtns,
     updateViewportHeight,
+    uploadModeFileBtn,
+    uploadModeUrlBtn,
+    urlImportInput,
 } from './ui.js';
 import { applyThemePreferences } from './theme.js';
 import { normalizeBarcodeValue, syncAutoHeight } from './utils.js';
@@ -61,11 +64,13 @@ export function registerAppEventHandlers(deps) {
         setScannerStatus,
         setUploadProgress,
         setUserPreferences,
+        setUploadMode,
         syncSettingsFrameTheme,
         tabsViewController,
         triggerUploadSelectedAttachment,
         updateFilePickerLabel,
         updateHeaders,
+        updateUploadUi,
         userPreferencesRef,
         editorController,
         addItem,
@@ -83,12 +88,24 @@ export function registerAppEventHandlers(deps) {
         updateFilePickerLabel();
 
         if (!isAttachmentCategory()) return;
+        if (deps.getUploadMode?.() === 'url') return;
         if (!fileInput.files?.[0]) return;
 
         void triggerUploadSelectedAttachment().catch(error => {
             setUploadProgress(0);
             setMessage(error instanceof Error ? error.message : 'Upload fehlgeschlagen.', true);
         });
+    });
+
+    uploadModeFileBtn?.addEventListener('click', () => {
+        setUploadMode('file');
+        updateUploadUi();
+    });
+
+    uploadModeUrlBtn?.addEventListener('click', () => {
+        setUploadMode('url');
+        updateUploadUi();
+        urlImportInput?.focus();
     });
 
     itemInput?.addEventListener('input', () => {

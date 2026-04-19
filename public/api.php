@@ -19,6 +19,7 @@ const IMAGE_UPLOAD_MIME_TYPES = [
     'image/gif' => 'gif',
 ];
 const IMAGE_UPLOAD_MAX_BYTES = 20971520;
+const REMOTE_FILE_IMPORT_MAX_BYTES = 524288000;
 const MIME_TYPE_EXTENSIONS = [
     'application/pdf' => 'pdf',
     'application/zip' => 'zip',
@@ -1283,6 +1284,157 @@ function validateFileUpload(array $uploadedFile): array
     ];
 }
 
+function validateSsrfSafeUrl(string $url): void
+{
+    if ($url === '' || !isAllowedRemoteUrl($url)) {
+        respond(422, ['error' => 'URL ist nicht erlaubt.']);
+    }
+}
+
+function extractFilenameFromUrl(string $url): string
+{
+    $path = parse_url($url, PHP_URL_PATH);
+    $filename = is_string($path) ? basename(rawurldecode($path)) : '';
+
+    return normalizeOriginalFilename($filename);
+}
+
+function extractFilenameFromContentDisposition(string $header): string
+{
+    if (preg_match('/filename\*=UTF-8\'\'([^;]+)/i', $header, $matches) === 1) {
+        return normalizeOriginalFilename(rawurldecode(trim($matches[1], " \t\"")));
+    }
+
+    if (preg_match('/filename="([^"]+)"/i', $header, $matches) === 1) {
+        return normalizeOriginalFilename($matches[1]);
+    }
+
+    if (preg_match('/filename=([^;]+)/i', $header, $matches) === 1) {
+        return normalizeOriginalFilename(trim($matches[1], " \t\""));
+    }
+
+    return '';
+}
+
+function downloadRemoteFile(string $url): array
+{
+    validateSsrfSafeUrl($url);
+
+    $tmpPath = tempnam(sys_get_temp_dir(), 'ankerkladde-url-');
+    if ($tmpPath === false) {
+        return ['error' => 'Temporäre Datei konnte nicht angelegt werden.'];
+    }
+
+    $contentType = '';
+    $originalName = extractFilenameFromUrl($url);
+
+    if (function_exists('curl_init')) {
+        $handle = @fopen($tmpPath, 'wb');
+        if ($handle === false) {
+            @unlink($tmpPath);
+            return ['error' => 'Temporäre Datei konnte nicht geöffnet werden.'];
+        }
+
+        $headers = [];
+        $ch = curl_init($url);
+        if ($ch === false) {
+            fclose($handle);
+            @unlink($tmpPath);
+            return ['error' => 'Download konnte nicht gestartet werden.'];
+        }
+
+        curl_setopt_array($ch, [
+            CURLOPT_FILE => $handle,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_MAXREDIRS => 5,
+            CURLOPT_CONNECTTIMEOUT => 10,
+            CURLOPT_TIMEOUT => 120,
+            CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
+            CURLOPT_REDIR_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
+            CURLOPT_NOPROGRESS => false,
+            CURLOPT_PROGRESSFUNCTION => static function ($resource, float $downloadTotal, float $downloadNow): int {
+                return $downloadNow > REMOTE_FILE_IMPORT_MAX_BYTES || $downloadTotal > REMOTE_FILE_IMPORT_MAX_BYTES ? 1 : 0;
+            },
+            CURLOPT_HEADERFUNCTION => static function ($resource, string $headerLine) use (&$headers): int {
+                $trimmed = trim($headerLine);
+                if ($trimmed !== '' && str_contains($trimmed, ':')) {
+                    [$name, $value] = explode(':', $trimmed, 2);
+                    $headers[strtolower(trim($name))] = trim($value);
+                }
+                return strlen($headerLine);
+            },
+        ]);
+
+        $ok = curl_exec($ch);
+        $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+        $error = curl_error($ch);
+        curl_close($ch);
+        fclose($handle);
+
+        $sizeBytes = filesize($tmpPath);
+        $sizeBytes = $sizeBytes !== false ? $sizeBytes : 0;
+
+        if ($ok === false || $status < 200 || $status >= 300) {
+            @unlink($tmpPath);
+            return ['error' => $error !== '' ? $error : 'Datei konnte nicht geladen werden.'];
+        }
+        if ($sizeBytes > REMOTE_FILE_IMPORT_MAX_BYTES) {
+            @unlink($tmpPath);
+            return ['error' => 'Dateien dürfen maximal 500 MB groß sein.'];
+        }
+
+        $contentType = preg_replace('/;.*$/', '', (string) ($headers['content-type'] ?? '')) ?? '';
+        if (isset($headers['content-disposition'])) {
+            $headerName = extractFilenameFromContentDisposition((string) $headers['content-disposition']);
+            if ($headerName !== '') {
+                $originalName = $headerName;
+            }
+        }
+
+        return [
+            'tmp_path' => $tmpPath,
+            'size_bytes' => $sizeBytes,
+            'original_name' => $originalName,
+            'content_type' => $contentType,
+        ];
+    }
+
+    $source = @fopen($url, 'rb', false, stream_context_create([
+        'http' => ['follow_location' => 1, 'max_redirects' => 5, 'timeout' => 120],
+        'https' => ['follow_location' => 1, 'max_redirects' => 5, 'timeout' => 120],
+    ]));
+    $target = @fopen($tmpPath, 'wb');
+    if ($source === false || $target === false) {
+        if (is_resource($source)) fclose($source);
+        if (is_resource($target)) fclose($target);
+        @unlink($tmpPath);
+        return ['error' => 'Datei konnte nicht geladen werden.'];
+    }
+
+    $sizeBytes = 0;
+    while (!feof($source)) {
+        $chunk = fread($source, 1048576);
+        if ($chunk === false) break;
+        $sizeBytes += strlen($chunk);
+        if ($sizeBytes > REMOTE_FILE_IMPORT_MAX_BYTES) {
+            fclose($source);
+            fclose($target);
+            @unlink($tmpPath);
+            return ['error' => 'Dateien dürfen maximal 500 MB groß sein.'];
+        }
+        fwrite($target, $chunk);
+    }
+    fclose($source);
+    fclose($target);
+
+    return [
+        'tmp_path' => $tmpPath,
+        'size_bytes' => $sizeBytes,
+        'original_name' => $originalName,
+        'content_type' => $contentType,
+    ];
+}
+
 function buildStoredFilename(string $type, string $extension): string
 {
     $randomName = bin2hex(random_bytes(16));
@@ -1918,6 +2070,87 @@ try {
             }
 
             respond(201, ['message' => 'Upload gespeichert.', 'id' => $itemId]);
+
+        case 'import_url':
+            requireMethod('POST');
+            $data = requestData();
+            if (!isApiKeyAuthRequest()) {
+                requireCsrfToken($data);
+            }
+
+            $category = requireCategory($data, $db, $userId);
+            validateCategoryType($category, ['files'], 'URL-Import nur in Dateien-Kategorien.');
+
+            $importUrl = trim((string) ($data['url'] ?? ''));
+            validateSsrfSafeUrl($importUrl);
+
+            $downloaded = downloadRemoteFile($importUrl);
+            if (isset($downloaded['error'])) {
+                respond(422, ['error' => (string) $downloaded['error']]);
+            }
+
+            $uploadedFile = [
+                'tmp_name' => (string) $downloaded['tmp_path'],
+                'size_bytes' => (int) $downloaded['size_bytes'],
+                'original_name' => (string) $downloaded['original_name'],
+            ];
+            $uploadMeta = validateFileUpload($uploadedFile);
+            $name = normalizeName($data['name'] ?? null);
+            if ($name === '') {
+                $name = normalizeName((string) $uploadedFile['original_name']);
+            }
+            if ($name === '') {
+                $name = 'Datei';
+            }
+
+            $storedName = buildStoredFilename('files', (string) $uploadMeta['stored_extension']);
+            $targetPath = getAttachmentStorageDirectory('files') . '/' . $storedName;
+            $storedFileMoved = false;
+            $itemId = null;
+
+            $db->beginTransaction();
+            try {
+                $db->prepare(
+                    'INSERT INTO items (name, quantity, due_date, content, section, category_id, sort_order, user_id)
+                     VALUES (:name, \'\', \'\', \'\', \'\', :category_id, :sort_order, :user_id)'
+                )->execute([
+                    ':name' => $name,
+                    ':category_id' => (int) $category['id'],
+                    ':sort_order' => prependItemSortOrder($db, $userId, (int) $category['id']),
+                    ':user_id' => $userId,
+                ]);
+                $itemId = (int) $db->lastInsertId();
+
+                if (!@rename((string) $downloaded['tmp_path'], $targetPath)) {
+                    throw new RuntimeException('Importierte Datei konnte nicht gespeichert werden.');
+                }
+                $storedFileMoved = true;
+
+                $db->prepare(
+                    'INSERT INTO attachments (item_id, storage_section, stored_name, original_name, media_type, size_bytes)
+                     VALUES (:item_id, :storage_section, :stored_name, :original_name, :media_type, :size_bytes)'
+                )->execute([
+                    ':item_id' => $itemId,
+                    ':storage_section' => 'files',
+                    ':stored_name' => $storedName,
+                    ':original_name' => (string) $uploadedFile['original_name'],
+                    ':media_type' => (string) $uploadMeta['media_type'],
+                    ':size_bytes' => (int) $uploadedFile['size_bytes'],
+                ]);
+
+                $db->commit();
+            } catch (Throwable $exception) {
+                if ($db->inTransaction()) {
+                    $db->rollBack();
+                }
+                if ($storedFileMoved && is_file($targetPath)) {
+                    @unlink($targetPath);
+                }
+                @unlink((string) $downloaded['tmp_path']);
+                throw $exception;
+            }
+
+            respond(201, ['message' => 'Datei importiert.', 'id' => $itemId]);
 
         case 'toggle':
             requireMethod('POST');

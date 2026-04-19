@@ -93,6 +93,8 @@ export function createAppRuntime(deps) {
     const makeUploadProgressCallback = () => appUiController.makeUploadProgressCallback();
     const updateHeaders = () => appUiController.updateHeaders();
     const updateUploadUi = () => appUiController.updateUploadUi();
+    const getUploadMode = () => appUiController.getUploadMode();
+    const setUploadMode = mode => appUiController.setUploadMode(mode);
     const applyUserPreferences = preferences => appUiController.updateFeatureVisibility(preferences, {
         closeMagic: () => magicController?.closeMagic(),
         closeScanner: () => scannerController?.closeScanner(),
@@ -134,6 +136,7 @@ export function createAppRuntime(deps) {
         cacheCurrentCategoryItems,
         closeNoteEditor,
         getItemById,
+        getUploadMode,
         getVisibleCategories,
         invalidateCategoryCache,
         loadItems,
@@ -270,6 +273,7 @@ export function createAppRuntime(deps) {
         setNetworkStatus,
         setScannerStatus,
         setUploadProgress,
+        setUploadMode,
         setUserPreferences,
         swipeController,
         syncSettingsFrameTheme,
@@ -277,6 +281,8 @@ export function createAppRuntime(deps) {
         triggerUploadSelectedAttachment: async () => { await itemsActionsController.uploadSelectedAttachment(); },
         updateFilePickerLabel,
         updateHeaders,
+        updateUploadUi,
+        getUploadMode,
         magicController,
     };
 }

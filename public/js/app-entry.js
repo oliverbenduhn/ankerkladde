@@ -37,6 +37,7 @@ export function startApp(version) {
         flushOfflineQueue,
         handleIncomingShare,
         handleScannedBarcode,
+        getUploadMode,
         loadCategories,
         loadItems,
         navigation,
@@ -54,12 +55,14 @@ export function startApp(version) {
         setNetworkStatus,
         setScannerStatus,
         setUploadProgress,
+        setUploadMode,
         swipeController,
         syncSettingsFrameTheme,
         tabsViewController,
         triggerUploadSelectedAttachment,
         updateFilePickerLabel,
         updateHeaders,
+        updateUploadUi,
     } = runtime;
 
     applyUserPreferences = runtimeApplyUserPreferences;
@@ -91,12 +94,15 @@ export function startApp(version) {
         setNetworkStatus,
         setScannerStatus,
         setUploadProgress,
+        setUploadMode,
         setUserPreferences,
         syncSettingsFrameTheme,
         tabsViewController,
         triggerUploadSelectedAttachment,
+        getUploadMode,
         updateFilePickerLabel,
         updateHeaders,
+        updateUploadUi,
         userPreferencesRef: () => userPreferences,
     });
 

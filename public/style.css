@@ -273,6 +273,55 @@ button, input { font: inherit; }
     border-radius: 12px;
 }
 
+.upload-mode-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px;
+    background: var(--background);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    flex-shrink: 0;
+}
+
+.upload-mode-btn {
+    min-height: 30px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.82rem;
+    font-weight: 650;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.upload-mode-btn.is-active {
+    background: var(--accent);
+    color: var(--accent-contrast, var(--text-primary));
+}
+
+.file-picker-area {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    flex: 1;
+}
+
+.url-import-area {
+    flex: 1;
+    min-width: 180px;
+}
+
+.input-area .url-import-input {
+    width: 100%;
+    min-height: 36px;
+    padding: 0 12px;
+    border-radius: 9px;
+}
+
 .file-picker-button {
     display: inline-flex;
     align-items: center;
@@ -311,6 +360,19 @@ button, input { font: inherit; }
     color: var(--text-muted);
     font-size: 0.75rem;
     white-space: nowrap;
+}
+
+@media (max-width: 560px) {
+    .file-input-group {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .upload-mode-toggle,
+    .file-picker-area,
+    .url-import-area {
+        width: 100%;
+    }
 }
 
 .file-input-group.is-disabled {

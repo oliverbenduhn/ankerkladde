@@ -1,6 +1,6 @@
 import { appUrl, api, apiUpload } from './api.js';
 import { getCurrentCategory, isAttachmentCategory, state } from './state.js';
-import { fileInput, itemInput, linkDescriptionInput, quantityInput } from './ui.js';
+import { fileInput, itemInput, linkDescriptionInput, quantityInput, urlImportInput } from './ui.js';
 import { escapeRegExp } from './utils.js';
 import { enqueueAction } from './offline-queue.js';
 
@@ -9,6 +9,7 @@ export function createItemsActionsController(deps) {
         cacheCurrentCategoryItems,
         closeNoteEditor,
         getItemById,
+        getUploadMode,
         getVisibleCategories,
         loadItems,
         makeUploadProgressCallback,
@@ -190,6 +191,41 @@ export function createItemsActionsController(deps) {
         setMessage(category.type === 'images' ? 'Bild hochgeladen.' : 'Datei hochgeladen.');
     }
 
+    async function importFileFromUrl() {
+        const category = getCurrentCategory();
+        if (!category || category.type !== 'files') return;
+
+        const url = urlImportInput?.value.trim() || '';
+        if (!url) {
+            setMessage('Bitte gib eine URL ein.', true);
+            return;
+        }
+
+        try {
+            const parsed = new URL(url);
+            if (!['http:', 'https:'].includes(parsed.protocol)) {
+                setMessage('Nur HTTP(S)-URLs erlaubt.', true);
+                return;
+            }
+        } catch {
+            setMessage('Ungültige URL.', true);
+            return;
+        }
+
+        const body = new URLSearchParams({
+            category_id: String(category.id),
+            url,
+            name: itemInput.value.trim(),
+        });
+        setMessage('Datei wird geladen...');
+        await api('import_url', { method: 'POST', body });
+        resetItemForm();
+        if (urlImportInput) urlImportInput.value = '';
+        invalidateCategoryCache(category.id);
+        await loadItems();
+        setMessage('Datei importiert.');
+    }
+
     async function addItem(event) {
         event.preventDefault();
         const category = getCurrentCategory();
@@ -210,7 +246,11 @@ export function createItemsActionsController(deps) {
         }
 
         if (isAttachmentCategory(category.type)) {
-            await uploadSelectedAttachment();
+            if (getUploadMode() === 'url' && category.type === 'files') {
+                await importFileFromUrl();
+            } else {
+                await uploadSelectedAttachment();
+            }
             return;
         }
 

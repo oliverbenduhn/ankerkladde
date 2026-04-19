@@ -156,11 +156,22 @@ $magicButtonEnabled = !array_key_exists('magic_button_enabled', $userPreferences
                       class="link-description-input" placeholder="Beschreibung optional" aria-label="Beschreibung"
                       autocomplete="off" enterkeyhint="done" rows="2" hidden></textarea>
             <div class="file-input-group" id="fileInputGroup" hidden>
-                <label for="fileInput" class="file-picker-button" id="filePickerButton">Datei wählen</label>
-                <input type="file" id="fileInput" name="attachment" hidden>
-                <button type="button" id="cameraBtn" class="file-picker-button btn-camera" hidden aria-label="Foto aufnehmen"><?= icon('camera') ?></button>
-                <input type="file" id="cameraInput" accept="image/*" capture="environment" hidden>
-                <span class="file-picker-name" id="filePickerName">Keine Datei ausgewählt</span>
+                <div class="upload-mode-toggle" id="uploadModeToggle" hidden>
+                    <button type="button" class="upload-mode-btn is-active" id="uploadModeFile" aria-pressed="true">Datei wählen</button>
+                    <button type="button" class="upload-mode-btn" id="uploadModeUrl" aria-pressed="false">Von URL laden</button>
+                </div>
+                <div class="file-picker-area" id="filePickerArea">
+                    <label for="fileInput" class="file-picker-button" id="filePickerButton">Datei wählen</label>
+                    <input type="file" id="fileInput" name="attachment" hidden>
+                    <button type="button" id="cameraBtn" class="file-picker-button btn-camera" hidden aria-label="Foto aufnehmen"><?= icon('camera') ?></button>
+                    <input type="file" id="cameraInput" accept="image/*" capture="environment" hidden>
+                    <span class="file-picker-name" id="filePickerName">Keine Datei ausgewählt</span>
+                </div>
+                <div class="url-import-area" id="urlImportArea" hidden>
+                    <input type="url" id="urlImportInput" placeholder="https://example.com/datei.pdf"
+                           inputmode="url" autocomplete="off" autocorrect="off"
+                           class="url-import-input" aria-label="Datei-URL">
+                </div>
                 <span class="disk-free-display" id="diskFreeDisplay" hidden></span>
             </div>
             <input type="text" id="quantityInput" name="quantity"
