@@ -253,6 +253,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         ':password_hash' => password_hash($newPassword, PASSWORD_BCRYPT),
                         ':must_change_password' => $mustChangePassword ? 1 : 0,
                     ]);
+                    $newUserId = (int) $db->lastInsertId();
+                    createDefaultCategoriesForUser($db, $newUserId);
                     $flash = "Nutzer '{$newUsername}' angelegt." . ($mustChangePassword ? ' Passwortwechsel beim ersten Login ist aktiviert.' : '');
                 } catch (PDOException $e) {
                     if (str_contains($e->getMessage(), 'UNIQUE')) {

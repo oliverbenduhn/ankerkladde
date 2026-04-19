@@ -78,6 +78,7 @@ $envAdminForcePasswordChange = is_string($envVal)
 if ($envAdminUser !== '' && $envAdminPass !== '') {
     try {
         $adminId = createUser($db, $envAdminUser, $envAdminPass, true, $envAdminForcePasswordChange);
+        createDefaultCategoriesForUser($db, $adminId);
         echo "Admin '{$envAdminUser}' angelegt (ID: {$adminId}).";
         if ($envAdminForcePasswordChange) {
             echo " Passwortwechsel beim ersten Login ist aktiviert.";
@@ -100,6 +101,7 @@ if ($envAdminUser !== '' && $envAdminPass !== '') {
     }
     try {
         $adminId = createUser($db, $adminUser, $adminPass, true);
+        createDefaultCategoriesForUser($db, $adminId);
         echo "Admin '{$adminUser}' angelegt (ID: {$adminId}).\n";
     } catch (PDOException $e) {
         if (str_contains($e->getMessage(), 'UNIQUE constraint failed')) {
@@ -120,6 +122,7 @@ unset($envVal);
 if ($envRegularUser !== '' && $envRegularPass !== '') {
     try {
         $userId = createUser($db, $envRegularUser, $envRegularPass, false);
+        createDefaultCategoriesForUser($db, $userId);
         $db->prepare('UPDATE items SET user_id = :uid WHERE user_id IS NULL')
            ->execute([':uid' => $userId]);
         $count = $db->query('SELECT changes()')->fetchColumn();
@@ -146,6 +149,7 @@ if ($envRegularUser !== '' && $envRegularPass !== '') {
             }
             try {
                 $userId = createUser($db, $regularUser, $regularPass, false);
+                createDefaultCategoriesForUser($db, $userId);
                 $db->prepare('UPDATE items SET user_id = :uid WHERE user_id IS NULL')
                    ->execute([':uid' => $userId]);
                 $count = $db->query('SELECT changes()')->fetchColumn();
