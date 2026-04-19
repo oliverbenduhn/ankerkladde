@@ -4,3 +4,7 @@
 ## 2024-05-16 - [ensureDefaultCategories Global Check Overhead]
 **Learning:** Found that `ensureDefaultCategories($db)` was running unconditionally inside `getDatabase()` on every request, creating massive overhead for large userbases.
 **Action:** Always verify if a global data initialization or check function in connection bootstrapping can be guarded behind a one-time execution flag (e.g. `hasDatabaseMetaFlag`) and its workload shifted to specific targeted events (e.g., executing `createDefaultCategoriesForUser` during new user creation).
+
+## 2026-04-19 - [sort_order Validation N+1 in getDatabase()]
+**Learning:** After the previous meta-flag guards were added for migrations, a subtler N+1 remained: `getDatabase()` still fetched all DISTINCT category_ids and then ran `hasInvalidSortOrder()` once per category (N+2 queries total per worker start). The fix was a single grouped SQL query with `GROUP BY category_id HAVING ... LIMIT 1` which short-circuits on the first broken group. This pattern (collapse per-group integrity checks into one aggregated query) applies wherever a health-check loops over entities.
+**Action:** When you see a `SELECT DISTINCT <group_col>` followed by a foreach loop of per-row queries, ask whether a single `GROUP BY ... HAVING` query can replace the entire loop. In `getDatabase()` specifically, the sort_order check is now done — future work should focus elsewhere.
