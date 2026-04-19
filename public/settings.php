@@ -513,13 +513,13 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
 
 
     <?php if ($flash !== null): ?>
-        <div class="settings-flash settings-flash-<?= htmlspecialchars($flashType, ENT_QUOTES, 'UTF-8') ?>">
+        <div class="settings-flash settings-flash-<?= htmlspecialchars($flashType, ENT_QUOTES, 'UTF-8') ?>" role="alert">
             <?= htmlspecialchars($flash, ENT_QUOTES, 'UTF-8') ?>
         </div>
     <?php endif; ?>
 
     <?php if ($passwordChangeRequired): ?>
-        <div class="settings-flash settings-flash-err">
+        <div class="settings-flash settings-flash-err" role="alert">
             Beim ersten Login musst du dein Passwort ändern, bevor du die App weiter nutzen kannst.
         </div>
     <?php endif; ?>
@@ -1016,6 +1016,7 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
 
         const flash = document.createElement('div');
         flash.className = `settings-flash settings-flash-${type === 'err' ? 'err' : 'ok'}`;
+        flash.setAttribute('role', 'alert');
         flash.textContent = message;
         document.body.appendChild(flash);
     }
