@@ -355,11 +355,14 @@ function isApiKeyAuthRequest(): bool
  *
  * $allowEsmSh — set to true only for pages that load TipTap from esm.sh
  * (currently index.php). All other pages use a tighter policy.
+ *
+ * $allowSameOriginFraming — set to true only for pages intentionally embedded
+ * by the app shell on the same origin (currently settings.php).
  */
-function sendHtmlPageSecurityHeaders(bool $allowEsmSh = false): void
+function sendHtmlPageSecurityHeaders(bool $allowEsmSh = false, bool $allowSameOriginFraming = false): void
 {
-    // Prevent the page from being embedded in frames (clickjacking protection)
-    header('X-Frame-Options: DENY');
+    // Prevent cross-origin embedding while allowing explicit same-origin app embeds.
+    header('X-Frame-Options: ' . ($allowSameOriginFraming ? 'SAMEORIGIN' : 'DENY'));
 
     $scriptSrc = "'self' 'unsafe-inline'";
     $connectSrc = "'self'";
@@ -378,7 +381,7 @@ function sendHtmlPageSecurityHeaders(bool $allowEsmSh = false): void
         "media-src 'self' blob:",
         "connect-src $connectSrc",
         "worker-src 'self'",
-        "frame-ancestors 'none'",
+        $allowSameOriginFraming ? "frame-ancestors 'self'" : "frame-ancestors 'none'",
         "object-src 'none'",
         "base-uri 'self'",
     ]);

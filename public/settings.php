@@ -6,7 +6,7 @@ require dirname(__DIR__) . '/security.php';
 require __DIR__ . '/theme.php';
 
 enforceCanonicalRequest();
-sendHtmlPageSecurityHeaders();
+sendHtmlPageSecurityHeaders(allowSameOriginFraming: true);
 $userId = requireAuth();
 $db = getDatabase();
 $csrfToken = getCsrfToken();
