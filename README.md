@@ -159,6 +159,7 @@ Wichtig:
 | --- | --- | --- |
 | `EINKAUF_DATA_DIR` | `./data` bzw. `/data` im Container | Speicherort fuer SQLite-Dateien und Uploads |
 | `ANKERKLADDE_CANONICAL_HOST` | `ankerkladde.benduhn.de` | Produktiver Hostname; leer fuer freie Hostnamen |
+| `ANKERKLADDE_SESSION_LIFETIME_DAYS` | `30` | Dauer, fuer die Browser-Login und PHP-Session gueltig bleiben; `0` nutzt ein Browser-Session-Cookie |
 | `EINKAUF_TRUST_PROXY_HEADERS` | automatisch nur lokal vertraut | Aktiviert Vertrauen in `X-Forwarded-*` |
 | `WS_NOTIFY_URL` | `http://127.0.0.1:3000/notify` | Ziel fuer Update-Broadcasts aus `api.php` |
 | `WS_HOST` | `127.0.0.1` | Host fuer WebSocket-Benachrichtigungen aus `settings.php` |
@@ -179,7 +180,7 @@ Die JSON-API liegt unter `public/api.php` und wird sowohl vom Frontend als auch 
 | `fetch_metadata` | `GET` | Titel/Beschreibung/Bild zu einer externen URL holen |
 | `preferences` | `GET` / `POST` | Nutzerpraeferenzen lesen und speichern |
 
-Die Browser-Erweiterung authentifiziert sich mit `X-API-Key`. Regulare Browser-Sessions verwenden Session-Cookies und CSRF-Token.
+Die Browser-Erweiterung authentifiziert sich mit `X-API-Key`. Regulare Browser-Sessions verwenden Session-Cookies und CSRF-Token. Im Docker-Betrieb werden PHP-Session-Dateien unter `/data/sessions` abgelegt und ueberleben damit Rebuilds oder Container-Neustarts, solange das Daten-Volume erhalten bleibt.
 
 ## WebSocket und Live-Sync
 

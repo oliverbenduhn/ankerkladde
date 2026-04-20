@@ -20,6 +20,37 @@ function getEnvBool(string $name): ?bool
     };
 }
 
+function getEnvInt(string $name): ?int
+{
+    $value = getenv($name);
+
+    if (!is_string($value) || trim($value) === '') {
+        return null;
+    }
+
+    $value = trim($value);
+    if (!preg_match('/^-?\d+$/', $value)) {
+        return null;
+    }
+
+    return (int) $value;
+}
+
+function getSessionLifetimeSeconds(): int
+{
+    $configuredDays = getEnvInt('ANKERKLADDE_SESSION_LIFETIME_DAYS');
+    if ($configuredDays !== null) {
+        return max(0, $configuredDays) * 24 * 60 * 60;
+    }
+
+    return 30 * 24 * 60 * 60;
+}
+
+function getSessionDirectory(): string
+{
+    return getDataDirectory() . '/sessions';
+}
+
 function getRequestHeaderValue(string $serverKey): ?string
 {
     $value = $_SERVER[$serverKey] ?? null;
@@ -148,6 +179,14 @@ function startAppSession(): void
         return;
     }
 
+    $sessionLifetime = getSessionLifetimeSeconds();
+    if ($sessionLifetime > 0) {
+        ini_set('session.gc_maxlifetime', (string) $sessionLifetime);
+    }
+
+    ensureDirectoryExists(getSessionDirectory());
+    ini_set('session.save_path', getSessionDirectory());
+
     $cookiePath = getAppBasePath();
     if ($cookiePath === '') {
         $cookiePath = '/';
@@ -156,7 +195,7 @@ function startAppSession(): void
     }
 
     session_set_cookie_params([
-        'lifetime' => 0,
+        'lifetime' => $sessionLifetime,
         'httponly' => true,
         'path' => $cookiePath,
         'samesite' => 'Lax',
