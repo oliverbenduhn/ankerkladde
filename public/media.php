@@ -134,12 +134,26 @@ try {
         : 'attachment';
     $fileSize = filesize($absolutePath);
 
+    // ETag based on attachment updated_at + stored_name — changes only when the file is replaced.
+    // Enables conditional GET (304 Not Modified) so browsers skip re-downloading unchanged files.
+    // max-age raised from 60 s to 3600 s (1 h) since attachments rarely change; ETag handles
+    // staleness detection on revalidation. Weak ETag (W/) because chunked transfer may differ.
+    $etagValue = sprintf('W/"%s-%s"', (string) ($attachment['updated_at'] ?? ''), (string) ($attachment['stored_name'] ?? ''));
+    $ifNoneMatch = $_SERVER['HTTP_IF_NONE_MATCH'] ?? null;
+
     header('Content-Type: ' . $mediaType);
     header('Content-Length: ' . (string) ($fileSize !== false ? $fileSize : (int) ($attachment['size_bytes'] ?? 0)));
     header('Content-Disposition: ' . $dispositionType . '; filename="' . addcslashes($filename, "\"\\") . '"; filename*=UTF-8\'\'' . rawurlencode($filename));
-    header('Cache-Control: private, max-age=60');
+    header('Cache-Control: private, max-age=3600');
+    header('ETag: ' . $etagValue);
     header('X-Content-Type-Options: nosniff');
     header('X-Frame-Options: DENY');
+
+    // Return 304 if the client already has the current version — no body needed.
+    if (is_string($ifNoneMatch) && trim($ifNoneMatch) === $etagValue) {
+        http_response_code(304);
+        exit;
+    }
 
     if ($method === 'HEAD') {
         exit;
