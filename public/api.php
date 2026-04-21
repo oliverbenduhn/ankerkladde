@@ -1015,20 +1015,25 @@ function sanitizeRichTextHtmlFallback(string $html): string
     return strip_tags($html, '<p><br><strong><b><em><i><s><ul><ol><li><blockquote><pre><code><h1><h2><h3><a>');
 }
 
-function sanitizeRichTextNode(DOMNode $node, DOMDocument $document): void
+function cleanNonElementNode(DOMNode $node, DOMDocument $document): bool
 {
     if ($node instanceof DOMComment) {
         $node->parentNode?->removeChild($node);
-        return;
+        return true;
     }
 
     if (!($node instanceof DOMElement)) {
         foreach (iterator_to_array($node->childNodes) as $childNode) {
             sanitizeRichTextNode($childNode, $document);
         }
-        return;
+        return true;
     }
 
+    return false;
+}
+
+function cleanElementNode(DOMElement $node, DOMDocument $document): bool
+{
     $allowedTags = ['p', 'br', 'strong', 'b', 'em', 'i', 's', 'ul', 'ol', 'li', 'blockquote', 'pre', 'code', 'h1', 'h2', 'h3', 'a'];
     $tagName = strtolower($node->tagName);
 
@@ -1040,8 +1045,15 @@ function sanitizeRichTextNode(DOMNode $node, DOMDocument $document): void
             }
             $parentNode->removeChild($node);
         }
-        return;
+        return true;
     }
+
+    return false;
+}
+
+function cleanElementAttributes(DOMElement $node): void
+{
+    $tagName = strtolower($node->tagName);
 
     foreach (iterator_to_array($node->attributes) as $attribute) {
         $attributeName = strtolower($attribute->nodeName);
@@ -1071,6 +1083,21 @@ function sanitizeRichTextNode(DOMNode $node, DOMDocument $document): void
         } else {
             $node->removeAttribute('rel');
         }
+    }
+}
+
+function sanitizeRichTextNode(DOMNode $node, DOMDocument $document): void
+{
+    if (cleanNonElementNode($node, $document)) {
+        return;
+    }
+
+    if ($node instanceof DOMElement) {
+        if (cleanElementNode($node, $document)) {
+            return;
+        }
+
+        cleanElementAttributes($node);
     }
 
     foreach (iterator_to_array($node->childNodes) as $childNode) {
