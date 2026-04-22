@@ -61,9 +61,9 @@ test.describe('Settings Theme Smoke Test', () => {
     await expect(appearancePanel).toHaveJSProperty('open', true);
     await expect(categoriesPanel).toHaveJSProperty('open', true);
 
-    await settingsFrame.locator('details[data-settings-panel="features"] summary').click();
-    await settingsFrame.locator('details[data-settings-panel="categories"] summary').click();
-    await settingsFrame.locator('details[data-settings-panel="new-category"] summary').click();
+    await settingsFrame.locator('details[data-settings-panel="features"] > summary').click();
+    await settingsFrame.locator('details[data-settings-panel="categories"] > summary').click();
+    await settingsFrame.locator('details[data-settings-panel="new-category"] > summary').click();
 
     await expect(featuresPanel).toHaveJSProperty('open', true);
     await expect(categoriesPanel).toHaveJSProperty('open', false);

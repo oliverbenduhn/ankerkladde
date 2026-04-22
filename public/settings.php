@@ -38,6 +38,13 @@ function normalizeSettingsName(string $value): string
     return substr($value, 0, 120);
 }
 
+function categoryIconAssetPath(string $icon): string
+{
+    $icon = normalizeCategoryIcon($icon);
+
+    return appPath('icons/categories/' . rawurlencode($icon) . '.svg');
+}
+
 function validateGeminiApiKey(string $apiKey, string $modelName): array
 {
     if ($apiKey === '') {
@@ -713,7 +720,7 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
             <div class="settings-options">
                 <?php foreach ($categories as $category): ?>
                     <?php
-                    $categoryIcon = (string) $category['icon'];
+                    $categoryIcon = normalizeCategoryIcon((string) $category['icon'], (string) $category['type']);
                     $categoryIconOptions = $iconOptions;
                     if ($categoryIcon !== '' && !in_array($categoryIcon, $categoryIconOptions, true)) {
                         array_unshift($categoryIconOptions, $categoryIcon);
@@ -732,7 +739,9 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                                         <circle cx="5" cy="16" r="2"/><circle cx="11" cy="16" r="2"/>
                                     </svg>
                                 </span>
-                                <span class="settings-category-preview-icon" aria-hidden="true"><?= htmlspecialchars($categoryIcon, ENT_QUOTES, 'UTF-8') ?></span>
+                                <span class="settings-category-preview-icon" aria-hidden="true">
+                                    <img src="<?= htmlspecialchars(categoryIconAssetPath($categoryIcon), ENT_QUOTES, 'UTF-8') ?>" alt="" loading="lazy" decoding="async" class="category-icon-img">
+                                </span>
                                 <span class="settings-category-preview-name"><?= htmlspecialchars((string) $category['name'], ENT_QUOTES, 'UTF-8') ?></span>
                                 <span class="settings-type-badge"><?= htmlspecialchars(categoryTypeLabel((string) $category['type']), ENT_QUOTES, 'UTF-8') ?></span>
                                 <svg class="settings-summary-chevron" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -753,12 +762,12 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                                     </label>
                                     <label class="settings-field settings-field-icon">
                                         <span>Symbol</span>
-                                        <select name="category_icon">
+                                        <select name="category_icon" class="category-icon-select">
                                             <?php foreach ($categoryIconOptions as $iconOption): ?>
                                                 <option
                                                     value="<?= htmlspecialchars($iconOption, ENT_QUOTES, 'UTF-8') ?>"
                                                     <?= $iconOption === $categoryIcon ? 'selected' : '' ?>
-                                                ><?= htmlspecialchars($iconOption, ENT_QUOTES, 'UTF-8') ?></option>
+                                                ><?= htmlspecialchars(categoryIconLabel($iconOption), ENT_QUOTES, 'UTF-8') ?></option>
                                             <?php endforeach; ?>
                                         </select>
                                     </label>
@@ -803,10 +812,10 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                 <div class="settings-password-fields">
                     <label class="settings-field">
                         <span>Symbol</span>
-                        <select name="icon">
+                        <select name="icon" class="category-icon-select">
                             <option value="">Automatisch nach Typ</option>
                             <?php foreach ($iconOptions as $iconOption): ?>
-                                <option value="<?= htmlspecialchars($iconOption, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($iconOption, ENT_QUOTES, 'UTF-8') ?></option>
+                                <option value="<?= htmlspecialchars($iconOption, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars(categoryIconLabel($iconOption), ENT_QUOTES, 'UTF-8') ?></option>
                             <?php endforeach; ?>
                         </select>
                     </label>

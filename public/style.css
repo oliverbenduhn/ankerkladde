@@ -1891,10 +1891,16 @@ button, input { font: inherit; }
     height: 28px;
     border-radius: 12px;
     background: transparent;
-    font-size: 1.1rem;
     line-height: 1;
-    filter: saturate(0.85) brightness(1.02) contrast(1.05);
+    filter: saturate(0.95) brightness(1.02) contrast(1.05);
     transition: all 0.2s ease;
+}
+
+.category-icon-img {
+    display: block;
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
 }
 
 .section-tab[aria-current="page"] .section-icon {
@@ -1946,10 +1952,6 @@ button, input { font: inherit; }
         padding: 8px 7px 10px;
     }
 
-    .section-icon {
-        font-size: 1.08rem;
-    }
-
     .section-label {
         font-size: 0.76rem;
     }
@@ -1984,9 +1986,17 @@ button, input { font: inherit; }
     cursor: pointer;
     min-width: 0;
 }
-.mehr-item-icon { font-size: 1.1rem; filter: grayscale(1) opacity(0.6); }
+.mehr-item-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    flex: 0 0 24px;
+    filter: opacity(0.7);
+}
 .mehr-item.active { color: var(--text-primary); border-color: var(--accent); }
-.mehr-item.active .mehr-item-icon { filter: grayscale(1) opacity(1); }
+.mehr-item.active .mehr-item-icon { filter: opacity(1); }
 
 /* ===========================================
    NOTE CARDS
@@ -2850,7 +2860,15 @@ button, input { font: inherit; }
     border-radius: 9px;
     background: var(--surface);
     border: 1px solid var(--border);
-    font-size: 1.15rem;
+}
+
+.settings-category-preview-icon .category-icon-img {
+    width: 26px;
+    height: 26px;
+}
+
+.category-icon-select {
+    min-width: 160px;
 }
 
 .settings-category-preview-name {

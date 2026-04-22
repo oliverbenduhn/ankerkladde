@@ -11,18 +11,81 @@ const DEFAULT_UPLOAD_LIMITS_MB = [
     'remote_file_import_max_mb' => 500,
 ];
 const CATEGORY_ICON_OPTIONS = [
-    '🛒', '💊', '✅', '💼', '📝', '🖼️', '📁', '🔗',
-    '⭐', '📌', '🏠', '🚗', '🍎', '🥦', '🧴', '🎁',
-    '📚', '💡', '🔧', '📦', '🐶', '👶', '❤️', '☀️',
+    'einkauf', 'arbeit', 'notizen', 'bilder', 'links', 'dateien',
+    'auto', 'essen', 'gemuese', 'hygiene', 'geschenk', 'buecher',
+    'ideen', 'werkzeug', 'paket', 'medizin', 'erledigt', 'finanzen',
+    'planung', 'zuhause', 'haustier', 'baby', 'liebe', 'wetter',
+    'sport', 'reisen', 'musik', 'film', 'kamera', 'stern',
+];
+const CATEGORY_ICON_LABELS = [
+    'einkauf' => 'Einkauf',
+    'arbeit' => 'Arbeit',
+    'notizen' => 'Notizen',
+    'bilder' => 'Bilder',
+    'links' => 'Links',
+    'dateien' => 'Dateien',
+    'auto' => 'Auto',
+    'essen' => 'Essen',
+    'gemuese' => 'Gemuese',
+    'hygiene' => 'Hygiene',
+    'geschenk' => 'Geschenk',
+    'buecher' => 'Buecher',
+    'ideen' => 'Ideen',
+    'werkzeug' => 'Werkzeug',
+    'paket' => 'Paket',
+    'medizin' => 'Medizin',
+    'erledigt' => 'Erledigt',
+    'finanzen' => 'Finanzen',
+    'planung' => 'Planung',
+    'zuhause' => 'Zuhause',
+    'haustier' => 'Haustier',
+    'baby' => 'Baby',
+    'liebe' => 'Liebe',
+    'wetter' => 'Wetter',
+    'sport' => 'Sport',
+    'reisen' => 'Reisen',
+    'musik' => 'Musik',
+    'film' => 'Film',
+    'kamera' => 'Kamera',
+    'stern' => 'Stern',
+];
+const LEGACY_CATEGORY_ICON_MAP = [
+    '🛒' => 'einkauf',
+    '💊' => 'medizin',
+    '✅' => 'erledigt',
+    '💼' => 'arbeit',
+    '📝' => 'notizen',
+    '🖼️' => 'bilder',
+    '🖼' => 'bilder',
+    '📁' => 'dateien',
+    '🔗' => 'links',
+    '⭐' => 'stern',
+    '📌' => 'planung',
+    '🏠' => 'zuhause',
+    '🚗' => 'auto',
+    '🍎' => 'essen',
+    '🥦' => 'gemuese',
+    '🧴' => 'hygiene',
+    '🎁' => 'geschenk',
+    '📚' => 'buecher',
+    '💡' => 'ideen',
+    '🔧' => 'werkzeug',
+    '📦' => 'paket',
+    '🐶' => 'haustier',
+    '👶' => 'baby',
+    '❤️' => 'liebe',
+    '❤' => 'liebe',
+    '☀️' => 'wetter',
+    '☀' => 'wetter',
 ];
 const LEGACY_CATEGORY_DEFINITIONS = [
-    'shopping' => ['name' => 'Einkauf', 'type' => 'list_quantity', 'sort_order' => 1, 'icon' => '🛒'],
-    'todo_private' => ['name' => 'Privat', 'type' => 'list_due_date', 'sort_order' => 2, 'icon' => '✅'],
-    'todo_work' => ['name' => 'Arbeit', 'type' => 'list_due_date', 'sort_order' => 3, 'icon' => '💼'],
-    'notes' => ['name' => 'Notizen', 'type' => 'notes', 'sort_order' => 4, 'icon' => '📝'],
-    'images' => ['name' => 'Bilder', 'type' => 'images', 'sort_order' => 5, 'icon' => '🖼️'],
-    'files' => ['name' => 'Dateien', 'type' => 'files', 'sort_order' => 6, 'icon' => '📁'],
-    'links' => ['name' => 'Links', 'type' => 'links', 'sort_order' => 7, 'icon' => '🔗'],
+    'shopping' => ['name' => 'Einkauf', 'type' => 'list_quantity', 'sort_order' => 1, 'icon' => 'einkauf'],
+    'todo_private' => ['name' => 'Privat', 'type' => 'list_due_date', 'sort_order' => 2, 'icon' => 'erledigt'],
+    'todo_work' => ['name' => 'Arbeit', 'type' => 'list_due_date', 'sort_order' => 3, 'icon' => 'arbeit'],
+    'notes' => ['name' => 'Notizen', 'type' => 'notes', 'sort_order' => 4, 'icon' => 'notizen'],
+    'images' => ['name' => 'Bilder', 'type' => 'images', 'sort_order' => 5, 'icon' => 'bilder'],
+    'files' => ['name' => 'Dateien', 'type' => 'files', 'sort_order' => 6, 'icon' => 'dateien'],
+    'links' => ['name' => 'Links', 'type' => 'links', 'sort_order' => 7, 'icon' => 'links'],
 ];
 
 
@@ -255,13 +318,13 @@ function categoryTypeLabel(string $type): string
 function defaultCategoryIcon(string $type): string
 {
     return match ($type) {
-        'list_quantity' => '🛒',
-        'list_due_date' => '✅',
-        'notes' => '📝',
-        'images' => '🖼️',
-        'files' => '📁',
-        'links' => '🔗',
-        default => '•',
+        'list_quantity' => 'einkauf',
+        'list_due_date' => 'erledigt',
+        'notes' => 'notizen',
+        'images' => 'bilder',
+        'files' => 'dateien',
+        'links' => 'links',
+        default => 'stern',
     };
 }
 
@@ -271,19 +334,47 @@ function normalizeCategoryIcon(?string $value, ?string $fallbackType = null): st
     $value = preg_replace('/\s+/u', ' ', $value) ?? '';
 
     if ($value === '') {
-        return $fallbackType !== null ? defaultCategoryIcon($fallbackType) : '•';
+        return $fallbackType !== null ? defaultCategoryIcon($fallbackType) : 'stern';
     }
 
-    if (function_exists('mb_substr')) {
-        return mb_substr($value, 0, 8);
+    if (isset(LEGACY_CATEGORY_ICON_MAP[$value])) {
+        return LEGACY_CATEGORY_ICON_MAP[$value];
     }
 
-    return substr($value, 0, 8);
+    if (in_array($value, CATEGORY_ICON_OPTIONS, true)) {
+        return $value;
+    }
+
+    return $fallbackType !== null ? defaultCategoryIcon($fallbackType) : 'stern';
 }
 
 function getCategoryIconOptions(): array
 {
     return CATEGORY_ICON_OPTIONS;
+}
+
+function categoryIconLabel(string $icon): string
+{
+    return CATEGORY_ICON_LABELS[$icon] ?? ucfirst(str_replace(['-', '_'], ' ', $icon));
+}
+
+function migrateCategoryIconsToAssetKeys(PDO $db): void
+{
+    $stmt = $db->prepare('UPDATE categories SET icon = :icon, updated_at = CURRENT_TIMESTAMP WHERE id = :id');
+    $categoryRows = $db->query('SELECT id, type, icon FROM categories')->fetchAll();
+
+    foreach ($categoryRows as $categoryRow) {
+        $currentIcon = (string) ($categoryRow['icon'] ?? '');
+        $icon = normalizeCategoryIcon($currentIcon, (string) ($categoryRow['type'] ?? ''));
+        if ($icon === $currentIcon) {
+            continue;
+        }
+
+        $stmt->execute([
+            ':id' => (int) $categoryRow['id'],
+            ':icon' => $icon,
+        ]);
+    }
 }
 
 function normalizeUsername(?string $value): string
@@ -1550,6 +1641,12 @@ function getDatabase(): PDO
             }
         }
         setDatabaseMetaFlag($db, $legacyMigrationKey);
+    }
+
+    $categoryIconAssetsMigrationKey = 'category_icon_assets_migrated_v1';
+    if (!hasDatabaseMetaFlag($db, $categoryIconAssetsMigrationKey)) {
+        migrateCategoryIconsToAssetKeys($db);
+        setDatabaseMetaFlag($db, $categoryIconAssetsMigrationKey);
     }
 
     $orphanSortOrderMigrationKey = 'orphan_sort_order_rebuilt_v1';

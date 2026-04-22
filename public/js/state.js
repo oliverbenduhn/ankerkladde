@@ -7,12 +7,12 @@ export const basePath = appBasePathMeta?.content || '/';
 export const csrfToken = csrfMeta.content;
 
 export const TYPE_CONFIG = {
-    list_quantity: { icon: '🛒', title: name => name, shoppingTitle: name => name, placeholder: 'Artikel...', quantityMode: 'text' },
-    list_due_date: { icon: '✅', title: name => name, shoppingTitle: name => name, placeholder: 'Aufgabe...', quantityMode: 'date' },
-    notes: { icon: '📝', title: name => name, shoppingTitle: name => name, placeholder: 'Titel...', quantityMode: 'hidden' },
-    images: { icon: '🖼️', title: name => name, shoppingTitle: name => name, placeholder: 'Titel optional...', quantityMode: 'hidden' },
-    files: { icon: '📁', title: name => name, shoppingTitle: name => name, placeholder: 'Titel optional...', quantityMode: 'hidden' },
-    links: { icon: '🔗', title: name => name, shoppingTitle: name => name, placeholder: 'https://...', quantityMode: 'hidden' },
+    list_quantity: { icon: 'einkauf', title: name => name, shoppingTitle: name => name, placeholder: 'Artikel...', quantityMode: 'text' },
+    list_due_date: { icon: 'erledigt', title: name => name, shoppingTitle: name => name, placeholder: 'Aufgabe...', quantityMode: 'date' },
+    notes: { icon: 'notizen', title: name => name, shoppingTitle: name => name, placeholder: 'Titel...', quantityMode: 'hidden' },
+    images: { icon: 'bilder', title: name => name, shoppingTitle: name => name, placeholder: 'Titel optional...', quantityMode: 'hidden' },
+    files: { icon: 'dateien', title: name => name, shoppingTitle: name => name, placeholder: 'Titel optional...', quantityMode: 'hidden' },
+    links: { icon: 'links', title: name => name, shoppingTitle: name => name, placeholder: 'https://...', quantityMode: 'hidden' },
 };
 
 export const DEFAULT_PREFERENCES = {

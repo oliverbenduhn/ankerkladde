@@ -1,8 +1,25 @@
-import { state } from './state.js';
+import { basePath, state } from './state.js';
 import { mehrMenuEl, sectionTabsEl, svgIcon } from './ui.js';
 
 const MIN_VISIBLE_TAB_WIDTH = 64;
 const MEHR_BUTTON_WIDTH = 48;
+
+function normalizeIconKey(icon, fallbackIcon) {
+    const value = String(icon || '').trim();
+    if (/^[a-z0-9_-]+$/.test(value)) return value;
+    return /^[a-z0-9_-]+$/.test(String(fallbackIcon || '')) ? fallbackIcon : 'stern';
+}
+
+function appendCategoryIcon(container, category, fallbackIcon) {
+    const iconKey = normalizeIconKey(category.icon, fallbackIcon);
+    const image = document.createElement('img');
+    image.className = 'category-icon-img';
+    image.src = `${basePath}icons/categories/${iconKey}.svg`;
+    image.alt = '';
+    image.decoding = 'async';
+    image.loading = 'lazy';
+    container.appendChild(image);
+}
 
 export function createTabsViewController(deps) {
     const {
@@ -28,7 +45,7 @@ export function createTabsViewController(deps) {
         const icon = document.createElement('span');
         icon.className = 'section-icon';
         icon.setAttribute('aria-hidden', 'true');
-        icon.textContent = category.icon || getTypeConfig(category.type).icon;
+        appendCategoryIcon(icon, category, getTypeConfig(category.type).icon);
 
         const dot = document.createElement('span');
         dot.className = 'section-dot';
@@ -110,7 +127,7 @@ export function createTabsViewController(deps) {
                 const icon = document.createElement('span');
                 icon.className = 'mehr-item-icon';
                 icon.setAttribute('aria-hidden', 'true');
-                icon.textContent = category.icon || getTypeConfig(category.type).icon;
+                appendCategoryIcon(icon, category, getTypeConfig(category.type).icon);
 
                 const label = document.createElement('span');
                 label.textContent = category.name;
