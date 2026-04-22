@@ -72,6 +72,8 @@ fi
 grep -Eq '<link rel="manifest" href="manifest\.php(\?v=[^"]+)?"' "$INDEX_HTML"
 curl -fsS -b "$COOKIE_JAR" -D "$MANIFEST_HEADERS" -o /dev/null "http://127.0.0.1:$PORT/manifest.php"
 grep -qi '^Content-Type: application/manifest+json' "$MANIFEST_HEADERS"
+curl -fsS -b "$COOKIE_JAR" -o /dev/null "http://127.0.0.1:$PORT/icons/icon-144.png"
+curl -fsS -b "$COOKIE_JAR" -o /dev/null "http://127.0.0.1:$PORT/icons/categories/einkauf.svg"
 
 status_code() {
     local output_file=$1
@@ -379,5 +381,7 @@ grep -q '"id":"/sub/"' "$SUBPATH_MANIFEST"
 grep -q '"start_url":"/sub/"' "$SUBPATH_MANIFEST"
 grep -q '"scope":"/sub/"' "$SUBPATH_MANIFEST"
 grep -q '"src":"/sub/icons/icon-192.png"' "$SUBPATH_MANIFEST"
+curl -fsS -b "$SUBPATH_COOKIE_JAR" -o /dev/null "http://127.0.0.1:$SUBPATH_PORT/sub/icons/icon-144.png"
+curl -fsS -b "$SUBPATH_COOKIE_JAR" -o /dev/null "http://127.0.0.1:$SUBPATH_PORT/sub/icons/categories/einkauf.svg"
 
 echo "Smoke-Test erfolgreich."
