@@ -166,37 +166,25 @@ button, input { font: inherit; }
 
 .brand-mark {
     display: block;
-    object-fit: cover;
-    border-radius: 18px;
+    object-fit: contain;
     flex-shrink: 0;
-    padding: var(--brand-mark-padding, 0);
-    background: var(--brand-mark-surface);
-    border: 1px solid var(--brand-mark-border);
-    box-shadow: var(--brand-mark-shadow);
-    filter: var(--brand-mark-filter);
-    transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
 }
 
 .brand-mark-app {
     width: 38px;
     height: 38px;
-    border-radius: 11px;
-    --brand-mark-padding: 1px;
 }
 
 .brand-mark-login {
     width: 120px;
     height: 120px;
     margin: 0 auto 14px;
-    --brand-mark-padding: 6px;
 }
 
 .brand-mark-settings,
 .brand-mark-admin {
     width: 40px;
     height: 40px;
-    border-radius: 12px;
-    --brand-mark-padding: 2px;
 }
 
 .header-actions {
