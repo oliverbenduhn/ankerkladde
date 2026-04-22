@@ -168,6 +168,7 @@ button, input { font: inherit; }
     display: block;
     object-fit: contain;
     flex-shrink: 0;
+    border-radius: 22.5%;
 }
 
 .brand-mark-app {
