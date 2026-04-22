@@ -295,6 +295,11 @@ async function clickTab(page, nameRegex) {
         await page.waitForTimeout(500);
         await shot(page, 'desktop-09-settings-themes');
 
+        // 10 Admin
+        await page.goto(`${BASE}/admin.php`);
+        await page.waitForTimeout(1000);
+        await shot(page, 'desktop-10-admin');
+
         await ctx.close();
     }
 
