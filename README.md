@@ -1,7 +1,7 @@
 # Ankerkladde
 
 <p align="center">
-  <img src="public/branding/ankerkladde-logo.png" alt="Ankerkladde" width="180">
+  <img src="public/icons/icon-192.png" alt="Ankerkladde" width="180">
 </p>
 
 [Projektvorstellung ansehen →](https://htmlpreview.github.io/?https://github.com/oliverbenduhn/ankerkladde/blob/main/vorstellung/index.html)
