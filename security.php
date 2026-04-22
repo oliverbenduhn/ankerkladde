@@ -184,8 +184,11 @@ function startAppSession(): void
         ini_set('session.gc_maxlifetime', (string) $sessionLifetime);
     }
 
-    ensureDirectoryExists(getSessionDirectory());
-    ini_set('session.save_path', getSessionDirectory());
+    $sessionDir = getSessionDirectory();
+    if (!is_dir($sessionDir) && !mkdir($sessionDir, 0775, true) && !is_dir($sessionDir)) {
+        throw new RuntimeException('Session-Verzeichnis konnte nicht erstellt werden: ' . $sessionDir);
+    }
+    ini_set('session.save_path', $sessionDir);
 
     $cookiePath = getAppBasePath();
     if ($cookiePath === '') {
