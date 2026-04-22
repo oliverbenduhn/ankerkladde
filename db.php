@@ -25,27 +25,6 @@ const LEGACY_CATEGORY_DEFINITIONS = [
     'links' => ['name' => 'Links', 'type' => 'links', 'sort_order' => 7, 'icon' => '🔗'],
 ];
 
-function getDataDirectory(): string
-{
-    $configuredDir = getenv('EINKAUF_DATA_DIR');
-
-    if (is_string($configuredDir) && trim($configuredDir) !== '') {
-        return rtrim($configuredDir, DIRECTORY_SEPARATOR);
-    }
-
-    return __DIR__ . '/data';
-}
-
-function ensureDirectoryExists(string $path): void
-{
-    if (is_dir($path)) {
-        return;
-    }
-
-    if (!mkdir($path, 0775, true) && !is_dir($path)) {
-        throw new RuntimeException(sprintf('Verzeichnis konnte nicht erstellt werden: %s', $path));
-    }
-}
 
 function getUploadsDirectory(): string
 {

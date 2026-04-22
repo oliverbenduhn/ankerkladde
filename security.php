@@ -36,6 +36,28 @@ function getEnvInt(string $name): ?int
     return (int) $value;
 }
 
+function getDataDirectory(): string
+{
+    $configuredDir = getenv('EINKAUF_DATA_DIR');
+
+    if (is_string($configuredDir) && trim($configuredDir) !== '') {
+        return rtrim($configuredDir, DIRECTORY_SEPARATOR);
+    }
+
+    return __DIR__ . '/data';
+}
+
+function ensureDirectoryExists(string $path): void
+{
+    if (is_dir($path)) {
+        return;
+    }
+
+    if (!mkdir($path, 0775, true) && !is_dir($path)) {
+        throw new RuntimeException(sprintf('Verzeichnis konnte nicht erstellt werden: %s', $path));
+    }
+}
+
 function getSessionLifetimeSeconds(): int
 {
     $configuredDays = getEnvInt('ANKERKLADDE_SESSION_LIFETIME_DAYS');
@@ -184,11 +206,8 @@ function startAppSession(): void
         ini_set('session.gc_maxlifetime', (string) $sessionLifetime);
     }
 
-    $sessionDir = getSessionDirectory();
-    if (!is_dir($sessionDir) && !mkdir($sessionDir, 0775, true) && !is_dir($sessionDir)) {
-        throw new RuntimeException('Session-Verzeichnis konnte nicht erstellt werden: ' . $sessionDir);
-    }
-    ini_set('session.save_path', $sessionDir);
+    ensureDirectoryExists(getSessionDirectory());
+    ini_set('session.save_path', getSessionDirectory());
 
     $cookiePath = getAppBasePath();
     if ($cookiePath === '') {

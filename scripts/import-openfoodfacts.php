@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 
+require dirname(__DIR__) . '/security.php';
 require dirname(__DIR__) . '/db.php';
 
 const REQUIRED_COLUMNS = ['code', 'product_name', 'brands', 'quantity'];

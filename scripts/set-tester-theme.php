@@ -1,5 +1,6 @@
 #!/usr/bin/env php
 <?php
+require dirname(__DIR__) . '/security.php';
 require dirname(__DIR__) . '/db.php';
 $mode  = $argv[1] ?? 'light';
 $theme = $argv[2] ?? 'hafenblau';
