@@ -26,7 +26,7 @@ jobs:
           docker build -t ghcr.io/oliverbenduhn/ankerkladde:latest .
           docker build -t ghcr.io/oliverbenduhn/ankerkladde/websocket:latest ./websocket-server
 
-          docker compose -f /opt/ankerkladde/docker-compose.yml up -d --force-recreate --no-build
+          docker compose -f /opt/ankerkladde/docker-compose.yml up -d --force-recreate
 
           # Notify WebSocket clients of version update
           sleep 2
