@@ -32,6 +32,8 @@ function icon(string $name): string {
     <meta name="csrf-token" content="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
     <meta name="app-base-path" content="<?= htmlspecialchars(appPath(), ENT_QUOTES, 'UTF-8') ?>">
     <?= renderThemeBootScript($userPreferences) ?>
+    <link rel="icon" type="image/png" href="<?= htmlspecialchars(appPath('icons/favicon.png'), ENT_QUOTES, 'UTF-8') ?>">
+    <link rel="apple-touch-icon" href="<?= htmlspecialchars(appPath('icons/icon-180.png'), ENT_QUOTES, 'UTF-8') ?>">
     <link rel="stylesheet" href="<?= htmlspecialchars(appPath('theme-css.php'), ENT_QUOTES, 'UTF-8') ?>">
     <link rel="stylesheet" href="<?= htmlspecialchars(appPath('style.css?v=' . $assetVersion), ENT_QUOTES, 'UTF-8') ?>">
     <title>Ankerkladde - Produktscanner</title>

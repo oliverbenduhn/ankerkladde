@@ -5,16 +5,17 @@ require dirname(__DIR__) . '/security.php';
 
 enforceCanonicalRequest();
 
-const BRAND_LOGO_PATH = '/public/branding/ankerkladde-logo.png';
-const ICON_FALLBACK_MAP = [
-    64 => '/public/icons/icon-192.png',
-    96 => '/public/icons/icon-192.png',
-    128 => '/public/icons/icon-192.png',
+const ICON_SIZE_MAP = [
+    72  => '/public/icons/icon-72.png',
+    96  => '/public/icons/icon-96.png',
+    128 => '/public/icons/icon-128.png',
+    144 => '/public/icons/icon-144.png',
+    152 => '/public/icons/icon-152.png',
+    180 => '/public/icons/icon-180.png',
     192 => '/public/icons/icon-192.png',
+    384 => '/public/icons/icon-384.png',
     512 => '/public/icons/icon-512.png',
 ];
-
-const BRAND_LOGO_THEMES = ['parchment', 'hafenblau', 'meeresgruen', 'lavendelsegel', 'monochrom', 'regenbogen', 'nachtwache', 'pier', 'mangrove', 'abyssus', 'monochrom-dark', 'grauton-dark'];
 
 function iconFail(int $status, string $message): never
 {
@@ -32,126 +33,22 @@ function requestedIconSize(): int
         'options' => ['min_range' => 32, 'max_range' => 1024],
     ]);
 
-    if (!is_int($size)) {
+    if (!is_int($size) || !array_key_exists($size, ICON_SIZE_MAP)) {
         return 192;
     }
 
-    return in_array($size, array_keys(ICON_FALLBACK_MAP), true) ? $size : 192;
-}
-
-function fallbackIconPath(int $size): ?string
-{
-    $relative = ICON_FALLBACK_MAP[$size] ?? null;
-    if (!is_string($relative)) {
-        return null;
-    }
-
-    $absolute = dirname(__DIR__) . $relative;
-    return is_file($absolute) ? $absolute : null;
-}
-
-function requestedBrandTheme(): string
-{
-    $theme = filter_input(INPUT_GET, 'theme', FILTER_UNSAFE_RAW);
-    $theme = is_string($theme) ? trim($theme) : '';
-
-    return in_array($theme, BRAND_LOGO_THEMES, true) ? $theme : 'hafenblau';
-}
-
-function brandLogoPath(): ?string
-{
-    $absolute = dirname(__DIR__) . BRAND_LOGO_PATH;
-    return is_file($absolute) ? $absolute : null;
-}
-
-function outputPngFile(string $path): never
-{
-    header('Content-Type: image/png');
-    header('Cache-Control: public, max-age=86400');
-    header('X-Content-Type-Options: nosniff');
-    header('Content-Length: ' . (string) filesize($path));
-    readfile($path);
-    exit;
-}
-
-function applyBrandThemeVariant(GdImage $image, string $theme): void
-{
-    // Logo bleibt bei allen Themes in Standard-Farbe
-}
-
-function outputResizedBrandLogo(string $path, int $size, string $theme): never
-{
-    if (
-        !function_exists('imagecreatefrompng')
-        || !function_exists('imagecreatetruecolor')
-        || !function_exists('imagecopyresampled')
-        || !function_exists('imagepng')
-    ) {
-        iconFail(500, 'GD image functions are unavailable.');
-    }
-
-    $sourceImage = @imagecreatefrompng($path);
-    if ($sourceImage === false) {
-        iconFail(500, 'Brand icon could not be rendered.');
-    }
-
-    $sourceWidth = imagesx($sourceImage);
-    $sourceHeight = imagesy($sourceImage);
-    if ($sourceWidth <= 0 || $sourceHeight <= 0) {
-        imagedestroy($sourceImage);
-        iconFail(500, 'Brand icon has invalid dimensions.');
-    }
-
-    $cropSize = min($sourceWidth, $sourceHeight);
-    $srcX = max(0, (int) floor(($sourceWidth - $cropSize) / 2));
-    $srcY = max(0, (int) floor(($sourceHeight - $cropSize) / 2));
-
-    $targetImage = imagecreatetruecolor($size, $size);
-    if ($targetImage === false) {
-        imagedestroy($sourceImage);
-        iconFail(500, 'Brand icon could not be allocated.');
-    }
-
-    imagealphablending($targetImage, false);
-    imagesavealpha($targetImage, true);
-    $transparent = imagecolorallocatealpha($targetImage, 0, 0, 0, 127);
-    imagefill($targetImage, 0, 0, $transparent);
-
-    imagecopyresampled(
-        $targetImage,
-        $sourceImage,
-        0,
-        0,
-        $srcX,
-        $srcY,
-        $size,
-        $size,
-        $cropSize,
-        $cropSize
-    );
-
-    imagedestroy($sourceImage);
-    applyBrandThemeVariant($targetImage, $theme);
-
-    header('Content-Type: image/png');
-    header('Cache-Control: public, max-age=86400');
-    header('X-Content-Type-Options: nosniff');
-    imagepng($targetImage);
-    imagedestroy($targetImage);
-    exit;
+    return $size;
 }
 
 $size = requestedIconSize();
-$theme = requestedBrandTheme();
-$brandLogoPath = brandLogoPath();
+$absolute = dirname(__DIR__) . ICON_SIZE_MAP[$size];
 
-if (is_string($brandLogoPath) && is_file($brandLogoPath)) {
-    outputResizedBrandLogo($brandLogoPath, $size, $theme);
-}
-
-$fallbackPath = fallbackIconPath($size);
-if (!is_string($fallbackPath)) {
+if (!is_file($absolute)) {
     iconFail(404, 'Icon not found.');
 }
 
-outputPngFile($fallbackPath);
+header('Content-Type: image/png');
+header('Cache-Control: public, max-age=86400');
+header('X-Content-Type-Options: nosniff');
+header('Content-Length: ' . (string) filesize($absolute));
+readfile($absolute);

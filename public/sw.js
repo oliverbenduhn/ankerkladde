@@ -37,9 +37,18 @@ const APP_SHELL_ASSET_URLS = [
     `js/helpers.js?v=${ASSET_VERSION}`,
     `vendor/zxing/browser-0.1.5.js?v=${ASSET_VERSION}`,
     `manifest.php?v=${ASSET_VERSION}`,
-    'icons/icon.svg',
+    'icons/favicon.png',
+    'icons/icon-72.png',
+    'icons/icon-96.png',
+    'icons/icon-128.png',
+    'icons/icon-144.png',
+    'icons/icon-152.png',
+    'icons/icon-180.png',
     'icons/icon-192.png',
+    'icons/icon-192-maskable.png',
+    'icons/icon-384.png',
     'icons/icon-512.png',
+    'icons/icon-512-maskable.png',
 ].map(path => new URL(path, APP_SCOPE_URL).toString());
 
 self.addEventListener('install', event => {

@@ -73,6 +73,8 @@ $magicButtonEnabled = !array_key_exists('magic_button_enabled', $userPreferences
     <meta name="csrf-token" content="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
     <meta name="user-id" content="<?= htmlspecialchars((string)$userId, ENT_QUOTES, 'UTF-8') ?>">
     <link rel="manifest" href="manifest.php?v=<?= urlencode($assetVersion) ?>">
+    <link rel="icon" type="image/png" href="icons/favicon.png">
+    <link rel="apple-touch-icon" href="icons/icon-180.png">
     <link rel="stylesheet" href="theme-css.php">
     <link rel="stylesheet" href="style.css?v=<?= urlencode($assetVersion) ?>">
     <title>Ankerkladde</title>

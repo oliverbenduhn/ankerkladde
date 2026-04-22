@@ -119,6 +119,8 @@ $csrfToken = getCsrfToken();
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="Ankerkladde">
     <link rel="manifest" href="<?= htmlspecialchars(appPath('manifest.php?v=' . $assetVersion), ENT_QUOTES, 'UTF-8') ?>">
+    <link rel="icon" type="image/png" href="<?= htmlspecialchars(appPath('icons/favicon.png'), ENT_QUOTES, 'UTF-8') ?>">
+    <link rel="apple-touch-icon" href="<?= htmlspecialchars(appPath('icons/icon-180.png'), ENT_QUOTES, 'UTF-8') ?>">
     <title>Anmelden — Ankerkladde</title>
     <link rel="stylesheet" href="<?= htmlspecialchars(appPath('theme-css.php'), ENT_QUOTES, 'UTF-8') ?>">
     <link rel="stylesheet" href="<?= htmlspecialchars(appPath('style.css?v=' . $assetVersion), ENT_QUOTES, 'UTF-8') ?>">
