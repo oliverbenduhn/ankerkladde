@@ -37,7 +37,7 @@ run_php "$LEGACY_DIR" '
 '
 
 run_php "$LEGACY_DIR" '
-    require "'"$ROOT_DIR"'/db.php";
+    require "'"$ROOT_DIR"'/security.php"; require "'"$ROOT_DIR"'/db.php";
     $db = getDatabase();
     $columns = array_column($db->query("PRAGMA table_info(items)")->fetchAll(PDO::FETCH_ASSOC), "name");
     if (!in_array("quantity", $columns, true) || !in_array("sort_order", $columns, true)) {
@@ -94,7 +94,7 @@ run_php "$BROKEN_DIR" '
 '
 
 run_php "$BROKEN_DIR" '
-    require "'"$ROOT_DIR"'/db.php";
+    require "'"$ROOT_DIR"'/security.php"; require "'"$ROOT_DIR"'/db.php";
     $db = getDatabase();
     $rows = $db->query("SELECT id, sort_order FROM items ORDER BY sort_order ASC")->fetchAll(PDO::FETCH_ASSOC);
     $expected = [3, 1, 2];
