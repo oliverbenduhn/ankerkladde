@@ -21,11 +21,18 @@ install -m 0644 "$ROOT_DIR/security.php" "$APP_ROOT/security.php"
 install -m 0644 "$ROOT_DIR/README.md" "$APP_ROOT/README.md"
 install -m 0644 "$ROOT_DIR/.gitignore" "$APP_ROOT/.gitignore"
 install -m 0644 "$ROOT_DIR/.gitkeep" "$APP_ROOT/.gitkeep"
-install -m 0644 "$ROOT_DIR/public/index.php" "$APP_ROOT/public/index.php"
-install -m 0644 "$ROOT_DIR/public/api.php" "$APP_ROOT/public/api.php"
-install -m 0644 "$ROOT_DIR/public/style.css" "$APP_ROOT/public/style.css"
-install -m 0644 "$ROOT_DIR/public/sw.js" "$APP_ROOT/public/sw.js"
-install -m 0644 "$ROOT_DIR/public/manifest.json" "$APP_ROOT/public/manifest.json"
+
+while IFS= read -r publicFile; do
+    relativePath="${publicFile#$ROOT_DIR/public/}"
+    install -m 0644 "$publicFile" "$APP_ROOT/public/$relativePath"
+done < <(find "$ROOT_DIR/public" -maxdepth 1 -type f \( -name '*.php' -o -name '*.js' -o -name '*.css' -o -name '*.json' -o -name '*.html' \) | sort)
+
+while IFS= read -r assetFile; do
+    relativePath="${assetFile#$ROOT_DIR/public/}"
+    install -d -m 0755 "$APP_ROOT/public/$(dirname "$relativePath")"
+    install -m 0644 "$assetFile" "$APP_ROOT/public/$relativePath"
+done < <(find "$ROOT_DIR/public/js" "$ROOT_DIR/public/vendor" -type f | sort)
+
 install -m 0644 "$ROOT_DIR/public/branding/ankerkladde-logo.png" "$APP_ROOT/public/branding/ankerkladde-logo.png"
 while IFS= read -r iconFile; do
     relativePath="${iconFile#$ROOT_DIR/public/icons/}"

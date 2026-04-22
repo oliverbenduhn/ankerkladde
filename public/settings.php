@@ -42,7 +42,7 @@ function categoryIconAssetPath(string $icon): string
 {
     $icon = normalizeCategoryIcon($icon);
 
-    return appPath('icons/categories/' . rawurlencode($icon) . '.svg');
+    return appPath('category-icon.php?icon=' . rawurlencode($icon));
 }
 
 function validateGeminiApiKey(string $apiKey, string $modelName): array
@@ -543,8 +543,8 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
     <meta name="theme-color" content="<?= htmlspecialchars($themeColor, ENT_QUOTES, 'UTF-8') ?>">
     <?= renderThemeBootScript($preferences) ?>
     <title>Einstellungen — Ankerkladde</title>
-    <link rel="icon" type="image/png" href="<?= htmlspecialchars(appPath('icons/favicon.png'), ENT_QUOTES, 'UTF-8') ?>">
-    <link rel="apple-touch-icon" href="<?= htmlspecialchars(appPath('icons/icon-180.png'), ENT_QUOTES, 'UTF-8') ?>">
+    <link rel="icon" type="image/png" href="<?= htmlspecialchars(appPath('icon.php?size=96&v=' . rawurlencode($assetVersion)), ENT_QUOTES, 'UTF-8') ?>">
+    <link rel="apple-touch-icon" href="<?= htmlspecialchars(appPath('icon.php?size=180&v=' . rawurlencode($assetVersion)), ENT_QUOTES, 'UTF-8') ?>">
     <link rel="stylesheet" href="<?= htmlspecialchars(appPath('theme-css.php'), ENT_QUOTES, 'UTF-8') ?>">
     <link rel="stylesheet" href="<?= htmlspecialchars(appPath('style.css?v=' . rawurlencode($assetVersion)), ENT_QUOTES, 'UTF-8') ?>">
 </head>

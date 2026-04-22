@@ -14,7 +14,7 @@ function appendCategoryIcon(container, category, fallbackIcon) {
     const iconKey = normalizeIconKey(category.icon, fallbackIcon);
     const image = document.createElement('img');
     image.className = 'category-icon-img';
-    image.src = `${basePath}icons/categories/${iconKey}.svg`;
+    image.src = `${basePath}category-icon.php?icon=${encodeURIComponent(iconKey)}`;
     image.alt = '';
     image.decoding = 'async';
     image.loading = 'lazy';

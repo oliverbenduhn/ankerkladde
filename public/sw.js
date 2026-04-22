@@ -1,7 +1,7 @@
 'use strict';
 
-const VERSION = 'v4.2.44';
-const ASSET_VERSION = '4.2.44';
+const VERSION = 'v4.2.45';
+const ASSET_VERSION = '4.2.45';
 const STATIC_CACHE = `ankerkladde-static-${VERSION}`;
 const RUNTIME_CACHE = `ankerkladde-runtime-${VERSION}`;
 const SHARE_CACHE = 'ankerkladde-share-target';
@@ -37,18 +37,15 @@ const APP_SHELL_ASSET_URLS = [
     `js/helpers.js?v=${ASSET_VERSION}`,
     `vendor/zxing/browser-0.1.5.js?v=${ASSET_VERSION}`,
     `manifest.php?v=${ASSET_VERSION}`,
-    'icons/favicon.png',
-    'icons/icon-72.png',
-    'icons/icon-96.png',
-    'icons/icon-128.png',
-    'icons/icon-144.png',
-    'icons/icon-152.png',
-    'icons/icon-180.png',
-    'icons/icon-192.png',
-    'icons/icon-192-maskable.png',
-    'icons/icon-384.png',
-    'icons/icon-512.png',
-    'icons/icon-512-maskable.png',
+    `icon.php?size=72&v=${ASSET_VERSION}`,
+    `icon.php?size=96&v=${ASSET_VERSION}`,
+    `icon.php?size=128&v=${ASSET_VERSION}`,
+    `icon.php?size=144&v=${ASSET_VERSION}`,
+    `icon.php?size=152&v=${ASSET_VERSION}`,
+    `icon.php?size=180&v=${ASSET_VERSION}`,
+    `icon.php?size=192&v=${ASSET_VERSION}`,
+    `icon.php?size=384&v=${ASSET_VERSION}`,
+    `icon.php?size=512&v=${ASSET_VERSION}`,
 ].map(path => new URL(path, APP_SCOPE_URL).toString());
 
 self.addEventListener('install', event => {
