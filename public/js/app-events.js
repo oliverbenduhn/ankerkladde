@@ -483,10 +483,10 @@ export function registerAppEventHandlers(deps) {
     const installDismiss = document.getElementById('installDismiss');
 
     window.addEventListener('beforeinstallprompt', event => {
-        event.preventDefault();
-        if (userPreferencesRef().install_banner_dismissed) return;
+        if (userPreferencesRef().install_banner_dismissed || !installBannerEl || !installBtn) return;
         deferredInstallPrompt = event;
-        if (installBannerEl) installBannerEl.hidden = false;
+        event.preventDefault();
+        installBannerEl.hidden = false;
     });
 
     installBtn?.addEventListener('click', async () => {
