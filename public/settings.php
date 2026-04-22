@@ -760,17 +760,25 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                                             required
                                         >
                                     </label>
-                                    <label class="settings-field settings-field-icon">
-                                        <span>Symbol</span>
-                                        <select name="category_icon" class="category-icon-select">
+                                    <fieldset class="settings-field settings-field-icon settings-icon-field">
+                                        <legend>Symbol</legend>
+                                        <div class="category-icon-grid">
                                             <?php foreach ($categoryIconOptions as $iconOption): ?>
-                                                <option
-                                                    value="<?= htmlspecialchars($iconOption, ENT_QUOTES, 'UTF-8') ?>"
-                                                    <?= $iconOption === $categoryIcon ? 'selected' : '' ?>
-                                                ><?= htmlspecialchars(categoryIconLabel($iconOption), ENT_QUOTES, 'UTF-8') ?></option>
+                                                <label class="category-icon-choice" title="<?= htmlspecialchars(categoryIconLabel($iconOption), ENT_QUOTES, 'UTF-8') ?>">
+                                                    <input
+                                                        type="radio"
+                                                        name="category_icon"
+                                                        value="<?= htmlspecialchars($iconOption, ENT_QUOTES, 'UTF-8') ?>"
+                                                        <?= $iconOption === $categoryIcon ? 'checked' : '' ?>
+                                                    >
+                                                    <span class="category-icon-choice-visual" aria-hidden="true">
+                                                        <img src="<?= htmlspecialchars(categoryIconAssetPath($iconOption), ENT_QUOTES, 'UTF-8') ?>" alt="" loading="lazy" decoding="async" class="category-icon-img">
+                                                    </span>
+                                                    <span class="category-icon-choice-label"><?= htmlspecialchars(categoryIconLabel($iconOption), ENT_QUOTES, 'UTF-8') ?></span>
+                                                </label>
                                             <?php endforeach; ?>
-                                        </select>
-                                    </label>
+                                        </div>
+                                    </fieldset>
                                 </div>
                                 <div class="settings-row-bottom">
                                     <label class="settings-toggle">
@@ -810,15 +818,25 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
             <div class="settings-block">
                 <p class="settings-copy">Name frei wählen, Strukturtyp bleibt fest im Produkt definiert.</p>
                 <div class="settings-password-fields">
-                    <label class="settings-field">
-                        <span>Symbol</span>
-                        <select name="icon" class="category-icon-select">
-                            <option value="">Automatisch nach Typ</option>
+                    <fieldset class="settings-field settings-icon-field">
+                        <legend>Symbol</legend>
+                        <div class="category-icon-grid category-icon-grid-new">
+                            <label class="category-icon-choice category-icon-choice-auto" title="Automatisch nach Typ">
+                                <input type="radio" name="icon" value="" checked>
+                                <span class="category-icon-choice-visual category-icon-choice-auto-visual" aria-hidden="true">A</span>
+                                <span class="category-icon-choice-label">Automatisch</span>
+                            </label>
                             <?php foreach ($iconOptions as $iconOption): ?>
-                                <option value="<?= htmlspecialchars($iconOption, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars(categoryIconLabel($iconOption), ENT_QUOTES, 'UTF-8') ?></option>
+                                <label class="category-icon-choice" title="<?= htmlspecialchars(categoryIconLabel($iconOption), ENT_QUOTES, 'UTF-8') ?>">
+                                    <input type="radio" name="icon" value="<?= htmlspecialchars($iconOption, ENT_QUOTES, 'UTF-8') ?>">
+                                    <span class="category-icon-choice-visual" aria-hidden="true">
+                                        <img src="<?= htmlspecialchars(categoryIconAssetPath($iconOption), ENT_QUOTES, 'UTF-8') ?>" alt="" loading="lazy" decoding="async" class="category-icon-img">
+                                    </span>
+                                    <span class="category-icon-choice-label"><?= htmlspecialchars(categoryIconLabel($iconOption), ENT_QUOTES, 'UTF-8') ?></span>
+                                </label>
                             <?php endforeach; ?>
-                        </select>
-                    </label>
+                        </div>
+                    </fieldset>
                     <label class="settings-field">
                         <span>Name</span>
                         <input type="text" name="name" maxlength="120" required>

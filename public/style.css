@@ -2867,10 +2867,6 @@ button, input { font: inherit; }
     height: 26px;
 }
 
-.category-icon-select {
-    min-width: 160px;
-}
-
 .settings-category-preview-name {
     min-width: 0;
     overflow: hidden;
@@ -2907,9 +2903,9 @@ details[open].settings-category-details > .settings-category-summary .settings-s
 
 .settings-row-main {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(96px, 140px);
+    grid-template-columns: minmax(0, 0.9fr) minmax(240px, 1.4fr);
     gap: 14px;
-    align-items: end;
+    align-items: start;
 }
 
 .settings-row-bottom {
@@ -2953,6 +2949,108 @@ details[open].settings-category-details > .settings-category-summary .settings-s
     font-size: 0.95rem;
 }
 
+.settings-icon-field {
+    min-width: 0;
+    padding: 0;
+    margin: 0;
+    border: 0;
+}
+
+.settings-icon-field legend {
+    padding: 0;
+    margin: 0 0 6px;
+    color: var(--text-primary);
+    font-size: 0.95rem;
+}
+
+.category-icon-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
+    gap: 8px;
+    max-height: 250px;
+    overflow: auto;
+    padding: 2px;
+}
+
+.category-icon-grid-new {
+    max-height: 320px;
+}
+
+.category-icon-choice {
+    position: relative;
+    display: grid;
+    grid-template-rows: 34px minmax(16px, auto);
+    justify-items: center;
+    gap: 4px;
+    min-width: 0;
+    min-height: 66px;
+    padding: 8px 6px 7px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.category-icon-choice:hover {
+    color: var(--text-primary);
+    border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+    background: var(--surface);
+}
+
+.category-icon-choice input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.category-icon-choice:has(input:focus-visible) {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.category-icon-choice:has(input:checked) {
+    color: var(--text-primary);
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 24%, transparent);
+}
+
+.category-icon-choice-visual {
+    display: inline-grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+}
+
+.category-icon-choice-visual .category-icon-img {
+    width: 28px;
+    height: 28px;
+}
+
+.category-icon-choice-auto-visual {
+    border-radius: 8px;
+    border: 1px dashed var(--border);
+    color: var(--text-secondary);
+    font-weight: 700;
+    font-size: 0.85rem;
+}
+
+.category-icon-choice-label {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    color: inherit;
+    font-size: 0.75rem;
+    line-height: 1.15;
+    text-align: center;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .settings-field input {
     min-height: 44px;
     padding: 0 12px;
@@ -2982,7 +3080,7 @@ details[open].settings-category-details > .settings-category-summary .settings-s
 }
 
 .settings-field-icon {
-    flex: 0 0 96px;
+    flex: 1 1 240px;
 }
 
 .settings-toggle {
@@ -3093,6 +3191,11 @@ details[open].settings-category-details > .settings-category-summary .settings-s
 
     .settings-field-icon {
         flex-basis: auto;
+    }
+
+    .category-icon-grid {
+        grid-template-columns: repeat(auto-fill, minmax(68px, 1fr));
+        max-height: 220px;
     }
 
     .settings-row-bottom {
