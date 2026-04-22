@@ -6,43 +6,32 @@ on:
 jobs:
   deploy-vps:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
     steps:
-      - name: Build and push images, then deploy on VPS
+      - name: Build on VPS and restart container
         env:
           VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
-          GHCR_USER: ${{ github.actor }}
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPO: ${{ github.repository }}
-          SHA: ${{ github.sha }}
         run: |
-          # Checkout
-          git clone "https://x-access-token:${GHCR_TOKEN}@github.com/${REPO}.git" app
-          cd app
-          git checkout "$SHA"
-
-          # Login to GHCR
-          echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
-
-          # Build and push
-          docker build -t ghcr.io/oliverbenduhn/ankerkladde:latest .
-          docker push ghcr.io/oliverbenduhn/ankerkladde:latest
-          docker build -t ghcr.io/oliverbenduhn/ankerkladde/websocket:latest ./websocket-server
-          docker push ghcr.io/oliverbenduhn/ankerkladde/websocket:latest
-
-          # Deploy on VPS
           mkdir -p ~/.ssh
           echo "$VPS_SSH_KEY" > ~/.ssh/vps_key
           chmod 600 ~/.ssh/vps_key
 
-          ssh -i ~/.ssh/vps_key -o StrictHostKeyChecking=no ansible@91.98.42.99 \
-            "echo '$GHCR_TOKEN' | docker login ghcr.io -u '$GHCR_USER' --password-stdin \
-             && docker compose -f /opt/ankerkladde/docker-compose.yml pull \
-             && docker compose -f /opt/ankerkladde/docker-compose.yml up -d --force-recreate \
-             && sleep 2 \
-             && curl -s -X POST http://localhost:3000/notify -H 'Content-Type: application/json' -d '{\"action\":\"version_update\"}' || true"
+          ssh -i ~/.ssh/vps_key -o StrictHostKeyChecking=no ansible@91.98.42.99 << 'DEPLOY'
+          set -e
+          cd /tmp
+          if [ -d deploy-temp ]; then
+            cd deploy-temp && git pull origin main
+          else
+            git clone https://github.com/oliverbenduhn/ankerkladde.git deploy-temp && cd deploy-temp
+          fi
+
+          docker build -t ghcr.io/oliverbenduhn/ankerkladde:latest .
+          docker build -t ghcr.io/oliverbenduhn/ankerkladde/websocket:latest ./websocket-server
+
+          docker compose -f /opt/ankerkladde/docker-compose.yml up -d --force-recreate --pull never
+
+          sleep 2
+          curl -s -X POST http://localhost:3000/notify -H "Content-Type: application/json" -d '{"action":"version_update"}' || true
+          DEPLOY
 
           rm ~/.ssh/vps_key
 
