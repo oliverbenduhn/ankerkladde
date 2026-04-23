@@ -33,6 +33,13 @@ export function createTodoEditorController(deps) {
         });
         await api('update', { method: 'POST', body });
 
+        currentItem = {
+            ...currentItem,
+            name,
+            due_date: dueDate,
+            content,
+            status: currentStatus,
+        };
         invalidateCategoryCache(state.categoryId);
         await loadItems();
     }
@@ -41,9 +48,17 @@ export function createTodoEditorController(deps) {
         currentItem = item;
         currentStatus = item.status || '';
 
-        // Register handlers fresh via onclick to avoid stacking
+        // Register handlers fresh via onclick to avoid stacking.
         document.querySelectorAll('#todoStatusSelector .todo-status-btn').forEach(btn => {
-            btn.onclick = () => setStatus(btn.dataset.status);
+            btn.onclick = async () => {
+                const nextStatus = btn.dataset.status;
+                if (nextStatus === currentStatus) {
+                    return;
+                }
+
+                setStatus(nextStatus);
+                await save();
+            };
         });
 
         if (todoTitleInput) todoTitleInput.value = item.name || '';

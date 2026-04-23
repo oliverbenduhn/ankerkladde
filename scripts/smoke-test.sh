@@ -82,13 +82,17 @@ status_code() {
 }
 
 LIST_BODY="$TMP_DIR/list.json"
+TODO_CATEGORIES_BODY="$TMP_DIR/todo-categories.json"
 ADD_BODY="$TMP_DIR/add.json"
 ADD_SECOND_BODY="$TMP_DIR/add-second.json"
+TODO_ADD_BODY="$TMP_DIR/todo-add.json"
+TODO_LIST_BODY="$TMP_DIR/todo-list.json"
 REORDER_BODY="$TMP_DIR/reorder.json"
 REORDERED_LIST_BODY="$TMP_DIR/reordered-list.json"
 INVALID_REORDER_BODY="$TMP_DIR/reorder-invalid.json"
 DUPLICATE_REORDER_BODY="$TMP_DIR/reorder-duplicate.json"
 UPDATE_BODY="$TMP_DIR/update.json"
+TODO_UPDATE_BODY="$TMP_DIR/todo-update.json"
 INVALID_UPDATE_BODY="$TMP_DIR/update-invalid.json"
 TOGGLE_BODY="$TMP_DIR/toggle.json"
 POST_TOGGLE_LIST_BODY="$TMP_DIR/post-toggle-list.json"
@@ -128,6 +132,14 @@ printf '%s' 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwM
 [[ "$(status_code "$LIST_BODY" -b "$COOKIE_JAR" "http://127.0.0.1:$PORT/api.php?action=list")" == "200" ]]
 grep -q '"items"' "$LIST_BODY"
 
+[[ "$(status_code "$TODO_CATEGORIES_BODY" -b "$COOKIE_JAR" "http://127.0.0.1:$PORT/api.php?action=categories_list")" == "200" ]]
+TODO_CATEGORY_ID="$(php -r '$payload = json_decode(file_get_contents($argv[1]), true); foreach (($payload["categories"] ?? []) as $category) { if (($category["type"] ?? "") === "list_due_date") { echo (int) ($category["id"] ?? 0); exit; } } exit(1);' "$TODO_CATEGORIES_BODY")"
+
+if [[ -z "$TODO_CATEGORY_ID" || "$TODO_CATEGORY_ID" -le 0 ]]; then
+    echo "Todo-Kategorie konnte nicht aus categories_list gelesen werden." >&2
+    exit 1
+fi
+
 [[ "$(curl -sS -o /dev/null -D "$REDIRECT_HEADERS" -w '%{http_code}' -H 'Host: beispiel.invalid' "http://127.0.0.1:$PORT/")" == "308" ]]
 grep -q '^Location: https://ankerkladde\.benduhn\.de/' "$REDIRECT_HEADERS"
 
@@ -153,6 +165,14 @@ ITEM_ID="$(sed -n 's/.*"id":\([0-9][0-9]*\).*/\1/p' "$ADD_BODY" | head -n 1)"
 
 if [[ -z "$ITEM_ID" ]]; then
     echo "Artikel-ID konnte nicht aus der Add-Antwort gelesen werden." >&2
+    exit 1
+fi
+
+[[ "$(status_code "$TODO_ADD_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST --data-urlencode "category_id=$TODO_CATEGORY_ID" --data-urlencode 'name=Abgabe' --data-urlencode 'due_date=2026-05-01' "http://127.0.0.1:$PORT/api.php?action=add")" == "201" ]]
+TODO_ITEM_ID="$(sed -n 's/.*"id":\([0-9][0-9]*\).*/\1/p' "$TODO_ADD_BODY" | head -n 1)"
+
+if [[ -z "$TODO_ITEM_ID" ]]; then
+    echo "Todo-Artikel-ID konnte nicht aus der Add-Antwort gelesen werden." >&2
     exit 1
 fi
 
@@ -300,12 +320,19 @@ fi
 [[ "$(status_code "$UPDATE_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST -d "id=$ITEM_ID&name=Hafermilch&quantity=3x" "http://127.0.0.1:$PORT/api.php?action=update")" == "200" ]]
 grep -q 'Artikel aktualisiert' "$UPDATE_BODY"
 
+[[ "$(status_code "$TODO_UPDATE_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST --data-urlencode "id=$TODO_ITEM_ID" --data-urlencode 'name=Abgabe' --data-urlencode 'due_date=2026-05-01' --data-urlencode 'content=Unterlagen fertigstellen' --data-urlencode 'status=waiting' "http://127.0.0.1:$PORT/api.php?action=update")" == "200" ]]
+grep -q 'Artikel aktualisiert' "$TODO_UPDATE_BODY"
+
 [[ "$(status_code "$INVALID_UPDATE_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST -d "id=$ITEM_ID&name=   &quantity=1" "http://127.0.0.1:$PORT/api.php?action=update")" == "422" ]]
 grep -q 'Bitte gib einen Artikelnamen ein' "$INVALID_UPDATE_BODY"
 
 [[ "$(status_code "$REORDERED_LIST_BODY" -b "$COOKIE_JAR" "http://127.0.0.1:$PORT/api.php?action=list")" == "200" ]]
 grep -q "\"name\":\"Hafermilch\"" "$REORDERED_LIST_BODY"
 grep -q "\"quantity\":\"3x\"" "$REORDERED_LIST_BODY"
+[[ "$(status_code "$TODO_LIST_BODY" -b "$COOKIE_JAR" "http://127.0.0.1:$PORT/api.php?action=list&category_id=$TODO_CATEGORY_ID")" == "200" ]]
+grep -q "\"id\":$TODO_ITEM_ID" "$TODO_LIST_BODY"
+grep -q "\"status\":\"waiting\"" "$TODO_LIST_BODY"
+grep -q "\"content\":\"Unterlagen fertigstellen\"" "$TODO_LIST_BODY"
 
 [[ "$(status_code "$TOGGLE_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST -d "id=$ITEM_ID&done=1" "http://127.0.0.1:$PORT/api.php?action=toggle")" == "200" ]]
 grep -q 'Status aktualisiert' "$TOGGLE_BODY"
