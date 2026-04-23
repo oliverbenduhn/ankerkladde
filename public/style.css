@@ -4158,3 +4158,4 @@ details[open].settings-category-details > .settings-category-summary .settings-s
     border-radius: 12px;
     font-weight: 600;
 }
+.clickable-brand { cursor: pointer; }
