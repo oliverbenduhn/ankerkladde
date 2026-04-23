@@ -400,8 +400,8 @@ button, input { font: inherit; }
     min-width: 48px;
     min-height: 48px;
     padding: 0;
-    background: var(--accent);
-    color: var(--accent-contrast, var(--text-primary));
+    background: var(--button-active-bg, var(--accent));
+    color: var(--button-active-text, var(--accent-contrast, var(--text-primary)));
     border: none;
     border-radius: 12px;
     cursor: pointer;
@@ -412,7 +412,11 @@ button, input { font: inherit; }
     transition: background 0.15s ease, transform 0.1s ease;
 }
 
-.btn-add:hover  { background: var(--border); }
+.btn-add:hover  {
+    background: var(--button-active-bg, var(--accent));
+    color: var(--button-active-text, var(--accent-contrast, var(--text-primary)));
+    filter: brightness(1.04);
+}
 .btn-add:active { transform: scale(0.94); }
 
 .btn-scan-input {
@@ -421,8 +425,8 @@ button, input { font: inherit; }
 }
 
 .btn-scan-input:hover {
-    background: var(--accent);
-    color: var(--accent-contrast, var(--text-primary));
+    background: var(--button-active-bg, var(--accent));
+    color: var(--button-active-text, var(--accent-contrast, var(--text-primary)));
 }
 
 /* ===========================================
@@ -1614,7 +1618,7 @@ button, input { font: inherit; }
 }
 
 .btn-clear:hover   { border-color: var(--accent); color: var(--text-secondary); }
-.btn-clear:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-clear:disabled { opacity: 0.58; cursor: not-allowed; }
 
 /* ===========================================
    STATUS MESSAGE (toast)
@@ -1705,12 +1709,15 @@ button, input { font: inherit; }
 
 @media (max-width: 480px) {
     .app-header {
+        flex-wrap: wrap;
         gap: 6px;
         padding: 14px 12px 8px;
     }
 
     .app-title-group {
         gap: 8px;
+        flex: 1 0 100%;
+        width: 100%;
     }
 
     .brand-mark-app {
@@ -1720,10 +1727,13 @@ button, input { font: inherit; }
     }
 
     .header-actions {
+        width: 100%;
         gap: 5px;
+        justify-content: space-between;
     }
 
     .header-icon-btn {
+        flex: 1 1 0;
         min-width: 34px;
         min-height: 34px;
         padding: 0;
@@ -1739,25 +1749,49 @@ button, input { font: inherit; }
     .progress {
         font-size: 0.76rem;
     }
+
+    .input-area form {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 48px 48px;
+        align-items: stretch;
+    }
+
+    .input-area textarea[name="name"],
+    .input-area textarea[name="content"],
+    .file-input-group {
+        grid-column: 1 / -1;
+        width: 100%;
+    }
+
+    .input-area input[name="quantity"] {
+        grid-column: 1 / 2;
+        width: 100%;
+        flex-basis: auto;
+    }
+
+    .btn-scan-input {
+        grid-column: 2 / 3;
+    }
+
+    .btn-scan-input[hidden] + .btn-add {
+        grid-column: 2 / 4;
+        width: 100%;
+    }
 }
 
 @media (max-width: 380px) {
-    .app-subtitle {
-        display: none;
-    }
-
     .app-title-group {
         gap: 7px;
     }
 
     .brand-mark-app {
-        width: 30px;
-        height: 30px;
+        width: 32px;
+        height: 32px;
         border-radius: 9px;
     }
 
     .app-title {
-        font-size: 1.02rem;
+        font-size: 1.12rem;
     }
 
     .header-actions {
@@ -3912,6 +3946,20 @@ details[open].settings-category-details > .settings-category-summary .settings-s
 
     .theme-cards {
         grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (max-width: 380px) {
+    .theme-cards {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .theme-mode-list label {
+        min-width: calc(50% - 4px);
+    }
+
+    .theme-card-name {
+        font-size: 0.76rem;
     }
 }
 
