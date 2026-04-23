@@ -1,6 +1,6 @@
-import { api } from './api.js?v=4.2.53';
-import { state } from './state.js?v=4.2.53';
-import { appEl, todoEditorEl, todoTitleInput, todoDateInput, todoNoteInput, todoStatusSelector } from './ui.js?v=4.2.53';
+import { api } from './api.js?v=4.2.54';
+import { state } from './state.js?v=4.2.54';
+import { appEl, todoEditorEl, todoTitleInput, todoDateInput, todoNoteInput, todoStatusSelector } from './ui.js?v=4.2.54';
 
 export function createTodoEditorController(deps) {
     const { invalidateCategoryCache, loadItems } = deps;
@@ -24,7 +24,7 @@ export function createTodoEditorController(deps) {
         const name = todoTitleInput?.value.trim() || currentItem.name;
         const dueDate = todoDateInput?.value || '';
         const content = todoNoteInput?.value || '';
-        const newStatus = getActiveStatus();
+        const status = getActiveStatus();
 
         const body = new URLSearchParams({
             id: String(currentItem.id),
@@ -33,12 +33,9 @@ export function createTodoEditorController(deps) {
             quantity: '',
             due_date: dueDate,
             content,
+            status,
         });
         await api('update', { method: 'POST', body });
-
-        if (newStatus !== (currentItem.status || '')) {
-            await api('status', { method: 'POST', body: new URLSearchParams({ id: String(currentItem.id), status: newStatus }) });
-        }
 
         invalidateCategoryCache(state.categoryId);
         await loadItems();

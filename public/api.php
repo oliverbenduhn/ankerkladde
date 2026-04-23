@@ -992,6 +992,11 @@ function normalizeContent(?string $content): string
     return sanitizeRichTextHtml(truncateText(trim((string) $content), 102400));
 }
 
+function normalizePlainTextContent(?string $content): string
+{
+    return truncateText(trim((string) $content), 8000);
+}
+
 function sanitizeRichTextHref(string $href): ?string
 {
     $href = trim($href);
@@ -1940,6 +1945,7 @@ try {
             if ($type === 'list_due_date') {
                 $quantity = '';
                 $barcode = '';
+                $content = normalizePlainTextContent($data['content'] ?? null);
             } elseif ($type === 'list_quantity') {
                 $dueDate = '';
                 $content = '';
@@ -2279,24 +2285,52 @@ try {
             if ($type !== 'list_due_date') {
                 $dueDate = '';
             }
-            if ($type !== 'notes' && $type !== 'links' && $type !== 'list_due_date') {
+            if ($type === 'list_due_date') {
+                $content = normalizePlainTextContent($data['content'] ?? null);
+            } elseif ($type === 'notes' || $type === 'links') {
+                // content already normalized above via normalizeContent
+            } else {
                 $content = '';
             }
 
-            $stmt = $db->prepare(
-                'UPDATE items
-                 SET name = :name, barcode = :barcode, quantity = :quantity, due_date = :due_date, content = :content, updated_at = CURRENT_TIMESTAMP
-                 WHERE id = :id AND user_id = :user_id'
-            );
-            $stmt->execute([
-                ':id' => $id,
-                ':name' => $name,
-                ':barcode' => $barcode,
-                ':quantity' => $quantity,
-                ':due_date' => $dueDate,
-                ':content' => $content,
-                ':user_id' => $userId,
-            ]);
+            $status = null;
+            if ($type === 'list_due_date') {
+                $statusRaw = $data['status'] ?? null;
+                $status = in_array($statusRaw, ['', 'in_progress', 'waiting'], true) ? $statusRaw : null;
+            }
+
+            if ($status !== null) {
+                $stmt = $db->prepare(
+                    'UPDATE items
+                     SET name = :name, barcode = :barcode, quantity = :quantity, due_date = :due_date, content = :content, status = :status, updated_at = CURRENT_TIMESTAMP
+                     WHERE id = :id AND user_id = :user_id'
+                );
+                $stmt->execute([
+                    ':id' => $id,
+                    ':name' => $name,
+                    ':barcode' => $barcode,
+                    ':quantity' => $quantity,
+                    ':due_date' => $dueDate,
+                    ':content' => $content,
+                    ':status' => $status,
+                    ':user_id' => $userId,
+                ]);
+            } else {
+                $stmt = $db->prepare(
+                    'UPDATE items
+                     SET name = :name, barcode = :barcode, quantity = :quantity, due_date = :due_date, content = :content, updated_at = CURRENT_TIMESTAMP
+                     WHERE id = :id AND user_id = :user_id'
+                );
+                $stmt->execute([
+                    ':id' => $id,
+                    ':name' => $name,
+                    ':barcode' => $barcode,
+                    ':quantity' => $quantity,
+                    ':due_date' => $dueDate,
+                    ':content' => $content,
+                    ':user_id' => $userId,
+                ]);
+            }
 
             if ($barcode !== '') {
                 $db->prepare(
