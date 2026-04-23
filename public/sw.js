@@ -1,7 +1,7 @@
 'use strict';
 
-const VERSION = 'v4.2.48';
-const ASSET_VERSION = '4.2.48';
+const VERSION = 'v4.2.55';
+const ASSET_VERSION = '4.2.55';
 const STATIC_CACHE = `ankerkladde-static-${VERSION}`;
 const RUNTIME_CACHE = `ankerkladde-runtime-${VERSION}`;
 const SHARE_CACHE = 'ankerkladde-share-target';
@@ -33,8 +33,13 @@ const APP_SHELL_ASSET_URLS = [
     `js/app-entry.js?v=${ASSET_VERSION}`,
     `js/items-view.js?v=${ASSET_VERSION}`,
     `js/items-actions.js?v=${ASSET_VERSION}`,
+    `js/item-menu.js?v=${ASSET_VERSION}`,
     `js/tabs-view.js?v=${ASSET_VERSION}`,
     `js/helpers.js?v=${ASSET_VERSION}`,
+    `js/lightbox.js?v=${ASSET_VERSION}`,
+    `js/magic.js?v=${ASSET_VERSION}`,
+    `js/offline-queue.js?v=${ASSET_VERSION}`,
+    `js/todo-editor.js?v=${ASSET_VERSION}`,
     `vendor/zxing/browser-0.1.5.js?v=${ASSET_VERSION}`,
     `manifest.php?v=${ASSET_VERSION}`,
     `icon.php?size=72&v=${ASSET_VERSION}`,
