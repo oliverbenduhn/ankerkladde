@@ -1,22 +1,23 @@
-import { api } from './api.js?v=4.2.54';
-import { state } from './state.js?v=4.2.54';
-import { appEl, todoEditorEl, todoTitleInput, todoDateInput, todoNoteInput, todoStatusSelector } from './ui.js?v=4.2.54';
+import { api } from './api.js?v=4.2.55';
+import { state } from './state.js?v=4.2.55';
+import { appEl, todoEditorEl, todoTitleInput, todoDateInput, todoNoteInput, todoStatusSelector } from './ui.js?v=4.2.55';
 
 export function createTodoEditorController(deps) {
     const { invalidateCategoryCache, loadItems } = deps;
 
     let currentItem = null;
+    let currentStatus = '';
+
+    function setStatus(status) {
+        currentStatus = status;
+        todoStatusSelector?.querySelectorAll('.todo-status-btn').forEach(btn => {
+            btn.classList.toggle('is-active', btn.dataset.status === status);
+        });
+    }
 
     todoStatusSelector?.querySelectorAll('.todo-status-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            todoStatusSelector.querySelectorAll('.todo-status-btn').forEach(b => b.classList.remove('is-active'));
-            btn.classList.add('is-active');
-        });
+        btn.addEventListener('click', () => setStatus(btn.dataset.status));
     });
-
-    function getActiveStatus() {
-        return todoStatusSelector?.querySelector('.todo-status-btn.is-active')?.dataset.status ?? '';
-    }
 
     async function save() {
         if (!currentItem) return;
@@ -24,7 +25,6 @@ export function createTodoEditorController(deps) {
         const name = todoTitleInput?.value.trim() || currentItem.name;
         const dueDate = todoDateInput?.value || '';
         const content = todoNoteInput?.value || '';
-        const status = getActiveStatus();
 
         const body = new URLSearchParams({
             id: String(currentItem.id),
@@ -33,7 +33,7 @@ export function createTodoEditorController(deps) {
             quantity: '',
             due_date: dueDate,
             content,
-            status,
+            status: currentStatus,
         });
         await api('update', { method: 'POST', body });
 
@@ -43,14 +43,13 @@ export function createTodoEditorController(deps) {
 
     function openTodoEditor(item) {
         currentItem = item;
+        currentStatus = item.status || '';
 
         if (todoTitleInput) todoTitleInput.value = item.name || '';
         if (todoDateInput) todoDateInput.value = item.due_date || '';
         if (todoNoteInput) todoNoteInput.value = item.content || '';
 
-        todoStatusSelector?.querySelectorAll('.todo-status-btn').forEach(btn => {
-            btn.classList.toggle('is-active', btn.dataset.status === (item.status || ''));
-        });
+        setStatus(currentStatus);
 
         if (todoEditorEl) todoEditorEl.hidden = false;
         appEl?.classList.add('todo-editor-open');
@@ -60,6 +59,7 @@ export function createTodoEditorController(deps) {
     async function closeTodoEditor() {
         await save();
         currentItem = null;
+        currentStatus = '';
         if (todoEditorEl) todoEditorEl.hidden = true;
         appEl?.classList.remove('todo-editor-open');
     }
