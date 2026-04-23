@@ -1214,6 +1214,11 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                 themePreferences.light_theme = String(formData.get('light_theme') || themePreferences.light_theme || 'hafenblau');
                 themePreferences.dark_theme = String(formData.get('dark_theme') || themePreferences.dark_theme || 'nachtwache');
                 applySettingsTheme();
+                postPreferencesUpdate({
+                    theme_mode: themePreferences.theme_mode,
+                    light_theme: themePreferences.light_theme,
+                    dark_theme: themePreferences.dark_theme,
+                });
             }
 
             const previousController = autoSaveControllers.get(form);

@@ -39,6 +39,40 @@ test.describe('Settings Theme Smoke Test', () => {
     expect(contrast.color).toBe('rgb(255, 255, 255)');
   });
 
+  test('theme mode updates the host app before autosave completes', async ({ page }) => {
+    await page.goto('/login.php');
+
+    await page.getByLabel('Benutzername').fill('playwright-user');
+    await page.getByLabel('Passwort').fill('playwright-pass');
+    await page.getByRole('button', { name: 'Anmelden' }).click();
+
+    await expect(page).toHaveURL(/index\.php/);
+    await page.getByRole('link', { name: 'Einstellungen' }).first().click();
+
+    const settingsFrame = page.frameLocator('#settingsFrame');
+    await expect(settingsFrame.getByText('Erscheinungsbild')).toBeVisible();
+
+    let releaseAutosave;
+    const autosaveBlocked = new Promise(resolve => {
+      releaseAutosave = resolve;
+    });
+
+    await page.route('**/settings.php**', async route => {
+      if (route.request().method() === 'POST') {
+        await autosaveBlocked;
+      }
+      await route.continue();
+    });
+
+    await settingsFrame.getByText('Dunkel', { exact: true }).click();
+
+    await expect(page.locator('body')).toHaveAttribute('data-theme', /nachtwache|pier|monochrom-dark|grauton-dark/);
+    await expect(settingsFrame.locator('body')).toHaveAttribute('data-theme', /nachtwache|pier|monochrom-dark|grauton-dark/);
+
+    releaseAutosave();
+    await expect(settingsFrame.locator('.settings-flash')).toContainText('gespeichert', { ignoreCase: true });
+  });
+
   test('settings state stays stable after reload', async ({ page }) => {
     await page.goto('/login.php');
 
