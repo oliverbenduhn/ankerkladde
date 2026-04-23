@@ -1,18 +1,19 @@
-import { createAppUiController } from './app-ui.js?v=4.2.51';
-import { createHelpersController } from './helpers.js?v=4.2.51';
-import { createItemsActionsController } from './items-actions.js?v=4.2.51';
-import { createItemsController } from './items.js?v=4.2.51';
-import { createItemsViewController } from './items-view.js?v=4.2.51';
-import { createNavigation } from './navigation.js?v=4.2.51';
-import { createEditorController } from './editor.js?v=4.2.51';
-import { createReorderController } from './reorder.js?v=4.2.51';
-import { createRouter } from './router.js?v=4.2.51';
-import { createScannerController } from './scanner.js?v=4.2.51';
-import { createSwipeController } from './swipe.js?v=4.2.51';
-import { createTabsViewController } from './tabs-view.js?v=4.2.51';
-import { createMagicController } from './magic.js?v=4.2.51';
-import { flushQueue, getPendingCount } from './offline-queue.js?v=4.2.51';
-import { api } from './api.js?v=4.2.51';
+import { createAppUiController } from './app-ui.js?v=4.2.52';
+import { createHelpersController } from './helpers.js?v=4.2.52';
+import { createItemsActionsController } from './items-actions.js?v=4.2.52';
+import { createItemsController } from './items.js?v=4.2.52';
+import { createItemsViewController } from './items-view.js?v=4.2.52';
+import { createNavigation } from './navigation.js?v=4.2.52';
+import { createEditorController } from './editor.js?v=4.2.52';
+import { createTodoEditorController } from './todo-editor.js?v=4.2.52';
+import { createReorderController } from './reorder.js?v=4.2.52';
+import { createRouter } from './router.js?v=4.2.52';
+import { createScannerController } from './scanner.js?v=4.2.52';
+import { createSwipeController } from './swipe.js?v=4.2.52';
+import { createTabsViewController } from './tabs-view.js?v=4.2.52';
+import { createMagicController } from './magic.js?v=4.2.52';
+import { flushQueue, getPendingCount } from './offline-queue.js?v=4.2.52';
+import { api } from './api.js?v=4.2.52';
 import {
     BARCODE_FORMATS,
     SCANNER_COOLDOWN_MS,
@@ -21,9 +22,9 @@ import {
     normalizePreferences,
     scannerState,
     state,
-} from './state.js?v=4.2.51';
-import { applyThemePreferences } from './theme.js?v=4.2.51';
-import { settingsFrameEl } from './ui.js?v=4.2.51';
+} from './state.js?v=4.2.52';
+import { applyThemePreferences } from './theme.js?v=4.2.52';
+import { settingsFrameEl } from './ui.js?v=4.2.52';
 
 export function createAppRuntime(deps) {
     const {
@@ -56,6 +57,7 @@ export function createAppRuntime(deps) {
     let itemsActionsController = null;
     let scannerController = null;
     let editorController = null;
+    let todoEditorController = null;
     let reorderController = null;
     let swipeController = null;
     let tabsViewController = null;
@@ -82,6 +84,8 @@ export function createAppRuntime(deps) {
     const openNoteEditor = async item => { await editorController.openNoteEditor(item); };
     const openNoteEditorWithNavigation = async item => { await editorController.openNoteEditorWithNavigation(item); };
     const closeNoteEditor = async () => { await editorController.closeNoteEditor(); };
+    const openTodoEditor = item => { todoEditorController.openTodoEditor(item); };
+    const closeTodoEditor = async () => { await todoEditorController.closeTodoEditor(); };
     const scheduleNoteSave = () => editorController.scheduleNoteSave();
     const resetItemForm = () => helpersController.resetItemForm();
     const syncSettingsFrameTheme = () => helpersController.syncSettingsFrameTheme(settingsFrameEl);
@@ -169,6 +173,7 @@ export function createAppRuntime(deps) {
         handleToggle: async (id, done) => { await itemsActionsController.handleToggle(id, done); },
         isOverdueItem,
         openNoteEditorWithNavigation,
+        openTodoEditor,
         setCategory,
     });
 
@@ -216,6 +221,11 @@ export function createAppRuntime(deps) {
         getTiptapEditor,
     });
 
+    todoEditorController = createTodoEditorController({
+        invalidateCategoryCache,
+        loadItems,
+    });
+
     reorderController = createReorderController({
         applyTabsVisibility,
         cacheCurrentCategoryItems,
@@ -253,6 +263,7 @@ export function createAppRuntime(deps) {
         closeScanner,
         closeSearch,
         doSearch,
+        closeTodoEditor,
         editorController,
         flushOfflineQueue,
         handleIncomingShare: async () => { await itemsActionsController.handleIncomingShare(); },

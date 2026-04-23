@@ -1,4 +1,4 @@
-import { state, scannerState, themeMediaQuery, isAttachmentCategory, normalizePreferences } from './state.js?v=4.2.51';
+import { state, scannerState, themeMediaQuery, isAttachmentCategory, normalizePreferences } from './state.js?v=4.2.52';
 import {
     appEl,
     cameraBtn,
@@ -12,6 +12,7 @@ import {
     noteEditorBack,
     noteTitleInput,
     noteToolbar,
+    todoEditorBack,
     quantityInput,
     scanAddBtn,
     scanShoppingBtn,
@@ -36,9 +37,9 @@ import {
     uploadModeFileBtn,
     uploadModeUrlBtn,
     urlImportInput,
-} from './ui.js?v=4.2.51';
-import { applyThemePreferences } from './theme.js?v=4.2.51';
-import { normalizeBarcodeValue, syncAutoHeight } from './utils.js?v=4.2.51';
+} from './ui.js?v=4.2.52';
+import { applyThemePreferences } from './theme.js?v=4.2.52';
+import { normalizeBarcodeValue, syncAutoHeight } from './utils.js?v=4.2.52';
 
 export function registerAppEventHandlers(deps) {
     const {
@@ -73,6 +74,7 @@ export function registerAppEventHandlers(deps) {
         updateUploadUi,
         userPreferencesRef,
         editorController,
+        closeTodoEditor,
         addItem,
         magicController,
     } = deps;
@@ -360,6 +362,10 @@ export function registerAppEventHandlers(deps) {
 
     noteEditorBack?.addEventListener('click', () => {
         navigation.navigateBackOrReplace({ screen: 'list' });
+    });
+
+    todoEditorBack?.addEventListener('click', () => {
+        void closeTodoEditor();
     });
 
     noteTitleInput?.addEventListener('input', scheduleNoteSave);

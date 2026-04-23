@@ -2,6 +2,7 @@ export function createItemMenuController(deps) {
     const {
         getAttachmentTitle,
         openNoteEditorWithNavigation,
+        openTodoEditor,
         handlePin,
         handleDelete,
         handleEditStart,
@@ -54,6 +55,8 @@ export function createItemMenuController(deps) {
 
         if (item.category_type === 'notes') {
             appendAction('Notiz öffnen', () => openNoteEditorWithNavigation(item));
+        } else if (item.category_type === 'list_due_date') {
+            appendAction('Bearbeiten', () => openTodoEditor(item));
         } else {
             appendAction('Bearbeiten', () => handleEditStart(item));
         }

@@ -1,8 +1,8 @@
-import { isNotesCategory, state } from './state.js?v=4.2.51';
-import { clearDoneBtn, listEl, progressEl, svgIcon } from './ui.js?v=4.2.51';
-import { normalizeBarcodeValue, syncAutoHeight } from './utils.js?v=4.2.51';
-import { createLightboxController } from './lightbox.js?v=4.2.51';
-import { createItemMenuController } from './item-menu.js?v=4.2.51';
+import { isNotesCategory, state } from './state.js?v=4.2.52';
+import { clearDoneBtn, listEl, progressEl, svgIcon } from './ui.js?v=4.2.52';
+import { normalizeBarcodeValue, syncAutoHeight } from './utils.js?v=4.2.52';
+import { createLightboxController } from './lightbox.js?v=4.2.52';
+import { createItemMenuController } from './item-menu.js?v=4.2.52';
 
 export function createItemsViewController(deps) {
     const {
@@ -25,6 +25,7 @@ export function createItemsViewController(deps) {
     const itemMenu = createItemMenuController({
         getAttachmentTitle: (item) => item.name || item.attachmentOriginalName || 'Anhang',
         openNoteEditorWithNavigation,
+        openTodoEditor,
         handlePin,
         handleDelete,
         handleEditStart: (item) => {
@@ -399,7 +400,7 @@ export function createItemsViewController(deps) {
         const content = document.createElement('div');
         content.className = 'item-content';
 
-        if (state.editingId === item.id) {
+        if (state.editingId === item.id && item.category_type !== 'list_due_date') {
             buildEditContent(item, content);
         } else {
             buildReadOnlyContent(item, content);

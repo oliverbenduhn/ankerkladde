@@ -270,6 +270,31 @@ $magicButtonEnabled = !array_key_exists('magic_button_enabled', $userPreferences
         <div class="note-editor-body" id="noteEditorEl"></div>
     </div>
 
+    <div class="todo-editor" id="todoEditor" hidden>
+        <div class="todo-editor-top">
+            <button type="button" id="todoEditorBack" class="btn-note-back" aria-label="Zurück"><?= icon('arrow-left') ?></button>
+            <input type="text" id="todoTitleInput" class="note-title-input" placeholder="Aufgabe..." aria-label="Aufgabentitel" maxlength="120" autocomplete="off">
+        </div>
+        <div class="todo-editor-body" id="todoEditorBody">
+            <div class="todo-editor-section">
+                <label class="todo-editor-label" for="todoDateInput">Fälligkeitsdatum</label>
+                <input type="date" id="todoDateInput" class="todo-editor-date-input">
+            </div>
+            <div class="todo-editor-section">
+                <span class="todo-editor-label">Status</span>
+                <div class="todo-status-selector" id="todoStatusSelector" role="group" aria-label="Status">
+                    <button type="button" class="todo-status-btn" data-status="">Offen</button>
+                    <button type="button" class="todo-status-btn" data-status="in_progress">In Arbeit</button>
+                    <button type="button" class="todo-status-btn" data-status="waiting">Wartet</button>
+                </div>
+            </div>
+            <div class="todo-editor-section todo-editor-section--note">
+                <label class="todo-editor-label" for="todoNoteInput">Notiz</label>
+                <textarea id="todoNoteInput" class="todo-note-input" placeholder="Notizen zur Aufgabe..." maxlength="8000"></textarea>
+            </div>
+        </div>
+    </div>
+
 </div>
 
 <script id="userPreferences" type="application/json"><?= json_encode($userPreferences, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
