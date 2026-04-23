@@ -220,6 +220,13 @@ export function createItemsViewController(deps) {
             nameEl.className = 'item-name';
             nameEl.textContent = item.name;
             content.appendChild(nameEl);
+
+            if (item.category_type === 'list_due_date' && item.content) {
+                const noteEl = document.createElement('span');
+                noteEl.className = 'item-note';
+                noteEl.textContent = item.content;
+                content.appendChild(noteEl);
+            }
         }
 
         if (item.due_date) {
@@ -294,6 +301,19 @@ export function createItemsViewController(deps) {
                 state.editDraft.due_date = event.target.value;
             });
             fields.appendChild(dueDate);
+
+            const noteInput = document.createElement('textarea');
+            noteInput.className = 'item-edit-input item-edit-textarea';
+            noteInput.rows = 3;
+            noteInput.maxLength = 4000;
+            noteInput.placeholder = 'Notiz optional';
+            noteInput.value = state.editDraft.content;
+            noteInput.addEventListener('input', event => {
+                state.editDraft.content = event.target.value;
+                syncAutoHeight(noteInput);
+            });
+            syncAutoHeight(noteInput);
+            fields.appendChild(noteInput);
         }
 
         if (item.category_type === 'links') {

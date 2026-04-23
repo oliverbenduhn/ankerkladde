@@ -780,6 +780,16 @@ button, input { font: inherit; }
     overflow-wrap: anywhere;
 }
 
+.item-note {
+    display: block;
+    color: var(--text-secondary);
+    font-size: 0.82rem;
+    line-height: 1.35;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    margin-top: 2px;
+}
+
 .attachment-preview-link {
     display: block;
     flex-shrink: 0;

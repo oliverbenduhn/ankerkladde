@@ -2277,7 +2277,7 @@ try {
             if ($type !== 'list_due_date') {
                 $dueDate = '';
             }
-            if ($type !== 'notes' && $type !== 'links') {
+            if ($type !== 'notes' && $type !== 'links' && $type !== 'list_due_date') {
                 $content = '';
             }
 
