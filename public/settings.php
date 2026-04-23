@@ -242,7 +242,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $action = (string) ($_POST['action'] ?? 'categories');
         }
 
-        if ($action === 'change_password') {
+        switch ($action) {
+            case 'change_password':
             $currentPassword = (string) ($_POST['current_password'] ?? '');
             $newPassword = (string) ($_POST['new_password'] ?? '');
             $newPasswordConfirm = (string) ($_POST['new_password_confirm'] ?? '');
@@ -284,7 +285,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $flash = 'Passwort geändert.';
                 }
             }
-        } elseif ($action === 'create_category') {
+            break;
+
+        case 'create_category':
             $name = normalizeSettingsName((string) ($_POST['name'] ?? ''));
             $type = trim((string) ($_POST['type'] ?? ''));
             $icon = normalizeCategoryIcon((string) ($_POST['icon'] ?? ''), $type);
@@ -312,7 +315,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $flash = 'Kategorie erstellt.';
                 notifyWebSocket($userId);
             }
-        } elseif ($action === 'save_category') {
+            break;
+
+        case 'save_category':
             $categoryId = filter_var($_POST['category_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
 
             if (!is_int($categoryId)) {
@@ -348,7 +353,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     notifyWebSocket($userId);
                 }
             }
-        } elseif ($action === 'move_category_up' || $action === 'move_category_down') {
+            break;
+
+        case 'move_category_up':
+        case 'move_category_down':
             $categoryId = filter_var($_POST['category_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
             $direction = $action === 'move_category_up' ? 'up' : 'down';
 
@@ -362,7 +370,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $flash = 'Kategorie konnte nicht verschoben werden.';
                 $flashType = 'err';
             }
-        } elseif ($action === 'reorder_categories') {
+            break;
+
+        case 'reorder_categories':
             $rawOrder = (string) ($_POST['order'] ?? '');
             $orderIds = json_decode($rawOrder, true);
 
@@ -403,7 +413,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $flashType = 'err';
                 }
             }
-        } elseif ($action === 'delete_category') {
+            break;
+
+        case 'delete_category':
             $deleteCategoryId = filter_var($_POST['category_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
 
             if (!is_int($deleteCategoryId)) {
@@ -434,7 +446,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 }
             }
-        } elseif ($action === 'save_theme') {
+            break;
+
+        case 'save_theme':
             $themeMode = (string) ($_POST['theme_mode'] ?? 'auto');
             $lightTheme = (string) ($_POST['light_theme'] ?? '');
             $darkTheme = (string) ($_POST['dark_theme'] ?? '');
@@ -464,13 +478,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $preferences = getExtendedUserPreferences($db, $userId);
             $flash = 'Themes gespeichert.';
             notifyWebSocket($userId);
-        } elseif ($action === 'save_app_preferences') {
+            break;
+
+        case 'save_app_preferences':
             $preferences = updateExtendedUserPreferences($db, $userId, [
                 'category_swipe_enabled' => isset($_POST['category_swipe_enabled']),
             ]);
             $flash = 'Anzeige-Einstellungen gespeichert.';
             notifyWebSocket($userId);
-        } elseif ($action === 'save_feature_preferences') {
+            break;
+
+        case 'save_feature_preferences':
             $preferences = updateExtendedUserPreferences($db, $userId, [
                 'product_scanner_enabled' => isset($_POST['product_scanner_enabled']),
                 'shopping_list_scanner_enabled' => isset($_POST['shopping_list_scanner_enabled']),
@@ -479,10 +497,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ]);
             $flash = 'Funktions-Einstellungen gespeichert.';
             notifyWebSocket($userId);
-        } elseif ($action === 'regenerate_api_key') {
+            break;
+
+        case 'regenerate_api_key':
             setUserApiKey($db, $userId);
             $flash = 'API-Key neu erzeugt.';
-        } elseif ($action === 'save_ai_preferences') {
+            break;
+
+        case 'save_ai_preferences':
             $geminiApiKey = trim((string) ($_POST['gemini_api_key'] ?? ''));
             $geminiModel = (string) ($_POST['gemini_model'] ?? 'gemini-2.5-flash');
             if (!array_key_exists($geminiModel, $geminiModels)) {
@@ -500,6 +522,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $flashType = 'err';
             }
             notifyWebSocket($userId);
+            break;
         }
     }
 
