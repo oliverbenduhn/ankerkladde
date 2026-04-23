@@ -1,8 +1,8 @@
-import { appUrl, api, apiUpload } from './api.js?v=4.2.48';
-import { getCurrentCategory, isAttachmentCategory, state } from './state.js?v=4.2.48';
-import { fileInput, itemInput, linkDescriptionInput, quantityInput, urlImportInput } from './ui.js?v=4.2.48';
-import { escapeRegExp } from './utils.js?v=4.2.48';
-import { enqueueAction } from './offline-queue.js?v=4.2.48';
+import { appUrl, api, apiUpload } from './api.js?v=4.2.50';
+import { getCurrentCategory, isAttachmentCategory, state } from './state.js?v=4.2.50';
+import { fileInput, itemInput, linkDescriptionInput, quantityInput, urlImportInput } from './ui.js?v=4.2.50';
+import { escapeRegExp } from './utils.js?v=4.2.50';
+import { enqueueAction } from './offline-queue.js?v=4.2.50';
 
 export function createItemsActionsController(deps) {
     const {
@@ -342,6 +342,20 @@ export function createItemsActionsController(deps) {
         }
     }
 
+    async function handleStatus(id, currentStatus) {
+        const next = currentStatus === '' ? 'in_progress' : currentStatus === 'in_progress' ? 'waiting' : '';
+        await api('status', { method: 'POST', body: new URLSearchParams({ id: String(id), status: next }) });
+        const item = getItemById(id);
+        if (item) {
+            item.status = next;
+            cacheCurrentCategoryItems();
+            renderItems();
+        } else {
+            invalidateCategoryCache(state.categoryId);
+            await loadItems();
+        }
+    }
+
     async function handlePin(id, isPinned) {
         await api('pin', { method: 'POST', body: new URLSearchParams({ id: String(id), is_pinned: String(isPinned) }) });
         const item = getItemById(id);
@@ -415,6 +429,7 @@ export function createItemsActionsController(deps) {
         handleEditSave,
         handleIncomingShare,
         handlePin,
+        handleStatus,
         handleToggle,
         uploadSelectedAttachment,
     };

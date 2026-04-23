@@ -1,8 +1,8 @@
-import { isNotesCategory, state } from './state.js?v=4.2.48';
-import { clearDoneBtn, listEl, progressEl, svgIcon } from './ui.js?v=4.2.48';
-import { normalizeBarcodeValue, syncAutoHeight } from './utils.js?v=4.2.48';
-import { createLightboxController } from './lightbox.js?v=4.2.48';
-import { createItemMenuController } from './item-menu.js?v=4.2.48';
+import { isNotesCategory, state } from './state.js?v=4.2.50';
+import { clearDoneBtn, listEl, progressEl, svgIcon } from './ui.js?v=4.2.50';
+import { normalizeBarcodeValue, syncAutoHeight } from './utils.js?v=4.2.50';
+import { createLightboxController } from './lightbox.js?v=4.2.50';
+import { createItemMenuController } from './item-menu.js?v=4.2.50';
 
 export function createItemsViewController(deps) {
     const {
@@ -14,6 +14,7 @@ export function createItemsViewController(deps) {
         handleDelete,
         handleEditSave,
         handlePin,
+        handleStatus,
         handleToggle,
         isOverdueItem,
         openNoteEditorWithNavigation,
@@ -226,6 +227,25 @@ export function createItemsViewController(deps) {
                 noteEl.className = 'item-note';
                 noteEl.textContent = item.content;
                 content.appendChild(noteEl);
+            }
+
+            if (item.category_type === 'list_due_date') {
+                const STATUS_LABELS = { in_progress: 'In Arbeit', waiting: 'Wartet' };
+                const STATUS_ICONS = { in_progress: 'play', waiting: 'clock' };
+                const st = item.status || '';
+                const chip = document.createElement('button');
+                chip.type = 'button';
+                chip.className = `item-status-chip${st ? ` item-status-chip--${st}` : ''}`;
+                chip.setAttribute('aria-label', st ? `Status: ${STATUS_LABELS[st]} – wechseln` : 'Status setzen');
+                if (st) {
+                    chip.appendChild(svgIcon(STATUS_ICONS[st]));
+                    chip.append(STATUS_LABELS[st]);
+                }
+                chip.addEventListener('click', event => {
+                    event.stopPropagation();
+                    void handleStatus(item.id, st);
+                });
+                content.appendChild(chip);
             }
         }
 

@@ -1408,6 +1408,13 @@ function getDatabase(): PDO
         $db->exec("ALTER TABLE items ADD COLUMN barcode TEXT NOT NULL DEFAULT ''");
     }
 
+    $columns = $db->query('PRAGMA table_info(items)')->fetchAll();
+    $columnNames = array_map(static fn(array $column): string => $column['name'], $columns);
+
+    if (!in_array('status', $columnNames, true)) {
+        $db->exec("ALTER TABLE items ADD COLUMN status TEXT NOT NULL DEFAULT '' CHECK(status IN ('', 'in_progress', 'waiting'))");
+    }
+
     $hasFts = (bool) $db->query(
         "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = 'items_fts'"
     )->fetchColumn();

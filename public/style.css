@@ -790,6 +790,45 @@ button, input { font: inherit; }
     margin-top: 2px;
 }
 
+.item-status-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 5px;
+    padding: 2px 8px 2px 6px;
+    border: none;
+    border-radius: 20px;
+    font-size: 0.78rem;
+    font-weight: 500;
+    line-height: 1.4;
+    cursor: pointer;
+    background: transparent;
+    color: transparent;
+    width: 28px;
+    height: 20px;
+    transition: background 0.15s, color 0.15s, width 0.15s;
+}
+.item-status-chip .icon {
+    width: 12px;
+    height: 12px;
+    flex-shrink: 0;
+    opacity: 0.3;
+    transition: opacity 0.15s;
+}
+.item-status-chip--in_progress {
+    background: color-mix(in srgb, #f59e0b 15%, transparent);
+    color: #b45309;
+    width: auto;
+}
+.item-status-chip--in_progress .icon { opacity: 1; fill: #b45309; stroke: none; }
+.item-status-chip--waiting {
+    background: color-mix(in srgb, #6366f1 15%, transparent);
+    color: #4338ca;
+    width: auto;
+}
+.item-status-chip--waiting .icon { opacity: 1; stroke: #4338ca; }
+.item-card.done .item-status-chip { opacity: 0.4; pointer-events: none; }
+
 .attachment-preview-link {
     display: block;
     flex-shrink: 0;

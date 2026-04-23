@@ -1636,6 +1636,7 @@ function formatListItem(array $item): array
         'quantity' => (string) ($item['quantity'] ?? ''),
         'due_date' => (string) ($item['due_date'] ?? ''),
         'is_pinned' => (int) ($item['is_pinned'] ?? 0),
+        'status' => (string) ($item['status'] ?? ''),
         'content' => (string) ($item['content'] ?? ''),
         'done' => (int) ($item['done'] ?? 0),
         'sort_order' => (int) ($item['sort_order'] ?? 0),
@@ -1667,6 +1668,7 @@ function fetchItemForUser(PDO $db, int $userId, int $itemId): ?array
             items.quantity,
             items.due_date,
             items.is_pinned,
+            items.status,
             items.content,
             items.done,
             items.sort_order,
@@ -2447,6 +2449,29 @@ try {
             }
 
             respond(200, ['message' => 'Pinned-Status aktualisiert.']);
+
+        case 'status':
+            requireMethod('POST');
+            $data = requestData();
+            if (!isApiKeyAuthRequest()) {
+                requireCsrfToken($data);
+            }
+
+            $id = filter_var($data['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+            $status = $data['status'] ?? null;
+
+            if (!is_int($id) || !in_array($status, ['', 'in_progress', 'waiting'], true)) {
+                respond(422, ['error' => 'Ungültige Parameter.']);
+            }
+
+            $stmt = $db->prepare('UPDATE items SET status = :status, updated_at = CURRENT_TIMESTAMP WHERE id = :id AND user_id = :user_id');
+            $stmt->execute([':status' => $status, ':id' => $id, ':user_id' => $userId]);
+
+            if ($stmt->rowCount() === 0) {
+                respond(404, ['error' => 'Artikel nicht gefunden.']);
+            }
+
+            respond(200, ['message' => 'Status aktualisiert.']);
 
         case 'search':
             requireMethod('GET');
