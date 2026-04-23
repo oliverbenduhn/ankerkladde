@@ -1,7 +1,7 @@
 # Ankerkladde Extension
 
 <p align="center">
-  <img src="../public/branding/ankerkladde-logo.png" alt="Ankerkladde" width="140">
+  <img src="../public/icons/icon-192.png" alt="Ankerkladde" width="140">
 </p>
 
 Browser-Erweiterung zum Speichern von Links, Bildern und Dateien direkt nach Ankerkladde.
@@ -30,9 +30,10 @@ Browser-Erweiterung zum Speichern von Links, Bildern und Dateien direkt nach Ank
 ### ZIP bauen
 
 1. Im Projektordner `browser-extension/` öffnen.
-2. Falls nötig: `php build-icons.php` ausführen, um die PNG-Icons neu zu erzeugen.
-3. `php build-extension.php` ausführen für Chrome/Edge.
-4. `php build-firefox.php` ausführen für Firefox.
+2. `php sync-theme-data.php` ausführen, um die aktuellen Theme-Tokens aus der Web-App zu übernehmen.
+3. `php build-icons.php` ausführen, um die Extension-Icons aus `public/icons/icon-512.png` neu zu erzeugen.
+4. `php build-extension.php` ausführen für Chrome/Edge.
+5. `php build-firefox.php` ausführen für Firefox.
 5. Die ZIP-Dateien entstehen automatisch als `ankerkladde-extension-v<version>.zip` und `ankerkladde-extension-v<version>-firefox.zip`.
 
 Die PHP-Build-Skripte bauen die ZIP-Dateien ohne externe `zip`-Abhängigkeit. Die Versionsnummer wird aus dem jeweiligen Manifest übernommen.
@@ -80,6 +81,6 @@ Je nach gewählter Kategorie wird der aktuelle Tab gespeichert:
 - Die Extension nutzt den Header `X-API-Key`.
 - Für API-Key-Requests ist keine Browser-Session in Ankerkladde nötig.
 - Nach Änderungen an Dateien der Extension in `chrome://extensions` auf `Neu laden` klicken.
-- Das Quellicon liegt unter `browser-extension/icons/icon.svg`.
-- PNG-Icons werden mit `browser-extension/build-icons.php` erzeugt.
+- Die Theme-Daten für das Popup werden über `browser-extension/sync-theme-data.php` aus `public/theme-data.php` synchronisiert.
+- PNG-Icons werden mit `browser-extension/build-icons.php` direkt aus `public/icons/icon-512.png` erzeugt.
 - Die Standard-Kategorieauswahl in der Extension arbeitet mit echten `category_id`-Werten, nicht mehr mit alten Bereichsschlüsseln wie `shopping` oder `notes`.

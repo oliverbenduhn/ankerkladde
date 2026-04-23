@@ -1,151 +1,33 @@
 const DEFAULT_API_URL = 'https://ankerkladde.benduhn.de';
 
-const THEMES = {
+const THEME_FALLBACK = {
   hafenblau: {
-    bg: '#dce8f0',
-    surface: '#eaf3f8',
-    surfaceWhite: '#fff',
-    border: '#b8d0e0',
-    textPrimary: '#0d3a5c',
-    textSecondary: '#3a7090',
-    textMuted: '#7aaac0',
-    accent: '#1a6090',
-    surfaceHover: '#d0e5f0',
-    error: '#c0392b',
-  },
-  parchment: {
-    bg: '#f5f0eb',
-    surface: '#faf6f0',
-    surfaceWhite: '#fff',
-    border: '#e0d8cc',
-    textPrimary: '#3d352e',
-    textSecondary: '#6b5e52',
-    textMuted: '#a89888',
-    accent: '#8b6f4e',
-    surfaceHover: '#eee5db',
-    error: '#b33a3a',
-  },
-  nachtwache: {
-    bg: '#111c2d',
-    surface: '#162338',
-    surfaceWhite: '#1a2538',
-    border: '#1e3550',
-    textPrimary: '#cce4f4',
-    textSecondary: '#4a80a8',
-    textMuted: '#2d5070',
-    accent: '#1a6090',
-    surfaceHover: '#1f2d42',
-    error: '#e05050',
-  },
-  pier: {
-    bg: '#0f1419',
-    surface: '#181410',
-    surfaceWhite: '#1c1815',
-    border: '#2a2210',
-    textPrimary: '#e8d8a8',
-    textSecondary: '#7a6a3a',
-    textMuted: '#4a3a20',
-    accent: '#c8a84c',
-    surfaceHover: '#0a0e12',
-    error: '#d05040',
-  },
-  meeresgruen: {
-    bg: '#d8eee6',
-    surface: '#e8f5ef',
-    surfaceWhite: '#fff',
-    border: '#a8d8c0',
-    textPrimary: '#0d4a30',
-    textSecondary: '#2e7a50',
-    textMuted: '#6aaa88',
-    accent: '#1a7a50',
-    surfaceHover: '#c8e8d8',
-    error: '#c0392b',
-  },
-  lavendelsegel: {
-    bg: '#ece6f5',
-    surface: '#f4f0fa',
-    surfaceWhite: '#fff',
-    border: '#c8b8e0',
-    textPrimary: '#3a1a6a',
-    textSecondary: '#6a40a0',
-    textMuted: '#9a78c0',
-    accent: '#6030a8',
-    surfaceHover: '#ddd0f0',
-    error: '#c0392b',
-  },
-  monochrom: {
-    bg: '#ffffff',
-    surface: '#fafafa',
-    surfaceWhite: '#fff',
-    border: '#e0e0e0',
-    textPrimary: '#000000',
-    textSecondary: '#333333',
-    textMuted: '#808080',
-    accent: '#2a2a2a',
-    surfaceHover: '#f0f0f0',
-    error: '#c0392b',
-  },
-  regenbogen: {
-    bg: '#fef8f0',
-    surface: '#fffcf8',
-    surfaceWhite: '#fff',
-    border: '#f8c890',
-    textPrimary: '#1a1010',
-    textSecondary: '#c83060',
-    textMuted: '#b07090',
-    accent: '#0090a8',
-    surfaceHover: '#dff6e4',
-    error: '#d63031',
-  },
-  mangrove: {
-    bg: '#0a1410',
-    surface: '#101e16',
-    surfaceWhite: '#141e1a',
-    border: '#1a3020',
-    textPrimary: '#b8e0c4',
-    textSecondary: '#3a7a50',
-    textMuted: '#1e4830',
-    accent: '#2a8a48',
-    surfaceHover: '#060e08',
-    error: '#e05050',
-  },
-  abyssus: {
-    bg: '#120d1e',
-    surface: '#1a1430',
-    surfaceWhite: '#1e1838',
-    border: '#2e2050',
-    textPrimary: '#d4c4f4',
-    textSecondary: '#6a50a8',
-    textMuted: '#3a2870',
-    accent: '#7840d4',
-    surfaceHover: '#0d0818',
-    error: '#e05050',
-  },
-  'monochrom-dark': {
-    bg: '#000000',
-    surface: '#050505',
-    surfaceWhite: '#0f0f0f',
-    border: '#1a1a1a',
-    textPrimary: '#ffffff',
-    textSecondary: '#cccccc',
-    textMuted: '#808080',
-    accent: '#ffffff',
-    surfaceHover: '#0f0f0f',
-    error: '#ff6b6b',
-  },
-  'grauton-dark': {
-    bg: '#1a1a1a',
-    surface: '#242424',
-    surfaceWhite: '#2e2e2e',
-    border: '#3a3a3a',
-    textPrimary: '#e8e8e8',
-    textSecondary: '#b0b0b0',
-    textMuted: '#707070',
-    accent: '#d0d0d0',
-    surfaceHover: '#0f0f0f',
-    error: '#e05050',
+    tokens: {
+      '--bg': '#dce8f0',
+      '--surface': '#eaf3f8',
+      '--border': '#b8d0e0',
+      '--text-primary': '#0d3a5c',
+      '--text-secondary': '#3a7090',
+      '--text-muted': '#7aaac0',
+      '--accent': '#1a6090',
+      '--done-bg': '#d0e5f0',
+      '--error': '#c0392b',
+      '--button-active-bg': '#1a6090',
+      '--button-active-text': '#ffffff',
+      '--toast-success-bg': 'rgba(26, 144, 112, 0.12)',
+      '--toast-success-text': '#0d3a2e',
+      '--toast-error-bg': 'rgba(192, 57, 43, 0.12)',
+      '--toast-error-text': '#6e1a10',
+      '--brand-mark-surface': 'rgba(236, 246, 252, 0.94)',
+      '--brand-mark-border': 'rgba(25, 96, 144, 0.2)',
+      '--brand-mark-shadow': '0 14px 28px rgba(16, 72, 112, 0.2)',
+      '--brand-mark-filter': 'saturate(1) contrast(1)',
+      '--font-family': 'system-ui, -apple-system, sans-serif',
+    },
   },
 };
+
+const THEMES = globalThis.ANKERKLADDE_THEMES || THEME_FALLBACK;
 
 const state = {
   apiUrl: DEFAULT_API_URL,
@@ -173,19 +55,22 @@ function setStatus(message, type = 'ok') {
 }
 
 function applyTheme(themeName) {
-  const theme = THEMES[themeName] || THEMES.hafenblau;
+  const theme = THEMES[themeName] || THEMES.hafenblau || THEME_FALLBACK.hafenblau;
+  const tokens = theme.tokens || {};
   const root = document.documentElement;
-  root.style.setProperty('--bg', theme.bg);
-  root.style.setProperty('--surface', theme.surface);
-  root.style.setProperty('--surface-white', theme.surfaceWhite);
-  root.style.setProperty('--border', theme.border);
-  root.style.setProperty('--text-primary', theme.textPrimary);
-  root.style.setProperty('--text-secondary', theme.textSecondary);
-  root.style.setProperty('--text-muted', theme.textMuted);
-  root.style.setProperty('--accent', theme.accent);
-  root.style.setProperty('--surface-hover', theme.surfaceHover);
-  root.style.setProperty('--error', theme.error);
+
+  Object.entries(tokens).forEach(([token, value]) => {
+    root.style.setProperty(token, value);
+  });
+
+  root.style.setProperty('--accent-contrast', tokens['--accent-contrast'] || '#ffffff');
+  root.style.setProperty('--surface-strong', tokens['--surface'] || '#ffffff');
+  root.style.setProperty('--surface-soft', tokens['--done-bg'] || tokens['--surface'] || '#ffffff');
+  root.style.setProperty('--overlay-shadow', tokens['--brand-mark-shadow'] || '0 18px 40px rgba(0,0,0,0.16)');
+  root.style.setProperty('--font-family', tokens['--font-family'] || 'system-ui, -apple-system, sans-serif');
+
   state.theme = themeName;
+  document.body.dataset.theme = themeName;
 }
 
 function setBusy(isBusy) {

@@ -22,6 +22,7 @@ function getExtensionArchiveEntries(bool $isFirefox = false): array
     return [
         ['source' => $isFirefox ? 'manifest-firefox.json' : 'manifest.json', 'target' => 'manifest.json'],
         ['source' => 'popup.html', 'target' => 'popup.html'],
+        ['source' => 'theme-tokens.js', 'target' => 'theme-tokens.js'],
         ['source' => 'popup.js', 'target' => 'popup.js'],
         ['source' => 'background.js', 'target' => 'background.js'],
         ['source' => 'icon.png', 'target' => 'icon.png'],
@@ -128,5 +129,25 @@ function writeExtensionZipFile(string $baseDir, string $outputPath, bool $isFire
     $zipData = buildExtensionZipData($baseDir, $isFirefox);
     if (file_put_contents($outputPath, $zipData) === false) {
         throw new RuntimeException('ZIP konnte nicht geschrieben werden.');
+    }
+}
+
+function runExtensionBuildPreparation(string $baseDir): void
+{
+    $scripts = [
+        $baseDir . '/sync-theme-data.php',
+        $baseDir . '/build-icons.php',
+    ];
+
+    foreach ($scripts as $script) {
+        if (!is_file($script)) {
+            throw new RuntimeException(sprintf('Build-Skript fehlt: %s', basename($script)));
+        }
+
+        $command = escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg($script);
+        passthru($command, $exitCode);
+        if ($exitCode !== 0) {
+            throw new RuntimeException(sprintf('Build-Vorbereitung fehlgeschlagen: %s', basename($script)));
+        }
     }
 }

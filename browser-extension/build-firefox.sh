@@ -8,8 +8,12 @@ rm -rf "${OUTPUT_DIR}"
 mkdir -p "${OUTPUT_DIR}"
 mkdir -p "${OUTPUT_DIR}/icons"
 
+php "${SCRIPT_DIR}/sync-theme-data.php"
+php "${SCRIPT_DIR}/build-icons.php"
+
 cp "${SCRIPT_DIR}/manifest-firefox.json" "${OUTPUT_DIR}/manifest.json"
 cp "${SCRIPT_DIR}/popup.html" "${OUTPUT_DIR}/popup.html"
+cp "${SCRIPT_DIR}/theme-tokens.js" "${OUTPUT_DIR}/theme-tokens.js"
 cp "${SCRIPT_DIR}/popup.js" "${OUTPUT_DIR}/popup.js"
 cp "${SCRIPT_DIR}/background.js" "${OUTPUT_DIR}/background.js"
 cp "${SCRIPT_DIR}/icon.png" "${OUTPUT_DIR}/icon.png"

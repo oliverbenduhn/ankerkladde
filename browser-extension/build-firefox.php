@@ -7,6 +7,7 @@ $baseDir = __DIR__;
 $outputZip = $baseDir . '/' . getVersionedExtensionZipFilename($baseDir, true);
 
 try {
+    runExtensionBuildPreparation($baseDir);
     writeExtensionZipFile($baseDir, $outputZip, true);
     fwrite(STDOUT, "Firefox-ZIP erstellt: {$outputZip}\n");
 } catch (Throwable $exception) {
