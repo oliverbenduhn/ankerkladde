@@ -1890,10 +1890,9 @@ button, input { font: inherit; }
     width: 28px;
     height: 28px;
     border-radius: 12px;
-    background: transparent;
+    background: var(--tab-icon-chip);
     font-size: 0;
     line-height: 1;
-    filter: saturate(0.95) brightness(1.02) contrast(1.05);
     transition: all 0.2s ease;
 }
 
@@ -1902,11 +1901,15 @@ button, input { font: inherit; }
     width: 24px;
     height: 24px;
     object-fit: contain;
+    filter: var(--tab-icon-filter);
 }
 
 .section-tab[aria-current="page"] .section-icon {
-    filter: saturate(1.05) brightness(1.1);
+    background: var(--tab-icon-chip-active);
     transform: scale(1.15) translateY(-1px);
+}
+.section-tab[aria-current="page"] .category-icon-img {
+    filter: var(--tab-icon-filter-active);
 }
 .section-label {
     display: block;
@@ -1994,11 +1997,13 @@ button, input { font: inherit; }
     width: 24px;
     height: 24px;
     flex: 0 0 24px;
+    border-radius: 10px;
+    background: var(--tab-icon-chip);
     font-size: 0;
-    filter: opacity(0.7);
 }
 .mehr-item.active { color: var(--text-primary); border-color: var(--accent); }
-.mehr-item.active .mehr-item-icon { filter: opacity(1); }
+.mehr-item.active .mehr-item-icon { background: var(--tab-icon-chip-active); }
+.mehr-item.active .category-icon-img { filter: var(--tab-icon-filter-active); }
 
 /* ===========================================
    NOTE CARDS
