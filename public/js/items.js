@@ -1,6 +1,6 @@
-import { api, normalizeItem, persistPreferences } from './api.js?v=4.2.53';
-import { LOCAL_PREF_KEYS, state } from './state.js?v=4.2.53';
-import { appEl, searchBar, searchBtn, searchInput } from './ui.js?v=4.2.53';
+import { api, normalizeItem, persistPreferences } from './api.js?v=4.2.56';
+import { LOCAL_PREF_KEYS, state } from './state.js?v=4.2.56';
+import { appEl, searchBar, searchBtn, searchInput } from './ui.js?v=4.2.56';
 
 export function createItemsController(deps) {
     /**

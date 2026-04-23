@@ -1,6 +1,6 @@
-import { api } from './api.js?v=4.2.55';
-import { state } from './state.js?v=4.2.55';
-import { appEl, todoEditorEl, todoTitleInput, todoDateInput, todoNoteInput, todoStatusSelector } from './ui.js?v=4.2.55';
+import { api } from './api.js?v=4.2.56';
+import { state } from './state.js?v=4.2.56';
+import { appEl, todoEditorEl, todoTitleInput, todoDateInput, todoNoteInput } from './ui.js?v=4.2.56';
 
 export function createTodoEditorController(deps) {
     const { invalidateCategoryCache, loadItems } = deps;
@@ -10,14 +10,10 @@ export function createTodoEditorController(deps) {
 
     function setStatus(status) {
         currentStatus = status;
-        todoStatusSelector?.querySelectorAll('.todo-status-btn').forEach(btn => {
+        document.querySelectorAll('#todoStatusSelector .todo-status-btn').forEach(btn => {
             btn.classList.toggle('is-active', btn.dataset.status === status);
         });
     }
-
-    todoStatusSelector?.querySelectorAll('.todo-status-btn').forEach(btn => {
-        btn.addEventListener('click', () => setStatus(btn.dataset.status));
-    });
 
     async function save() {
         if (!currentItem) return;
@@ -45,6 +41,11 @@ export function createTodoEditorController(deps) {
         currentItem = item;
         currentStatus = item.status || '';
 
+        // Register handlers fresh via onclick to avoid stacking
+        document.querySelectorAll('#todoStatusSelector .todo-status-btn').forEach(btn => {
+            btn.onclick = () => setStatus(btn.dataset.status);
+        });
+
         if (todoTitleInput) todoTitleInput.value = item.name || '';
         if (todoDateInput) todoDateInput.value = item.due_date || '';
         if (todoNoteInput) todoNoteInput.value = item.content || '';
@@ -57,7 +58,11 @@ export function createTodoEditorController(deps) {
     }
 
     async function closeTodoEditor() {
-        await save();
+        try {
+            await save();
+        } catch {
+            // Fehler beim Speichern ignorieren, Editor trotzdem schließen
+        }
         currentItem = null;
         currentStatus = '';
         if (todoEditorEl) todoEditorEl.hidden = true;
