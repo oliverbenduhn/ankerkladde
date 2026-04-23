@@ -98,12 +98,19 @@ function validateGeminiApiKey(string $apiKey, string $modelName): array
     }
 
     $decoded = json_decode($response, true);
+    if (!is_array($decoded) && $httpCode !== 200) {
+        return [
+            'type' => 'err',
+            'message' => 'Unerwartete Antwort von der Gemini API (HTTP ' . $httpCode . '). Bitte API-Key und Modell prüfen.',
+        ];
+    }
+    
     $apiMessage = '';
     if (is_array($decoded)) {
         $apiMessage = trim((string) ($decoded['error']['message'] ?? ''));
     }
 
-    if ($httpCode === 400 || $httpCode === 401 || $httpCode === 403) {
+    if ($httpCode === 400 || $httpCode === 401 || $httpCode === 403 || $httpCode === 404) {
         return [
             'type' => 'err',
             'message' => 'Gemini API-Key oder Modell ist ungültig.' . ($apiMessage !== '' ? ' ' . $apiMessage : ''),
