@@ -219,9 +219,21 @@ export function createItemsViewController(deps) {
                 content.appendChild(link);
             }
         } else {
-            const nameEl = document.createElement('span');
-            nameEl.className = 'item-name';
+            const nameEl = item.category_type === 'list_due_date'
+                ? document.createElement('button')
+                : document.createElement('span');
+            nameEl.className = item.category_type === 'list_due_date'
+                ? 'item-name item-name-button'
+                : 'item-name';
             nameEl.textContent = item.name;
+            if (item.category_type === 'list_due_date') {
+                nameEl.type = 'button';
+                nameEl.setAttribute('aria-label', `${item.name} bearbeiten`);
+                nameEl.addEventListener('click', event => {
+                    event.stopPropagation();
+                    openTodoEditor(item);
+                });
+            }
             content.appendChild(nameEl);
 
             if (item.category_type === 'list_due_date' && item.content) {

@@ -1090,6 +1090,16 @@ button, input { font: inherit; }
     line-height: 1.4;
 }
 
+.item-name-button {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    text-align: left;
+    cursor: pointer;
+    color: inherit;
+    font: inherit;
+}
+
 .item-card.done .item-name {
     text-decoration: line-through;
     color: var(--text-muted);
