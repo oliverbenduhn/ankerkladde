@@ -42,8 +42,8 @@ export function createRouter(deps) {
         updateHeaders();
 
         const nextSrc = settingsUrl(state.settingsTab);
-        if (settingsFrameEl && settingsFrameEl.src !== nextSrc) {
-            settingsFrameEl.src = nextSrc;
+        if (settingsFrameEl && settingsFrameEl.getAttribute('src') !== nextSrc) {
+            settingsFrameEl.setAttribute('src', nextSrc);
         }
     }
 

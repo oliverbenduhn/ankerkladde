@@ -57,6 +57,7 @@ $brandMarkSrc = 'icon.php?size=96&theme=' . rawurlencode($effectiveTheme) . '&v=
 $productScannerEnabled = !array_key_exists('product_scanner_enabled', $userPreferences) || !empty($userPreferences['product_scanner_enabled']);
 $shoppingListScannerEnabled = !array_key_exists('shopping_list_scanner_enabled', $userPreferences) || !empty($userPreferences['shopping_list_scanner_enabled']);
 $magicButtonEnabled = !array_key_exists('magic_button_enabled', $userPreferences) || !empty($userPreferences['magic_button_enabled']);
+$initialMode = ($userPreferences['mode'] ?? 'liste') === 'einkaufen' ? 'einkaufen' : 'liste';
 ?>
 <!DOCTYPE html>
 <html lang="de">
@@ -80,7 +81,7 @@ $magicButtonEnabled = !array_key_exists('magic_button_enabled', $userPreferences
     <title>Ankerkladde</title>
 </head>
 <body data-theme="<?= htmlspecialchars($effectiveTheme, ENT_QUOTES, 'UTF-8') ?>">
-<div class="app" id="app" data-mode="einkaufen">
+<div class="app" id="app" data-mode="<?= htmlspecialchars($initialMode, ENT_QUOTES, 'UTF-8') ?>">
 
     <div class="install-banner" id="installBanner" hidden>
         <span class="install-text">App installieren?</span>

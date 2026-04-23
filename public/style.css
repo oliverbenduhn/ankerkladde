@@ -42,6 +42,19 @@ body {
     -webkit-tap-highlight-color: transparent;
 }
 
+body[data-theme="nachtwache"],
+body[data-theme="pier"],
+body[data-theme="mangrove"],
+body[data-theme="abyssus"],
+body[data-theme="monochrom-dark"],
+body[data-theme="grauton-dark"] {
+    color-scheme: dark;
+}
+
+body:not([data-theme="nachtwache"]):not([data-theme="pier"]):not([data-theme="mangrove"]):not([data-theme="abyssus"]):not([data-theme="monochrom-dark"]):not([data-theme="grauton-dark"]) {
+    color-scheme: light;
+}
+
 body.is-sorting {
     user-select: none;
     cursor: grabbing;
@@ -742,6 +755,34 @@ button, input { font: inherit; }
     flex-wrap: wrap;
 }
 
+.item-type-list_due_date .item-content {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto auto;
+    align-items: center;
+    column-gap: 8px;
+    row-gap: 6px;
+}
+
+.item-type-list_due_date .item-name {
+    grid-column: 1;
+    min-width: 0;
+}
+
+.item-type-list_due_date .item-note-details {
+    grid-column: 2;
+    justify-self: end;
+}
+
+.item-type-list_due_date .item-status-chip {
+    grid-column: 3;
+    justify-self: end;
+}
+
+.item-type-list_due_date .date-badge {
+    grid-column: 4;
+    justify-self: end;
+}
+
 .item-content-attachment {
     align-items: flex-start;
     gap: 12px;
@@ -785,19 +826,21 @@ button, input { font: inherit; }
 }
 
 .item-note-details {
-    margin-top: 3px;
+    margin-top: 0;
 }
 
 .item-note-summary {
     display: inline-flex;
     align-items: center;
     gap: 3px;
-    color: var(--text-secondary);
-    font-size: 0.78rem;
+    min-height: 24px;
+    padding: 0 4px;
+    color: var(--text-muted);
+    font-size: 0.76rem;
+    font-weight: 600;
     cursor: pointer;
     user-select: none;
     list-style: none;
-    padding: 1px 0;
 }
 .item-note-summary::-webkit-details-marker { display: none; }
 .item-note-summary::after {
@@ -824,7 +867,8 @@ button, input { font: inherit; }
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    margin-top: 5px;
+    min-height: 24px;
+    margin-top: 0;
     padding: 3px 9px 3px 7px;
     border: none;
     border-radius: 20px;
@@ -1110,7 +1154,13 @@ button, input { font: inherit; }
 }
 
 .date-badge {
-    background: rgba(200, 184, 154, 0.18) !important;
+    min-height: 24px;
+    display: inline-flex;
+    align-items: center;
+    background: color-mix(in srgb, var(--border) 64%, transparent) !important;
+    border: 1px solid color-mix(in srgb, var(--border) 76%, transparent);
+    color: var(--text-secondary);
+    border-radius: 999px;
     font-variant-numeric: tabular-nums;
 }
 
@@ -1150,6 +1200,29 @@ button, input { font: inherit; }
     font-weight: 600;
     flex-shrink: 0;
     white-space: nowrap;
+}
+
+@media (max-width: 560px) {
+    .item-type-list_due_date .item-content {
+        grid-template-columns: minmax(0, 1fr) auto auto;
+    }
+
+    .item-type-list_due_date .item-name {
+        grid-column: 1 / -1;
+    }
+
+    .item-type-list_due_date .item-note-details {
+        grid-column: 1;
+        justify-self: start;
+    }
+
+    .item-type-list_due_date .item-status-chip {
+        grid-column: 2;
+    }
+
+    .item-type-list_due_date .date-badge {
+        grid-column: 3;
+    }
 }
 
 [data-mode="einkaufen"] .item-card:not(.is-editing) .item-content:not(.item-content-attachment):not(.item-content-link) .quantity-badge {

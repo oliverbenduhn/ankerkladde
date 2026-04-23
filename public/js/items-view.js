@@ -392,7 +392,7 @@ export function createItemsViewController(deps) {
 
     function buildItemNode(item) {
         const li = document.createElement('li');
-        li.className = `item-card ${item.done === 1 ? 'done' : 'open'}${item.is_pinned ? ' is-pinned' : ''}${isOverdueItem(item) ? ' is-overdue' : ''}`;
+        li.className = `item-card item-type-${item.category_type} ${item.done === 1 ? 'done' : 'open'}${item.is_pinned ? ' is-pinned' : ''}${isOverdueItem(item) ? ' is-overdue' : ''}`;
         li.dataset.itemId = String(item.id);
 
         const dragHandle = document.createElement('button');
