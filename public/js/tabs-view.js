@@ -1,5 +1,5 @@
-import { basePath, state } from './state.js';
-import { mehrMenuEl, sectionTabsEl, svgIcon } from './ui.js';
+import { basePath, state } from './state.js?v=4.2.48';
+import { mehrMenuEl, sectionTabsEl, svgIcon } from './ui.js?v=4.2.48';
 
 const MIN_VISIBLE_TAB_WIDTH = 64;
 const MEHR_BUTTON_WIDTH = 48;
@@ -17,7 +17,7 @@ function appendCategoryIcon(container, category, fallbackIcon) {
     image.src = `${basePath}category-icon.php?icon=${encodeURIComponent(iconKey)}`;
     image.alt = '';
     image.decoding = 'async';
-    image.loading = 'lazy';
+    image.loading = 'eager';
     container.appendChild(image);
 }
 

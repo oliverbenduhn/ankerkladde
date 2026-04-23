@@ -1,8 +1,8 @@
-import { isNotesCategory, state } from './state.js';
-import { clearDoneBtn, listEl, progressEl, svgIcon } from './ui.js';
-import { normalizeBarcodeValue, syncAutoHeight } from './utils.js';
-import { createLightboxController } from './lightbox.js';
-import { createItemMenuController } from './item-menu.js';
+import { isNotesCategory, state } from './state.js?v=4.2.48';
+import { clearDoneBtn, listEl, progressEl, svgIcon } from './ui.js?v=4.2.48';
+import { normalizeBarcodeValue, syncAutoHeight } from './utils.js?v=4.2.48';
+import { createLightboxController } from './lightbox.js?v=4.2.48';
+import { createItemMenuController } from './item-menu.js?v=4.2.48';
 
 export function createItemsViewController(deps) {
     const {

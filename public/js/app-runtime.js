@@ -1,18 +1,18 @@
-import { createAppUiController } from './app-ui.js';
-import { createHelpersController } from './helpers.js';
-import { createItemsActionsController } from './items-actions.js';
-import { createItemsController } from './items.js';
-import { createItemsViewController } from './items-view.js';
-import { createNavigation } from './navigation.js';
-import { createEditorController } from './editor.js';
-import { createReorderController } from './reorder.js';
-import { createRouter } from './router.js';
-import { createScannerController } from './scanner.js';
-import { createSwipeController } from './swipe.js';
-import { createTabsViewController } from './tabs-view.js';
-import { createMagicController } from './magic.js';
-import { flushQueue, getPendingCount } from './offline-queue.js';
-import { api } from './api.js';
+import { createAppUiController } from './app-ui.js?v=4.2.48';
+import { createHelpersController } from './helpers.js?v=4.2.48';
+import { createItemsActionsController } from './items-actions.js?v=4.2.48';
+import { createItemsController } from './items.js?v=4.2.48';
+import { createItemsViewController } from './items-view.js?v=4.2.48';
+import { createNavigation } from './navigation.js?v=4.2.48';
+import { createEditorController } from './editor.js?v=4.2.48';
+import { createReorderController } from './reorder.js?v=4.2.48';
+import { createRouter } from './router.js?v=4.2.48';
+import { createScannerController } from './scanner.js?v=4.2.48';
+import { createSwipeController } from './swipe.js?v=4.2.48';
+import { createTabsViewController } from './tabs-view.js?v=4.2.48';
+import { createMagicController } from './magic.js?v=4.2.48';
+import { flushQueue, getPendingCount } from './offline-queue.js?v=4.2.48';
+import { api } from './api.js?v=4.2.48';
 import {
     BARCODE_FORMATS,
     SCANNER_COOLDOWN_MS,
@@ -21,9 +21,9 @@ import {
     normalizePreferences,
     scannerState,
     state,
-} from './state.js';
-import { applyThemePreferences } from './theme.js';
-import { settingsFrameEl } from './ui.js';
+} from './state.js?v=4.2.48';
+import { applyThemePreferences } from './theme.js?v=4.2.48';
+import { settingsFrameEl } from './ui.js?v=4.2.48';
 
 export function createAppRuntime(deps) {
     const {
