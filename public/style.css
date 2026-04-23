@@ -838,6 +838,14 @@ button, input { font: inherit; }
     background: #fef3c7;
     color: #92400e;
 }
+.item-status-chip-- {
+    background: #e5e7eb;
+    color: #374151;
+}
+.item-status-chip-- .icon {
+    stroke: #6b7280;
+    fill: none;
+}
 .item-status-chip--in_progress .icon { fill: #92400e; stroke: none; }
 .item-status-chip--waiting {
     background: #ede9fe;

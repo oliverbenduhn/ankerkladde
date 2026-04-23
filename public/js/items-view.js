@@ -242,10 +242,10 @@ export function createItemsViewController(deps) {
                 content.appendChild(details);
             }
 
-            if (item.category_type === 'list_due_date' && item.status) {
-                const STATUS_LABELS = { in_progress: 'In Arbeit', waiting: 'Wartet' };
-                const STATUS_ICONS = { in_progress: 'play', waiting: 'clock' };
-                const st = item.status;
+            if (item.category_type === 'list_due_date') {
+                const STATUS_LABELS = { '': 'Offen', in_progress: 'In Arbeit', waiting: 'Wartet' };
+                const STATUS_ICONS = { '': 'circle', in_progress: 'play', waiting: 'clock' };
+                const st = item.status || '';
                 const chip = document.createElement('button');
                 chip.type = 'button';
                 chip.className = `item-status-chip item-status-chip--${st}`;
