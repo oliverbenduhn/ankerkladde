@@ -85,4 +85,52 @@ test.describe('Settings Theme Smoke Test', () => {
     await expect(reloadedCategoriesPanel).toHaveJSProperty('open', false);
     await expect(reloadedNewCategoryPanel).toHaveJSProperty('open', true);
   });
+
+  test('category rows keep their expanded state when settings are reopened', async ({ page }) => {
+    await page.goto('/login.php');
+
+    await page.getByLabel('Benutzername').fill('playwright-user');
+    await page.getByLabel('Passwort').fill('playwright-pass');
+    await page.getByRole('button', { name: 'Anmelden' }).click();
+
+    await expect(page).toHaveURL(/index\.php/);
+
+    await page.getByRole('link', { name: 'Einstellungen' }).first().click();
+
+    const settingsFrame = page.frameLocator('#settingsFrame');
+    await expect(settingsFrame.locator('details[data-settings-panel="categories"] > summary')).toBeVisible();
+
+    const firstCategory = settingsFrame.locator('form.settings-category-row').first();
+    const firstCategoryDetails = firstCategory.locator('details.settings-category-details');
+    const firstCategorySummary = firstCategory.locator('summary.settings-category-summary');
+
+    await expect(firstCategoryDetails).toHaveJSProperty('open', false);
+    await firstCategorySummary.click();
+    await expect(firstCategoryDetails).toHaveJSProperty('open', true);
+
+    await page.goto('/index.php');
+    await page.getByRole('link', { name: 'Einstellungen' }).first().click();
+
+    const reopenedFrame = page.frameLocator('#settingsFrame');
+    const reopenedFirstCategory = reopenedFrame.locator('form.settings-category-row').first();
+    const reopenedFirstCategoryDetails = reopenedFirstCategory.locator('details.settings-category-details');
+    const reopenedFirstCategorySummary = reopenedFirstCategory.locator('summary.settings-category-summary');
+
+    await expect(reopenedFrame.locator('details[data-settings-panel="categories"] > summary')).toBeVisible();
+    await expect(reopenedFirstCategoryDetails).toHaveJSProperty('open', true);
+
+    await reopenedFirstCategorySummary.click();
+    await expect(reopenedFirstCategoryDetails).toHaveJSProperty('open', false);
+
+    await page.reload();
+
+    const reloadedFrame = page.frameLocator('#settingsFrame');
+    const reloadedFirstCategoryDetails = reloadedFrame
+      .locator('form.settings-category-row')
+      .first()
+      .locator('details.settings-category-details');
+
+    await expect(reloadedFrame.locator('details[data-settings-panel="categories"] > summary')).toBeVisible();
+    await expect(reloadedFirstCategoryDetails).toHaveJSProperty('open', false);
+  });
 });

@@ -988,8 +988,10 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
             return $colors;
         })(),
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
-    const scrollKey = 'einkauf-settings-scroll-y:<?= htmlspecialchars($currentTab, ENT_QUOTES, 'UTF-8') ?>';
-    const panelsKey = 'einkauf-settings-open-panels:<?= htmlspecialchars($currentTab, ENT_QUOTES, 'UTF-8') ?>';
+    const settingsStorageScope = <?= json_encode($currentTab, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+    const scrollKey = 'einkauf-settings-scroll-y:' + settingsStorageScope;
+    const panelsKey = 'einkauf-settings-open-panels:' + settingsStorageScope;
+    const categoriesKey = 'einkauf-settings-open-categories:' + settingsStorageScope;
     const copyButton = document.getElementById('copy-api-key');
     const apiKeyInput = document.getElementById('api-key-value');
     const testApiKeyBtn = document.getElementById('test-api-key');
@@ -997,6 +999,7 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
     const geminiModelSelect = document.getElementById('gemini_model_select');
     const apiTestStatus = document.getElementById('api-test-status');
     const settingsPanels = Array.from(document.querySelectorAll('details[data-settings-panel]'));
+    const categoryRows = Array.from(document.querySelectorAll('form.settings-category-row'));
 
     const saved = window.sessionStorage.getItem(scrollKey);
     const themeMediaQuery = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
@@ -1015,6 +1018,20 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
         }
     }
 
+    function readOpenCategories() {
+        try {
+            const raw = window.localStorage.getItem(categoriesKey);
+            if (raw === null) {
+                return null;
+            }
+
+            const parsed = JSON.parse(raw);
+            return Array.isArray(parsed) ? parsed.map(String) : null;
+        } catch (error) {
+            return null;
+        }
+    }
+
     function saveOpenPanels() {
         try {
             const openPanels = settingsPanels
@@ -1022,6 +1039,19 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                 .map(panel => panel.dataset.settingsPanel)
                 .filter(Boolean);
             window.localStorage.setItem(panelsKey, JSON.stringify(openPanels));
+        } catch (error) {}
+    }
+
+    function saveOpenCategories() {
+        try {
+            const openCategories = categoryRows
+                .filter(form => {
+                    const details = form.querySelector('.settings-category-details');
+                    return details instanceof HTMLDetailsElement && details.open;
+                })
+                .map(form => String(form.dataset.categoryId || ''))
+                .filter(Boolean);
+            window.localStorage.setItem(categoriesKey, JSON.stringify(openCategories));
         } catch (error) {}
     }
 
@@ -1126,7 +1156,7 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
 
     const openCategoryKey = 'einkauf-settings-open-category:' + scrollKey;
 
-    document.querySelectorAll('form.settings-category-row').forEach(form => {
+    categoryRows.forEach(form => {
         form.addEventListener('submit', () => {
             window.sessionStorage.setItem(scrollKey, String(window.scrollY || window.pageYOffset || 0));
             const details = form.querySelector('.settings-category-details');
@@ -1134,6 +1164,13 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                 window.sessionStorage.setItem(openCategoryKey, form.dataset.categoryId || '');
             }
         });
+
+        const details = form.querySelector('.settings-category-details');
+        if (details instanceof HTMLDetailsElement) {
+            details.addEventListener('toggle', () => {
+                saveOpenCategories();
+            });
+        }
     });
 
     document.querySelectorAll('form.settings-form').forEach(form => {
@@ -1142,14 +1179,22 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
         });
     });
 
+    const savedCategories = readOpenCategories();
+    const openCategories = new Set(savedCategories || []);
     const savedCategoryId = window.sessionStorage.getItem(openCategoryKey);
     if (savedCategoryId) {
         window.sessionStorage.removeItem(openCategoryKey);
-        const targetForm = document.querySelector('form[data-category-id="' + savedCategoryId + '"]');
-        const targetDetails = targetForm && targetForm.querySelector('.settings-category-details');
-        if (targetDetails instanceof HTMLDetailsElement) {
-            targetDetails.open = true;
-        }
+        openCategories.add(String(savedCategoryId));
+    }
+
+    if (savedCategories !== null || savedCategoryId) {
+        categoryRows.forEach(form => {
+            const details = form.querySelector('.settings-category-details');
+            if (details instanceof HTMLDetailsElement) {
+                details.open = openCategories.has(String(form.dataset.categoryId || ''));
+            }
+        });
+        saveOpenCategories();
     }
 
     const autoSaveControllers = new WeakMap();
