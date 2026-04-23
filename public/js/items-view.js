@@ -1,8 +1,8 @@
-import { isNotesCategory, state } from './state.js?v=4.2.50';
-import { clearDoneBtn, listEl, progressEl, svgIcon } from './ui.js?v=4.2.50';
-import { normalizeBarcodeValue, syncAutoHeight } from './utils.js?v=4.2.50';
-import { createLightboxController } from './lightbox.js?v=4.2.50';
-import { createItemMenuController } from './item-menu.js?v=4.2.50';
+import { isNotesCategory, state } from './state.js?v=4.2.51';
+import { clearDoneBtn, listEl, progressEl, svgIcon } from './ui.js?v=4.2.51';
+import { normalizeBarcodeValue, syncAutoHeight } from './utils.js?v=4.2.51';
+import { createLightboxController } from './lightbox.js?v=4.2.51';
+import { createItemMenuController } from './item-menu.js?v=4.2.51';
 
 export function createItemsViewController(deps) {
     const {
@@ -223,10 +223,21 @@ export function createItemsViewController(deps) {
             content.appendChild(nameEl);
 
             if (item.category_type === 'list_due_date' && item.content) {
+                const details = document.createElement('details');
+                details.className = 'item-note-details';
+                details.addEventListener('click', event => event.stopPropagation());
+
+                const summary = document.createElement('summary');
+                summary.className = 'item-note-summary';
+                summary.textContent = 'Notiz';
+                details.appendChild(summary);
+
                 const noteEl = document.createElement('span');
                 noteEl.className = 'item-note';
                 noteEl.textContent = item.content;
-                content.appendChild(noteEl);
+                details.appendChild(noteEl);
+
+                content.appendChild(details);
             }
 
             if (item.category_type === 'list_due_date') {
@@ -323,9 +334,9 @@ export function createItemsViewController(deps) {
             fields.appendChild(dueDate);
 
             const noteInput = document.createElement('textarea');
-            noteInput.className = 'item-edit-input item-edit-textarea';
-            noteInput.rows = 3;
-            noteInput.maxLength = 4000;
+            noteInput.className = 'item-edit-input item-edit-textarea item-edit-textarea--note';
+            noteInput.rows = 6;
+            noteInput.maxLength = 8000;
             noteInput.placeholder = 'Notiz optional';
             noteInput.value = state.editDraft.content;
             noteInput.addEventListener('input', event => {
