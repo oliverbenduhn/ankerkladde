@@ -1,7 +1,7 @@
-import { api } from './api.js?v=4.2.51';
-import { BARCODE_FORMATS, isBarcodeCategory, isIosWebKit, isScannerSupported, scannerState, state } from './state.js?v=4.2.51';
-import { itemForm, itemInput, quantityInput, scannerManualInput, scannerOverlay, scannerStatus, scannerSubtitle, scannerVideo } from './ui.js?v=4.2.51';
-import { normalizeBarcodeValue, syncAutoHeight } from './utils.js?v=4.2.51';
+import { api } from './api.js?v=4.2.52';
+import { BARCODE_FORMATS, isBarcodeCategory, isIosWebKit, isScannerSupported, scannerState, state } from './state.js?v=4.2.52';
+import { itemForm, itemInput, quantityInput, scannerManualInput, scannerOverlay, scannerStatus, scannerSubtitle, scannerVideo } from './ui.js?v=4.2.52';
+import { normalizeBarcodeValue, syncAutoHeight } from './utils.js?v=4.2.52';
 
 export function createScannerController(deps) {
     /**
