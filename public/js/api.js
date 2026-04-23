@@ -1,4 +1,4 @@
-import { LOCAL_PREF_KEYS, basePath, csrfToken, normalizePreferences, readLocalPrefs, saveLocalPrefs } from './state.js?v=4.2.52';
+import { LOCAL_PREF_KEYS, basePath, csrfToken, normalizePreferences, readLocalPrefs, saveLocalPrefs } from './state.js?v=4.2.53';
 
 export function appUrl(path) {
     return new URL(path, `${window.location.origin}${basePath}`).toString();

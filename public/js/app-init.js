@@ -1,6 +1,6 @@
-import { basePath, state } from './state.js?v=4.2.52';
-import { applyViewState } from './router.js?v=4.2.52';
-import { appEl, updateBannerEl, updateViewportHeight } from './ui.js?v=4.2.52';
+import { basePath, state } from './state.js?v=4.2.53';
+import { applyViewState } from './router.js?v=4.2.53';
+import { appEl, updateBannerEl, updateViewportHeight } from './ui.js?v=4.2.53';
 
 export async function initApp(deps) {
     const {
