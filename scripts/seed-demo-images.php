@@ -49,7 +49,6 @@ foreach ($images as $idx => $img) {
     $storedName = 'demo_' . ($idx+1) . '_' . time() . '.jpg';
     $fullPath   = $imgDir . '/' . $storedName;
     imagejpeg($gd, $fullPath, 85);
-    imagedestroy($gd);
 
     // Thumbnail
     $thumbPath = $imgDir . '/thumb-demo_' . ($idx+1) . '_' . time() . '.jpg';

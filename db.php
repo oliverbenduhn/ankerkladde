@@ -195,7 +195,6 @@ function applyImageExifOrientation($image, string $sourcePath)
         return $image;
     }
 
-    imagedestroy($image);
     return $rotated;
 }
 
@@ -224,7 +223,6 @@ function generateImageThumbnailFile(
     $sourceWidth = imagesx($sourceImage);
     $sourceHeight = imagesy($sourceImage);
     if ($sourceWidth < 1 || $sourceHeight < 1) {
-        imagedestroy($sourceImage);
         return false;
     }
 
@@ -234,7 +232,6 @@ function generateImageThumbnailFile(
 
     $thumbnail = imagecreatetruecolor($targetWidth, $targetHeight);
     if ($thumbnail === false) {
-        imagedestroy($sourceImage);
         return false;
     }
 
@@ -254,10 +251,7 @@ function generateImageThumbnailFile(
         $sourceHeight
     );
 
-    imagedestroy($sourceImage);
-
     if ($copied === false) {
-        imagedestroy($thumbnail);
         return false;
     }
 
@@ -265,7 +259,6 @@ function generateImageThumbnailFile(
     $thumbnail = applyImageExifOrientation($thumbnail, $sourcePath);
 
     $saved = imagejpeg($thumbnail, $targetPath, $jpegQuality);
-    imagedestroy($thumbnail);
 
     return $saved;
 }

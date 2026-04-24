@@ -59,7 +59,5 @@ foreach (array_merge($sizes, ['popup' => 128]) as $key => $size) {
         : sprintf('%s/icon%d.png', $outputDir, $size);
 
     imagepng($image, $path);
-    imagedestroy($image);
     fwrite(STDOUT, basename($path) . " erstellt\n");
 }
-imagedestroy($source);
