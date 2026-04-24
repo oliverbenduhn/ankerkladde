@@ -141,9 +141,17 @@ async function handleShareTargetPost(request) {
         }));
         redirectUrl.searchParams.set('share', 'file');
     } else {
-        if (title)     redirectUrl.searchParams.set('title', title);
-        if (text)      redirectUrl.searchParams.set('text', text);
-        if (sharedUrl) redirectUrl.searchParams.set('url', sharedUrl);
+        const cache = await caches.open(SHARE_CACHE);
+        await cache.put('pending-share', new Response(JSON.stringify({
+            title: String(title),
+            text: String(text),
+            url: String(sharedUrl),
+        }), {
+            headers: {
+                'Content-Type': 'application/json; charset=UTF-8',
+            },
+        }));
+        redirectUrl.searchParams.set('share', 'data');
     }
 
     return Response.redirect(redirectUrl.toString(), 303);

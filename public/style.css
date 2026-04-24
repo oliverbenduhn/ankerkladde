@@ -207,6 +207,10 @@ button, input { font: inherit; }
     flex-shrink: 0;
 }
 
+.header-actions .btn-settings {
+    order: 100;
+}
+
 .progress {
     font-size: 0.82rem;
     color: var(--text-muted);
@@ -510,6 +514,14 @@ button, input { font: inherit; }
 .app.settings-view .list-swipe-preview,
 .app.settings-view .section-tabs {
     display: none !important;
+}
+
+.app.settings-view .progress,
+.app.settings-view .btn-tabs-toggle,
+.app.settings-view .btn-search,
+.app.settings-view .btn-mode-toggle {
+    visibility: hidden;
+    pointer-events: none;
 }
 
 /* Pull-to-refresh indicator */
@@ -1800,6 +1812,7 @@ button, input { font: inherit; }
 
 @media (max-width: 480px) {
     .app-header {
+        position: relative;
         flex-wrap: wrap;
         gap: 6px;
         padding: 14px 12px 8px;
@@ -1809,6 +1822,7 @@ button, input { font: inherit; }
         gap: 8px;
         flex: 1 0 100%;
         width: 100%;
+        padding-right: 42px;
     }
 
     .brand-mark-app {
@@ -1829,6 +1843,18 @@ button, input { font: inherit; }
         min-height: 34px;
         padding: 0;
         border-radius: 9px;
+    }
+
+    .header-actions .btn-settings {
+        position: absolute;
+        top: 14px;
+        right: 12px;
+        width: 34px;
+        height: 34px;
+        min-width: 34px;
+        min-height: 34px;
+        flex: 0 0 34px;
+        z-index: 2;
     }
 
     .header-icon-btn .icon,
@@ -2997,7 +3023,7 @@ button, input { font: inherit; }
     padding-bottom: 16px;
 }
 
-.settings-accordion summary {
+.settings-accordion > summary {
     padding: 18px 4px;
     font-size: 1.1rem;
     font-weight: 600;
@@ -3008,11 +3034,11 @@ button, input { font: inherit; }
     user-select: none;
 }
 
-.settings-accordion summary::-webkit-details-marker {
+.settings-accordion > summary::-webkit-details-marker {
     display: none;
 }
 
-.settings-accordion summary::after {
+.settings-accordion > summary::after {
     content: "▼";
     font-size: 0.8rem;
     position: absolute;
@@ -3023,7 +3049,7 @@ button, input { font: inherit; }
     color: var(--text-muted);
 }
 
-.settings-accordion[open] summary::after {
+.settings-accordion[open] > summary::after {
     transform: translateY(-50%) rotate(0deg);
 }
 

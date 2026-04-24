@@ -47,9 +47,10 @@ export function createItemsActionsController(deps) {
         history.replaceState(null, '', window.location.pathname);
 
         const shareParam = params.get('share');
-        const title = params.get('title') || '';
-        const text = params.get('text') || '';
-        const sharedUrl = params.get('url') || /https?:\/\/\S+/.exec(text)?.[0] || '';
+        const cachedShare = shareParam === 'data' ? await readCachedShareData() : null;
+        const title = cachedShare?.title ?? params.get('title') ?? '';
+        const text = cachedShare?.text ?? params.get('text') ?? '';
+        const sharedUrl = cachedShare?.url ?? params.get('url') ?? /https?:\/\/\S+/.exec(text)?.[0] ?? '';
 
         try {
             if (shareParam === 'file') {
@@ -62,6 +63,24 @@ export function createItemsActionsController(deps) {
         } catch (error) {
             setMessage(error instanceof Error ? error.message : 'Teilen fehlgeschlagen.', true);
         }
+    }
+
+    async function readCachedShareData() {
+        if (!('caches' in window)) return null;
+
+        const cache = await caches.open('ankerkladde-share-target');
+        const response = await cache.match('pending-share');
+        if (!response) return null;
+
+        await cache.delete('pending-share');
+        const payload = await response.json().catch(() => null);
+        if (!payload || typeof payload !== 'object') return null;
+
+        return {
+            title: typeof payload.title === 'string' ? payload.title : '',
+            text: typeof payload.text === 'string' ? payload.text : '',
+            url: typeof payload.url === 'string' ? payload.url : '',
+        };
     }
 
     async function handleSharedFile() {
