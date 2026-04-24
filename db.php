@@ -8,7 +8,7 @@ const ATTACHMENT_CATEGORY_TYPES = ['images', 'files'];
 const DEFAULT_UPLOAD_LIMITS_MB = [
     'image_upload_max_mb' => 20,
     'file_upload_max_mb' => 500,
-    'remote_file_import_max_mb' => 500,
+    'remote_file_import_max_mb' => 10240,
 ];
 const CATEGORY_ICON_OPTIONS = [
     'einkauf', 'arbeit', 'notizen', 'bilder', 'links', 'dateien',
@@ -521,6 +521,17 @@ function updateUploadLimitSettings(PDO $db, array $settings): array
     ]);
 
     return $normalized;
+}
+
+function migrateRemoteImportUploadLimitDefault(PDO $db): void
+{
+    $settings = getUploadLimitSettings($db);
+    if ((int) ($settings['remote_file_import_max_mb'] ?? 0) !== 500) {
+        return;
+    }
+
+    $settings['remote_file_import_max_mb'] = DEFAULT_UPLOAD_LIMITS_MB['remote_file_import_max_mb'];
+    updateUploadLimitSettings($db, $settings);
 }
 
 function uploadLimitMegabytesToBytes(int $megabytes): int
@@ -1663,6 +1674,12 @@ function getDatabase(): PDO
             rebuildSortOrder($db);
         }
         setDatabaseMetaFlag($db, $orphanSortOrderMigrationKey);
+    }
+
+    $remoteImportLimitMigrationKey = 'remote_import_upload_limit_10240_v1';
+    if (!hasDatabaseMetaFlag($db, $remoteImportLimitMigrationKey)) {
+        migrateRemoteImportUploadLimitDefault($db);
+        setDatabaseMetaFlag($db, $remoteImportLimitMigrationKey);
     }
 
     return $db;

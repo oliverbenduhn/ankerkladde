@@ -107,4 +107,29 @@ run_php "$BROKEN_DIR" '
     }
 '
 
+LIMIT_DIR="$TMP_DIR/upload-limit"
+mkdir -p "$LIMIT_DIR"
+
+run_php "$LIMIT_DIR" '
+    require "'"$ROOT_DIR"'/security.php"; require "'"$ROOT_DIR"'/db.php";
+    $db = getDatabase();
+    updateUploadLimitSettings($db, [
+        "image_upload_max_mb" => 20,
+        "file_upload_max_mb" => 500,
+        "remote_file_import_max_mb" => 500,
+    ]);
+    $db->exec("DELETE FROM database_meta WHERE meta_key = \"remote_import_upload_limit_10240_v1\"");
+    $db = null;
+'
+
+run_php "$LIMIT_DIR" '
+    require "'"$ROOT_DIR"'/security.php"; require "'"$ROOT_DIR"'/db.php";
+    $db = getDatabase();
+    $settings = getUploadLimitSettings($db);
+    if ((int) ($settings["remote_file_import_max_mb"] ?? 0) !== 10240) {
+        fwrite(STDERR, "Remote-Import-Limit wurde nicht auf 10240 MB migriert.\n");
+        exit(1);
+    }
+'
+
 echo "DB-Migrationstest erfolgreich."
