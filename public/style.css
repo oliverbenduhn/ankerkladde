@@ -79,6 +79,11 @@ button, input { font: inherit; }
     flex-shrink: 0;
 }
 
+.icon-filled {
+    fill: currentColor;
+    stroke: none;
+}
+
 .header-icon-btn .icon,
 .btn-tabs-toggle .icon { width: 20px; height: 20px; }
 
@@ -519,6 +524,9 @@ button, input { font: inherit; }
 .app.settings-view .progress,
 .app.settings-view .btn-tabs-toggle,
 .app.settings-view .btn-search,
+.app.settings-view .btn-magic,
+.app.settings-view .btn-scan,
+.app.settings-view .header-actions [href$="barcode.php"],
 .app.settings-view .btn-mode-toggle {
     visibility: hidden;
     pointer-events: none;

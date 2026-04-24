@@ -122,6 +122,7 @@ export function createAppRuntime(deps) {
 
     router = createRouter({
         closeNoteEditor,
+        closeMagic: () => magicController?.closeMagic(),
         closeScanner,
         closeSearch,
         doSearch,

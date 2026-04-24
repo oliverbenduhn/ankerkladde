@@ -14,6 +14,7 @@ export function applyViewState() {
 export function createRouter(deps) {
     const {
         closeNoteEditor,
+        closeMagic,
         closeScanner,
         closeSearch,
         doSearch,
@@ -34,6 +35,9 @@ export function createRouter(deps) {
         }
         if (state.search.open) {
             closeSearch();
+        }
+        if (typeof closeMagic === 'function') {
+            closeMagic();
         }
 
         state.view = 'settings';

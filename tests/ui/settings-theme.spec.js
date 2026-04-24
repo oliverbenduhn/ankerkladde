@@ -120,6 +120,25 @@ test.describe('Settings Theme Smoke Test', () => {
     await expect(reloadedNewCategoryPanel).toHaveJSProperty('open', true);
   });
 
+  test('settings hides list-only feature buttons in the header', async ({ page }) => {
+    await page.goto('/login.php');
+
+    await page.getByLabel('Benutzername').fill('playwright-user');
+    await page.getByLabel('Passwort').fill('playwright-pass');
+    await page.getByRole('button', { name: 'Anmelden' }).click();
+
+    await expect(page).toHaveURL(/index\.php/);
+    await page.getByRole('button', { name: 'KI-Assistent' }).first().click();
+    await expect(page.locator('#magicBar')).toBeVisible();
+
+    await page.getByRole('link', { name: 'Einstellungen' }).first().click();
+
+    await expect(page.locator('#app')).toHaveClass(/settings-view/);
+    await expect(page.locator('#magicBar')).toBeHidden();
+    await expect(page.getByRole('button', { name: 'KI-Assistent' }).first()).toBeHidden();
+    await expect(page.getByRole('link', { name: 'Produktinfos per Scan öffnen' }).first()).toBeHidden();
+  });
+
   test('category rows keep their expanded state when settings are reopened', async ({ page }) => {
     await page.goto('/login.php');
 
