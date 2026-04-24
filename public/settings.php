@@ -610,7 +610,7 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
             <input type="hidden" name="action" value="save_theme">
             <div class="settings-block">
-                <p class="settings-copy">Änderungen werden sofort übernommen.</p>
+                <p class="settings-copy">Änderungen werden sofort auf diesem Gerät übernommen.</p>
                 <div class="theme-mode-list">
                     <label>
                         <?php

@@ -1,4 +1,4 @@
-import { state, scannerState, themeMediaQuery, isAttachmentCategory, normalizePreferences } from './state.js?v=4.2.64';
+import { saveLocalPrefs, state, scannerState, themeMediaQuery, isAttachmentCategory, normalizePreferences } from './state.js?v=4.2.64';
 import {
     appEl,
     cameraBtn,
@@ -232,9 +232,11 @@ export function registerAppEventHandlers(deps) {
         }
 
         if (event.data?.type === 'ankerkladde-settings-preferences-update') {
+            const patch = event.data?.preferences || {};
+            saveLocalPrefs(patch);
             const nextPreferences = normalizePreferences({
                 ...userPreferencesRef(),
-                ...(event.data?.preferences || {}),
+                ...patch,
             });
             setUserPreferences(nextPreferences);
             applyThemePreferences(nextPreferences);

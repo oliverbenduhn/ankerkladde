@@ -2894,10 +2894,6 @@ try {
                 $patch['install_banner_dismissed'] = filter_var($data['install_banner_dismissed'], FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? false;
             }
 
-            if (array_key_exists('theme_mode', $data) && is_string($data['theme_mode'])) {
-                $patch['theme_mode'] = $data['theme_mode'];
-            }
-
             if (array_key_exists('last_category_id', $data)) {
                 $lastCategoryId = filter_var($data['last_category_id'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
                 if (is_int($lastCategoryId) && loadUserCategory($db, $userId, $lastCategoryId) !== null) {

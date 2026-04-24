@@ -91,7 +91,7 @@ export function createItemsController(deps) {
         })) : [];
 
         if (payload.preferences) {
-            // Gerätespezifische Prefs (mode, last_category_id) nicht vom Server überschreiben
+            // Gerätespezifische Prefs nicht vom Server überschreiben.
             const currentPrefs = getUserPreferences();
             const serverPrefs = { ...payload.preferences };
             for (const key of LOCAL_PREF_KEYS) {

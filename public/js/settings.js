@@ -5,6 +5,7 @@
     const allThemeColors = settingsData.allThemeColors || {};
     const themePreferences = settingsData.themePreferences || {};
     const settingsStorageScope = settingsData.settingsStorageScope || '';
+    const localPrefsStorageKey = 'ankerkladde_local_prefs';
     const scrollKey = 'einkauf-settings-scroll-y:' + settingsStorageScope;
     const panelsKey = 'einkauf-settings-open-panels:' + settingsStorageScope;
     const categoriesKey = 'einkauf-settings-open-categories:' + settingsStorageScope;
@@ -19,6 +20,53 @@
 
     const saved = window.sessionStorage.getItem(scrollKey);
     const themeMediaQuery = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+
+    function readLocalPrefs() {
+        try {
+            const raw = window.localStorage.getItem(localPrefsStorageKey);
+            return raw ? JSON.parse(raw) : {};
+        } catch (error) {
+            return {};
+        }
+    }
+
+    function saveLocalPrefs(patch) {
+        try {
+            window.localStorage.setItem(localPrefsStorageKey, JSON.stringify({ ...readLocalPrefs(), ...patch }));
+        } catch (error) {}
+    }
+
+    function getLocalThemePreferences() {
+        const localPrefs = readLocalPrefs();
+        return {
+            theme_mode: typeof localPrefs.theme_mode === 'string' ? localPrefs.theme_mode : themePreferences.theme_mode,
+            light_theme: typeof localPrefs.light_theme === 'string' ? localPrefs.light_theme : themePreferences.light_theme,
+            dark_theme: typeof localPrefs.dark_theme === 'string' ? localPrefs.dark_theme : themePreferences.dark_theme,
+        };
+    }
+
+    function applyThemePreferencePatch(patch) {
+        themePreferences.theme_mode = patch.theme_mode || themePreferences.theme_mode || 'auto';
+        themePreferences.light_theme = patch.light_theme || themePreferences.light_theme || 'hafenblau';
+        themePreferences.dark_theme = patch.dark_theme || themePreferences.dark_theme || 'nachtwache';
+    }
+
+    function syncThemeFormControls() {
+        const themeForm = document.querySelector('form[data-theme-form="1"]');
+        if (!(themeForm instanceof HTMLFormElement)) return;
+
+        const findInput = (name, value) => Array.from(themeForm.querySelectorAll(`input[name="${name}"]`))
+            .find(input => input instanceof HTMLInputElement && input.value === value);
+        const themeMode = findInput('theme_mode', themePreferences.theme_mode || 'auto');
+        const lightTheme = findInput('light_theme', themePreferences.light_theme || 'hafenblau');
+        const darkTheme = findInput('dark_theme', themePreferences.dark_theme || 'nachtwache');
+
+        if (themeMode instanceof HTMLInputElement) themeMode.checked = true;
+        if (lightTheme instanceof HTMLInputElement) lightTheme.checked = true;
+        if (darkTheme instanceof HTMLInputElement) darkTheme.checked = true;
+    }
+
+    applyThemePreferencePatch(getLocalThemePreferences());
 
     function readOpenPanels() {
         try {
@@ -148,6 +196,7 @@
     }
 
     applySettingsTheme();
+    syncThemeFormControls();
 
     const savedPanels = readOpenPanels();
     if (savedPanels !== null) {
@@ -226,15 +275,17 @@
 
             if (form.dataset.themeForm === '1') {
                 const formData = new FormData(form);
-                themePreferences.theme_mode = String(formData.get('theme_mode') || themePreferences.theme_mode || 'auto');
-                themePreferences.light_theme = String(formData.get('light_theme') || themePreferences.light_theme || 'hafenblau');
-                themePreferences.dark_theme = String(formData.get('dark_theme') || themePreferences.dark_theme || 'nachtwache');
+                const localThemePatch = {
+                    theme_mode: String(formData.get('theme_mode') || themePreferences.theme_mode || 'auto'),
+                    light_theme: String(formData.get('light_theme') || themePreferences.light_theme || 'hafenblau'),
+                    dark_theme: String(formData.get('dark_theme') || themePreferences.dark_theme || 'nachtwache'),
+                };
+                applyThemePreferencePatch(localThemePatch);
+                saveLocalPrefs(localThemePatch);
                 applySettingsTheme();
-                postPreferencesUpdate({
-                    theme_mode: themePreferences.theme_mode,
-                    light_theme: themePreferences.light_theme,
-                    dark_theme: themePreferences.dark_theme,
-                });
+                postPreferencesUpdate(localThemePatch);
+                renderFlash('Theme für dieses Gerät gespeichert.');
+                return;
             }
 
             const previousController = autoSaveControllers.get(form);
@@ -260,12 +311,15 @@
                     }
 
                     if (payload.preferences && typeof payload.preferences === 'object') {
-                        themePreferences.theme_mode = payload.preferences.theme_mode || themePreferences.theme_mode;
-                        themePreferences.light_theme = payload.preferences.light_theme || themePreferences.light_theme;
-                        themePreferences.dark_theme = payload.preferences.dark_theme || themePreferences.dark_theme;
+                        const preferences = {
+                            ...payload.preferences,
+                            theme_mode: themePreferences.theme_mode,
+                            light_theme: themePreferences.light_theme,
+                            dark_theme: themePreferences.dark_theme,
+                        };
                         themePreferences.theme_colors = allThemeColors;
                         applySettingsTheme();
-                        postPreferencesUpdate(payload.preferences);
+                        postPreferencesUpdate(preferences);
                     }
 
                     renderFlash(payload.flash || 'Gespeichert.', payload.flash_type || 'ok');
@@ -345,9 +399,13 @@
         const nextPreferences = event.data?.preferences;
         if (!nextPreferences || typeof nextPreferences !== 'object') return;
 
-        themePreferences.theme_mode = nextPreferences.theme_mode || themePreferences.theme_mode;
-        themePreferences.light_theme = nextPreferences.light_theme || themePreferences.light_theme;
-        themePreferences.dark_theme = nextPreferences.dark_theme || themePreferences.dark_theme;
+        applyThemePreferencePatch(nextPreferences);
+        saveLocalPrefs({
+            theme_mode: themePreferences.theme_mode,
+            light_theme: themePreferences.light_theme,
+            dark_theme: themePreferences.dark_theme,
+        });
+        syncThemeFormControls();
         applySettingsTheme();
     });
 

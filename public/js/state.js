@@ -31,7 +31,7 @@ export const DEFAULT_PREFERENCES = {
 
 // Preferences, die gerätespezifisch in localStorage gespeichert werden
 // und nicht zwischen Geräten/Tabs synchronisiert werden sollen.
-export const LOCAL_PREF_KEYS = ['mode', 'last_category_id'];
+export const LOCAL_PREF_KEYS = ['mode', 'last_category_id', 'theme_mode', 'light_theme', 'dark_theme'];
 const LOCAL_PREFS_STORAGE_KEY = 'ankerkladde_local_prefs';
 
 export function readLocalPrefs() {
@@ -44,7 +44,10 @@ export function readLocalPrefs() {
 export function saveLocalPrefs(patch) {
     try {
         const current = readLocalPrefs();
-        localStorage.setItem(LOCAL_PREFS_STORAGE_KEY, JSON.stringify({ ...current, ...patch }));
+        const localPatch = Object.fromEntries(
+            Object.entries(patch).filter(([key]) => LOCAL_PREF_KEYS.includes(key))
+        );
+        localStorage.setItem(LOCAL_PREFS_STORAGE_KEY, JSON.stringify({ ...current, ...localPatch }));
     } catch {}
 }
 

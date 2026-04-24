@@ -111,7 +111,7 @@ export async function persistPreferences(patch, setUserPreferences, applyThemePr
     if (Object.keys(localPatch).length > 0) saveLocalPrefs(localPatch);
 
     const body = new URLSearchParams();
-    Object.entries(patch).forEach(([key, value]) => {
+    Object.entries(patch).filter(([key]) => !LOCAL_PREF_KEYS.includes(key)).forEach(([key, value]) => {
         body.set(key, String(value));
     });
 
