@@ -28,3 +28,10 @@
 - **XSS:** Alle Ausgaben in HTML-Seiten konsequent durch `htmlspecialchars()` geschützt. Rich-Text-Content wird über `sanitizeRichTextHtml()` mit DOMDocument gefiltert.
 - **SSRF:** `fetch_metadata`-Endpunkt schützt sich durch `isAllowedRemoteUrl()` mit IP-Prüfung und DNS-Auflösung gegen Private-Range-Adressen. SSL-Verifikation ist aktiv (`CURLOPT_SSL_VERIFYPEER => true`).
 - **Security-Header:** Alle HTML-Seiten (`index.php`, `login.php`, `settings.php`, `admin.php`, `barcode.php`) senden `Content-Security-Policy` und `X-Frame-Options: DENY` via zentrale Funktion `sendHtmlPageSecurityHeaders()` in `security.php`. Behoben in v4.2.15.
+
+---
+
+## 2026-04-24 - SSRF-Redirects bei Remote-Fetches
+**Vulnerability:** `fetch_metadata` und `import_url` prüften nur die initiale URL mit `isAllowedRemoteUrl()`, ließen cURL/PHP-Streams danach aber automatisch Redirects folgen. Ein erlaubter öffentlicher Host konnte dadurch auf private IPs oder localhost weiterleiten.
+**Learning:** Transport-Layer-Redirects umgehen die zentrale SSRF-Prüfung, weil der finale Zielhost nicht mehr durch Ankerkladdes Allow-Check läuft.
+**Prevention:** Remote-Fetches und URL-Imports dürfen Redirects nicht automatisch folgen. Wenn Redirect-Unterstützung wieder nötig wird, muss jeder `Location`-Zielwert vor dem nächsten Request erneut mit `isAllowedRemoteUrl()` validiert werden.

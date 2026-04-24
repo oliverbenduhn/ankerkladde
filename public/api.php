@@ -268,7 +268,8 @@ function fetchWithCurl(string $url, int $connectTimeoutSeconds, int $requestTime
 
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_FOLLOWLOCATION => true,
+        // Do not auto-follow redirects: each target must pass the SSRF allow-check.
+        CURLOPT_FOLLOWLOCATION => false,
         CURLOPT_MAXREDIRS => $maxRedirects,
         CURLOPT_TIMEOUT => $requestTimeoutSeconds,
         CURLOPT_CONNECTTIMEOUT => $connectTimeoutSeconds,
@@ -312,7 +313,7 @@ function fetchWithStream(string $url, int $requestTimeoutSeconds, int $maxRedire
     $context = stream_context_create([
         'http' => [
             'timeout' => $requestTimeoutSeconds,
-            'follow_location' => 1,
+            'follow_location' => 0,
             'max_redirects' => $maxRedirects,
             'ignore_errors' => true,
             'header' => implode("\r\n", $headers) . "\r\n",
@@ -1419,7 +1420,8 @@ function downloadRemoteFile(string $url): array
 
         curl_setopt_array($ch, [
             CURLOPT_FILE => $handle,
-            CURLOPT_FOLLOWLOCATION => true,
+            // Do not auto-follow redirects: a public URL could redirect to a private host.
+            CURLOPT_FOLLOWLOCATION => false,
             CURLOPT_MAXREDIRS => 5,
             CURLOPT_CONNECTTIMEOUT => 10,
             CURLOPT_TIMEOUT => REMOTE_FILE_IMPORT_TIMEOUT_SECONDS,
@@ -1479,8 +1481,8 @@ function downloadRemoteFile(string $url): array
     }
 
     $source = @fopen($url, 'rb', false, stream_context_create([
-        'http' => ['follow_location' => 1, 'max_redirects' => 5, 'timeout' => REMOTE_FILE_IMPORT_TIMEOUT_SECONDS],
-        'https' => ['follow_location' => 1, 'max_redirects' => 5, 'timeout' => REMOTE_FILE_IMPORT_TIMEOUT_SECONDS],
+        'http' => ['follow_location' => 0, 'max_redirects' => 0, 'timeout' => REMOTE_FILE_IMPORT_TIMEOUT_SECONDS],
+        'https' => ['follow_location' => 0, 'max_redirects' => 0, 'timeout' => REMOTE_FILE_IMPORT_TIMEOUT_SECONDS],
     ]));
     $target = @fopen($tmpPath, 'wb');
     if ($source === false || $target === false) {
