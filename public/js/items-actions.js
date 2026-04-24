@@ -1,8 +1,8 @@
-import { appUrl, api, apiUpload } from './api.js?v=4.2.57';
-import { getCurrentCategory, isAttachmentCategory, state } from './state.js?v=4.2.57';
-import { fileInput, itemInput, linkDescriptionInput, quantityInput, urlImportInput } from './ui.js?v=4.2.57';
-import { escapeRegExp } from './utils.js?v=4.2.57';
-import { enqueueAction } from './offline-queue.js?v=4.2.57';
+import { appUrl, api, apiUpload } from './api.js?v=4.2.59';
+import { getCurrentCategory, isAttachmentCategory, state } from './state.js?v=4.2.59';
+import { fileInput, itemInput, linkDescriptionInput, quantityInput, urlImportInput } from './ui.js?v=4.2.59';
+import { escapeRegExp } from './utils.js?v=4.2.59';
+import { enqueueAction } from './offline-queue.js?v=4.2.59';
 
 export function createItemsActionsController(deps) {
     const {
@@ -369,6 +369,42 @@ export function createItemsActionsController(deps) {
         }
     }
 
+    async function handleMove(item, targetCategoryId) {
+        const sourceCategoryId = Number(item.category_id);
+        const targetId = Number(targetCategoryId);
+
+        if (!Number.isInteger(sourceCategoryId) || !Number.isInteger(targetId) || sourceCategoryId === targetId) {
+            return;
+        }
+
+        try {
+            await api('move', {
+                method: 'POST',
+                body: new URLSearchParams({
+                    id: String(item.id),
+                    target_category_id: String(targetId),
+                }),
+            });
+        } catch (error) {
+            setMessage(error instanceof Error ? error.message : 'Verschieben fehlgeschlagen.', true);
+            return;
+        }
+
+        invalidateCategoryCache(sourceCategoryId);
+        invalidateCategoryCache(targetId);
+
+        if (Number(state.categoryId) === sourceCategoryId) {
+            state.items = state.items.filter(entry => entry.id !== item.id);
+            cacheCurrentCategoryItems();
+            renderItems();
+        } else {
+            await loadItems();
+        }
+
+        const targetCategory = getVisibleCategories().find(category => Number(category.id) === targetId);
+        setMessage(targetCategory ? `Verschoben nach ${targetCategory.name}.` : 'Artikel verschoben.');
+    }
+
     async function handleEditSave(id) {
         const body = new URLSearchParams({
             id: String(id),
@@ -428,6 +464,7 @@ export function createItemsActionsController(deps) {
         handleDelete,
         handleEditSave,
         handleIncomingShare,
+        handleMove,
         handlePin,
         handleStatus,
         handleToggle,

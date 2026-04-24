@@ -2,6 +2,7 @@ const { defineConfig, devices } = require('@playwright/test');
 
 const PORT = Number(process.env.PLAYWRIGHT_PORT || 4173);
 const baseURL = process.env.PLAYWRIGHT_BASE_URL || `http://127.0.0.1:${PORT}`;
+const chromiumExecutablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || '';
 
 module.exports = defineConfig({
   testDir: './tests/ui',
@@ -29,6 +30,7 @@ module.exports = defineConfig({
       use: {
         ...devices['Desktop Chrome'],
         viewport: { width: 1280, height: 900 },
+        launchOptions: chromiumExecutablePath ? { executablePath: chromiumExecutablePath } : undefined,
       },
     },
   ],

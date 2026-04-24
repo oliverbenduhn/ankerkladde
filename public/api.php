@@ -2384,6 +2384,64 @@ try {
 
             respond(200, ['message' => 'Artikel gelöscht.']);
 
+        case 'move':
+            requireMethod('POST');
+            $data = requestData();
+            if (!isApiKeyAuthRequest()) {
+                requireCsrfToken($data);
+            }
+
+            $id = filter_var($data['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+            $targetCategoryId = filter_var($data['target_category_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+
+            if (!is_int($id) || !is_int($targetCategoryId)) {
+                respond(422, ['error' => 'Ungültige Verschiebe-Anfrage.']);
+            }
+
+            $item = fetchItemForUser($db, $userId, $id);
+            if ($item === null) {
+                respond(404, ['error' => 'Artikel nicht gefunden.']);
+            }
+
+            $sourceCategory = loadUserCategory($db, $userId, (int) $item['category_id']);
+            $targetCategory = loadUserCategory($db, $userId, $targetCategoryId);
+
+            if ($sourceCategory === null || $targetCategory === null) {
+                respond(404, ['error' => 'Kategorie nicht gefunden.']);
+            }
+
+            if ((int) $sourceCategory['id'] === (int) $targetCategory['id']) {
+                respond(200, [
+                    'message' => 'Artikel ist bereits in dieser Kategorie.',
+                    'source_category_id' => (int) $sourceCategory['id'],
+                    'target_category_id' => (int) $targetCategory['id'],
+                ]);
+            }
+
+            if ((string) $sourceCategory['type'] !== (string) $targetCategory['type']) {
+                respond(422, ['error' => 'Artikel können nur in gleichartige Kategorien verschoben werden.']);
+            }
+
+            $stmt = $db->prepare(
+                'UPDATE items
+                 SET category_id = :target_category_id,
+                     sort_order = :sort_order,
+                     updated_at = CURRENT_TIMESTAMP
+                 WHERE id = :id AND user_id = :user_id'
+            );
+            $stmt->execute([
+                ':target_category_id' => (int) $targetCategory['id'],
+                ':sort_order' => nextItemSortOrder($db, $userId, (int) $targetCategory['id']),
+                ':id' => $id,
+                ':user_id' => $userId,
+            ]);
+
+            respond(200, [
+                'message' => 'Artikel verschoben.',
+                'source_category_id' => (int) $sourceCategory['id'],
+                'target_category_id' => (int) $targetCategory['id'],
+            ]);
+
         case 'clear':
             requireMethod('POST');
             $data = requestData();

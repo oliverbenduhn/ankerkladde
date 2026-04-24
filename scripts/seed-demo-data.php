@@ -7,9 +7,16 @@ require dirname(__DIR__) . '/db.php';
 
 $db = getDatabase();
 
-$userId = (int) ($db->query("SELECT id FROM users WHERE username = 'tester' LIMIT 1")->fetchColumn());
+$demoUser = getenv('EINKAUF_DEMO_USER');
+if (!is_string($demoUser) || trim($demoUser) === '') {
+    $demoUser = 'tester';
+}
+
+$stmt = $db->prepare('SELECT id FROM users WHERE username = :username LIMIT 1');
+$stmt->execute([':username' => $demoUser]);
+$userId = (int) $stmt->fetchColumn();
 if ($userId === 0) {
-    fwrite(STDERR, "Benutzer 'tester' nicht gefunden.\n");
+    fwrite(STDERR, "Benutzer '{$demoUser}' nicht gefunden.\n");
     exit(1);
 }
 

@@ -1,8 +1,8 @@
-import { isNotesCategory, state } from './state.js?v=4.2.57';
-import { clearDoneBtn, listEl, progressEl, svgIcon } from './ui.js?v=4.2.57';
-import { normalizeBarcodeValue, syncAutoHeight } from './utils.js?v=4.2.57';
-import { createLightboxController } from './lightbox.js?v=4.2.57';
-import { createItemMenuController } from './item-menu.js?v=4.2.57';
+import { isNotesCategory, state } from './state.js?v=4.2.59';
+import { clearDoneBtn, listEl, progressEl, svgIcon } from './ui.js?v=4.2.59';
+import { normalizeBarcodeValue, syncAutoHeight } from './utils.js?v=4.2.59';
+import { createLightboxController } from './lightbox.js?v=4.2.59';
+import { createItemMenuController } from './item-menu.js?v=4.2.59';
 
 export function createItemsViewController(deps) {
     const {
@@ -10,9 +10,11 @@ export function createItemsViewController(deps) {
         formatBytes,
         formatDate,
         getItemById,
+        getMoveTargetCategories,
         getVisibleItems,
         handleDelete,
         handleEditSave,
+        handleMove,
         handlePin,
         handleStatus,
         handleToggle,
@@ -25,10 +27,12 @@ export function createItemsViewController(deps) {
     const lightbox = createLightboxController();
     const itemMenu = createItemMenuController({
         getAttachmentTitle: (item) => item.name || item.attachmentOriginalName || 'Anhang',
+        getMoveTargetCategories,
         openNoteEditorWithNavigation,
         openTodoEditor,
         handlePin,
         handleDelete,
+        handleMove,
         handleEditStart: (item) => {
             state.editingId = item.id;
             state.editDraft = {
@@ -496,6 +500,11 @@ export function createItemsViewController(deps) {
                     const current = getItemById(item.id);
                     if (current) {
                         await openNoteEditorWithNavigation(current);
+                    }
+                } else if (item.category_type === 'list_due_date') {
+                    const current = getItemById(item.id);
+                    if (current) {
+                        openTodoEditor(current);
                     }
                 }
             });

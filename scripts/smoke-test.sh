@@ -87,6 +87,12 @@ ADD_BODY="$TMP_DIR/add.json"
 ADD_SECOND_BODY="$TMP_DIR/add-second.json"
 TODO_ADD_BODY="$TMP_DIR/todo-add.json"
 TODO_LIST_BODY="$TMP_DIR/todo-list.json"
+MOVE_CATEGORY_BODY="$TMP_DIR/move-category.json"
+MOVE_ADD_BODY="$TMP_DIR/move-add.json"
+MOVE_INVALID_BODY="$TMP_DIR/move-invalid.json"
+MOVE_BODY="$TMP_DIR/move.json"
+MOVE_SOURCE_LIST_BODY="$TMP_DIR/move-source-list.json"
+MOVE_TARGET_LIST_BODY="$TMP_DIR/move-target-list.json"
 REORDER_BODY="$TMP_DIR/reorder.json"
 REORDERED_LIST_BODY="$TMP_DIR/reordered-list.json"
 INVALID_REORDER_BODY="$TMP_DIR/reorder-invalid.json"
@@ -134,9 +140,15 @@ grep -q '"items"' "$LIST_BODY"
 
 [[ "$(status_code "$TODO_CATEGORIES_BODY" -b "$COOKIE_JAR" "http://127.0.0.1:$PORT/api.php?action=categories_list")" == "200" ]]
 TODO_CATEGORY_ID="$(php -r '$payload = json_decode(file_get_contents($argv[1]), true); foreach (($payload["categories"] ?? []) as $category) { if (($category["type"] ?? "") === "list_due_date") { echo (int) ($category["id"] ?? 0); exit; } } exit(1);' "$TODO_CATEGORIES_BODY")"
+SHOPPING_CATEGORY_ID="$(php -r '$payload = json_decode(file_get_contents($argv[1]), true); foreach (($payload["categories"] ?? []) as $category) { if (($category["type"] ?? "") === "list_quantity") { echo (int) ($category["id"] ?? 0); exit; } } exit(1);' "$TODO_CATEGORIES_BODY")"
 
 if [[ -z "$TODO_CATEGORY_ID" || "$TODO_CATEGORY_ID" -le 0 ]]; then
     echo "Todo-Kategorie konnte nicht aus categories_list gelesen werden." >&2
+    exit 1
+fi
+
+if [[ -z "$SHOPPING_CATEGORY_ID" || "$SHOPPING_CATEGORY_ID" -le 0 ]]; then
+    echo "Einkauf-Kategorie konnte nicht aus categories_list gelesen werden." >&2
     exit 1
 fi
 
@@ -355,6 +367,38 @@ if grep -q "\"id\":$ITEM_ID" "$POST_CLEAR_LIST_BODY"; then
     echo "Erledigter Artikel wurde durch clear nicht entfernt." >&2
     exit 1
 fi
+
+[[ "$(status_code "$MOVE_CATEGORY_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST --data-urlencode 'name=Zweite Einkaufsliste' --data-urlencode 'type=list_quantity' "http://127.0.0.1:$PORT/api.php?action=categories_create")" == "201" ]]
+MOVE_TARGET_CATEGORY_ID="$(sed -n 's/.*"id":\([0-9][0-9]*\).*/\1/p' "$MOVE_CATEGORY_BODY" | head -n 1)"
+
+if [[ -z "$MOVE_TARGET_CATEGORY_ID" || "$MOVE_TARGET_CATEGORY_ID" -le 0 ]]; then
+    echo "Zielkategorie konnte nicht aus der Create-Antwort gelesen werden." >&2
+    exit 1
+fi
+
+[[ "$(status_code "$MOVE_ADD_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST --data-urlencode "category_id=$SHOPPING_CATEGORY_ID" --data-urlencode 'name=Verschieben-Test' --data-urlencode 'quantity=1' "http://127.0.0.1:$PORT/api.php?action=add")" == "201" ]]
+MOVE_ITEM_ID="$(sed -n 's/.*"id":\([0-9][0-9]*\).*/\1/p' "$MOVE_ADD_BODY" | head -n 1)"
+
+if [[ -z "$MOVE_ITEM_ID" ]]; then
+    echo "Move-Artikel-ID konnte nicht aus der Add-Antwort gelesen werden." >&2
+    exit 1
+fi
+
+[[ "$(status_code "$MOVE_INVALID_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST -d "id=$MOVE_ITEM_ID&target_category_id=$TODO_CATEGORY_ID" "http://127.0.0.1:$PORT/api.php?action=move")" == "422" ]]
+grep -q 'gleichartige Kategorien' "$MOVE_INVALID_BODY"
+
+[[ "$(status_code "$MOVE_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST -d "id=$MOVE_ITEM_ID&target_category_id=$MOVE_TARGET_CATEGORY_ID" "http://127.0.0.1:$PORT/api.php?action=move")" == "200" ]]
+grep -q 'Artikel verschoben' "$MOVE_BODY"
+
+[[ "$(status_code "$MOVE_SOURCE_LIST_BODY" -b "$COOKIE_JAR" "http://127.0.0.1:$PORT/api.php?action=list&category_id=$SHOPPING_CATEGORY_ID")" == "200" ]]
+if grep -q "\"id\":$MOVE_ITEM_ID" "$MOVE_SOURCE_LIST_BODY"; then
+    echo "Verschobener Artikel ist noch in der Quellkategorie sichtbar." >&2
+    exit 1
+fi
+
+[[ "$(status_code "$MOVE_TARGET_LIST_BODY" -b "$COOKIE_JAR" "http://127.0.0.1:$PORT/api.php?action=list&category_id=$MOVE_TARGET_CATEGORY_ID")" == "200" ]]
+grep -q "\"id\":$MOVE_ITEM_ID" "$MOVE_TARGET_LIST_BODY"
+grep -q '"name":"Verschieben-Test"' "$MOVE_TARGET_LIST_BODY"
 
 DB_PROBE_STATUS="$(status_code "$NOT_FOUND_BODY" "http://127.0.0.1:$PORT/data/einkaufsliste.db")"
 [[ "$DB_PROBE_STATUS" == "404" || "$DB_PROBE_STATUS" == "200" ]]

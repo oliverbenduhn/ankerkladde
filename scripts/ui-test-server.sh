@@ -28,5 +28,6 @@ export EINKAUF_REGULAR_USER="playwright-user"
 export EINKAUF_REGULAR_PASS="playwright-pass"
 
 php "${ROOT_DIR}/scripts/create-admin.php" >/dev/null
+EINKAUF_DEMO_USER="${EINKAUF_REGULAR_USER}" php "${ROOT_DIR}/scripts/seed-demo-data.php" >/dev/null
 
 exec php -S "${HOST}:${PORT}" -t "${ROOT_DIR}/public"
