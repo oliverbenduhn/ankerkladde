@@ -2066,23 +2066,27 @@ button, input { font: inherit; }
    =========================================== */
 .section-tabs {
     display: flex;
-    background: var(--surface);
+    background: color-mix(in srgb, var(--surface) 85%, transparent);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     flex-shrink: 0;
     position: relative;
     z-index: 10;
     justify-content: space-between;
-    gap: 2px;
-    padding: 4px 8px;
+    gap: 4px;
+    padding: 6px;
     margin: 0 12px clamp(8px, calc(8px + env(safe-area-inset-bottom, 0px)), 40px);
-    border: 1.5px solid var(--border);
-    border-radius: 18px;
+    border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+    border-radius: 24px;
     overflow-x: auto;
     overflow-y: hidden;
     overscroll-behavior-x: contain;
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
     scroll-padding: 10px;
-    box-shadow: 0 12px 32px -8px rgba(13, 58, 92, 0.14);
+    box-shadow: 
+        0 16px 32px -8px rgba(0, 0, 0, 0.12),
+        0 4px 12px -2px rgba(0, 0, 0, 0.06);
 }
 
 .section-tabs::-webkit-scrollbar {
@@ -2096,44 +2100,45 @@ button, input { font: inherit; }
 .section-tabs.can-scroll-left {
     box-shadow:
         inset 18px 0 16px -18px color-mix(in srgb, var(--text-primary) 55%, transparent),
-        0 12px 32px -8px rgba(13, 58, 92, 0.14);
+        0 16px 32px -8px rgba(0, 0, 0, 0.12),
+        0 4px 12px -2px rgba(0, 0, 0, 0.06);
 }
 
 .section-tabs.can-scroll-right {
     box-shadow:
         inset -18px 0 16px -18px color-mix(in srgb, var(--text-primary) 55%, transparent),
-        0 12px 32px -8px rgba(13, 58, 92, 0.14);
+        0 16px 32px -8px rgba(0, 0, 0, 0.12),
+        0 4px 12px -2px rgba(0, 0, 0, 0.06);
 }
 
 .section-tabs.can-scroll-left.can-scroll-right {
     box-shadow:
         inset 18px 0 16px -18px color-mix(in srgb, var(--text-primary) 55%, transparent),
         inset -18px 0 16px -18px color-mix(in srgb, var(--text-primary) 55%, transparent),
-        0 12px 32px -8px rgba(13, 58, 92, 0.14);
+        0 16px 32px -8px rgba(0, 0, 0, 0.12),
+        0 4px 12px -2px rgba(0, 0, 0, 0.06);
 }
 
 .section-tab {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
     justify-content: center;
-    gap: 2px;
+    gap: 6px;
     min-width: 0;
-    padding: 4px 3px 5px;
+    padding: 6px;
     background: transparent;
     border: none;
-    border-radius: 12px;
+    border-radius: 50px;
     cursor: pointer;
     color: var(--text-secondary);
-    flex: 1 1 0;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    flex: 1 1 auto;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     touch-action: pan-x;
 }
 
 .section-tabs.is-scrollable .section-tab {
-    flex: 0 0 64px;
-    min-width: 64px;
-    max-width: 90px;
+    flex: 0 0 auto;
 }
 
 .section-tab.is-tab-dragging {
@@ -2151,8 +2156,8 @@ button, input { font: inherit; }
 
 .section-tab[aria-current="page"] {
     color: var(--text-primary);
-    background: color-mix(in srgb, var(--accent) 12%, var(--surface));
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 15%, transparent);
+    background: color-mix(in srgb, var(--accent) 15%, transparent);
+    padding: 6px 14px 6px 10px;
 }
 
 .section-tab:hover:not([aria-current="page"]),
@@ -2165,62 +2170,67 @@ button, input { font: inherit; }
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 30px;
-    height: 30px;
+    width: 26px;
+    height: 26px;
     font-size: 0;
     line-height: 1;
-    opacity: 0.55;
-    transition: all 0.2s ease;
+    opacity: 0.7;
+    transition: all 0.3s ease;
+    flex-shrink: 0;
 }
 
 .category-icon-img {
     display: block;
-    width: 28px;
-    height: 28px;
+    width: 24px;
+    height: 24px;
     object-fit: contain;
     filter: var(--tab-icon-filter);
 }
 
 .section-tab[aria-current="page"] .section-icon {
     opacity: 1;
-    transform: scale(1.08) translateY(-1px);
+    transform: scale(1.1);
 }
 .section-tab[aria-current="page"] .category-icon-img {
     filter: var(--tab-icon-filter-active);
 }
 .section-label {
     display: block;
-    max-width: 100%;
+    max-width: 0;
     overflow: hidden;
-    text-overflow: ellipsis;
+    opacity: 0;
     white-space: nowrap;
-    font-size: 0.67rem;
-    line-height: 1.1;
-    letter-spacing: -0.015em;
-    font-weight: 500;
+    font-size: 0.85rem;
+    font-weight: 600;
+    transition: max-width 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+}
+
+.section-tab[aria-current="page"] .section-label {
+    max-width: 120px;
+    opacity: 1;
 }
 
 .section-dot {
-    width: 4px; height: 4px; border-radius: 50%;
-    background: var(--text-primary);
-    opacity: 0;
-    transition: opacity 0.15s ease;
+    display: none;
 }
-.section-tab[aria-current="page"] .section-dot { opacity: 1; }
 
 @media (min-width: 520px) {
-    .section-tab {
-        gap: 3px;
-        padding: 6px 6px 8px;
+    .section-tabs {
+        padding: 8px;
+        gap: 8px;
     }
 
-    .section-tabs.is-scrollable .section-tab {
-        flex-basis: 82px;
-        min-width: 82px;
+    .section-tab {
+        padding: 8px;
+        gap: 8px;
+    }
+
+    .section-tab[aria-current="page"] {
+        padding: 8px 18px 8px 12px;
     }
 
     .section-label {
-        font-size: 0.76rem;
+        font-size: 0.9rem;
     }
 }
 
