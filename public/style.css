@@ -239,7 +239,7 @@ button, input { font: inherit; }
     padding: 0 14px;
     background: var(--surface);
     border: 1.5px solid var(--border);
-    border-radius: 12px;
+    border-radius: 24px;
     color: var(--text-primary);
     flex: 1;
     min-width: 0;
@@ -275,7 +275,7 @@ button, input { font: inherit; }
     padding: 8px 12px;
     background: var(--surface);
     border: 1.5px solid var(--border);
-    border-radius: 12px;
+    border-radius: 24px;
 }
 
 .upload-mode-toggle {
@@ -285,7 +285,7 @@ button, input { font: inherit; }
     padding: 3px;
     background: var(--background);
     border: 1px solid var(--border);
-    border-radius: 10px;
+    border-radius: 20px;
     flex-shrink: 0;
 }
 
@@ -293,7 +293,7 @@ button, input { font: inherit; }
     min-height: 30px;
     padding: 0 10px;
     border: 0;
-    border-radius: 8px;
+    border-radius: 16px;
     background: transparent;
     color: var(--text-secondary);
     font-size: 0.82rem;
@@ -324,7 +324,7 @@ button, input { font: inherit; }
     width: 100%;
     min-height: 36px;
     padding: 0 12px;
-    border-radius: 9px;
+    border-radius: 50px;
 }
 
 .file-picker-button {
@@ -334,7 +334,7 @@ button, input { font: inherit; }
     min-height: 32px;
     padding: 0 12px;
     background: var(--border);
-    border-radius: 9px;
+    border-radius: 50px;
     color: var(--text-primary);
     font-size: 0.85rem;
     font-weight: 600;
@@ -398,7 +398,7 @@ button, input { font: inherit; }
     margin-top: 10px;
     padding: 18px 12px;
     border: 2px dashed var(--border);
-    border-radius: 12px;
+    border-radius: 24px;
     text-align: center;
     color: var(--text-secondary);
     font-size: 0.85rem;
@@ -420,7 +420,7 @@ button, input { font: inherit; }
     background: var(--button-active-bg, var(--accent));
     color: var(--button-active-text, var(--accent-contrast, var(--text-primary)));
     border: none;
-    border-radius: 12px;
+    border-radius: 24px;
     cursor: pointer;
     flex-shrink: 0;
     display: flex;
@@ -566,7 +566,7 @@ button, input { font: inherit; }
     padding: 12px 14px;
     background: var(--surface);
     border: 1.5px solid var(--border);
-    border-radius: 12px;
+    border-radius: 24px;
     cursor: grab;
     animation: cardIn 0.12s ease-out both;
     transition: opacity 0.2s ease, background 0.2s ease;
@@ -633,7 +633,7 @@ button, input { font: inherit; }
     min-height: 32px;
     padding: 0;
     border: none;
-    border-radius: 8px;
+    border-radius: 16px;
     background: transparent;
     color: var(--text-muted);
     display: inline-flex;
@@ -721,7 +721,7 @@ button, input { font: inherit; }
     height: 24px;
     min-width: 24px;
     border: 1.5px solid var(--accent);
-    border-radius: 6px;
+    border-radius: 12px;
     background: transparent;
     cursor: pointer;
     display: inline-flex;
@@ -749,7 +749,7 @@ button, input { font: inherit; }
     width: 26px;
     height: 26px;
     min-width: 26px;
-    border-radius: 7px;
+    border-radius: 14px;
 }
 
 [data-mode="einkaufen"] .toggle:checked::after { font-size: 12px; }
@@ -919,7 +919,7 @@ button, input { font: inherit; }
     width: 92px;
     height: 92px;
     padding: 0;
-    border-radius: 10px;
+    border-radius: 20px;
     overflow: hidden;
     background: var(--done-bg);
     border: 1px solid var(--border);
@@ -1015,7 +1015,7 @@ button, input { font: inherit; }
     max-height: 100%;
     object-fit: contain;
     image-orientation: from-image;
-    border-radius: 6px;
+    border-radius: 12px;
     cursor: default;
     user-select: none;
     -webkit-user-drag: none;
@@ -1071,7 +1071,7 @@ button, input { font: inherit; }
     min-height: 32px;
     padding: 0 12px;
     background: var(--border);
-    border-radius: 9px;
+    border-radius: 50px;
     color: var(--text-primary);
     font-size: 0.85rem;
     font-weight: 600;
@@ -1114,7 +1114,7 @@ button, input { font: inherit; }
     padding: 0 12px;
     background: var(--surface);
     border: 1.5px solid var(--border);
-    border-radius: 10px;
+    border-radius: 20px;
     color: var(--text-primary);
 }
 
@@ -1206,7 +1206,7 @@ button, input { font: inherit; }
     padding: 2px 8px;
     background: var(--border);
     color: var(--text-secondary);
-    border-radius: 6px;
+    border-radius: 12px;
     font-size: 0.75rem;
     font-weight: 600;
     flex-shrink: 0;
@@ -1270,7 +1270,7 @@ button, input { font: inherit; }
     border: none;
     color: var(--text-muted);
     cursor: pointer;
-    border-radius: 7px;
+    border-radius: 14px;
     font-size: 1rem;
     line-height: 1;
     display: inline-flex;
@@ -1295,7 +1295,7 @@ button, input { font: inherit; }
     border: none;
     color: var(--text-muted);
     cursor: pointer;
-    border-radius: 7px;
+    border-radius: 14px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -1401,7 +1401,7 @@ button, input { font: inherit; }
     position: relative;
     overflow: hidden;
     aspect-ratio: 4 / 3;
-    border-radius: 18px;
+    border-radius: 28px;
     background:
         radial-gradient(circle at top, rgba(255,255,255,0.1), transparent 55%),
         linear-gradient(180deg, rgba(10, 14, 18, 0.92), rgba(22, 30, 39, 0.98));
@@ -1421,7 +1421,7 @@ button, input { font: inherit; }
     height: min(34%, 120px);
     transform: translate(-50%, -50%);
     border: 2px solid rgba(255,255,255,0.92);
-    border-radius: 18px;
+    border-radius: 28px;
     box-shadow: 0 0 0 999px rgba(0, 0, 0, 0.22);
     pointer-events: none;
 }
@@ -1435,7 +1435,7 @@ button, input { font: inherit; }
     line-height: 1.4;
     padding: 10px 14px;
     background: var(--surface);
-    border-radius: 12px;
+    border-radius: 24px;
     border: 1.5px solid var(--border);
 }
 
@@ -1455,7 +1455,7 @@ button, input { font: inherit; }
     padding: 0 14px;
     background: var(--surface);
     border: 1.5px solid var(--border);
-    border-radius: 12px;
+    border-radius: 24px;
     color: var(--text-primary);
     flex: 1;
     min-width: 0;
@@ -1631,7 +1631,7 @@ button, input { font: inherit; }
     width: min(100%, 420px);
     background: var(--bg);
     border: 1.5px solid var(--border);
-    border-radius: 18px;
+    border-radius: 28px;
     box-shadow: 0 18px 40px rgba(19, 16, 11, 0.18);
     padding: 12px;
 }
@@ -1658,7 +1658,7 @@ button, input { font: inherit; }
     padding: 0 14px;
     background: var(--surface);
     border: 1.5px solid var(--border);
-    border-radius: 12px;
+    border-radius: 24px;
     color: var(--text-primary);
     text-align: left;
     cursor: pointer;
@@ -1694,7 +1694,7 @@ button, input { font: inherit; }
     padding: 10px;
     background: none;
     border: 1.5px solid var(--border);
-    border-radius: 10px;
+    border-radius: 20px;
     color: var(--text-muted);
     font-size: 0.85rem;
     cursor: pointer;
@@ -1777,7 +1777,7 @@ button, input { font: inherit; }
     padding: 0;
     background: var(--surface);
     border: 1.5px solid var(--border);
-    border-radius: 11px;
+    border-radius: 50px;
     cursor: pointer;
     flex-shrink: 0;
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -1828,7 +1828,7 @@ button, input { font: inherit; }
     .brand-mark-app {
         width: 34px;
         height: 34px;
-        border-radius: 9px;
+        border-radius: 50px;
     }
 
     .header-actions {
@@ -1842,7 +1842,7 @@ button, input { font: inherit; }
         min-width: 34px;
         min-height: 34px;
         padding: 0;
-        border-radius: 9px;
+        border-radius: 50px;
     }
 
     .header-actions .btn-settings {
@@ -1904,7 +1904,7 @@ button, input { font: inherit; }
     .brand-mark-app {
         width: 32px;
         height: 32px;
-        border-radius: 9px;
+        border-radius: 50px;
     }
 
     .app-title {
@@ -1981,7 +1981,7 @@ button, input { font: inherit; }
     background: var(--text-primary);
     color: var(--surface);
     border: none;
-    border-radius: 8px;
+    border-radius: 16px;
     font-size: 0.8rem;
     font-weight: 600;
     cursor: pointer;
@@ -2003,7 +2003,7 @@ button, input { font: inherit; }
     background: var(--text-primary);
     color: var(--surface);
     border: none;
-    border-radius: 8px;
+    border-radius: 16px;
     font-size: 0.8rem;
     font-weight: 600;
     cursor: pointer;
@@ -2022,7 +2022,7 @@ button, input { font: inherit; }
     border: none;
     color: var(--text-muted);
     cursor: pointer;
-    border-radius: 6px;
+    border-radius: 12px;
     font-size: 1.1rem;
     display: inline-flex;
     align-items: center;
@@ -2038,7 +2038,7 @@ button, input { font: inherit; }
     background: var(--text-primary);
     color: var(--surface);
     border: none;
-    border-radius: 6px;
+    border-radius: 12px;
     font-size: 0.75rem;
     font-weight: 600;
     cursor: pointer;
@@ -2323,7 +2323,7 @@ button, input { font: inherit; }
 .todo-editor-date-input {
     padding: 10px 12px;
     border: 1.5px solid var(--border);
-    border-radius: 10px;
+    border-radius: 20px;
     background: var(--bg);
     color: var(--text-primary);
     font-size: 1rem;
@@ -2345,7 +2345,7 @@ button, input { font: inherit; }
     flex: 1;
     padding: 10px 8px;
     border: 1.5px solid var(--border);
-    border-radius: 10px;
+    border-radius: 20px;
     background: var(--bg);
     color: var(--text-secondary);
     font-size: 0.88rem;
@@ -2363,7 +2363,7 @@ button, input { font: inherit; }
 .todo-note-input {
     padding: 12px;
     border: 1.5px solid var(--border);
-    border-radius: 10px;
+    border-radius: 20px;
     background: var(--bg);
     color: var(--text-primary);
     font-size: 0.95rem;
@@ -2406,7 +2406,7 @@ button, input { font: inherit; }
     padding: 0 10px;
     background: var(--border);
     border: none;
-    border-radius: 10px;
+    border-radius: 20px;
     font-size: 1rem;
     cursor: pointer;
     flex-shrink: 0;
@@ -2468,7 +2468,7 @@ button, input { font: inherit; }
     padding: 0 6px;
     background: none;
     border: 1.5px solid transparent;
-    border-radius: 7px;
+    border-radius: 14px;
     font-size: 0.82rem;
     color: var(--text-secondary);
     cursor: pointer;
@@ -2572,7 +2572,7 @@ button, input { font: inherit; }
 
 .note-editor-body .tiptap pre {
     background: rgba(44, 36, 22, 0.06);
-    border-radius: 8px;
+    border-radius: 16px;
     padding: 1em;
     overflow-x: auto;
 }
@@ -2641,7 +2641,7 @@ button, input { font: inherit; }
     padding: 0 12px;
     background: var(--surface);
     border: 1.5px solid var(--border);
-    border-radius: 10px;
+    border-radius: 20px;
     font-size: 1rem;
     color: var(--text-primary);
     outline: none;
@@ -2656,7 +2656,7 @@ button, input { font: inherit; }
     padding: 0;
     background: none;
     border: none;
-    border-radius: 8px;
+    border-radius: 16px;
     font-size: 1.1rem;
     color: var(--text-muted);
     cursor: pointer;
@@ -2707,7 +2707,7 @@ button, input { font: inherit; }
     position: relative;
     background: var(--surface);
     border: 2px solid var(--accent);
-    border-radius: 12px;
+    border-radius: 24px;
     overflow: hidden;
     box-shadow: 0 4px 12px rgba(200, 184, 154, 0.15);
 }
@@ -2732,7 +2732,7 @@ button, input { font: inherit; }
     background: transparent;
     color: var(--text-muted);
     border: none;
-    border-radius: 8px;
+    border-radius: 16px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -2771,7 +2771,7 @@ button, input { font: inherit; }
     background: var(--accent);
     color: var(--accent-contrast, var(--text-primary));
     border: none;
-    border-radius: 8px;
+    border-radius: 16px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -2865,7 +2865,7 @@ button, input { font: inherit; }
 .login-card {
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 12px;
+    border-radius: 24px;
     padding: 2rem;
     width: 100%;
     max-width: 360px;
@@ -2900,7 +2900,7 @@ button, input { font: inherit; }
 .login-field input {
     padding: 0.6rem 0.75rem;
     border: 1px solid var(--border);
-    border-radius: 8px;
+    border-radius: 16px;
     background: var(--bg);
     color: var(--text-primary);
     font-size: 1rem;
@@ -2917,7 +2917,7 @@ button, input { font: inherit; }
     background: var(--text-primary);
     color: var(--surface);
     border: none;
-    border-radius: 8px;
+    border-radius: 16px;
     font-size: 1rem;
     cursor: pointer;
     margin-top: 0.5rem;
@@ -2931,7 +2931,7 @@ button, input { font: inherit; }
     margin-bottom: 1rem;
     padding: 0.5rem 0.75rem;
     background: #fdf0ec;
-    border-radius: 6px;
+    border-radius: 12px;
 }
 
 /* ===========================================
@@ -2956,7 +2956,7 @@ button, input { font: inherit; }
     padding: 20px;
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 12px;
+    border-radius: 24px;
 }
 
 .settings-card.settings-card-embedded {
@@ -2987,7 +2987,7 @@ button, input { font: inherit; }
     min-width: 40px;
     min-height: 40px;
     padding: 0 12px;
-    border-radius: 10px;
+    border-radius: 20px;
     background: var(--border);
     color: var(--text-primary);
     text-decoration: none;
@@ -3078,7 +3078,7 @@ button, input { font: inherit; }
 .settings-inline-status {
     margin: 14px 0 0;
     padding: 10px 12px;
-    border-radius: 10px;
+    border-radius: 20px;
     font-size: 0.92rem;
     line-height: 1.45;
 }
@@ -3126,7 +3126,7 @@ button, input { font: inherit; }
     gap: 10px;
     padding: 12px 14px;
     border: 1px solid var(--border);
-    border-radius: 10px;
+    border-radius: 20px;
     background: var(--bg);
     color: var(--text-primary);
 }
@@ -3169,7 +3169,7 @@ button, input { font: inherit; }
 
 .settings-category-summary:hover {
     background: var(--surface);
-    border-radius: 12px;
+    border-radius: 24px;
 }
 
 .settings-drag-handle {
@@ -3195,7 +3195,7 @@ button, input { font: inherit; }
     width: 36px;
     height: 36px;
     flex: 0 0 36px;
-    border-radius: 9px;
+    border-radius: 50px;
     background: var(--surface);
     border: 1px solid var(--border);
 }
@@ -3236,7 +3236,7 @@ details[open].settings-category-details > .settings-category-summary .settings-s
 .settings-category-dragging {
     opacity: 0.5;
     background: var(--surface);
-    border-radius: 12px;
+    border-radius: 24px;
 }
 
 .settings-row-main {
@@ -3324,7 +3324,7 @@ details[open].settings-category-details > .settings-category-summary .settings-s
     min-height: 66px;
     padding: 8px 6px 7px;
     border: 1px solid var(--border);
-    border-radius: 8px;
+    border-radius: 16px;
     background: var(--bg);
     color: var(--text-secondary);
     cursor: pointer;
@@ -3370,7 +3370,7 @@ details[open].settings-category-details > .settings-category-summary .settings-s
 }
 
 .category-icon-choice-auto-visual {
-    border-radius: 8px;
+    border-radius: 16px;
     border: 1px dashed var(--border);
     color: var(--text-secondary);
     font-weight: 700;
@@ -3393,7 +3393,7 @@ details[open].settings-category-details > .settings-category-summary .settings-s
     min-height: 44px;
     padding: 0 12px;
     border: 1px solid var(--border);
-    border-radius: 10px;
+    border-radius: 20px;
     background: var(--bg);
     color: var(--text-primary);
 }
@@ -3402,7 +3402,7 @@ details[open].settings-category-details > .settings-category-summary .settings-s
     min-height: 44px;
     padding: 0 12px;
     border: 1px solid var(--border);
-    border-radius: 10px;
+    border-radius: 20px;
     background: var(--bg);
     color: var(--text-primary);
 }
@@ -3511,7 +3511,7 @@ details[open].settings-category-details > .settings-category-summary .settings-s
     min-height: 40px;
     padding: 0;
     border: 1px solid var(--border);
-    border-radius: 10px;
+    border-radius: 20px;
     background: var(--surface);
     color: var(--text-primary);
     cursor: pointer;
@@ -3551,7 +3551,7 @@ details[open].settings-category-details > .settings-category-summary .settings-s
     min-height: 44px;
     padding: 0 16px;
     border: none;
-    border-radius: 10px;
+    border-radius: 20px;
     background: var(--text-primary);
     color: var(--surface);
     font-weight: 600;
@@ -3606,7 +3606,7 @@ details[open].settings-category-details > .settings-category-summary .settings-s
     justify-content: center;
     min-height: 44px;
     padding: 0 16px;
-    border-radius: 10px;
+    border-radius: 20px;
     background: var(--text-primary);
     color: var(--surface);
     text-decoration: none;
@@ -3650,7 +3650,7 @@ details[open].settings-category-details > .settings-category-summary .settings-s
 .admin-section {
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 10px;
+    border-radius: 20px;
     padding: 1.25rem;
     margin-bottom: 1.25rem;
 }
@@ -3676,7 +3676,7 @@ details[open].settings-category-details > .settings-category-summary .settings-s
     min-width: 120px;
     padding: 0.5rem 0.75rem;
     border: 1px solid var(--border);
-    border-radius: 8px;
+    border-radius: 16px;
     background: var(--bg);
     color: var(--text-primary);
     font-size: 0.9rem;
@@ -3704,7 +3704,7 @@ details[open].settings-category-details > .settings-category-summary .settings-s
     width: 100%;
     padding: 0.55rem 0.75rem;
     border: 1px solid var(--border);
-    border-radius: 8px;
+    border-radius: 16px;
     background: var(--bg);
     color: var(--text-primary);
     font-size: 0.9rem;
@@ -3733,7 +3733,7 @@ details[open].settings-category-details > .settings-category-summary .settings-s
 .admin-btn {
     padding: 0.5rem 1rem;
     border: none;
-    border-radius: 8px;
+    border-radius: 16px;
     font-size: 0.9rem;
     cursor: pointer;
     background: var(--text-primary);
@@ -3781,7 +3781,7 @@ details[open].settings-category-details > .settings-category-summary .settings-s
 
 .admin-flash {
     padding: 0.6rem 0.75rem;
-    border-radius: 6px;
+    border-radius: 12px;
     margin-bottom: 1rem;
     font-size: 0.875rem;
 }
@@ -3799,7 +3799,7 @@ details[open].settings-category-details > .settings-category-summary .settings-s
     width: 130px;
     padding: 0.35rem 0.6rem;
     border: 1px solid var(--border);
-    border-radius: 6px;
+    border-radius: 12px;
     background: var(--bg);
     color: var(--text-primary);
     font-size: 0.85rem;
@@ -3809,7 +3809,7 @@ details[open].settings-category-details > .settings-category-summary .settings-s
     padding: 0.35rem 0.65rem;
     font-size: 0.8rem;
     border: none;
-    border-radius: 6px;
+    border-radius: 12px;
     cursor: pointer;
     background: var(--text-primary);
     color: var(--surface);
@@ -3831,7 +3831,7 @@ details[open].settings-category-details > .settings-category-summary .settings-s
 .admin-product-stat {
     padding: 0.9rem 1rem;
     border: 1px solid var(--border);
-    border-radius: 12px;
+    border-radius: 24px;
     background: var(--surface);
 }
 
@@ -3921,7 +3921,7 @@ details[open].settings-category-details > .settings-category-summary .settings-s
     gap: 8px;
     padding: 10px 14px;
     border: 1px solid var(--border);
-    border-radius: 10px;
+    border-radius: 20px;
     background: var(--surface);
     color: var(--text-primary);
     font-weight: 500;
@@ -4010,7 +4010,7 @@ details[open].settings-category-details > .settings-category-summary .settings-s
     gap: 6px;
     padding: 7px;
     border: 1.5px solid var(--border);
-    border-radius: 9px;
+    border-radius: 50px;
     background: var(--surface);
     transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
@@ -4081,7 +4081,7 @@ details[open].settings-category-details > .settings-category-summary .settings-s
     flex-shrink: 0;
     width: 100px;
     height: 100px;
-    border-radius: 12px;
+    border-radius: 24px;
     overflow: hidden;
     background: var(--border);
     box-shadow: 0 4px 6px rgba(0,0,0,0.05);
@@ -4167,7 +4167,7 @@ details[open].settings-category-details > .settings-category-summary .settings-s
 .p-ingredients-sec {
     background: var(--surface);
     padding: 1rem;
-    border-radius: 12px;
+    border-radius: 24px;
     margin-bottom: 1rem;
     border: 1px solid var(--border);
 }
@@ -4189,7 +4189,7 @@ details[open].settings-category-details > .settings-category-summary .settings-s
     padding: 0.75rem 1rem;
     background: color-mix(in srgb, var(--error) 12%, transparent);
     color: var(--error);
-    border-radius: 12px;
+    border-radius: 24px;
     font-weight: 600;
 }
 .clickable-brand { cursor: pointer; }
