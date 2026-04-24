@@ -1407,6 +1407,7 @@ function downloadRemoteFile(string $url): array
         }
 
         $headers = [];
+        $abortedDueToSize = false;
         $ch = curl_init($url);
         if ($ch === false) {
             fclose($handle);
@@ -1423,8 +1424,9 @@ function downloadRemoteFile(string $url): array
             CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
             CURLOPT_REDIR_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
             CURLOPT_NOPROGRESS => false,
-            CURLOPT_PROGRESSFUNCTION => static function ($resource, float $downloadTotal, float $downloadNow) use ($maxBytes): int {
-                return $downloadNow > $maxBytes || $downloadTotal > $maxBytes ? 1 : 0;
+            CURLOPT_PROGRESSFUNCTION => static function ($resource, float $downloadTotal, float $downloadNow) use ($maxBytes, &$abortedDueToSize): int {
+                $abortedDueToSize = $downloadNow > $maxBytes || $downloadTotal > $maxBytes;
+                return $abortedDueToSize ? 1 : 0;
             },
             CURLOPT_HEADERFUNCTION => static function ($resource, string $headerLine) use (&$headers): int {
                 $trimmed = trim($headerLine);
@@ -1438,6 +1440,7 @@ function downloadRemoteFile(string $url): array
 
         $ok = curl_exec($ch);
         $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+        $curlErrno = curl_errno($ch);
         $error = curl_error($ch);
         curl_close($ch);
         fclose($handle);
@@ -1447,6 +1450,9 @@ function downloadRemoteFile(string $url): array
 
         if ($ok === false || $status < 200 || $status >= 300) {
             @unlink($tmpPath);
+            if ($abortedDueToSize || (defined('CURLE_ABORTED_BY_CALLBACK') && $curlErrno === CURLE_ABORTED_BY_CALLBACK)) {
+                return ['error' => 'Dateien dürfen maximal ' . formatBytesForMessage($maxBytes) . ' groß sein.'];
+            }
             return ['error' => $error !== '' ? $error : 'Datei konnte nicht geladen werden.'];
         }
         if ($sizeBytes > $maxBytes) {
