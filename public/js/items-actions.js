@@ -1,8 +1,8 @@
-import { appUrl, api, apiUpload } from './api.js?v=4.2.63';
-import { getCurrentCategory, isAttachmentCategory, state } from './state.js?v=4.2.63';
-import { fileInput, itemInput, linkDescriptionInput, quantityInput, urlImportInput } from './ui.js?v=4.2.63';
-import { escapeRegExp } from './utils.js?v=4.2.63';
-import { enqueueAction } from './offline-queue.js?v=4.2.63';
+import { appUrl, api, apiUpload } from './api.js?v=4.2.64';
+import { getCurrentCategory, isAttachmentCategory, state } from './state.js?v=4.2.64';
+import { fileInput, itemInput, linkDescriptionInput, quantityInput, urlImportInput } from './ui.js?v=4.2.64';
+import { escapeRegExp } from './utils.js?v=4.2.64';
+import { enqueueAction } from './offline-queue.js?v=4.2.64';
 
 export function createItemsActionsController(deps) {
     const {
@@ -19,6 +19,7 @@ export function createItemsActionsController(deps) {
         setCategory,
         setMessage,
         setNetworkStatus,
+        setRemoteImportLoading,
         invalidateCategoryCache,
     } = deps;
 
@@ -217,13 +218,17 @@ export function createItemsActionsController(deps) {
             url,
             name: itemInput.value.trim(),
         });
-        setMessage('Datei wird geladen...');
-        await api('import_url', { method: 'POST', body });
-        resetItemForm();
-        if (urlImportInput) urlImportInput.value = '';
-        invalidateCategoryCache(category.id);
-        await loadItems(category.id, { useCache: false });
-        setMessage('Datei importiert.');
+        setRemoteImportLoading?.(true, 'Datei wird von URL geladen... Das kann bei großen Dateien dauern.');
+        try {
+            await api('import_url', { method: 'POST', body });
+            resetItemForm();
+            if (urlImportInput) urlImportInput.value = '';
+            invalidateCategoryCache(category.id);
+            await loadItems(category.id, { useCache: false });
+            setMessage('Datei importiert.');
+        } finally {
+            setRemoteImportLoading?.(false);
+        }
     }
 
     async function addItem(event) {

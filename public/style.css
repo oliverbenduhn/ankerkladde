@@ -1729,6 +1729,7 @@ button, input { font: inherit; }
     height: 3px;
     z-index: 200;
     background: var(--border);
+    overflow: hidden;
 }
 
 .upload-progress-bar {
@@ -1736,6 +1737,24 @@ button, input { font: inherit; }
     background: var(--text-secondary);
     width: 0%;
     transition: width 0.25s ease-out;
+}
+
+.upload-progress.is-indeterminate .upload-progress-bar {
+    animation: upload-indeterminate 1.15s ease-in-out infinite;
+}
+
+@keyframes upload-indeterminate {
+    0% {
+        transform: translateX(-140%);
+        width: 38%;
+    }
+    50% {
+        width: 58%;
+    }
+    100% {
+        transform: translateX(280%);
+        width: 38%;
+    }
 }
 
 /* ===========================================

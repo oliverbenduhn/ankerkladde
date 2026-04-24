@@ -1,4 +1,4 @@
-import { getCurrentCategory, getCurrentType, getTypeConfig, isAttachmentCategory, state } from './state.js?v=4.2.63';
+import { getCurrentCategory, getCurrentType, getTypeConfig, isAttachmentCategory, state } from './state.js?v=4.2.64';
 import {
     cameraBtn,
     diskFreeEl,
@@ -28,16 +28,18 @@ import {
     uploadModeToggle,
     uploadModeUrlBtn,
     urlImportArea,
+    urlImportInput,
     magicBar,
     magicBtns,
-} from './ui.js?v=4.2.63';
-import { syncAutoHeight } from './utils.js?v=4.2.63';
+} from './ui.js?v=4.2.64';
+import { syncAutoHeight } from './utils.js?v=4.2.64';
 
 export function createAppUiController(deps = {}) {
     const { getUserPreferences = () => ({}), getPendingCount = () => 0, onSyncClick = () => {} } = deps;
     let messageTimer = null;
     let uploadMode = 'file';
     let lastUploadCategoryId = null;
+    let remoteImportLoading = false;
 
     function setMessage(text, isError = false) {
         clearTimeout(messageTimer);
@@ -49,6 +51,7 @@ export function createAppUiController(deps = {}) {
 
     function setUploadProgress(fraction) {
         if (!uploadProgressEl || !uploadProgressBarEl) return;
+        uploadProgressEl.classList.remove('is-indeterminate');
 
         if (fraction <= 0) {
             uploadProgressEl.hidden = true;
@@ -74,6 +77,28 @@ export function createAppUiController(deps = {}) {
             messageEl.classList.add('is-visible');
             messageEl.textContent = fraction < 1 ? `Hochladen ${Math.round(fraction * 100)} %` : 'Wird gespeichert...';
         };
+    }
+
+    function setRemoteImportLoading(active, text = 'Datei wird von URL geladen...') {
+        remoteImportLoading = Boolean(active);
+        if (uploadProgressEl && uploadProgressBarEl) {
+            uploadProgressEl.hidden = !remoteImportLoading;
+            uploadProgressEl.classList.toggle('is-indeterminate', remoteImportLoading);
+            uploadProgressBarEl.style.width = remoteImportLoading ? '35%' : '0%';
+        }
+
+        const submitBtn = itemForm?.querySelector('[type="submit"]');
+        if (submitBtn) submitBtn.disabled = remoteImportLoading;
+        if (urlImportInput) urlImportInput.disabled = remoteImportLoading;
+        if (uploadModeFileBtn) uploadModeFileBtn.disabled = remoteImportLoading;
+        if (uploadModeUrlBtn) uploadModeUrlBtn.disabled = remoteImportLoading;
+
+        if (remoteImportLoading) {
+            clearTimeout(messageTimer);
+            messageEl.textContent = text;
+            messageEl.classList.remove('is-error');
+            messageEl.classList.add('is-visible');
+        }
     }
 
     function updateFilePickerLabel() {
@@ -159,6 +184,9 @@ export function createAppUiController(deps = {}) {
         if (scanShoppingBtn) scanShoppingBtn.hidden = !shoppingListScannerEnabled || !barcodeCategory;
 
         if (filePickerButton) filePickerButton.textContent = imageCategory ? 'Bild wählen' : 'Datei wählen';
+        if (remoteImportLoading) {
+            setRemoteImportLoading(true);
+        }
         if (fileInput) {
             fileInput.accept = imageCategory ? 'image/*' : '';
         }
@@ -307,6 +335,7 @@ export function createAppUiController(deps = {}) {
         makeUploadProgressCallback,
         setMessage,
         setNetworkStatus,
+        setRemoteImportLoading,
         setScannerStatus,
         setUploadProgress,
         updateFeatureVisibility,

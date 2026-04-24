@@ -1,6 +1,6 @@
-import { settingsUrl } from './api.js?v=4.2.63';
-import { state } from './state.js?v=4.2.63';
-import { appEl, searchInput, settingsBtns, settingsEmbedEl, settingsFrameEl } from './ui.js?v=4.2.63';
+import { settingsUrl } from './api.js?v=4.2.64';
+import { state } from './state.js?v=4.2.64';
+import { appEl, searchInput, settingsBtns, settingsEmbedEl, settingsFrameEl } from './ui.js?v=4.2.64';
 
 export function applyViewState() {
     const inSettings = state.view === 'settings';

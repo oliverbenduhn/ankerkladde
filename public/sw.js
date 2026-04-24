@@ -1,7 +1,7 @@
 'use strict';
 
-const VERSION = 'v4.2.63';
-const ASSET_VERSION = '4.2.63';
+const VERSION = 'v4.2.64';
+const ASSET_VERSION = '4.2.64';
 const STATIC_CACHE = `ankerkladde-static-${VERSION}`;
 const RUNTIME_CACHE = `ankerkladde-runtime-${VERSION}`;
 const SHARE_CACHE = 'ankerkladde-share-target';
