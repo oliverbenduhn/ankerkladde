@@ -315,16 +315,7 @@ async function rememberLastCategory(categoryId) {
   }
 
   state.preferences = { ...state.preferences, last_category_id: normalizedId };
-
-  try {
-    await requestJson(`${state.apiUrl}/api.php?action=preferences`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ last_category_id: normalizedId }),
-    });
-  } catch (error) {
-    console.error('Letzte Kategorie konnte nicht gespeichert werden:', error);
-  }
+  await chrome.storage.local.set({ preferences: state.preferences });
 }
 
 async function loadCurrentTab() {
@@ -435,7 +426,7 @@ async function verifyKey() {
     state.apiUrl = apiUrl;
     state.apiKey = apiKey;
     state.categories = Array.isArray(payload.categories) ? payload.categories : [];
-    state.preferences = payload.preferences || {};
+    state.preferences = { ...(payload.preferences || {}), last_category_id: state.preferences?.last_category_id };
 
     await chrome.storage.local.set({
       apiUrl: state.apiUrl,
@@ -468,7 +459,7 @@ async function loadCategories() {
   try {
     const data = await requestJson(`${state.apiUrl}/api.php?action=categories_list`);
     state.categories = Array.isArray(data.categories) ? data.categories : [];
-    state.preferences = data.preferences || {};
+    state.preferences = { ...(data.preferences || {}), last_category_id: state.preferences?.last_category_id };
 
     await chrome.storage.local.set({
       categories: state.categories,
@@ -891,7 +882,7 @@ document.getElementById('setupBtn')?.addEventListener('click', async () => {
     if (response.ok) {
       const data = await response.json();
       state.categories = data.categories || [];
-      state.preferences = data.preferences || {};
+      state.preferences = { ...(data.preferences || {}), last_category_id: state.preferences?.last_category_id };
       await chrome.storage.local.set({
         apiUrl: state.apiUrl,
         apiKey: state.apiKey,

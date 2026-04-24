@@ -45,10 +45,29 @@
         };
     }
 
+    function getLocalBooleanPreference(key, fallback) {
+        const localPrefs = readLocalPrefs();
+        return typeof localPrefs[key] === 'boolean' ? localPrefs[key] : fallback;
+    }
+
     function applyThemePreferencePatch(patch) {
         themePreferences.theme_mode = patch.theme_mode || themePreferences.theme_mode || 'auto';
         themePreferences.light_theme = patch.light_theme || themePreferences.light_theme || 'hafenblau';
         themePreferences.dark_theme = patch.dark_theme || themePreferences.dark_theme || 'nachtwache';
+    }
+
+    function getLocalFormPatch(form) {
+        const patch = {};
+        const categorySwipeInput = form.querySelector('input[name="category_swipe_enabled"]');
+        if (categorySwipeInput instanceof HTMLInputElement) {
+            patch.category_swipe_enabled = categorySwipeInput.checked;
+        }
+        return patch;
+    }
+
+    function stripLocalPreferenceFields(formData) {
+        formData.delete('category_swipe_enabled');
+        return formData;
     }
 
     function syncThemeFormControls() {
@@ -197,6 +216,10 @@
 
     applySettingsTheme();
     syncThemeFormControls();
+    const categorySwipeInput = document.querySelector('input[name="category_swipe_enabled"]');
+    if (categorySwipeInput instanceof HTMLInputElement) {
+        categorySwipeInput.checked = getLocalBooleanPreference('category_swipe_enabled', categorySwipeInput.checked);
+    }
 
     const savedPanels = readOpenPanels();
     if (savedPanels !== null) {
@@ -288,6 +311,12 @@
                 return;
             }
 
+            const localFormPatch = getLocalFormPatch(form);
+            if (Object.keys(localFormPatch).length > 0) {
+                saveLocalPrefs(localFormPatch);
+                postPreferencesUpdate(localFormPatch);
+            }
+
             const previousController = autoSaveControllers.get(form);
             previousController?.abort();
 
@@ -296,7 +325,7 @@
 
             fetch(actionUrl, {
                 method: 'POST',
-                body: new FormData(form),
+                body: stripLocalPreferenceFields(new FormData(form)),
                 headers: {
                     'Accept': 'application/json',
                     'X-Requested-With': 'fetch',
@@ -313,6 +342,7 @@
                     if (payload.preferences && typeof payload.preferences === 'object') {
                         const preferences = {
                             ...payload.preferences,
+                            ...localFormPatch,
                             theme_mode: themePreferences.theme_mode,
                             light_theme: themePreferences.light_theme,
                             dark_theme: themePreferences.dark_theme,

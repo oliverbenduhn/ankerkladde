@@ -113,7 +113,7 @@ export function createItemsController(deps) {
     }
 
     async function savePreferences(patch) {
-        await persistPreferences(patch, setUserPreferences, applyThemePreferences);
+        await persistPreferences(patch, setUserPreferences, applyThemePreferences, getUserPreferences);
     }
 
     async function setCategory(categoryId) {

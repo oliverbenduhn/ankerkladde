@@ -449,35 +449,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             break;
 
         case 'save_theme':
-            $themeMode = (string) ($_POST['theme_mode'] ?? 'auto');
-            $lightTheme = (string) ($_POST['light_theme'] ?? '');
-            $darkTheme = (string) ($_POST['dark_theme'] ?? '');
-
-            if (!in_array($themeMode, ['auto', 'light', 'dark'], true)) {
-                $themeMode = 'auto';
-            }
-
-            $themes = getAvailableThemes();
-            $validLightThemes = array_keys($themes['light'] ?? []);
-            $validDarkThemes = array_keys($themes['dark'] ?? []);
-
-            if (!in_array($lightTheme, $validLightThemes, true)) {
-                $lightTheme = 'hafenblau';
-            }
-            if (!in_array($darkTheme, $validDarkThemes, true)) {
-                $darkTheme = 'nachtwache';
-            }
-
-            updateExtendedUserPreferences($db, $userId, [
-                'theme_mode' => $themeMode,
-                'light_theme' => $lightTheme,
-                'dark_theme' => $darkTheme,
-            ]);
-
-            // Re-read preferences so that the UI can reflect the new mode right away
-            $preferences = getExtendedUserPreferences($db, $userId);
-            $flash = 'Themes gespeichert.';
-            notifyWebSocket($userId);
+            $flash = 'Theme-Einstellungen werden pro Gerät gespeichert.';
             break;
 
         case 'save_app_preferences':
@@ -493,7 +465,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'product_scanner_enabled' => isset($_POST['product_scanner_enabled']),
                 'shopping_list_scanner_enabled' => isset($_POST['shopping_list_scanner_enabled']),
                 'magic_button_enabled' => isset($_POST['magic_button_enabled']),
-                'category_swipe_enabled' => isset($_POST['category_swipe_enabled']),
             ]);
             $flash = 'Funktions-Einstellungen gespeichert.';
             notifyWebSocket($userId);

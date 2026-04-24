@@ -2866,18 +2866,6 @@ try {
 
             $patch = [];
 
-            if (array_key_exists('mode', $data) && is_string($data['mode'])) {
-                $patch['mode'] = $data['mode'];
-            }
-
-            if (array_key_exists('tabs_hidden', $data)) {
-                $patch['tabs_hidden'] = filter_var($data['tabs_hidden'], FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? false;
-            }
-
-            if (array_key_exists('category_swipe_enabled', $data)) {
-                $patch['category_swipe_enabled'] = filter_var($data['category_swipe_enabled'], FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? false;
-            }
-
             if (array_key_exists('product_scanner_enabled', $data)) {
                 $patch['product_scanner_enabled'] = filter_var($data['product_scanner_enabled'], FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? false;
             }
@@ -2888,17 +2876,6 @@ try {
 
             if (array_key_exists('magic_button_enabled', $data)) {
                 $patch['magic_button_enabled'] = filter_var($data['magic_button_enabled'], FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? false;
-            }
-
-            if (array_key_exists('install_banner_dismissed', $data)) {
-                $patch['install_banner_dismissed'] = filter_var($data['install_banner_dismissed'], FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? false;
-            }
-
-            if (array_key_exists('last_category_id', $data)) {
-                $lastCategoryId = filter_var($data['last_category_id'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
-                if (is_int($lastCategoryId) && loadUserCategory($db, $userId, $lastCategoryId) !== null) {
-                    $patch['last_category_id'] = $lastCategoryId;
-                }
             }
 
             $preferences = updateExtendedUserPreferences($db, $userId, $patch);

@@ -145,6 +145,7 @@ async function requestJson(apiUrl, apiKey, action, options = {}) {
 
 async function loadContext() {
   const { apiUrl, apiKey, defaults, recentSaves } = await getSettings();
+  const saved = await chrome.storage.local.get(['preferences']);
   const payload = await requestJson(apiUrl, apiKey, 'categories_list');
   const categories = Array.isArray(payload.categories) ? payload.categories : [];
   const visibleCategories = categories.filter(category => Number(category.is_hidden) !== 1);
@@ -154,7 +155,7 @@ async function loadContext() {
     apiKey,
     categories,
     visibleCategories,
-    preferences: payload.preferences || {},
+    preferences: { ...(payload.preferences || {}), last_category_id: saved.preferences?.last_category_id },
     defaults,
     recentSaves,
   };
@@ -201,10 +202,12 @@ async function recordRecentSave(context, entry) {
 }
 
 async function rememberLastCategory(apiUrl, apiKey, categoryId) {
-  await requestJson(apiUrl, apiKey, 'preferences', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ last_category_id: Number(categoryId) }),
+  const normalizedId = Number(categoryId);
+  if (!Number.isInteger(normalizedId) || normalizedId < 1) return;
+
+  const saved = await chrome.storage.local.get(['preferences']);
+  await chrome.storage.local.set({
+    preferences: { ...(saved.preferences || {}), last_category_id: normalizedId },
   });
 }
 

@@ -103,15 +103,25 @@ export function normalizeItem(item) {
     };
 }
 
-export async function persistPreferences(patch, setUserPreferences, applyThemePreferences) {
+export async function persistPreferences(patch, setUserPreferences, applyThemePreferences, getUserPreferences = () => ({})) {
     // Gerätespezifische Prefs sofort in localStorage sichern
     const localPatch = Object.fromEntries(
         Object.entries(patch).filter(([k]) => LOCAL_PREF_KEYS.includes(k))
     );
     if (Object.keys(localPatch).length > 0) saveLocalPrefs(localPatch);
 
+    const serverPatch = Object.fromEntries(
+        Object.entries(patch).filter(([key]) => !LOCAL_PREF_KEYS.includes(key))
+    );
+    if (Object.keys(serverPatch).length === 0) {
+        const normalized = normalizePreferences({ ...getUserPreferences(), ...readLocalPrefs() });
+        setUserPreferences(normalized);
+        applyThemePreferences(normalized);
+        return;
+    }
+
     const body = new URLSearchParams();
-    Object.entries(patch).filter(([key]) => !LOCAL_PREF_KEYS.includes(key)).forEach(([key, value]) => {
+    Object.entries(serverPatch).forEach(([key, value]) => {
         body.set(key, String(value));
     });
 
