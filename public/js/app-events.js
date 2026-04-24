@@ -310,8 +310,12 @@ export function registerAppEventHandlers(deps) {
         navigation.navigateBackOrReplace({ screen: 'list' });
     });
 
+    let searchTimeout;
     searchInput?.addEventListener('input', () => {
-        void doSearch(searchInput.value);
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            void doSearch(searchInput.value);
+        }, 300);
     });
 
     searchInput?.addEventListener('keydown', event => {
