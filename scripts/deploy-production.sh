@@ -26,6 +26,7 @@ while IFS= read -r publicFile; do
     relativePath="${publicFile#$ROOT_DIR/public/}"
     install -m 0644 "$publicFile" "$APP_ROOT/public/$relativePath"
 done < <(find "$ROOT_DIR/public" -maxdepth 1 -type f \( -name '*.php' -o -name '*.js' -o -name '*.css' -o -name '*.json' -o -name '*.html' \) | sort)
+install -m 0644 "$ROOT_DIR/public/.user.ini" "$APP_ROOT/public/.user.ini"
 
 while IFS= read -r assetFile; do
     relativePath="${assetFile#$ROOT_DIR/public/}"
