@@ -1,4 +1,4 @@
-import { LOCAL_PREF_KEYS, basePath, csrfToken, normalizePreferences, readLocalPrefs, saveLocalPrefs } from './state.js?v=4.2.59';
+import { LOCAL_PREF_KEYS, basePath, csrfToken, normalizePreferences, readLocalPrefs, saveLocalPrefs } from './state.js?v=4.2.60';
 
 export function appUrl(path) {
     return new URL(path, `${window.location.origin}${basePath}`).toString();
@@ -12,6 +12,9 @@ export function settingsUrl(tab = 'app') {
 export async function api(action, options = {}) {
     const method = (options.method || 'GET').toUpperCase();
     const fetchOptions = { ...options };
+    if (method === 'GET' && !fetchOptions.cache) {
+        fetchOptions.cache = 'no-store';
+    }
 
     if (method !== 'GET') {
         fetchOptions.headers = {

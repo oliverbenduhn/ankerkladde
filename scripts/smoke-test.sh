@@ -26,7 +26,11 @@ trap cleanup EXIT
 
 mkdir -p "$TEST_DATA_DIR"
 
-EINKAUF_DATA_DIR="$TEST_DATA_DIR" EINKAUF_TRUST_PROXY_HEADERS=0 php -S "127.0.0.1:$PORT" -t "$ROOT_DIR/public" "$ROOT_DIR/public/router.php" >"$SERVER_LOG" 2>&1 &
+EINKAUF_DATA_DIR="$TEST_DATA_DIR" EINKAUF_TRUST_PROXY_HEADERS=0 php \
+    -d upload_max_filesize=500M \
+    -d post_max_size=520M \
+    -S "127.0.0.1:$PORT" \
+    -t "$ROOT_DIR/public" "$ROOT_DIR/public/router.php" >"$SERVER_LOG" 2>&1 &
 SERVER_PID=$!
 
 for _ in $(seq 1 40); do
@@ -104,6 +108,8 @@ TOGGLE_BODY="$TMP_DIR/toggle.json"
 POST_TOGGLE_LIST_BODY="$TMP_DIR/post-toggle-list.json"
 FILES_ADD_BODY="$TMP_DIR/files-add.json"
 FILES_LIST_BODY="$TMP_DIR/files-list.json"
+BIG_FILES_ADD_BODY="$TMP_DIR/big-files-add.json"
+BIG_FILES_LIST_BODY="$TMP_DIR/big-files-list.json"
 MEDIA_BODY="$TMP_DIR/media-body.txt"
 MEDIA_HEADERS="$TMP_DIR/media-headers.txt"
 FILES_DELETE_BODY="$TMP_DIR/files-delete.json"
@@ -127,10 +133,12 @@ SUBPATH_PORT=$((PORT + 1))
 SUBPATH_HTML="$TMP_DIR/subpath-index.html"
 SUBPATH_MANIFEST="$TMP_DIR/subpath-manifest.json"
 FILE_UPLOAD_SOURCE="$TMP_DIR/Rechnung.txt"
+BIG_FILE_UPLOAD_SOURCE="$TMP_DIR/Grosse-Datei.bin"
 IMAGE_UPLOAD_SOURCE="$TMP_DIR/Bild.png"
 INVALID_IMAGE_SOURCE="$TMP_DIR/kein-bild.txt"
 
 printf 'Smoke attachment\n' >"$FILE_UPLOAD_SOURCE"
+truncate -s 26M "$BIG_FILE_UPLOAD_SOURCE"
 printf 'not really an image\n' >"$INVALID_IMAGE_SOURCE"
 printf '%s' 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aR9QAAAAASUVORK5CYII=' \
     | base64 -d >"$IMAGE_UPLOAD_SOURCE"
@@ -218,6 +226,24 @@ grep -q '"attachment_original_name":"Rechnung.txt"' "$FILES_LIST_BODY"
 grep -Eq '"attachment_download_url":"/media\.php\?item_id='"$FILE_ITEM_ID"'&download=1(&v=[^"]+)?"' "$FILES_LIST_BODY"
 grep -q '"attachment_preview_url":null' "$FILES_LIST_BODY"
 grep -q '"name":"Rechnung.txt"' "$FILES_LIST_BODY"
+
+[[ "$(status_code "$BIG_FILES_ADD_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+    -F "section=files" \
+    -F "name=Grosse Datei" \
+    -F "file=@$BIG_FILE_UPLOAD_SOURCE;type=application/octet-stream" \
+    "http://127.0.0.1:$PORT/api.php?action=upload")" == "201" ]]
+BIG_FILE_ITEM_ID="$(sed -n 's/.*"id":\([0-9][0-9]*\).*/\1/p' "$BIG_FILES_ADD_BODY" | head -n 1)"
+
+if [[ -z "$BIG_FILE_ITEM_ID" ]]; then
+    echo "Grosse Datei-Artikel-ID konnte nicht aus der Upload-Antwort gelesen werden." >&2
+    exit 1
+fi
+
+[[ "$(status_code "$BIG_FILES_LIST_BODY" -b "$COOKIE_JAR" "http://127.0.0.1:$PORT/api.php?action=list&section=files")" == "200" ]]
+grep -q "\"id\":$BIG_FILE_ITEM_ID" "$BIG_FILES_LIST_BODY"
+grep -q '"name":"Grosse Datei"' "$BIG_FILES_LIST_BODY"
+grep -q '"attachment_original_name":"Grosse-Datei.bin"' "$BIG_FILES_LIST_BODY"
+grep -q '"attachment_size_bytes":27262976' "$BIG_FILES_LIST_BODY"
 
 [[ "$(status_code "$IMAGE_UPLOAD_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
     -F "section=images" \

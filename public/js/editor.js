@@ -1,6 +1,6 @@
-import { api } from './api.js?v=4.2.59';
-import { NOTE_SAVE_DEBOUNCE_MS, state } from './state.js?v=4.2.59';
-import { appEl, noteEditorBody, noteEditorEl, noteSaveStatus, noteTitleInput, noteToolbar } from './ui.js?v=4.2.59';
+import { api } from './api.js?v=4.2.60';
+import { NOTE_SAVE_DEBOUNCE_MS, state } from './state.js?v=4.2.60';
+import { appEl, noteEditorBody, noteEditorEl, noteSaveStatus, noteTitleInput, noteToolbar } from './ui.js?v=4.2.60';
 
 export function createEditorController(deps) {
     const {

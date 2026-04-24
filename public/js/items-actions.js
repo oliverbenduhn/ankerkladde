@@ -1,8 +1,8 @@
-import { appUrl, api, apiUpload } from './api.js?v=4.2.59';
-import { getCurrentCategory, isAttachmentCategory, state } from './state.js?v=4.2.59';
-import { fileInput, itemInput, linkDescriptionInput, quantityInput, urlImportInput } from './ui.js?v=4.2.59';
-import { escapeRegExp } from './utils.js?v=4.2.59';
-import { enqueueAction } from './offline-queue.js?v=4.2.59';
+import { appUrl, api, apiUpload } from './api.js?v=4.2.60';
+import { getCurrentCategory, isAttachmentCategory, state } from './state.js?v=4.2.60';
+import { fileInput, itemInput, linkDescriptionInput, quantityInput, urlImportInput } from './ui.js?v=4.2.60';
+import { escapeRegExp } from './utils.js?v=4.2.60';
+import { enqueueAction } from './offline-queue.js?v=4.2.60';
 
 export function createItemsActionsController(deps) {
     const {
@@ -94,7 +94,7 @@ export function createItemsActionsController(deps) {
 
         await apiUpload('upload', formData, makeUploadProgressCallback());
         invalidateCategoryCache(category.id);
-        await loadItems();
+        await loadItems(category.id, { useCache: false });
         setMessage(isImage ? 'Bild gespeichert.' : 'Datei gespeichert.');
     }
 
@@ -135,7 +135,7 @@ export function createItemsActionsController(deps) {
         });
         await api('add', { method: 'POST', body });
         invalidateCategoryCache(category.id);
-        await loadItems();
+        await loadItems(category.id, { useCache: false });
         setMessage('Link gespeichert.');
     }
 
@@ -159,7 +159,7 @@ export function createItemsActionsController(deps) {
         const body = new URLSearchParams({ category_id: String(category.id), name: noteName, content: noteContent });
         const payload = await api('add', { method: 'POST', body });
         invalidateCategoryCache(category.id);
-        await loadItems();
+        await loadItems(category.id, { useCache: false });
 
         const item = getItemById(payload.id);
         if (item) {
@@ -187,7 +187,7 @@ export function createItemsActionsController(deps) {
         await apiUpload('upload', formData, makeUploadProgressCallback());
         resetItemForm();
         invalidateCategoryCache(category.id);
-        await loadItems();
+        await loadItems(category.id, { useCache: false });
         setMessage(category.type === 'images' ? 'Bild hochgeladen.' : 'Datei hochgeladen.');
     }
 
@@ -222,7 +222,7 @@ export function createItemsActionsController(deps) {
         resetItemForm();
         if (urlImportInput) urlImportInput.value = '';
         invalidateCategoryCache(category.id);
-        await loadItems();
+        await loadItems(category.id, { useCache: false });
         setMessage('Datei importiert.');
     }
 
