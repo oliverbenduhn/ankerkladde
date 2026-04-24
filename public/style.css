@@ -2129,24 +2129,25 @@ button, input { font: inherit; }
 
 .section-tab {
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 6px;
-    min-width: 0;
-    padding: 6px;
+    gap: 2px;
+    min-width: 48px;
+    max-width: 58px;
+    padding: 5px 4px;
     background: transparent;
     border: none;
-    border-radius: 50px;
+    border-radius: 18px;
     cursor: pointer;
     color: var(--text-secondary);
-    flex: 1 1 auto;
+    flex: 1 1 0;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     touch-action: pan-x;
 }
 
 .section-tabs.is-scrollable .section-tab {
-    flex: 0 0 auto;
+    flex: 0 0 48px;
 }
 
 .section-tab.is-tab-dragging {
@@ -2165,7 +2166,7 @@ button, input { font: inherit; }
 .section-tab[aria-current="page"] {
     color: var(--text-primary);
     background: color-mix(in srgb, var(--accent) 15%, transparent);
-    padding: 6px 14px 6px 10px;
+    padding: 5px 4px;
 }
 
 .section-tab:hover:not([aria-current="page"]),
@@ -2178,8 +2179,8 @@ button, input { font: inherit; }
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 26px;
-    height: 26px;
+    width: 24px;
+    height: 24px;
     font-size: 0;
     line-height: 1;
     opacity: 0.7;
@@ -2189,8 +2190,8 @@ button, input { font: inherit; }
 
 .category-icon-img {
     display: block;
-    width: 24px;
-    height: 24px;
+    width: 22px;
+    height: 22px;
     object-fit: contain;
     filter: var(--tab-icon-filter);
 }
@@ -2204,14 +2205,16 @@ button, input { font: inherit; }
 }
 .section-label {
     display: block;
+    width: 100%;
     max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: 0.67rem;
+    text-align: center;
+    font-size: 0.62rem;
     font-weight: 500;
     line-height: 1.1;
-    letter-spacing: -0.01em;
+    letter-spacing: 0;
     opacity: 0.55;
     transition: opacity 0.2s ease;
 }
@@ -2228,20 +2231,26 @@ button, input { font: inherit; }
 @media (min-width: 520px) {
     .section-tabs {
         padding: 8px;
-        gap: 8px;
+        gap: 6px;
     }
 
     .section-tab {
-        padding: 8px;
-        gap: 8px;
+        min-width: 58px;
+        max-width: 70px;
+        padding: 7px 6px;
+        gap: 3px;
+    }
+
+    .section-tabs.is-scrollable .section-tab {
+        flex-basis: 58px;
     }
 
     .section-tab[aria-current="page"] {
-        padding: 8px 18px 8px 12px;
+        padding: 7px 6px;
     }
 
     .section-label {
-        font-size: 0.9rem;
+        font-size: 0.72rem;
     }
 }
 
