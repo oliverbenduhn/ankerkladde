@@ -4008,9 +4008,9 @@ details[open].settings-category-details > .settings-category-summary .settings-s
     display: flex;
     flex-direction: column;
     gap: 6px;
-    padding: 7px;
+    padding: 8px;
     border: 1.5px solid var(--border);
-    border-radius: 50px;
+    border-radius: 20px;
     background: var(--surface);
     transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
@@ -4026,7 +4026,7 @@ details[open].settings-category-details > .settings-category-summary .settings-s
 
 .theme-card-preview {
     height: 36px;
-    border-radius: 5px;
+    border-radius: 12px;
     overflow: hidden;
     display: flex;
     flex-direction: column;
