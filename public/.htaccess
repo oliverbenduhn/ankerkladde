@@ -3,6 +3,7 @@ Options -Indexes
 <IfModule mod_php.c>
     php_value upload_max_filesize 500M
     php_value post_max_size 520M
+    php_value max_execution_time 7200
 </IfModule>
 
 <IfModule mod_authz_core.c>

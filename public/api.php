@@ -44,6 +44,7 @@ const MIME_TYPE_EXTENSIONS = [
     'video/x-matroska' => 'mkv',
     'video/x-msvideo' => 'avi',
 ];
+const REMOTE_FILE_IMPORT_TIMEOUT_SECONDS = 7200;
 
 function respond(int $status, array $payload): never
 {
@@ -1389,6 +1390,7 @@ function extractFilenameFromContentDisposition(string $header): string
 function downloadRemoteFile(string $url): array
 {
     validateSsrfSafeUrl($url);
+    @set_time_limit(0);
 
     $tmpPath = tempnam(sys_get_temp_dir(), 'ankerkladde-url-');
     if ($tmpPath === false) {
@@ -1420,7 +1422,7 @@ function downloadRemoteFile(string $url): array
             CURLOPT_FOLLOWLOCATION => true,
             CURLOPT_MAXREDIRS => 5,
             CURLOPT_CONNECTTIMEOUT => 10,
-            CURLOPT_TIMEOUT => 120,
+            CURLOPT_TIMEOUT => REMOTE_FILE_IMPORT_TIMEOUT_SECONDS,
             CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
             CURLOPT_REDIR_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
             CURLOPT_NOPROGRESS => false,
@@ -1477,8 +1479,8 @@ function downloadRemoteFile(string $url): array
     }
 
     $source = @fopen($url, 'rb', false, stream_context_create([
-        'http' => ['follow_location' => 1, 'max_redirects' => 5, 'timeout' => 120],
-        'https' => ['follow_location' => 1, 'max_redirects' => 5, 'timeout' => 120],
+        'http' => ['follow_location' => 1, 'max_redirects' => 5, 'timeout' => REMOTE_FILE_IMPORT_TIMEOUT_SECONDS],
+        'https' => ['follow_location' => 1, 'max_redirects' => 5, 'timeout' => REMOTE_FILE_IMPORT_TIMEOUT_SECONDS],
     ]));
     $target = @fopen($tmpPath, 'wb');
     if ($source === false || $target === false) {

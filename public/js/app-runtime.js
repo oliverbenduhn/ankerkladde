@@ -1,19 +1,19 @@
-import { createAppUiController } from './app-ui.js?v=4.2.62';
-import { createHelpersController } from './helpers.js?v=4.2.62';
-import { createItemsActionsController } from './items-actions.js?v=4.2.62';
-import { createItemsController } from './items.js?v=4.2.62';
-import { createItemsViewController } from './items-view.js?v=4.2.62';
-import { createNavigation } from './navigation.js?v=4.2.62';
-import { createEditorController } from './editor.js?v=4.2.62';
-import { createTodoEditorController } from './todo-editor.js?v=4.2.62';
-import { createReorderController } from './reorder.js?v=4.2.62';
-import { createRouter } from './router.js?v=4.2.62';
-import { createScannerController } from './scanner.js?v=4.2.62';
-import { createSwipeController } from './swipe.js?v=4.2.62';
-import { createTabsViewController } from './tabs-view.js?v=4.2.62';
-import { createMagicController } from './magic.js?v=4.2.62';
-import { flushQueue, getPendingCount } from './offline-queue.js?v=4.2.62';
-import { api } from './api.js?v=4.2.62';
+import { createAppUiController } from './app-ui.js?v=4.2.63';
+import { createHelpersController } from './helpers.js?v=4.2.63';
+import { createItemsActionsController } from './items-actions.js?v=4.2.63';
+import { createItemsController } from './items.js?v=4.2.63';
+import { createItemsViewController } from './items-view.js?v=4.2.63';
+import { createNavigation } from './navigation.js?v=4.2.63';
+import { createEditorController } from './editor.js?v=4.2.63';
+import { createTodoEditorController } from './todo-editor.js?v=4.2.63';
+import { createReorderController } from './reorder.js?v=4.2.63';
+import { createRouter } from './router.js?v=4.2.63';
+import { createScannerController } from './scanner.js?v=4.2.63';
+import { createSwipeController } from './swipe.js?v=4.2.63';
+import { createTabsViewController } from './tabs-view.js?v=4.2.63';
+import { createMagicController } from './magic.js?v=4.2.63';
+import { flushQueue, getPendingCount } from './offline-queue.js?v=4.2.63';
+import { api } from './api.js?v=4.2.63';
 import {
     BARCODE_FORMATS,
     SCANNER_COOLDOWN_MS,
@@ -22,9 +22,9 @@ import {
     normalizePreferences,
     scannerState,
     state,
-} from './state.js?v=4.2.62';
-import { applyThemePreferences } from './theme.js?v=4.2.62';
-import { settingsFrameEl } from './ui.js?v=4.2.62';
+} from './state.js?v=4.2.63';
+import { applyThemePreferences } from './theme.js?v=4.2.63';
+import { settingsFrameEl } from './ui.js?v=4.2.63';
 
 export function createAppRuntime(deps) {
     const {
