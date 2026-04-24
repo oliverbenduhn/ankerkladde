@@ -44,7 +44,6 @@ export const magicClose = document.getElementById('magicClose');
 export const modeToggleBtns = document.querySelectorAll('.btn-mode-toggle');
 export const settingsBtns = document.querySelectorAll('.btn-settings');
 export const sectionTabsEl = document.getElementById('sectionTabs');
-export const mehrMenuEl = document.getElementById('mehrMenu');
 export const tabsToggleBtns = document.querySelectorAll('.btn-tabs-toggle');
 export const networkStatusEl = document.getElementById('networkStatus');
 export const updateBannerEl = document.getElementById('updateBanner');

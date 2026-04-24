@@ -225,7 +225,6 @@ $initialMode = ($userPreferences['mode'] ?? 'liste') === 'einkaufen' ? 'einkaufe
     </main>
 
     <nav class="section-tabs" id="sectionTabs" aria-label="Bereich wählen"></nav>
-    <div class="mehr-menu" id="mehrMenu" hidden></div>
 
     <div class="message" id="message" role="status" aria-live="polite"></div>
 

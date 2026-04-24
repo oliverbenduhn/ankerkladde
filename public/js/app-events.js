@@ -253,10 +253,6 @@ export function registerAppEventHandlers(deps) {
         });
     });
 
-    document.addEventListener('click', event => {
-        tabsViewController.handleDocumentClick(event.target);
-    });
-
     window.addEventListener('resize', () => {
         updateViewportHeight();
         renderCategoryTabs();
