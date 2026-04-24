@@ -1,8 +1,3 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
-<rect x="14" y="18" width="36" height="32" rx="5" fill="white" stroke="#16345B" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" />
-<line x1="24" y1="14" x2="24" y2="22" stroke="#7FA9E6" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" />
-<line x1="40" y1="14" x2="40" y2="22" stroke="#7FA9E6" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" />
-<line x1="14" y1="28" x2="50" y2="28" stroke="#16345B" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" />
-<path d="M23 38l5 5 12-12" fill="none" stroke="#7FA9E6" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" />
-<rect x="14" y="18" width="36" height="32" rx="5" fill="none" stroke="#16345B" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" />
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 24 24">
+  <g fill="none"><path d="M17.75 3A3.25 3.25 0 0 1 21 6.25v11.5A3.25 3.25 0 0 1 17.75 21H6.25A3.25 3.25 0 0 1 3 17.75V6.25A3.25 3.25 0 0 1 6.25 3h11.5zm1.75 5.5h-15v9.25c0 .966.784 1.75 1.75 1.75h11.5a1.75 1.75 0 0 0 1.75-1.75V8.5zm-11.75 6a1.25 1.25 0 1 1 0 2.5a1.25 1.25 0 0 1 0-2.5zm4.25 0a1.25 1.25 0 1 1 0 2.5a1.25 1.25 0 0 1 0-2.5zm-4.25-4a1.25 1.25 0 1 1 0 2.5a1.25 1.25 0 0 1 0-2.5zm4.25 0a1.25 1.25 0 1 1 0 2.5a1.25 1.25 0 0 1 0-2.5zm4.25 0a1.25 1.25 0 1 1 0 2.5a1.25 1.25 0 0 1 0-2.5zm1.5-6H6.25A1.75 1.75 0 0 0 4.5 6.25V7h15v-.75a1.75 1.75 0 0 0-1.75-1.75z" fill="#16345B" /></g>
 </svg>

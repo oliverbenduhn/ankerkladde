@@ -2071,8 +2071,8 @@ button, input { font: inherit; }
     position: relative;
     z-index: 10;
     justify-content: space-between;
-    gap: 4px;
-    padding: 6px 10px;
+    gap: 2px;
+    padding: 4px 8px;
     margin: 0 12px clamp(8px, calc(8px + env(safe-area-inset-bottom, 0px)), 40px);
     border: 1.5px solid var(--border);
     border-radius: 18px;
@@ -2117,9 +2117,9 @@ button, input { font: inherit; }
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 3px;
+    gap: 2px;
     min-width: 0;
-    padding: 6px 4px 6px;
+    padding: 4px 3px 5px;
     background: transparent;
     border: none;
     border-radius: 12px;
@@ -2165,26 +2165,25 @@ button, input { font: inherit; }
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 28px;
-    height: 28px;
-    border-radius: 12px;
-    background: var(--tab-icon-chip);
+    width: 30px;
+    height: 30px;
     font-size: 0;
     line-height: 1;
+    opacity: 0.55;
     transition: all 0.2s ease;
 }
 
 .category-icon-img {
     display: block;
-    width: 24px;
-    height: 24px;
+    width: 28px;
+    height: 28px;
     object-fit: contain;
     filter: var(--tab-icon-filter);
 }
 
 .section-tab[aria-current="page"] .section-icon {
-    background: var(--tab-icon-chip-active);
-    transform: scale(1.15) translateY(-1px);
+    opacity: 1;
+    transform: scale(1.08) translateY(-1px);
 }
 .section-tab[aria-current="page"] .category-icon-img {
     filter: var(--tab-icon-filter-active);
@@ -2211,8 +2210,8 @@ button, input { font: inherit; }
 
 @media (min-width: 520px) {
     .section-tab {
-        gap: 4px;
-        padding: 8px 7px 10px;
+        gap: 3px;
+        padding: 6px 6px 8px;
     }
 
     .section-tabs.is-scrollable .section-tab {

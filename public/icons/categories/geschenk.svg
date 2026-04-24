@@ -1,10 +1,3 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
-<rect x="14" y="25" width="36" height="23" rx="4" fill="#EAF2FF" stroke="#16345B" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" />
-<rect x="12" y="21" width="40" height="8" rx="3" fill="white" stroke="#16345B" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" />
-<path d="M28 21c-4 0-7-2.8-7-6 0-2 1.5-3.5 3.5-3.5 3.5 0 5 4.5 7.5 9.5" fill="none" stroke="#7FA9E6" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" />
-<path d="M36 21c4 0 7-2.8 7-6 0-2-1.5-3.5-3.5-3.5-3.5 0-5 4.5-7.5 9.5" fill="none" stroke="#7FA9E6" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" />
-<line x1="32" y1="21" x2="32" y2="48" stroke="#7FA9E6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
-<line x1="12" y1="29" x2="52" y2="29" stroke="#7FA9E6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
-<rect x="12" y="21" width="40" height="8" rx="3" fill="none" stroke="#16345B" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" />
-<rect x="14" y="25" width="36" height="23" rx="4" fill="none" stroke="#16345B" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" />
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 24 24">
+  <g fill="none"><path d="M14.5 2a3.25 3.25 0 0 1 2.739 5h2.511c.69 0 1.25.56 1.25 1.25v3.5a1.25 1.25 0 0 1-1 1.225v5.775a3.25 3.25 0 0 1-3.066 3.245L16.75 22h-9.5a3.25 3.25 0 0 1-3.245-3.066L4 18.75v-5.775c-.57-.116-1-.62-1-1.225v-3.5C3 7.56 3.56 7 4.25 7h2.511a3.25 3.25 0 0 1 5.24-3.827A3.24 3.24 0 0 1 14.5 2zm-3.25 10.999H5.5v5.751a1.75 1.75 0 0 0 1.606 1.744l.144.006h4v-7.501zm7.25 0h-5.75V20.5h4a1.75 1.75 0 0 0 1.744-1.607l.006-.143v-5.751zM11.25 8.5H4.5v3l6.75-.001V8.5zm8.25 3v-3h-6.75v2.999l6.75.001zm-5-8a1.75 1.75 0 0 0-1.75 1.75v1.749h1.774l.12-.005A1.75 1.75 0 0 0 14.5 3.5zm-5 0a1.75 1.75 0 0 0-.144 3.494l.12.005h1.774V5.25l-.006-.144A1.75 1.75 0 0 0 9.5 3.5z" fill="#16345B" /></g>
 </svg>
