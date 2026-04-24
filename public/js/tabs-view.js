@@ -1,5 +1,5 @@
-import { basePath, state } from './state.js?v=4.2.56';
-import { mehrMenuEl, sectionTabsEl, svgIcon } from './ui.js?v=4.2.56';
+import { basePath, state } from './state.js?v=4.2.57';
+import { mehrMenuEl, sectionTabsEl, svgIcon } from './ui.js?v=4.2.57';
 
 const MIN_VISIBLE_TAB_WIDTH = 64;
 const MEHR_BUTTON_WIDTH = 48;

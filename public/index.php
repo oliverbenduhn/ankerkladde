@@ -25,8 +25,9 @@ if ($appBasePath === '' || $appBasePath === '.') {
 }
 $assetVersion = require __DIR__ . '/version.php';
 
-function getIconPaths(): array {
-    return [
+function getIconPaths(): array
+{
+    static $paths = [
         'menu'     => '<line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="18" y2="18"/>',
         'search'   => '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
         'settings' => '<path d="M20 7h-9"/><path d="M14 17H5"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/>',
@@ -54,10 +55,14 @@ function getIconPaths(): array {
         'play' => '<polygon points="6 3 20 12 6 21 6 3"/>',
         'clock' => '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
     ];
+
+    return $paths;
 }
 
 function icon(string $name): string {
-    return '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-' . htmlspecialchars($name, ENT_QUOTES, 'UTF-8') . '"/></svg>';
+    $path = getIconPaths()[$name] ?? '';
+
+    return '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true">' . $path . '</svg>';
 }
 ?>
 <?php
@@ -91,15 +96,6 @@ $initialMode = ($userPreferences['mode'] ?? 'liste') === 'einkaufen' ? 'einkaufe
     <title>Ankerkladde</title>
 </head>
 <body data-theme="<?= htmlspecialchars($effectiveTheme, ENT_QUOTES, 'UTF-8') ?>">
-<svg style="display: none;" aria-hidden="true">
-    <defs>
-    <?php foreach (getIconPaths() as $name => $path): ?>
-        <g id="icon-<?= htmlspecialchars($name, ENT_QUOTES, 'UTF-8') ?>">
-            <?= $path ?>
-        </g>
-    <?php endforeach; ?>
-    </defs>
-</svg>
 <div class="app" id="app" data-mode="<?= htmlspecialchars($initialMode, ENT_QUOTES, 'UTF-8') ?>">
 
     <div class="install-banner" id="installBanner" hidden>
