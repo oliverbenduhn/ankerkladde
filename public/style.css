@@ -1968,6 +1968,7 @@ button, input { font: inherit; }
     .app[data-desktop-layout="kanban"] .item-type-list_due_date .date-badge {
         flex: 0 0 auto;
     }
+}
 
 /* ── Desktop Kanban-Ansicht ─────────────────────────────────────── */
 @media (min-width: 900px) {
