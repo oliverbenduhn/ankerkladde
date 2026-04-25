@@ -8,6 +8,11 @@ const fs = require('fs');
 const BASE = 'http://127.0.0.1:8099';
 const OUT  = path.join(__dirname, '..', 'screenshots');
 
+const REGULAR_USER = process.env.EINKAUF_REGULAR_USER || 'playwright-user';
+const REGULAR_PASS = process.env.EINKAUF_REGULAR_PASS || 'playwright-pass';
+const ADMIN_USER   = process.env.EINKAUF_ADMIN_USER   || 'playwright-admin';
+const ADMIN_PASS   = process.env.EINKAUF_ADMIN_PASS   || 'playwright-pass';
+
 // Mobile: 360×780 @2x (Elemente wirken größer)
 const VIEWPORT_MOBILE  = { width: 360, height: 780 };
 // Desktop: 1280×800
@@ -19,17 +24,27 @@ fs.mkdirSync(OUT, { recursive: true });
 execSync(`php "${path.join(__dirname, 'reset-tester-prefs.php')}"`);
 console.log('Preferences zurückgesetzt.');
 
-async function login(page) {
+async function login(page, username = REGULAR_USER, password = REGULAR_PASS) {
     await page.goto(`${BASE}/login.php`);
     await page.waitForTimeout(400);
-    await page.fill('input[name="username"]', 'tester');
-    await page.fill('input[name="password"]', 'tester123');
+    await page.fill('input[name="username"]', username);
+    await page.fill('input[name="password"]', password);
     await page.click('button[type="submit"]');
     // Warten bis Login-Formular verschwindet
     await page.waitForFunction(() => !document.querySelector('input[name="password"]'), { timeout: 10000 });
     // Warten bis section-tabs erscheinen, dann 2s für vollständige Initialisierung
     await page.waitForSelector('.section-tab', { timeout: 10000 });
     await page.waitForTimeout(2200);
+}
+
+async function loginAsAdmin(page) {
+    await page.context().clearCookies();
+    await page.goto(`${BASE}/login.php`);
+    await page.waitForTimeout(400);
+    await page.fill('input[name="username"]', ADMIN_USER);
+    await page.fill('input[name="password"]', ADMIN_PASS);
+    await page.click('button[type="submit"]');
+    await page.waitForTimeout(2000);
 }
 
 async function shot(page, name) {
@@ -192,7 +207,8 @@ async function clickTab(page, nameRegex) {
             await shot(page, 'mobile-10-suche');
         }
 
-        // 11 Admin
+        // 11 Admin (als Admin-User einloggen)
+        await loginAsAdmin(page);
         await page.goto(`${BASE}/admin.php`);
         await page.waitForTimeout(1000);
         await shot(page, 'mobile-11-admin');
@@ -295,7 +311,8 @@ async function clickTab(page, nameRegex) {
         await page.waitForTimeout(500);
         await shot(page, 'desktop-09-settings-themes');
 
-        // 10 Admin
+        // 10 Admin (als Admin-User einloggen)
+        await loginAsAdmin(page);
         await page.goto(`${BASE}/admin.php`);
         await page.waitForTimeout(1000);
         await shot(page, 'desktop-10-admin');

@@ -6,6 +6,9 @@ const path = require('path');
 const BASE = 'http://127.0.0.1:8099';
 const OUT = path.join(__dirname, '..', 'screenshots');
 
+const REGULAR_USER = process.env.EINKAUF_REGULAR_USER || 'playwright-user';
+const REGULAR_PASS = process.env.EINKAUF_REGULAR_PASS || 'playwright-pass';
+
 const themes = [
     { id: 'hafenblau',    mode: 'light' },
     { id: 'parchment',    mode: 'light' },
@@ -38,8 +41,8 @@ function applyTheme(theme) {
             const page = await ctx.newPage();
             await page.goto(`${BASE}/login.php`);
             await page.waitForTimeout(300);
-            await page.fill('input[name="username"]', 'tester');
-            await page.fill('input[name="password"]', 'tester123');
+            await page.fill('input[name="username"]', REGULAR_USER);
+            await page.fill('input[name="password"]', REGULAR_PASS);
             await page.click('button[type="submit"]');
             // Admin-Nutzer landet auf admin.php – direkt zu index.php wechseln
             await page.waitForURL('**/{index,admin}.php', { timeout: 10000 });
