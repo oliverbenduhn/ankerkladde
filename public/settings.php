@@ -12,6 +12,13 @@ $db = getDatabase();
 $csrfToken = getCsrfToken();
 $flash = null;
 $flashType = 'ok';
+
+if (isset($_SESSION['settings_flash'])) {
+    $flash = $_SESSION['settings_flash'];
+    $flashType = $_SESSION['settings_flash_type'] ?? 'ok';
+    unset($_SESSION['settings_flash'], $_SESSION['settings_flash_type']);
+}
+
 $aiKeyStatus = null;
 $aiKeyStatusType = 'ok';
 $geminiModels = getAvailableGeminiModels();
@@ -513,6 +520,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'category_swipe_enabled' => !array_key_exists('category_swipe_enabled', $jsonPreferences) || !empty($jsonPreferences['category_swipe_enabled']),
             ],
         ], $flashType === 'err' ? 400 : 200);
+    } else {
+        $_SESSION['settings_flash'] = $flash;
+        $_SESSION['settings_flash_type'] = $flashType;
+
+        $redirectTab = $_GET['tab'] ?? ($passwordChangeRequired ? 'password' : 'app');
+        $redirectEmbedded = isset($_GET['embed']) && $_GET['embed'] === '1';
+        $redirectUrl = appPath('settings.php' . ($redirectEmbedded ? '?embed=1&tab=' . rawurlencode((string) $redirectTab) : ''));
+        header('Location: ' . $redirectUrl);
+        exit;
     }
 }
 
