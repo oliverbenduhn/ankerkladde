@@ -96,6 +96,10 @@ export function createReorderController(deps) {
             let dragActive = false;
             let isScrolling = false;
 
+            const preventScroll = (e) => {
+                if (dragActive) e.preventDefault();
+            };
+
             const longPressTimer = window.setTimeout(() => {
                 dragActive = true;
                 triggerHapticFeedback();
@@ -111,6 +115,7 @@ export function createReorderController(deps) {
                 document.removeEventListener('pointermove', onMove);
                 document.removeEventListener('pointerup', onEnd);
                 document.removeEventListener('pointercancel', onAbort);
+                window.removeEventListener('touchmove', preventScroll, { capture: true });
             }
 
             function onMove(moveEvent) {
@@ -132,6 +137,11 @@ export function createReorderController(deps) {
                     }
                     return;
                 }
+
+                const currentX = moveEvent.clientX;
+                const tx = currentX - startX;
+                tab.style.transform = `translateX(${tx}px)`;
+                tab.style.zIndex = '1000';
 
                 const others = Array.from(sectionTabsEl.querySelectorAll('.section-tab:not(.is-tab-dragging)'));
                 others.forEach(other => other.classList.remove('tab-drop-before', 'tab-drop-after'));
@@ -159,6 +169,8 @@ export function createReorderController(deps) {
                 if (!dragActive) return;
 
                 tab.classList.remove('is-tab-dragging');
+                tab.style.transform = '';
+                tab.style.zIndex = '';
                 sectionTabsEl.classList.remove('is-tab-reordering');
                 Array.from(sectionTabsEl.querySelectorAll('.section-tab')).forEach(other => {
                     other.classList.remove('tab-drop-before', 'tab-drop-after');
@@ -190,6 +202,8 @@ export function createReorderController(deps) {
                 cleanup();
                 if (!dragActive) return;
                 tab.classList.remove('is-tab-dragging');
+                tab.style.transform = '';
+                tab.style.zIndex = '';
                 sectionTabsEl.classList.remove('is-tab-reordering');
                 Array.from(sectionTabsEl.querySelectorAll('.section-tab')).forEach(other => {
                     other.classList.remove('tab-drop-before', 'tab-drop-after');
@@ -200,6 +214,7 @@ export function createReorderController(deps) {
             document.addEventListener('pointermove', onMove);
             document.addEventListener('pointerup', onEnd);
             document.addEventListener('pointercancel', onAbort);
+            window.addEventListener('touchmove', preventScroll, { passive: false, capture: true });
         });
     }
 
@@ -244,6 +259,10 @@ export function createReorderController(deps) {
             let dragActive = false;
             let isScrolling = false;
 
+            const preventScroll = (e) => {
+                if (dragActive) e.preventDefault();
+            };
+
             const longPressTimer = window.setTimeout(() => {
                 dragActive = true;
                 triggerHapticFeedback();
@@ -269,6 +288,7 @@ export function createReorderController(deps) {
                 document.removeEventListener('pointermove', onMove);
                 document.removeEventListener('pointerup', onEnd);
                 document.removeEventListener('pointercancel', onAbort);
+                window.removeEventListener('touchmove', preventScroll, { capture: true });
             }
 
             let insertBefore = null;
@@ -284,6 +304,11 @@ export function createReorderController(deps) {
                     }
                     return;
                 }
+
+                const currentY = moveEvent.clientY;
+                const ty = currentY - startY;
+                li.style.transform = `scale(1.01) rotate(-0.4deg) translateY(${ty}px)`;
+                li.style.zIndex = '1000';
 
                 const others = getOtherItems();
                 clearDropTargets();
@@ -309,6 +334,8 @@ export function createReorderController(deps) {
                 
                 document.body.classList.remove('is-sorting');
                 li.classList.remove('is-dragging');
+                li.style.transform = '';
+                li.style.zIndex = '';
                 clearDropTargets();
 
                 if (insertBefore) {
@@ -325,12 +352,15 @@ export function createReorderController(deps) {
                 if (!dragActive) return;
                 document.body.classList.remove('is-sorting');
                 li.classList.remove('is-dragging');
+                li.style.transform = '';
+                li.style.zIndex = '';
                 clearDropTargets();
             }
 
             document.addEventListener('pointermove', onMove);
             document.addEventListener('pointerup', onEnd);
             document.addEventListener('pointercancel', onAbort);
+            window.addEventListener('touchmove', preventScroll, { passive: false, capture: true });
         });
     }
 

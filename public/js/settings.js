@@ -531,6 +531,7 @@
 
         let dragEl = null;
         let pointerStartY = 0;
+        let lastY = 0;
         let dragMoved = false;
 
         categoryList.addEventListener('pointerdown', (e) => {
@@ -543,6 +544,7 @@
             dragEl = row;
             dragMoved = false;
             pointerStartY = e.clientY;
+            lastY = e.clientY;
             dragEl.classList.add('settings-category-dragging');
             handle.setPointerCapture(e.pointerId);
         });
@@ -550,25 +552,42 @@
         categoryList.addEventListener('pointermove', (e) => {
             if (!dragEl) return;
 
-            const dy = Math.abs(e.clientY - pointerStartY);
+            const y = e.clientY;
+            const dy = Math.abs(y - pointerStartY);
             if (dy > 4) dragMoved = true;
-            if (!dragMoved) return;
+            
+            if (!dragMoved) {
+                lastY = y;
+                return;
+            }
+
+            const direction = y > lastY ? 'down' : (y < lastY ? 'up' : null);
+            lastY = y;
+
+            if (!direction) return;
 
             const rows = Array.from(categoryList.querySelectorAll('.settings-category-row'));
-            const y = e.clientY;
 
             for (let i = 0; i < rows.length; i++) {
                 const item = rows[i];
                 if (item === dragEl) continue;
+                
                 const rect = item.getBoundingClientRect();
-                if (y < rect.top + rect.height / 2) {
-                    categoryList.insertBefore(dragEl, item);
-                    return;
+                
+                if (y >= rect.top && y <= rect.bottom) {
+                    const threshold = rect.top + rect.height / 2;
+                    if (direction === 'down' && y > threshold) {
+                        if (item.nextElementSibling) {
+                            categoryList.insertBefore(dragEl, item.nextElementSibling);
+                        } else {
+                            categoryList.appendChild(dragEl);
+                        }
+                        return;
+                    } else if (direction === 'up' && y < threshold) {
+                        categoryList.insertBefore(dragEl, item);
+                        return;
+                    }
                 }
-            }
-            const last = rows[rows.length - 1];
-            if (last && last !== dragEl) {
-                categoryList.appendChild(dragEl);
             }
         });
 
