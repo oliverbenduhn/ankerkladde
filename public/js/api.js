@@ -39,7 +39,9 @@ export async function api(action, options = {}) {
         response = await fetch(url, fetchOptions);
     } catch (error) {
         // Network error - could be offline or actual network failure
-        throw new Error('Offline oder Netzwerkfehler');
+        const networkError = new Error('Offline oder Netzwerkfehler');
+        networkError.isNetworkError = true;
+        throw networkError;
     }
 
     const payload = await response.json().catch(() => ({}));
@@ -50,7 +52,9 @@ export async function api(action, options = {}) {
     }
 
     if (!response.ok) {
-        throw new Error(payload.error || 'Unbekannter Fehler');
+        const error = new Error(payload.error || 'Unbekannter Fehler');
+        error.status = response.status;
+        throw error;
     }
 
     return payload;
