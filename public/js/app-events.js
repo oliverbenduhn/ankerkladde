@@ -1,5 +1,5 @@
-import { saveLocalPrefs, state, scannerState, themeMediaQuery, isAttachmentCategory, normalizePreferences, getCurrentType } from './state.js?v=4.2.75';
-import { normalizeSettingsTab } from './api.js?v=4.2.75';
+import { saveLocalPrefs, state, scannerState, themeMediaQuery, isAttachmentCategory, normalizePreferences, getCurrentType } from './state.js?v=4.2.78';
+import { normalizeSettingsTab } from './api.js?v=4.2.78';
 import {
     appEl,
     cameraBtn,
@@ -38,9 +38,9 @@ import {
     uploadModeFileBtn,
     uploadModeUrlBtn,
     urlImportInput,
-} from './ui.js?v=4.2.75';
-import { applyThemePreferences } from './theme.js?v=4.2.75';
-import { normalizeBarcodeValue, syncAutoHeight } from './utils.js?v=4.2.75';
+} from './ui.js?v=4.2.78';
+import { applyThemePreferences } from './theme.js?v=4.2.78';
+import { normalizeBarcodeValue, syncAutoHeight } from './utils.js?v=4.2.78';
 
 export function registerAppEventHandlers(deps) {
     const {
