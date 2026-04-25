@@ -1,5 +1,5 @@
-import { state } from './state.js?v=4.2.78';
-import { listAreaEl, listEl, progressEl, clearDoneBtn } from './ui.js?v=4.2.78';
+import { state } from './state.js?v=4.2.79';
+import { listAreaEl, listEl, progressEl, clearDoneBtn } from './ui.js?v=4.2.79';
 
 const COLUMNS = [
     { key: 'offen',      label: 'Offen',      icon: '○' },
@@ -98,8 +98,9 @@ export function createKanbanViewController({ buildItemNode, getVisibleItems, han
 
         board.replaceChildren(fragment);
 
-        // Swap #list for kanban board in DOM
-        if (listEl) listEl.hidden = true;
+        // Swap swipe stage for kanban board in DOM
+        const swipeStage = listEl?.parentElement;
+        if (swipeStage) swipeStage.hidden = true;
         if (!board.parentElement) {
             listAreaEl.appendChild(board);
         }
@@ -108,7 +109,8 @@ export function createKanbanViewController({ buildItemNode, getVisibleItems, han
 
     function hideKanban() {
         if (boardEl) boardEl.hidden = true;
-        if (listEl) listEl.hidden = false;
+        const swipeStage = listEl?.parentElement;
+        if (swipeStage) swipeStage.hidden = false;
     }
 
     return { renderKanban, hideKanban };
