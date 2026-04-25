@@ -1,8 +1,8 @@
-import { appUrl, api, apiUpload } from './api.js?v=4.2.71';
-import { getCurrentCategory, isAttachmentCategory, state } from './state.js?v=4.2.71';
-import { fileInput, itemInput, linkDescriptionInput, quantityInput, urlImportInput } from './ui.js?v=4.2.71';
-import { escapeRegExp } from './utils.js?v=4.2.71';
-import { enqueueAction } from './offline-queue.js?v=4.2.71';
+import { appUrl, api, apiUpload } from './api.js?v=4.2.75';
+import { getCurrentCategory, isAttachmentCategory, state } from './state.js?v=4.2.75';
+import { fileInput, itemInput, linkDescriptionInput, quantityInput, urlImportInput } from './ui.js?v=4.2.75';
+import { escapeRegExp } from './utils.js?v=4.2.75';
+import { enqueueAction } from './offline-queue.js?v=4.2.75';
 
 export function createItemsActionsController(deps) {
     const {
