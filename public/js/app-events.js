@@ -1,4 +1,5 @@
-import { saveLocalPrefs, state, scannerState, themeMediaQuery, isAttachmentCategory, normalizePreferences } from './state.js?v=4.2.69';
+import { saveLocalPrefs, state, scannerState, themeMediaQuery, isAttachmentCategory, normalizePreferences } from './state.js?v=4.2.71';
+import { normalizeSettingsTab } from './api.js?v=4.2.71';
 import {
     appEl,
     cameraBtn,
@@ -37,9 +38,9 @@ import {
     uploadModeFileBtn,
     uploadModeUrlBtn,
     urlImportInput,
-} from './ui.js?v=4.2.69';
-import { applyThemePreferences } from './theme.js?v=4.2.69';
-import { normalizeBarcodeValue, syncAutoHeight } from './utils.js?v=4.2.69';
+} from './ui.js?v=4.2.71';
+import { applyThemePreferences } from './theme.js?v=4.2.71';
+import { normalizeBarcodeValue, syncAutoHeight } from './utils.js?v=4.2.71';
 
 export function registerAppEventHandlers(deps) {
     const {
@@ -207,7 +208,7 @@ export function registerAppEventHandlers(deps) {
             if (frameUrl.protocol === 'about:') {
                 return;
             }
-            state.settingsTab = frameUrl.searchParams.get('tab') === 'extension' ? 'extension' : 'app';
+            state.settingsTab = normalizeSettingsTab(frameUrl.searchParams.get('tab') || 'app');
             if (state.view === 'settings') {
                 navigation.replaceCurrentHistoryState({ screen: 'settings', tab: state.settingsTab });
                 void loadCategories()
@@ -224,6 +225,7 @@ export function registerAppEventHandlers(deps) {
 
     window.addEventListener('message', event => {
         if (event.origin !== window.location.origin) return;
+        if (settingsFrameEl?.contentWindow && event.source !== settingsFrameEl.contentWindow) return;
         if (event.data?.type === 'ankerkladde-settings-close') {
             router.closeSettings();
             navigation.navigateBackOrReplace({ screen: 'list' });

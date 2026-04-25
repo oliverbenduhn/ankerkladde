@@ -1,11 +1,17 @@
-import { LOCAL_PREF_KEYS, basePath, csrfToken, normalizePreferences, readLocalPrefs, saveLocalPrefs } from './state.js?v=4.2.69';
+import { LOCAL_PREF_KEYS, basePath, csrfToken, normalizePreferences, readLocalPrefs, saveLocalPrefs } from './state.js?v=4.2.71';
+
+export const SETTINGS_TABS = ['app', 'appearance', 'features', 'categories', 'new-category', 'ai', 'extension', 'password', 'system'];
+
+export function normalizeSettingsTab(tab = 'app') {
+    return SETTINGS_TABS.includes(tab) ? tab : 'app';
+}
 
 export function appUrl(path) {
     return new URL(path, `${window.location.origin}${basePath}`).toString();
 }
 
 export function settingsUrl(tab = 'app') {
-    const resolvedTab = tab === 'extension' ? 'extension' : 'app';
+    const resolvedTab = normalizeSettingsTab(tab);
     return appUrl(`settings.php?embed=1&tab=${encodeURIComponent(resolvedTab)}`);
 }
 

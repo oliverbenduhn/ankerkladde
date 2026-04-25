@@ -1,3 +1,5 @@
+import { normalizeSettingsTab } from './api.js?v=4.2.71';
+
 export function createNavigation({ applyRouteState, getCurrentRouteState }) {
     let appHistoryIndex = 0;
     let suppressHistorySync = false;
@@ -10,7 +12,7 @@ export function createNavigation({ applyRouteState, getCurrentRouteState }) {
         if (screen === 'settings') {
             return {
                 screen,
-                tab: route?.tab === 'extension' ? 'extension' : 'app',
+                tab: normalizeSettingsTab(route?.tab),
             };
         }
 

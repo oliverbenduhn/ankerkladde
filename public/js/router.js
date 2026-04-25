@@ -1,6 +1,6 @@
-import { settingsUrl } from './api.js?v=4.2.69';
-import { state } from './state.js?v=4.2.69';
-import { appEl, searchInput, settingsBtns, settingsEmbedEl, settingsFrameEl } from './ui.js?v=4.2.69';
+import { normalizeSettingsTab, settingsUrl } from './api.js?v=4.2.71';
+import { state } from './state.js?v=4.2.71';
+import { appEl, searchInput, settingsBtns, settingsEmbedEl, settingsFrameEl } from './ui.js?v=4.2.71';
 
 export function applyViewState() {
     const inSettings = state.view === 'settings';
@@ -41,7 +41,7 @@ export function createRouter(deps) {
         }
 
         state.view = 'settings';
-        state.settingsTab = tab === 'extension' ? 'extension' : 'app';
+        state.settingsTab = normalizeSettingsTab(tab);
         applyViewState();
         updateHeaders();
 

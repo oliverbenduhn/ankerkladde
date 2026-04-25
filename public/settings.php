@@ -580,7 +580,7 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
 
 
     <?php if ($flash !== null): ?>
-        <div class="settings-flash settings-flash-<?= htmlspecialchars($flashType, ENT_QUOTES, 'UTF-8') ?>" role="alert">
+        <div class="settings-flash settings-flash-<?= htmlspecialchars($flashType, ENT_QUOTES, 'UTF-8') ?>" data-settings-flash="transient" role="alert">
             <?= htmlspecialchars($flash, ENT_QUOTES, 'UTF-8') ?>
         </div>
     <?php endif; ?>
@@ -687,7 +687,7 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
             <input type="hidden" name="action" value="save_feature_preferences">
             <div class="settings-block">
                 <p class="settings-copy">Ausgeschaltete Funktionen verschwinden in der App komplett aus der Oberfläche.</p>
-                <p class="settings-copy">Änderungen werden sofort gespeichert.</p>
+                <p class="settings-copy">Änderungen werden sofort für deinen Account gespeichert.</p>
                 <div class="settings-options">
                     <label class="settings-option">
                         <input
@@ -716,6 +716,13 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                         >
                         <span>Magic Button anzeigen</span>
                     </label>
+                </div>
+            </div>
+        </form>
+        <form method="post" action="<?= htmlspecialchars($settingsAction, ENT_QUOTES, 'UTF-8') ?>" class="settings-form" data-auto-submit="change" data-local-preferences="1">
+            <div class="settings-block">
+                <p class="settings-copy">Diese Einstellung gilt nur auf diesem Gerät.</p>
+                <div class="settings-options">
                     <label class="settings-option">
                         <input
                             type="checkbox"
@@ -734,7 +741,7 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
         <summary>Kategorien</summary>
         <div class="settings-block">
             <p class="settings-copy">Neue Kategorien werden direkt angelegt. Bestehende Kategorien speicherst du pro Zeile.</p>
-            <div class="settings-options">
+            <div class="settings-options settings-category-list" data-category-list>
                 <?php foreach ($categories as $category): ?>
                     <?php
                     $categoryIcon = normalizeCategoryIcon((string) $category['icon'], (string) $category['type']);

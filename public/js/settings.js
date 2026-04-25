@@ -191,13 +191,14 @@
     function renderFlash(message, type = 'ok') {
         if (!message) return;
 
-        const currentFlash = document.querySelector('.settings-flash');
+        const currentFlash = document.querySelector('.settings-flash[data-settings-flash="transient"]');
         if (currentFlash) {
             currentFlash.remove();
         }
 
         const flash = document.createElement('div');
         flash.className = `settings-flash settings-flash-${type === 'err' ? 'err' : 'ok'}`;
+        flash.dataset.settingsFlash = 'transient';
         flash.setAttribute('role', 'alert');
         flash.textContent = message;
         document.body.appendChild(flash);
@@ -242,17 +243,25 @@
         });
     }
 
+    const flashStorageKey = 'einkauf-settings-flash:' + settingsStorageScope;
+
+    const savedFlash = window.sessionStorage.getItem(flashStorageKey);
+    if (savedFlash) {
+        window.sessionStorage.removeItem(flashStorageKey);
+        try {
+            const parsedFlash = JSON.parse(savedFlash);
+            if (parsedFlash && parsedFlash.message) {
+                // Ensure flash is rendered after DOM is ready
+                window.requestAnimationFrame(() => {
+                    renderFlash(parsedFlash.message, parsedFlash.type || 'ok');
+                });
+            }
+        } catch (error) {}
+    }
+
     const openCategoryKey = 'einkauf-settings-open-category:' + scrollKey;
 
     categoryRows.forEach(form => {
-        form.addEventListener('submit', () => {
-            window.sessionStorage.setItem(scrollKey, String(window.scrollY || window.pageYOffset || 0));
-            const details = form.querySelector('.settings-category-details');
-            if (details instanceof HTMLDetailsElement && details.open) {
-                window.sessionStorage.setItem(openCategoryKey, form.dataset.categoryId || '');
-            }
-        });
-
         const details = form.querySelector('.settings-category-details');
         if (details instanceof HTMLDetailsElement) {
             details.addEventListener('toggle', () => {
@@ -261,9 +270,58 @@
         }
     });
 
-    document.querySelectorAll('form.settings-form').forEach(form => {
-        form.addEventListener('submit', () => {
+    document.querySelectorAll('form').forEach(form => {
+        form.addEventListener('submit', async event => {
+            event.preventDefault();
+
+            if (form.dataset.autoSubmit === 'change') {
+                return;
+            }
+
             window.sessionStorage.setItem(scrollKey, String(window.scrollY || window.pageYOffset || 0));
+            const details = form.querySelector('.settings-category-details');
+            if (details instanceof HTMLDetailsElement && details.open) {
+                window.sessionStorage.setItem(openCategoryKey, form.dataset.categoryId || '');
+            }
+
+            const formData = new FormData(form);
+            if (event.submitter && event.submitter.name) {
+                formData.append(event.submitter.name, event.submitter.value);
+            }
+
+            if (event.submitter instanceof HTMLButtonElement) {
+                event.submitter.disabled = true;
+            }
+
+            try {
+                const response = await fetch(form.action || window.location.href, {
+                    method: form.method || 'POST',
+                    body: formData,
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'fetch',
+                    },
+                });
+
+                const payload = await response.json().catch(() => null);
+                if (payload && payload.flash) {
+                    window.sessionStorage.setItem(flashStorageKey, JSON.stringify({
+                        message: payload.flash,
+                        type: payload.flash_type || 'ok'
+                    }));
+                }
+
+                if (payload && payload.preferences && typeof payload.preferences === 'object') {
+                    postPreferencesUpdate(payload.preferences);
+                }
+
+                window.location.reload();
+            } catch (error) {
+                renderFlash('Ein Fehler ist aufgetreten.', 'err');
+                if (event.submitter instanceof HTMLButtonElement) {
+                    event.submitter.disabled = false;
+                }
+            }
         });
     });
 
@@ -312,6 +370,15 @@
             }
 
             const localFormPatch = getLocalFormPatch(form);
+            if (form.dataset.localPreferences === '1') {
+                if (Object.keys(localFormPatch).length > 0) {
+                    saveLocalPrefs(localFormPatch);
+                    postPreferencesUpdate(localFormPatch);
+                    renderFlash('Einstellung für dieses Gerät gespeichert.');
+                }
+                return;
+            }
+
             if (Object.keys(localFormPatch).length > 0) {
                 saveLocalPrefs(localFormPatch);
                 postPreferencesUpdate(localFormPatch);
@@ -424,6 +491,7 @@
 
     window.addEventListener('message', event => {
         if (event.origin !== window.location.origin) return;
+        if (window.parent && event.source !== window.parent) return;
         if (event.data?.type !== 'ankerkladde-theme-update') return;
 
         const nextPreferences = event.data?.preferences;
@@ -454,7 +522,7 @@
     }
 
     (function initCategoryDragReorder() {
-        const categoryList = document.querySelector('.settings-options');
+        const categoryList = document.querySelector('[data-category-list]');
         if (!categoryList) return;
 
         let dragEl = null;
