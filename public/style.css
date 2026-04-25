@@ -1803,13 +1803,14 @@ button, input { font: inherit; }
     /* Liste-Ansicht: Inhaltsspalte zentriert und lesbar halten */
     .app[data-desktop-layout="liste"] #list,
     .app:not([data-desktop-layout]) #list {
-        max-width: 860px;
+        width: min(1240px, calc(100vw - 40px));
+        max-width: 100%;
         margin-inline: auto;
     }
 
     .app[data-desktop-layout="liste"] .input-area,
     .app:not([data-desktop-layout]) .input-area {
-        max-width: 860px;
+        max-width: 1240px;
         margin-inline: auto;
         width: 100%;
     }
