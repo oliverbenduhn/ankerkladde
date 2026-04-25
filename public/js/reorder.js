@@ -232,30 +232,27 @@ export function createReorderController(deps) {
         listEl.addEventListener('pointerdown', event => {
             if (state.mode !== 'liste' || state.search.open) return;
             if (event.button !== undefined && event.button !== 0) return;
-            const dragHandle = event.target.closest('.item-drag-handle');
-            if (!dragHandle) return;
+
+            // Ignore clicks on interactive elements
+            if (event.target.closest('.toggle') || event.target.closest('.btn-item-menu') || event.target.closest('button') || event.target.closest('a') || event.target.closest('input') || event.target.closest('textarea') || event.target.closest('details')) return;
 
             const li = event.target.closest('li.item-card');
             if (!li || li.classList.contains('is-editing')) return;
 
-            let insertBefore = null;
-            let dragging = false;
             const startX = event.clientX;
             const startY = event.clientY;
+            let dragActive = false;
+            let isScrolling = false;
 
-            function startDragging(moveEvent = null) {
-                if (dragging) return;
-                dragging = true;
-                if (moveEvent) {
-                    moveEvent.preventDefault();
-                }
-                try {
-                    li.setPointerCapture(event.pointerId);
-                } catch {}
+            const longPressTimer = window.setTimeout(() => {
+                dragActive = true;
                 triggerHapticFeedback();
                 document.body.classList.add('is-sorting');
                 li.classList.add('is-dragging');
-            }
+                try {
+                    li.setPointerCapture(event.pointerId);
+                } catch {}
+            }, TAB_REORDER_LONG_PRESS_MS);
 
             function getOtherItems() {
                 return Array.from(listEl.querySelectorAll('li.item-card:not(.is-dragging)'));
@@ -268,19 +265,24 @@ export function createReorderController(deps) {
             }
 
             function cleanup() {
+                window.clearTimeout(longPressTimer);
                 document.removeEventListener('pointermove', onMove);
                 document.removeEventListener('pointerup', onEnd);
                 document.removeEventListener('pointercancel', onAbort);
             }
 
-            function onMove(moveEvent) {
-                if (!dragging) {
-                    const deltaX = Math.abs(moveEvent.clientX - startX);
-                    const deltaY = Math.abs(moveEvent.clientY - startY);
-                    const movement = Math.max(deltaX, deltaY);
+            let insertBefore = null;
 
-                    if (movement < 4) return;
-                    startDragging(moveEvent);
+            function onMove(moveEvent) {
+                if (!dragActive) {
+                    if (isScrolling) return;
+                    const dx = Math.abs(moveEvent.clientX - startX);
+                    const dy = Math.abs(moveEvent.clientY - startY);
+                    if (dx > 5 || dy > 5) {
+                        window.clearTimeout(longPressTimer);
+                        isScrolling = true;
+                    }
+                    return;
                 }
 
                 const others = getOtherItems();
@@ -303,7 +305,8 @@ export function createReorderController(deps) {
 
             function onEnd() {
                 cleanup();
-                if (!dragging) return;
+                if (!dragActive) return;
+                
                 document.body.classList.remove('is-sorting');
                 li.classList.remove('is-dragging');
                 clearDropTargets();
@@ -319,13 +322,12 @@ export function createReorderController(deps) {
 
             function onAbort() {
                 cleanup();
-                if (!dragging) return;
+                if (!dragActive) return;
                 document.body.classList.remove('is-sorting');
                 li.classList.remove('is-dragging');
                 clearDropTargets();
             }
 
-            event.preventDefault();
             document.addEventListener('pointermove', onMove);
             document.addEventListener('pointerup', onEnd);
             document.addEventListener('pointercancel', onAbort);

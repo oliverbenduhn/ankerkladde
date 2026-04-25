@@ -399,11 +399,6 @@ export function createItemsViewController(deps) {
         li.className = `item-card item-type-${item.category_type} ${item.done === 1 ? 'done' : 'open'}${item.is_pinned ? ' is-pinned' : ''}${isOverdueItem(item) ? ' is-overdue' : ''}`;
         li.dataset.itemId = String(item.id);
 
-        const dragHandle = document.createElement('button');
-        dragHandle.type = 'button';
-        dragHandle.className = 'item-drag-handle';
-        dragHandle.setAttribute('aria-label', `${item.name || 'Eintrag'} verschieben`);
-        dragHandle.appendChild(svgIcon('grip'));
 
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
@@ -443,11 +438,11 @@ export function createItemsViewController(deps) {
             actions.appendChild(menuButton);
         }
 
-        li.append(dragHandle, checkbox, content, actions);
+        li.append(checkbox, content, actions);
 
         if (item.category_type === 'notes') {
             li.addEventListener('click', event => {
-                if (event.target.closest('.toggle') || event.target.closest('.btn-item-menu') || event.target.closest('.item-drag-handle')) return;
+                if (event.target.closest('.toggle') || event.target.closest('.btn-item-menu')) return;
                 void openNoteEditorWithNavigation(item);
             });
         }
