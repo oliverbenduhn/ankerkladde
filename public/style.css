@@ -186,6 +186,10 @@ button, input { font: inherit; }
     display: block;
     object-fit: contain;
     flex-shrink: 0;
+    -webkit-user-drag: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
 }
 
 .brand-mark-app {
@@ -2048,6 +2052,8 @@ button, input { font: inherit; }
     scroll-padding: 10px;
     cursor: grab;
     user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
     box-shadow: 
         0 16px 32px -8px rgba(0, 0, 0, 0.12),
         0 4px 12px -2px rgba(0, 0, 0, 0.06);
@@ -2143,6 +2149,8 @@ button, input { font: inherit; }
     filter: var(--tab-icon-filter);
     -webkit-user-drag: none;
     user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
 }
 
 .section-tab[aria-current="page"] .section-icon {

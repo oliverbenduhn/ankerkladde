@@ -117,6 +117,10 @@ export function createTabsViewController(deps) {
             event.preventDefault();
         });
 
+        sectionTabsEl.addEventListener('contextmenu', event => {
+            event.preventDefault();
+        });
+
         sectionTabsEl.addEventListener('pointerdown', event => {
             if (event.button !== undefined && event.button !== 0) return;
             const maxScrollLeft = sectionTabsEl.scrollWidth - sectionTabsEl.clientWidth;

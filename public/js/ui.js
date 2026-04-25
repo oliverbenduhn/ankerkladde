@@ -72,6 +72,26 @@ export const brandMarkEls = document.querySelectorAll('.brand-mark');
 export const settingsEmbedEl = document.getElementById('settingsEmbed');
 export const settingsFrameEl = document.getElementById('settingsFrame');
 
+const NON_INTERACTIVE_ASSET_SELECTOR = '.category-icon-img, .brand-mark';
+
+document.querySelectorAll(NON_INTERACTIVE_ASSET_SELECTOR).forEach(element => {
+    if (element instanceof HTMLImageElement) {
+        element.draggable = false;
+    }
+});
+
+document.addEventListener('dragstart', event => {
+    if (event.target instanceof Element && event.target.closest(NON_INTERACTIVE_ASSET_SELECTOR)) {
+        event.preventDefault();
+    }
+});
+
+document.addEventListener('contextmenu', event => {
+    if (event.target instanceof Element && event.target.closest(NON_INTERACTIVE_ASSET_SELECTOR)) {
+        event.preventDefault();
+    }
+});
+
 const ICONS = {
     menu: '<line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="18" y2="18"/>',
     search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',

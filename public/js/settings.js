@@ -17,6 +17,25 @@
     const apiTestStatus = document.getElementById('api-test-status');
     const settingsPanels = Array.from(document.querySelectorAll('details[data-settings-panel]'));
     const categoryRows = Array.from(document.querySelectorAll('form.settings-category-row'));
+    const nonInteractiveAssetSelector = '.category-icon-img, .brand-mark';
+
+    document.querySelectorAll(nonInteractiveAssetSelector).forEach(element => {
+        if (element instanceof HTMLImageElement) {
+            element.draggable = false;
+        }
+    });
+
+    document.addEventListener('dragstart', event => {
+        if (event.target instanceof Element && event.target.closest(nonInteractiveAssetSelector)) {
+            event.preventDefault();
+        }
+    });
+
+    document.addEventListener('contextmenu', event => {
+        if (event.target instanceof Element && event.target.closest(nonInteractiveAssetSelector)) {
+            event.preventDefault();
+        }
+    });
 
     const saved = window.sessionStorage.getItem(scrollKey);
     const themeMediaQuery = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
