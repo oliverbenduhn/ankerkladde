@@ -1,19 +1,20 @@
-import { createAppUiController } from './app-ui.js?v=4.2.75';
-import { createHelpersController } from './helpers.js?v=4.2.75';
-import { createItemsActionsController } from './items-actions.js?v=4.2.75';
-import { createItemsController } from './items.js?v=4.2.75';
-import { createItemsViewController } from './items-view.js?v=4.2.75';
-import { createNavigation } from './navigation.js?v=4.2.75';
-import { createEditorController } from './editor.js?v=4.2.75';
-import { createTodoEditorController } from './todo-editor.js?v=4.2.75';
-import { createReorderController } from './reorder.js?v=4.2.75';
-import { createRouter } from './router.js?v=4.2.75';
-import { createScannerController } from './scanner.js?v=4.2.75';
-import { createSwipeController } from './swipe.js?v=4.2.75';
-import { createTabsViewController } from './tabs-view.js?v=4.2.75';
-import { createMagicController } from './magic.js?v=4.2.75';
-import { flushQueue, getPendingCount } from './offline-queue.js?v=4.2.75';
-import { api } from './api.js?v=4.2.75';
+import { createAppUiController } from './app-ui.js?v=4.2.78';
+import { createHelpersController } from './helpers.js?v=4.2.78';
+import { createItemsActionsController } from './items-actions.js?v=4.2.78';
+import { createItemsController } from './items.js?v=4.2.78';
+import { createItemsViewController } from './items-view.js?v=4.2.78';
+import { createNavigation } from './navigation.js?v=4.2.78';
+import { createEditorController } from './editor.js?v=4.2.78';
+import { createTodoEditorController } from './todo-editor.js?v=4.2.78';
+import { createReorderController } from './reorder.js?v=4.2.78';
+import { createRouter } from './router.js?v=4.2.78';
+import { createScannerController } from './scanner.js?v=4.2.78';
+import { createSwipeController } from './swipe.js?v=4.2.78';
+import { createTabsViewController } from './tabs-view.js?v=4.2.78';
+import { createKanbanViewController } from './kanban-view.js?v=4.2.78';
+import { createMagicController } from './magic.js?v=4.2.78';
+import { flushQueue, getPendingCount } from './offline-queue.js?v=4.2.78';
+import { api } from './api.js?v=4.2.78';
 import {
     BARCODE_FORMATS,
     SCANNER_COOLDOWN_MS,
@@ -22,9 +23,9 @@ import {
     normalizePreferences,
     scannerState,
     state,
-} from './state.js?v=4.2.75';
-import { applyThemePreferences } from './theme.js?v=4.2.75';
-import { settingsFrameEl } from './ui.js?v=4.2.75';
+} from './state.js?v=4.2.78';
+import { applyThemePreferences } from './theme.js?v=4.2.78';
+import { settingsFrameEl } from './ui.js?v=4.2.78';
 
 export function createAppRuntime(deps) {
     const {
@@ -61,6 +62,7 @@ export function createAppRuntime(deps) {
     let reorderController = null;
     let swipeController = null;
     let tabsViewController = null;
+    let kanbanViewController = null;
     let magicController = null;
 
     const getItemById = id => itemsController.getItemById(id);
@@ -82,7 +84,14 @@ export function createAppRuntime(deps) {
     const openSearch = () => itemsController.openSearch();
     const closeSearch = () => itemsController.closeSearch();
     const doSearch = async query => { await itemsController.doSearch(query); };
-    const renderItems = () => itemsViewController.renderItems();
+    const renderItems = () => {
+        if (state.desktopLayout === 'kanban' && getCurrentCategory()?.type === 'list_due_date') {
+            kanbanViewController.renderKanban();
+        } else {
+            kanbanViewController?.hideKanban();
+            itemsViewController.renderItems();
+        }
+    };
     const openNoteEditor = async item => { await editorController.openNoteEditor(item); };
     const openNoteEditorWithNavigation = async item => { await editorController.openNoteEditorWithNavigation(item); };
     const closeNoteEditor = async () => { await editorController.closeNoteEditor(); };
@@ -182,6 +191,26 @@ export function createAppRuntime(deps) {
         openNoteEditorWithNavigation,
         openTodoEditor,
         setCategory,
+    });
+
+    kanbanViewController = createKanbanViewController({
+        buildItemNode: item => itemsViewController.buildItemNode(item),
+        getVisibleItems,
+        handleKanbanDrop: async (itemId, columnKey) => {
+            const item = getItemById(itemId);
+            if (!item) return;
+            if (columnKey === 'erledigt') {
+                if (!item.done) await itemsActionsController.handleToggle(itemId, true);
+            } else {
+                if (item.done) await itemsActionsController.handleToggle(itemId, false);
+                const statusMap = { offen: '', in_arbeit: 'in_progress', wartet_auf: 'waiting' };
+                const newStatus = statusMap[columnKey] ?? '';
+                if (item.status !== newStatus) {
+                    await itemsActionsController.handleStatus(itemId, newStatus);
+                }
+            }
+            renderItems();
+        },
     });
 
     itemsController = createItemsController({

@@ -1916,6 +1916,84 @@ button, input { font: inherit; }
         align-self: center;
         padding: 0 10px 12px 0;
     }
+
+/* ── Desktop Kanban-Ansicht ─────────────────────────────────────── */
+@media (min-width: 900px) {
+    .app[data-desktop-layout="kanban"] .list-area {
+        padding: 16px;
+        overflow-x: auto;
+    }
+
+    .kanban-board {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(220px, 1fr));
+        gap: 12px;
+        align-items: start;
+        min-width: 0;
+    }
+
+    .kanban-column {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        background: var(--done-bg, rgba(0,0,0,.04));
+        border-radius: 14px;
+        padding: 10px;
+    }
+
+    .kanban-column-header {
+        font-weight: 600;
+        font-size: 0.85rem;
+        padding: 2px 4px 6px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        color: var(--text-secondary);
+    }
+
+    .kanban-col-count {
+        margin-left: auto;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 1px 7px;
+        font-size: 0.78rem;
+        font-weight: 500;
+        color: var(--text-muted);
+    }
+
+    .kanban-column-list {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        min-height: 60px;
+        transition: background 0.15s;
+    }
+
+    .kanban-column-list.kanban-drop-active {
+        background: var(--accent-bg, rgba(0, 100, 200, .08));
+        border-radius: 10px;
+    }
+
+    .kanban-empty {
+        color: var(--text-muted);
+        font-size: 0.82rem;
+        text-align: center;
+        padding: 16px 0;
+        border: 1.5px dashed var(--border);
+        border-radius: 10px;
+    }
+
+    .kanban-column-list .item-card {
+        cursor: grab;
+    }
+
+    .kanban-column-list .item-card.is-kanban-dragging {
+        opacity: 0.5;
+    }
 }
 /* ─────────────────────────────────────────────────────────────── */
 
