@@ -1933,6 +1933,41 @@ button, input { font: inherit; }
         padding: 0 10px 12px 0;
     }
 
+    .app[data-desktop-layout="grid"] .item-type-list_due_date.item-card,
+    .app[data-desktop-layout="kanban"] .item-type-list_due_date.item-card {
+        align-items: flex-start;
+    }
+
+    .app[data-desktop-layout="grid"] .item-type-list_due_date .toggle,
+    .app[data-desktop-layout="kanban"] .item-type-list_due_date .toggle,
+    .app[data-desktop-layout="grid"] .item-type-list_due_date .item-actions,
+    .app[data-desktop-layout="kanban"] .item-type-list_due_date .item-actions {
+        margin-top: 3px;
+    }
+
+    .app[data-desktop-layout="grid"] .item-type-list_due_date .item-content,
+    .app[data-desktop-layout="kanban"] .item-type-list_due_date .item-content {
+        display: flex;
+        align-items: center;
+        gap: 6px 8px;
+        flex-wrap: wrap;
+    }
+
+    .app[data-desktop-layout="grid"] .item-type-list_due_date .item-name,
+    .app[data-desktop-layout="kanban"] .item-type-list_due_date .item-name {
+        flex: 1 0 100%;
+        width: 100%;
+    }
+
+    .app[data-desktop-layout="grid"] .item-type-list_due_date .item-note-details,
+    .app[data-desktop-layout="kanban"] .item-type-list_due_date .item-note-details,
+    .app[data-desktop-layout="grid"] .item-type-list_due_date .item-status-chip,
+    .app[data-desktop-layout="kanban"] .item-type-list_due_date .item-status-chip,
+    .app[data-desktop-layout="grid"] .item-type-list_due_date .date-badge,
+    .app[data-desktop-layout="kanban"] .item-type-list_due_date .date-badge {
+        flex: 0 0 auto;
+    }
+
 /* ── Desktop Kanban-Ansicht ─────────────────────────────────────── */
 @media (min-width: 900px) {
     .app[data-desktop-layout="kanban"] .list-area {
@@ -2004,6 +2039,8 @@ button, input { font: inherit; }
     }
 
     .kanban-column-list .item-card {
+        border-radius: 14px;
+        padding: 12px 14px;
         cursor: grab;
     }
 
