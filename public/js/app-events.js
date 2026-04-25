@@ -1,5 +1,5 @@
-import { saveLocalPrefs, state, scannerState, themeMediaQuery, isAttachmentCategory, normalizePreferences } from './state.js?v=4.2.71';
-import { normalizeSettingsTab } from './api.js?v=4.2.71';
+import { saveLocalPrefs, state, scannerState, themeMediaQuery, isAttachmentCategory, normalizePreferences, getCurrentType } from './state.js?v=4.2.75';
+import { normalizeSettingsTab } from './api.js?v=4.2.75';
 import {
     appEl,
     cameraBtn,
@@ -38,9 +38,9 @@ import {
     uploadModeFileBtn,
     uploadModeUrlBtn,
     urlImportInput,
-} from './ui.js?v=4.2.71';
-import { applyThemePreferences } from './theme.js?v=4.2.71';
-import { normalizeBarcodeValue, syncAutoHeight } from './utils.js?v=4.2.71';
+} from './ui.js?v=4.2.75';
+import { applyThemePreferences } from './theme.js?v=4.2.75';
+import { normalizeBarcodeValue, syncAutoHeight } from './utils.js?v=4.2.75';
 
 export function registerAppEventHandlers(deps) {
     const {
@@ -182,6 +182,22 @@ export function registerAppEventHandlers(deps) {
             state.mode = button.dataset.nav === 'einkaufen' ? 'einkaufen' : 'liste';
             appEl.dataset.mode = state.mode;
             void savePreferences({ mode: state.mode });
+            renderItems();
+        });
+    });
+
+    deps.desktopLayoutBtns.forEach(button => {
+        button.addEventListener('click', () => {
+            let layout = button.dataset.layout || 'liste';
+            if (layout === 'kanban' && getCurrentType() !== 'list_due_date') {
+                layout = 'liste';
+            }
+            state.desktopLayout = layout;
+            if (appEl) appEl.dataset.desktopLayout = layout;
+            deps.desktopLayoutBtns.forEach(btn => {
+                btn.setAttribute('aria-pressed', btn.dataset.layout === layout ? 'true' : 'false');
+            });
+            saveLocalPrefs({ desktop_layout: layout });
             renderItems();
         });
     });

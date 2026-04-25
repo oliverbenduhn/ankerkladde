@@ -54,6 +54,8 @@ function getIconPaths(): array
         'circle' => '<g fill="none"><path d="M12 3.5a8.5 8.5 0 1 0 0 17a8.5 8.5 0 0 0 0-17zM2 12C2 6.477 6.477 2 12 2s10 4.477 10 10s-4.477 10-10 10S2 17.523 2 12z" fill="currentColor" /></g>',
         'play' => '<g fill="none"><path d="M7.608 4.615a.75.75 0 0 0-1.108.659v13.452a.75.75 0 0 0 1.108.659l12.362-6.726a.75.75 0 0 0 0-1.318L7.608 4.615zM5 5.274c0-1.707 1.826-2.792 3.325-1.977l12.362 6.726c1.566.853 1.566 3.101 0 3.953L8.325 20.702C6.826 21.518 5 20.432 5 18.726V5.274z" fill="currentColor" /></g>',
         'clock' => '<g fill="none"><path d="M12 2c5.523 0 10 4.478 10 10s-4.477 10-10 10S2 17.522 2 12S6.477 2 12 2zm0 1.667c-4.595 0-8.333 3.738-8.333 8.333c0 4.595 3.738 8.333 8.333 8.333c4.595 0 8.333-3.738 8.333-8.333c0-4.595-3.738-8.333-8.333-8.333zM11.25 6a.75.75 0 0 1 .743.648L12 6.75V12h3.25a.75.75 0 0 1 .102 1.493l-.102.007h-4a.75.75 0 0 1-.743-.648l-.007-.102v-6a.75.75 0 0 1 .75-.75z" fill="currentColor" /></g>',
+        'layout-grid' => '<g fill="none"><path d="M3 3.75A.75.75 0 0 1 3.75 3h6.5a.75.75 0 0 1 .75.75v6.5a.75.75 0 0 1-.75.75h-6.5A.75.75 0 0 1 3 10.25v-6.5zm1.5.75v5h5v-5h-5zM13 3.75a.75.75 0 0 1 .75-.75h6.5a.75.75 0 0 1 .75.75v6.5a.75.75 0 0 1-.75.75h-6.5a.75.75 0 0 1-.75-.75v-6.5zm1.5.75v5h5v-5h-5zM3 13.75a.75.75 0 0 1 .75-.75h6.5a.75.75 0 0 1 .75.75v6.5a.75.75 0 0 1-.75.75h-6.5a.75.75 0 0 1-.75-.75v-6.5zm1.5.75v5h5v-5h-5zM13.75 13a.75.75 0 0 0-.75.75v6.5c0 .414.336.75.75.75h6.5a.75.75 0 0 0 .75-.75v-6.5a.75.75 0 0 0-.75-.75h-6.5zm.75 1.5v5h5v-5h-5z" fill="currentColor" /></g>',
+        'layout-kanban' => '<g fill="none"><path d="M3 3.75A.75.75 0 0 1 3.75 3h4.5a.75.75 0 0 1 .75.75v12.5a.75.75 0 0 1-.75.75h-4.5A.75.75 0 0 1 3 16.25V3.75zm1.5.75v11h3v-11h-3zM9.75 3a.75.75 0 0 0-.75.75v16.5c0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75V3.75A.75.75 0 0 0 14.25 3h-4.5zM11 4.5v15h3v-15h-3zM15.75 3a.75.75 0 0 0-.75.75v9.5c0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75V3.75A.75.75 0 0 0 20.25 3h-4.5zM16.5 4.5v8h3v-8h-3z" fill="currentColor" /></g>',
     ];
 
     return $paths;
@@ -73,6 +75,9 @@ $productScannerEnabled = !array_key_exists('product_scanner_enabled', $userPrefe
 $shoppingListScannerEnabled = !array_key_exists('shopping_list_scanner_enabled', $userPreferences) || !empty($userPreferences['shopping_list_scanner_enabled']);
 $magicButtonEnabled = !array_key_exists('magic_button_enabled', $userPreferences) || !empty($userPreferences['magic_button_enabled']);
 $initialMode = ($userPreferences['mode'] ?? 'liste') === 'einkaufen' ? 'einkaufen' : 'liste';
+$validDesktopLayouts = ['liste', 'grid', 'kanban'];
+$rawDesktopLayout = $userPreferences['desktop_layout'] ?? 'liste';
+$initialDesktopLayout = in_array($rawDesktopLayout, $validDesktopLayouts, true) ? $rawDesktopLayout : 'liste';
 $clientWebSocketUrl = getenv('ANKERKLADDE_WS_CLIENT_URL');
 $clientWebSocketUrl = is_string($clientWebSocketUrl) ? trim($clientWebSocketUrl) : '';
 ?>
@@ -101,7 +106,7 @@ $clientWebSocketUrl = is_string($clientWebSocketUrl) ? trim($clientWebSocketUrl)
     <title>Ankerkladde</title>
 </head>
 <body data-theme="<?= htmlspecialchars($effectiveTheme, ENT_QUOTES, 'UTF-8') ?>">
-<div class="app" id="app" data-mode="<?= htmlspecialchars($initialMode, ENT_QUOTES, 'UTF-8') ?>">
+<div class="app" id="app" data-mode="<?= htmlspecialchars($initialMode, ENT_QUOTES, 'UTF-8') ?>" data-desktop-layout="<?= htmlspecialchars($initialDesktopLayout, ENT_QUOTES, 'UTF-8') ?>">
 
     <div class="install-banner" id="installBanner" hidden>
         <span class="install-text">App installieren?</span>
@@ -130,6 +135,11 @@ $clientWebSocketUrl = is_string($clientWebSocketUrl) ? trim($clientWebSocketUrl)
             <button type="button" id="searchBtn" class="header-icon-btn btn-search" aria-label="Suchen"><?= icon('search') ?></button>
             <button type="button" id="magicBtn" class="header-icon-btn btn-magic" aria-label="KI-Assistent"<?= !$magicButtonEnabled ? ' hidden' : '' ?>><?= icon('sparkles') ?></button>
             <a href="<?= htmlspecialchars(appPath('index.php?view=settings'), ENT_QUOTES, 'UTF-8') ?>" class="header-icon-btn btn-settings" data-settings-tab="app" aria-label="Einstellungen"><?= icon('settings') ?></a>
+            <div class="desktop-layout-switcher" id="desktopLayoutSwitcher" aria-label="Desktop-Ansicht">
+                <button type="button" class="header-icon-btn btn-desktop-layout" data-layout="liste" aria-label="Listenansicht" aria-pressed="<?= $initialDesktopLayout === 'liste' ? 'true' : 'false' ?>"><?= icon('menu') ?></button>
+                <button type="button" class="header-icon-btn btn-desktop-layout" data-layout="grid" aria-label="Kästchenansicht" aria-pressed="<?= $initialDesktopLayout === 'grid' ? 'true' : 'false' ?>"><?= icon('layout-grid') ?></button>
+                <button type="button" class="header-icon-btn btn-desktop-layout" data-layout="kanban" aria-label="Kanban-Ansicht" aria-pressed="<?= $initialDesktopLayout === 'kanban' ? 'true' : 'false' ?>"><?= icon('layout-kanban') ?></button>
+            </div>
             <button type="button" class="header-icon-btn btn-mode-toggle" data-nav="einkaufen" aria-label="Einkaufs-Modus starten"><?= icon('eye') ?></button>
         </div>
     </header>

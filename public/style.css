@@ -1776,6 +1776,24 @@ button, input { font: inherit; }
     border-color: var(--accent);
 }
 
+.desktop-layout-switcher {
+    display: none;
+}
+
+@media (min-width: 900px) {
+    .desktop-layout-switcher {
+        display: flex;
+        gap: 2px;
+        align-items: center;
+    }
+
+    .desktop-layout-switcher .header-icon-btn[aria-pressed="true"] {
+        background: var(--accent);
+        color: var(--accent-contrast, var(--text-primary));
+        border-color: var(--accent);
+    }
+}
+
 @media (max-width: 480px) {
     .app-header {
         position: relative;

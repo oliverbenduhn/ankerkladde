@@ -42,6 +42,7 @@ export const magicSubmit = document.getElementById('magicSubmit');
 export const magicVoiceBtn = document.getElementById('magicVoiceBtn');
 export const magicClose = document.getElementById('magicClose');
 export const modeToggleBtns = document.querySelectorAll('.btn-mode-toggle');
+export const desktopLayoutBtns = document.querySelectorAll('.btn-desktop-layout');
 export const settingsBtns = document.querySelectorAll('.btn-settings');
 export const sectionTabsEl = document.getElementById('sectionTabs');
 export const tabsToggleBtns = document.querySelectorAll('.btn-tabs-toggle');
