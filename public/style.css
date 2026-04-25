@@ -1796,6 +1796,11 @@ button, input { font: inherit; }
 
 /* ── Desktop Kästchenansicht ─────────────────────────────────── */
 @media (min-width: 900px) {
+    .app[data-desktop-layout="grid"],
+    .app[data-desktop-layout="kanban"] {
+        max-width: none;
+    }
+
     .app[data-desktop-layout="grid"] .list-area {
         padding: 16px;
     }
