@@ -186,4 +186,26 @@ test.describe('Settings Theme Smoke Test', () => {
     await expect(reloadedFrame.locator('details[data-settings-panel="categories"] > summary')).toBeVisible();
     await expect(reloadedFirstCategoryDetails).toHaveJSProperty('open', false);
   });
+
+  test('new categories appear in settings and app navigation', async ({ page }) => {
+    await page.goto('/login.php');
+
+    await page.getByLabel('Benutzername').fill('playwright-user');
+    await page.getByLabel('Passwort').fill('playwright-pass');
+    await page.getByRole('button', { name: 'Anmelden' }).click();
+
+    await expect(page).toHaveURL(/index\.php/);
+    await page.getByRole('link', { name: 'Einstellungen' }).first().click();
+
+    const settingsFrame = page.frameLocator('#settingsFrame');
+    const categoryName = `Neue Kategorie ${Date.now()}`;
+
+    await settingsFrame.locator('details[data-settings-panel="new-category"] > summary').click();
+    await settingsFrame.locator('input[name="name"]').fill(categoryName);
+    await settingsFrame.getByRole('button', { name: 'Kategorie anlegen' }).click();
+
+    await expect(settingsFrame.locator('.settings-flash')).toContainText('Kategorie erstellt');
+    await expect(settingsFrame.locator('form.settings-category-row', { hasText: categoryName })).toBeVisible();
+    await expect(page.locator('.section-tab')).toContainText([categoryName]);
+  });
 });

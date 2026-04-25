@@ -70,6 +70,10 @@
         return formData;
     }
 
+    function getFormActionUrl(form) {
+        return form.getAttribute('action') || window.location.href;
+    }
+
     function syncThemeFormControls() {
         const themeForm = document.querySelector('form[data-theme-form="1"]');
         if (!(themeForm instanceof HTMLFormElement)) return;
@@ -294,7 +298,7 @@
             }
 
             try {
-                const response = await fetch(form.action || window.location.href, {
+                const response = await fetch(getFormActionUrl(form), {
                     method: form.method || 'POST',
                     body: formData,
                     headers: {
