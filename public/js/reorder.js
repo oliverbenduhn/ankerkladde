@@ -19,6 +19,7 @@ export function createReorderController(deps) {
     } = deps;
 
     let tabDragJustFinished = false;
+    let itemDragJustFinished = false;
 
     function wasTabDragJustFinished() {
         return tabDragJustFinished;
@@ -95,12 +96,15 @@ export function createReorderController(deps) {
             const startY = event.clientY;
             let dragActive = false;
             let isScrolling = false;
+            let insertBefore = null;
+            const usesLongPress = event.pointerType !== 'mouse';
 
             const preventScroll = (e) => {
                 if (dragActive) e.preventDefault();
             };
 
-            const longPressTimer = window.setTimeout(() => {
+            function beginDrag() {
+                if (dragActive) return;
                 dragActive = true;
                 triggerHapticFeedback();
                 tab.classList.add('is-tab-dragging');
@@ -108,7 +112,11 @@ export function createReorderController(deps) {
                 try {
                     tab.setPointerCapture(event.pointerId);
                 } catch {}
-            }, TAB_REORDER_LONG_PRESS_MS);
+            }
+
+            const longPressTimer = usesLongPress
+                ? window.setTimeout(beginDrag, TAB_REORDER_LONG_PRESS_MS)
+                : 0;
 
             function cleanup() {
                 window.clearTimeout(longPressTimer);
@@ -128,6 +136,14 @@ export function createReorderController(deps) {
                     const dy = Math.abs(moveEvent.clientY - startY);
                     if (dx > 5 || dy > 5) {
                         window.clearTimeout(longPressTimer);
+                        if (!usesLongPress && dx >= dy) {
+                            beginDrag();
+                            moveEvent.preventDefault();
+                            return onMove(moveEvent);
+                        } else if (!usesLongPress) {
+                            cleanup();
+                            return;
+                        }
                         if (dx > dy) {
                             isScrolling = true;
                             sectionTabsEl.scrollLeft -= moveEvent.movementX;
@@ -135,9 +151,10 @@ export function createReorderController(deps) {
                             cleanup();
                         }
                     }
-                    return;
+                    if (!dragActive) return;
                 }
 
+                moveEvent.preventDefault();
                 const currentX = moveEvent.clientX;
                 const tx = currentX - startX;
                 tab.style.transform = `translateX(${tx}px)`;
@@ -146,7 +163,7 @@ export function createReorderController(deps) {
                 const others = Array.from(sectionTabsEl.querySelectorAll('.section-tab:not(.is-tab-dragging)'));
                 others.forEach(other => other.classList.remove('tab-drop-before', 'tab-drop-after'));
 
-                let insertBefore = null;
+                insertBefore = null;
                 for (const other of others) {
                     const rect = other.getBoundingClientRect();
                     if (moveEvent.clientX < rect.left + rect.width / 2) {
@@ -244,12 +261,26 @@ export function createReorderController(deps) {
     function initItemDragReorder() {
         if (!listEl) return;
 
+        listEl.addEventListener('click', event => {
+            if (!itemDragJustFinished) return;
+            event.preventDefault();
+            event.stopPropagation();
+        }, true);
+
         listEl.addEventListener('pointerdown', event => {
             if (state.mode !== 'liste' || state.search.open) return;
             if (event.button !== undefined && event.button !== 0) return;
 
             // Ignore clicks on interactive elements
-            if (event.target.closest('.toggle') || event.target.closest('.btn-item-menu') || event.target.closest('button') || event.target.closest('a') || event.target.closest('input') || event.target.closest('textarea') || event.target.closest('details')) return;
+            if (
+                event.target.closest('.toggle')
+                || event.target.closest('.btn-item-menu')
+                || event.target.closest('button:not(.item-name-button)')
+                || event.target.closest('a')
+                || event.target.closest('input')
+                || event.target.closest('textarea')
+                || event.target.closest('details')
+            ) return;
 
             const li = event.target.closest('li.item-card');
             if (!li || li.classList.contains('is-editing')) return;
@@ -258,12 +289,14 @@ export function createReorderController(deps) {
             const startY = event.clientY;
             let dragActive = false;
             let isScrolling = false;
+            const usesLongPress = event.pointerType !== 'mouse';
 
             const preventScroll = (e) => {
                 if (dragActive) e.preventDefault();
             };
 
-            const longPressTimer = window.setTimeout(() => {
+            function beginDrag() {
+                if (dragActive) return;
                 dragActive = true;
                 triggerHapticFeedback();
                 document.body.classList.add('is-sorting');
@@ -271,7 +304,11 @@ export function createReorderController(deps) {
                 try {
                     li.setPointerCapture(event.pointerId);
                 } catch {}
-            }, TAB_REORDER_LONG_PRESS_MS);
+            }
+
+            const longPressTimer = usesLongPress
+                ? window.setTimeout(beginDrag, TAB_REORDER_LONG_PRESS_MS)
+                : 0;
 
             function getOtherItems() {
                 return Array.from(listEl.querySelectorAll('li.item-card:not(.is-dragging)'));
@@ -300,11 +337,21 @@ export function createReorderController(deps) {
                     const dy = Math.abs(moveEvent.clientY - startY);
                     if (dx > 5 || dy > 5) {
                         window.clearTimeout(longPressTimer);
-                        isScrolling = true;
+                        if (!usesLongPress) {
+                            if (dy >= dx) {
+                                beginDrag();
+                            } else {
+                                cleanup();
+                                return;
+                            }
+                        } else {
+                            isScrolling = true;
+                        }
                     }
-                    return;
+                    if (!dragActive) return;
                 }
 
+                moveEvent.preventDefault();
                 const currentY = moveEvent.clientY;
                 const ty = currentY - startY;
                 li.style.transform = `scale(1.01) rotate(-0.4deg) translateY(${ty}px)`;
@@ -345,6 +392,10 @@ export function createReorderController(deps) {
                 }
 
                 void persistItemOrder();
+                itemDragJustFinished = true;
+                window.setTimeout(() => {
+                    itemDragJustFinished = false;
+                }, 150);
             }
 
             function onAbort() {

@@ -389,7 +389,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 $validStmt = $db->prepare('SELECT id FROM categories WHERE user_id = :user_id');
                 $validStmt->execute([':user_id' => $userId]);
-                $validIds = array_column($validStmt->fetchAll(), 'id');
+                $validIds = array_map('intval', array_column($validStmt->fetchAll(), 'id'));
 
                 $filteredIds = [];
                 foreach ($orderIds as $rawId) {
