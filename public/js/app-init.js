@@ -25,8 +25,10 @@ export async function initApp(deps) {
         setNetworkStatus();
         applyViewState();
         state.mode = userPreferences.mode;
+        state.desktopLayout = userPreferences.desktop_layout;
         if (appEl) {
             appEl.dataset.mode = state.mode;
+            appEl.dataset.desktopLayout = state.desktopLayout;
         }
         deps.applyTabsVisibility(userPreferences.tabs_hidden);
         reorderController.initItemDragReorder();

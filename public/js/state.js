@@ -27,6 +27,7 @@ export const DEFAULT_PREFERENCES = {
     theme_mode: 'auto',
     light_theme: 'hafenblau',
     dark_theme: 'nachtwache',
+    desktop_layout: 'liste',
 };
 
 // Preferences, die gerätespezifisch in localStorage gespeichert werden
@@ -40,6 +41,7 @@ export const LOCAL_PREF_KEYS = [
     'theme_mode',
     'light_theme',
     'dark_theme',
+    'desktop_layout',
 ];
 const LOCAL_PREFS_STORAGE_KEY = 'ankerkladde_local_prefs';
 
@@ -84,6 +86,7 @@ export const state = {
     view: 'list',
     settingsTab: 'app',
     mode: 'liste',
+    desktopLayout: 'liste',
     editingId: null,
     editDraft: { name: '', barcode: '', quantity: '', due_date: '', content: '' },
     search: { open: false, query: '', results: [] },
@@ -148,6 +151,7 @@ export function normalizePreferences(preferences) {
         theme_mode: THEME_MODE_ORDER.includes(preferences?.theme_mode) ? preferences.theme_mode : 'auto',
         light_theme: validThemes.light.includes(rawLight) ? rawLight : 'hafenblau',
         dark_theme: validThemes.dark.includes(preferences?.dark_theme) ? preferences.dark_theme : 'nachtwache',
+        desktop_layout: ['liste', 'grid', 'kanban'].includes(preferences?.desktop_layout) ? preferences.desktop_layout : 'liste',
     };
 }
 
