@@ -1,239 +1,18 @@
 import { api } from './api.js?v=4.2.71';
 import { TAB_REORDER_LONG_PRESS_MS, state } from './state.js?v=4.2.71';
-import { listEl, sectionTabsEl } from './ui.js?v=4.2.71';
+import { listEl } from './ui.js?v=4.2.71';
 
 export function createReorderController(deps) {
     const {
-        applyTabsVisibility,
         cacheCurrentCategoryItems,
         getItemById,
-        getUserPreferences,
-        getVisibleCategories,
         invalidateCategoryCache,
-        loadCategories,
         loadItems,
-        renderCategoryTabs,
         setMessage,
         triggerHapticFeedback,
-        updateHeaders,
     } = deps;
 
-    let tabDragJustFinished = false;
     let itemDragJustFinished = false;
-
-    function wasTabDragJustFinished() {
-        return tabDragJustFinished;
-    }
-
-    function mergeDisplayedCategoryOrder(displayedIds) {
-        const visibleIds = getVisibleCategories().map(category => Number(category.id));
-        if (displayedIds.length === 0 || displayedIds.length >= visibleIds.length) {
-            return visibleIds;
-        }
-
-        const firstDisplayedIndex = visibleIds.findIndex(id => id === displayedIds[0]);
-        if (firstDisplayedIndex === -1) {
-            return visibleIds;
-        }
-
-        const displayedIdSet = new Set(displayedIds);
-        const remainingIds = visibleIds.filter(id => !displayedIdSet.has(id));
-
-        let insertionIndex = 0;
-        for (; insertionIndex < remainingIds.length; insertionIndex += 1) {
-            const originalIndex = visibleIds.findIndex(id => id === remainingIds[insertionIndex]);
-            if (originalIndex > firstDisplayedIndex) {
-                break;
-            }
-        }
-
-        return [
-            ...remainingIds.slice(0, insertionIndex),
-            ...displayedIds,
-            ...remainingIds.slice(insertionIndex),
-        ];
-    }
-
-    function updateCategoryOrderState(orderedIds) {
-        const positions = new Map(orderedIds.map((id, index) => [Number(id), index + 1]));
-        state.categories = [...state.categories]
-            .map(category => ({
-                ...category,
-                sort_order: positions.get(Number(category.id)) ?? category.sort_order,
-            }))
-            .sort((left, right) => left.sort_order - right.sort_order || left.id - right.id);
-    }
-
-    async function persistCategoryOrder(orderedIds) {
-        const hiddenIds = state.categories
-            .filter(category => Number(category.is_hidden) === 1)
-            .sort((left, right) => left.sort_order - right.sort_order || left.id - right.id)
-            .map(category => Number(category.id));
-        const allOrderedIds = [...orderedIds, ...hiddenIds];
-        const body = new URLSearchParams();
-        allOrderedIds.forEach(id => body.append('ids[]', String(id)));
-
-        try {
-            await api('categories_reorder', { method: 'POST', body });
-            updateCategoryOrderState(allOrderedIds);
-            renderCategoryTabs();
-            applyTabsVisibility(getUserPreferences().tabs_hidden);
-        } catch (error) {
-            await loadCategories();
-            updateHeaders();
-            setMessage(error instanceof Error ? error.message : 'Reihenfolge konnte nicht gespeichert werden.', true);
-        }
-    }
-
-    function initCategoryTabReorder() {
-        if (!sectionTabsEl) return;
-
-        sectionTabsEl.addEventListener('pointerdown', event => {
-            const tab = event.target.closest('.section-tab');
-            if (!tab || (event.button !== undefined && event.button !== 0)) return;
-
-            const startX = event.clientX;
-            const startY = event.clientY;
-            let dragActive = false;
-            let isScrolling = false;
-            let insertBefore = null;
-            const usesLongPress = event.pointerType !== 'mouse';
-
-            const preventScroll = (e) => {
-                if (dragActive) e.preventDefault();
-            };
-
-            function beginDrag() {
-                if (dragActive) return;
-                dragActive = true;
-                triggerHapticFeedback();
-                tab.classList.add('is-tab-dragging');
-                sectionTabsEl.classList.add('is-tab-reordering');
-                try {
-                    tab.setPointerCapture(event.pointerId);
-                } catch {}
-            }
-
-            const longPressTimer = usesLongPress
-                ? window.setTimeout(beginDrag, TAB_REORDER_LONG_PRESS_MS)
-                : 0;
-
-            function cleanup() {
-                window.clearTimeout(longPressTimer);
-                document.removeEventListener('pointermove', onMove);
-                document.removeEventListener('pointerup', onEnd);
-                document.removeEventListener('pointercancel', onAbort);
-                window.removeEventListener('touchmove', preventScroll, { capture: true });
-            }
-
-            function onMove(moveEvent) {
-                if (!dragActive) {
-                    if (isScrolling) {
-                        sectionTabsEl.scrollLeft -= moveEvent.movementX;
-                        return;
-                    }
-                    const dx = Math.abs(moveEvent.clientX - startX);
-                    const dy = Math.abs(moveEvent.clientY - startY);
-                    if (dx > 5 || dy > 5) {
-                        window.clearTimeout(longPressTimer);
-                        if (!usesLongPress && dx >= dy) {
-                            beginDrag();
-                            moveEvent.preventDefault();
-                            return onMove(moveEvent);
-                        } else if (!usesLongPress) {
-                            cleanup();
-                            return;
-                        }
-                        if (dx > dy) {
-                            isScrolling = true;
-                            sectionTabsEl.scrollLeft -= moveEvent.movementX;
-                        } else {
-                            cleanup();
-                        }
-                    }
-                    if (!dragActive) return;
-                }
-
-                moveEvent.preventDefault();
-                const currentX = moveEvent.clientX;
-                const tx = currentX - startX;
-                tab.style.transform = `translateX(${tx}px)`;
-                tab.style.zIndex = '1000';
-
-                const others = Array.from(sectionTabsEl.querySelectorAll('.section-tab:not(.is-tab-dragging)'));
-                others.forEach(other => other.classList.remove('tab-drop-before', 'tab-drop-after'));
-
-                insertBefore = null;
-                for (const other of others) {
-                    const rect = other.getBoundingClientRect();
-                    if (moveEvent.clientX < rect.left + rect.width / 2) {
-                        insertBefore = other;
-                        other.classList.add('tab-drop-before');
-                        break;
-                    }
-                }
-
-                if (!insertBefore && others.length > 0) {
-                    others[others.length - 1].classList.add('tab-drop-after');
-                }
-
-                tab._tabInsertBefore = insertBefore;
-            }
-
-            function onEnd() {
-                cleanup();
-
-                if (!dragActive) return;
-
-                tab.classList.remove('is-tab-dragging');
-                tab.style.transform = '';
-                tab.style.zIndex = '';
-                sectionTabsEl.classList.remove('is-tab-reordering');
-                Array.from(sectionTabsEl.querySelectorAll('.section-tab')).forEach(other => {
-                    other.classList.remove('tab-drop-before', 'tab-drop-after');
-                });
-
-                const insertBefore = tab._tabInsertBefore || null;
-                delete tab._tabInsertBefore;
-
-                if (insertBefore) {
-                    sectionTabsEl.insertBefore(tab, insertBefore);
-                } else {
-                    sectionTabsEl.appendChild(tab);
-                }
-
-                const displayedIds = Array.from(sectionTabsEl.querySelectorAll('.section-tab'))
-                    .map(button => Number(button.dataset.categoryId))
-                    .filter(Number.isInteger);
-                const orderedIds = mergeDisplayedCategoryOrder(displayedIds);
-
-                tabDragJustFinished = true;
-                window.setTimeout(() => {
-                    tabDragJustFinished = false;
-                }, 150);
-
-                void persistCategoryOrder(orderedIds);
-            }
-
-            function onAbort() {
-                cleanup();
-                if (!dragActive) return;
-                tab.classList.remove('is-tab-dragging');
-                tab.style.transform = '';
-                tab.style.zIndex = '';
-                sectionTabsEl.classList.remove('is-tab-reordering');
-                Array.from(sectionTabsEl.querySelectorAll('.section-tab')).forEach(other => {
-                    other.classList.remove('tab-drop-before', 'tab-drop-after');
-                });
-                delete tab._tabInsertBefore;
-            }
-
-            document.addEventListener('pointermove', onMove);
-            document.addEventListener('pointerup', onEnd);
-            document.addEventListener('pointercancel', onAbort);
-            window.addEventListener('touchmove', preventScroll, { passive: false, capture: true });
-        });
-    }
 
     async function persistItemOrder() {
         const orderedIds = Array.from(listEl.querySelectorAll('li.item-card'))
@@ -416,8 +195,6 @@ export function createReorderController(deps) {
     }
 
     return {
-        initCategoryTabReorder,
         initItemDragReorder,
-        wasTabDragJustFinished,
     };
 }

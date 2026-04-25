@@ -208,4 +208,51 @@ test.describe('Settings Theme Smoke Test', () => {
     await expect(settingsFrame.locator('form.settings-category-row', { hasText: categoryName })).toBeVisible();
     await expect(page.locator('.section-tab')).toContainText([categoryName]);
   });
+
+  test('bottom category bar scrolls on desktop and does not reorder categories', async ({ page }) => {
+    await page.setViewportSize({ width: 520, height: 900 });
+    await page.goto('/login.php');
+
+    await page.getByLabel('Benutzername').fill('playwright-user');
+    await page.getByLabel('Passwort').fill('playwright-pass');
+    await page.getByRole('button', { name: 'Anmelden' }).click();
+
+    await expect(page).toHaveURL(/index\.php/);
+    await expect(page.locator('.section-tab').first()).toBeVisible();
+
+    const sectionTabs = page.locator('#sectionTabs');
+    await expect(sectionTabs).toBeVisible();
+
+    await expect
+      .poll(async () => sectionTabs.evaluate(element => element.scrollWidth > element.clientWidth))
+      .toBe(true);
+
+    const beforeOrder = await page.locator('.section-tab').evaluateAll(tabs =>
+      tabs.map(tab => tab.getAttribute('aria-label'))
+    );
+
+    const box = await sectionTabs.boundingBox();
+    expect(box).not.toBeNull();
+
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.wheel(0, 360);
+    await expect.poll(async () => sectionTabs.evaluate(element => element.scrollLeft)).toBeGreaterThan(0);
+    await sectionTabs.evaluate(element => {
+      element.scrollLeft = 0;
+    });
+
+    const firstTab = page.locator('.section-tab').first();
+    const firstTabBox = await firstTab.boundingBox();
+    expect(firstTabBox).not.toBeNull();
+
+    await page.mouse.move(firstTabBox.x + firstTabBox.width / 2, firstTabBox.y + firstTabBox.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(firstTabBox.x + firstTabBox.width + 180, firstTabBox.y + firstTabBox.height / 2);
+    await page.mouse.up();
+
+    const afterOrder = await page.locator('.section-tab').evaluateAll(tabs =>
+      tabs.map(tab => tab.getAttribute('aria-label'))
+    );
+    expect(afterOrder).toEqual(beforeOrder);
+  });
 });

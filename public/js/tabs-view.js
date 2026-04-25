@@ -22,11 +22,11 @@ export function createTabsViewController(deps) {
     const {
         getTypeConfig,
         getVisibleCategories,
-        isTabDragJustFinished,
         onCategorySelect,
     } = deps;
 
     let scrollListenerAttached = false;
+    let wheelListenerAttached = false;
 
     function makeCategoryTab(category) {
         const button = document.createElement('button');
@@ -53,7 +53,6 @@ export function createTabsViewController(deps) {
 
         button.append(icon, label, dot);
         button.addEventListener('click', () => {
-            if (isTabDragJustFinished()) return;
             void onCategorySelect(category.id);
         });
         return button;
@@ -81,6 +80,31 @@ export function createTabsViewController(deps) {
         scrollListenerAttached = true;
     }
 
+    function ensureWheelListener() {
+        if (!sectionTabsEl || wheelListenerAttached) return;
+        sectionTabsEl.addEventListener('wheel', event => {
+            const maxScrollLeft = sectionTabsEl.scrollWidth - sectionTabsEl.clientWidth;
+            if (maxScrollLeft <= 1) return;
+
+            const primaryDelta = Math.abs(event.deltaY) >= Math.abs(event.deltaX)
+                ? event.deltaY
+                : event.deltaX;
+            if (primaryDelta === 0) return;
+
+            const previousScrollLeft = sectionTabsEl.scrollLeft;
+            sectionTabsEl.scrollLeft = Math.min(
+                Math.max(0, previousScrollLeft + primaryDelta),
+                maxScrollLeft
+            );
+
+            if (sectionTabsEl.scrollLeft !== previousScrollLeft) {
+                event.preventDefault();
+                queueScrollHintUpdate();
+            }
+        }, { passive: false });
+        wheelListenerAttached = true;
+    }
+
     function scrollActiveTabIntoView() {
         const activeTab = sectionTabsEl?.querySelector('.section-tab[aria-current="page"]');
         activeTab?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
@@ -90,6 +114,7 @@ export function createTabsViewController(deps) {
         if (!sectionTabsEl) return;
 
         ensureScrollListener();
+        ensureWheelListener();
         sectionTabsEl.replaceChildren();
         sectionTabsEl.classList.add('is-scrollable');
 

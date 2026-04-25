@@ -2104,19 +2104,6 @@ button, input { font: inherit; }
     flex: 0 0 48px;
 }
 
-.section-tab.is-tab-dragging {
-    opacity: 0.25;
-    pointer-events: none;
-}
-
-.section-tabs.is-tab-reordering {
-    cursor: grabbing;
-    user-select: none;
-}
-
-.section-tab.tab-drop-before { box-shadow: -2px 0 0 0 var(--accent); }
-.section-tab.tab-drop-after  { box-shadow:  2px 0 0 0 var(--accent); }
-
 .section-tab[aria-current="page"] {
     color: var(--text-primary);
     background: color-mix(in srgb, var(--accent) 15%, transparent);
@@ -2205,6 +2192,27 @@ button, input { font: inherit; }
 
     .section-label {
         font-size: 0.72rem;
+    }
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .section-tabs {
+        scrollbar-width: thin;
+        scrollbar-color: color-mix(in srgb, var(--text-secondary) 35%, transparent) transparent;
+    }
+
+    .section-tabs::-webkit-scrollbar {
+        display: block;
+        height: 6px;
+    }
+
+    .section-tabs::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .section-tabs::-webkit-scrollbar-thumb {
+        background: color-mix(in srgb, var(--text-secondary) 35%, transparent);
+        border-radius: 999px;
     }
 }
 

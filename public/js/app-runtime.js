@@ -162,7 +162,6 @@ export function createAppRuntime(deps) {
     tabsViewController = createTabsViewController({
         getTypeConfig,
         getVisibleCategories,
-        isTabDragJustFinished: () => reorderController?.wasTabDragJustFinished() ?? false,
         onCategorySelect: setCategory,
     });
 
