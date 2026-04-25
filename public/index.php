@@ -73,6 +73,8 @@ $productScannerEnabled = !array_key_exists('product_scanner_enabled', $userPrefe
 $shoppingListScannerEnabled = !array_key_exists('shopping_list_scanner_enabled', $userPreferences) || !empty($userPreferences['shopping_list_scanner_enabled']);
 $magicButtonEnabled = !array_key_exists('magic_button_enabled', $userPreferences) || !empty($userPreferences['magic_button_enabled']);
 $initialMode = ($userPreferences['mode'] ?? 'liste') === 'einkaufen' ? 'einkaufen' : 'liste';
+$clientWebSocketUrl = getenv('ANKERKLADDE_WS_CLIENT_URL');
+$clientWebSocketUrl = is_string($clientWebSocketUrl) ? trim($clientWebSocketUrl) : '';
 ?>
 <!DOCTYPE html>
 <html lang="de">
@@ -88,6 +90,9 @@ $initialMode = ($userPreferences['mode'] ?? 'liste') === 'einkaufen' ? 'einkaufe
     <meta name="app-base-path" content="<?= htmlspecialchars($appBasePath, ENT_QUOTES, 'UTF-8') ?>">
     <meta name="csrf-token" content="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
     <meta name="user-id" content="<?= htmlspecialchars((string)$userId, ENT_QUOTES, 'UTF-8') ?>">
+    <?php if ($clientWebSocketUrl !== ''): ?>
+    <meta name="websocket-url" content="<?= htmlspecialchars($clientWebSocketUrl, ENT_QUOTES, 'UTF-8') ?>">
+    <?php endif; ?>
     <link rel="manifest" href="manifest.php?v=<?= urlencode($assetVersion) ?>">
     <link rel="icon" type="image/png" href="icon.php?size=96&v=<?= urlencode($assetVersion) ?>">
     <link rel="apple-touch-icon" href="icon.php?size=180&v=<?= urlencode($assetVersion) ?>">

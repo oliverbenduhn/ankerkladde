@@ -107,7 +107,8 @@ export function createEditorController(deps) {
 
         ydoc = new Y.Doc();
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocol}//${window.location.host}/ws`;
+        const configuredWsUrl = document.querySelector('meta[name="websocket-url"]')?.content?.replace(/\/+$/, '');
+        const wsUrl = configuredWsUrl || `${protocol}//${window.location.host}/ws`;
 
         provider = new WebsocketProvider(wsUrl, `yjs/note/${item.id}`, ydoc);
 

@@ -2,6 +2,7 @@
   "name": "ankerkladde",
   "private": true,
   "scripts": {
+    "dev:demo": "bash scripts/demo-test-server.sh",
     "test:ui": "playwright test",
     "test:ui:headed": "playwright test --headed",
     "test:ui:debug": "playwright test --debug",

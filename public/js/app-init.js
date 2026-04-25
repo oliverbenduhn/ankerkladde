@@ -69,7 +69,9 @@ export async function registerServiceWorker(version) {
 export function initWebSocketServer(onUpdate) {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const userId = document.querySelector('meta[name="user-id"]')?.content || '';
-    const wsUrl = `${protocol}//${window.location.host}/ws/?uid=${encodeURIComponent(userId)}`;
+    const configuredWsUrl = document.querySelector('meta[name="websocket-url"]')?.content?.replace(/\/+$/, '');
+    const wsBaseUrl = configuredWsUrl || `${protocol}//${window.location.host}/ws`;
+    const wsUrl = `${wsBaseUrl}/?uid=${encodeURIComponent(userId)}`;
     let debounceTimer;
 
     function connect() {

@@ -427,6 +427,10 @@ function sendHtmlPageSecurityHeaders(bool $allowEsmSh = false, bool $allowSameOr
 
     $scriptSrc = "'self' 'unsafe-inline'";
     $connectSrc = "'self'";
+    $clientWebSocketUrl = getenv('ANKERKLADDE_WS_CLIENT_URL');
+    if (is_string($clientWebSocketUrl) && trim($clientWebSocketUrl) !== '') {
+        $connectSrc .= ' ' . trim($clientWebSocketUrl);
+    }
 
     if ($allowEsmSh) {
         // TipTap and its transitive ESM dependencies are loaded from esm.sh
