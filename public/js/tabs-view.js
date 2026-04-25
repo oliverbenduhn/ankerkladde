@@ -15,6 +15,7 @@ function appendCategoryIcon(container, category, fallbackIcon) {
     image.alt = '';
     image.decoding = 'async';
     image.loading = 'eager';
+    image.draggable = false;
     container.appendChild(image);
 }
 
@@ -27,11 +28,14 @@ export function createTabsViewController(deps) {
 
     let scrollListenerAttached = false;
     let wheelListenerAttached = false;
+    let dragScrollListenerAttached = false;
+    let tabDragScrollJustFinished = false;
 
     function makeCategoryTab(category) {
         const button = document.createElement('button');
         button.className = 'section-tab';
         button.type = 'button';
+        button.draggable = false;
         button.dataset.categoryId = String(category.id);
         button.setAttribute('aria-label', category.name);
         button.title = category.name;
@@ -53,6 +57,7 @@ export function createTabsViewController(deps) {
 
         button.append(icon, label, dot);
         button.addEventListener('click', () => {
+            if (tabDragScrollJustFinished) return;
             void onCategorySelect(category.id);
         });
         return button;
@@ -105,6 +110,70 @@ export function createTabsViewController(deps) {
         wheelListenerAttached = true;
     }
 
+    function ensureDragScrollListener() {
+        if (!sectionTabsEl || dragScrollListenerAttached) return;
+
+        sectionTabsEl.addEventListener('dragstart', event => {
+            event.preventDefault();
+        });
+
+        sectionTabsEl.addEventListener('pointerdown', event => {
+            if (event.button !== undefined && event.button !== 0) return;
+            const maxScrollLeft = sectionTabsEl.scrollWidth - sectionTabsEl.clientWidth;
+            if (maxScrollLeft <= 1) return;
+
+            const startX = event.clientX;
+            const startScrollLeft = sectionTabsEl.scrollLeft;
+            let isDragging = false;
+
+            function finishDragScroll() {
+                tabDragScrollJustFinished = true;
+                window.setTimeout(() => {
+                    tabDragScrollJustFinished = false;
+                }, 120);
+            }
+
+            function cleanup() {
+                document.removeEventListener('pointermove', onMove);
+                document.removeEventListener('pointerup', onEnd);
+                document.removeEventListener('pointercancel', onAbort);
+                sectionTabsEl.classList.remove('is-drag-scrolling');
+            }
+
+            function onMove(moveEvent) {
+                const dx = moveEvent.clientX - startX;
+                if (!isDragging && Math.abs(dx) > 4) {
+                    isDragging = true;
+                    sectionTabsEl.classList.add('is-drag-scrolling');
+                }
+                if (!isDragging) return;
+
+                moveEvent.preventDefault();
+                sectionTabsEl.scrollLeft = Math.min(
+                    Math.max(0, startScrollLeft - dx),
+                    maxScrollLeft
+                );
+                queueScrollHintUpdate();
+            }
+
+            function onEnd() {
+                cleanup();
+                if (isDragging) finishDragScroll();
+            }
+
+            function onAbort() {
+                cleanup();
+                if (isDragging) finishDragScroll();
+            }
+
+            document.addEventListener('pointermove', onMove);
+            document.addEventListener('pointerup', onEnd);
+            document.addEventListener('pointercancel', onAbort);
+        });
+
+        dragScrollListenerAttached = true;
+    }
+
     function scrollActiveTabIntoView() {
         const activeTab = sectionTabsEl?.querySelector('.section-tab[aria-current="page"]');
         activeTab?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
@@ -115,6 +184,7 @@ export function createTabsViewController(deps) {
 
         ensureScrollListener();
         ensureWheelListener();
+        ensureDragScrollListener();
         sectionTabsEl.replaceChildren();
         sectionTabsEl.classList.add('is-scrollable');
 

@@ -2046,6 +2046,8 @@ button, input { font: inherit; }
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
     scroll-padding: 10px;
+    cursor: grab;
+    user-select: none;
     box-shadow: 
         0 16px 32px -8px rgba(0, 0, 0, 0.12),
         0 4px 12px -2px rgba(0, 0, 0, 0.06);
@@ -2059,24 +2061,28 @@ button, input { font: inherit; }
     justify-content: flex-start;
 }
 
+.section-tabs.is-drag-scrolling {
+    cursor: grabbing;
+}
+
 .section-tabs.can-scroll-left {
     box-shadow:
-        inset 18px 0 16px -18px color-mix(in srgb, var(--text-primary) 55%, transparent),
+        inset 12px 0 12px -14px color-mix(in srgb, var(--text-primary) 45%, transparent),
         0 16px 32px -8px rgba(0, 0, 0, 0.12),
         0 4px 12px -2px rgba(0, 0, 0, 0.06);
 }
 
 .section-tabs.can-scroll-right {
     box-shadow:
-        inset -18px 0 16px -18px color-mix(in srgb, var(--text-primary) 55%, transparent),
+        inset -12px 0 12px -14px color-mix(in srgb, var(--text-primary) 45%, transparent),
         0 16px 32px -8px rgba(0, 0, 0, 0.12),
         0 4px 12px -2px rgba(0, 0, 0, 0.06);
 }
 
 .section-tabs.can-scroll-left.can-scroll-right {
     box-shadow:
-        inset 18px 0 16px -18px color-mix(in srgb, var(--text-primary) 55%, transparent),
-        inset -18px 0 16px -18px color-mix(in srgb, var(--text-primary) 55%, transparent),
+        inset 12px 0 12px -14px color-mix(in srgb, var(--text-primary) 45%, transparent),
+        inset -12px 0 12px -14px color-mix(in srgb, var(--text-primary) 45%, transparent),
         0 16px 32px -8px rgba(0, 0, 0, 0.12),
         0 4px 12px -2px rgba(0, 0, 0, 0.06);
 }
@@ -2135,6 +2141,8 @@ button, input { font: inherit; }
     height: 22px;
     object-fit: contain;
     filter: var(--tab-icon-filter);
+    -webkit-user-drag: none;
+    user-select: none;
 }
 
 .section-tab[aria-current="page"] .section-icon {
@@ -2192,27 +2200,6 @@ button, input { font: inherit; }
 
     .section-label {
         font-size: 0.72rem;
-    }
-}
-
-@media (hover: hover) and (pointer: fine) {
-    .section-tabs {
-        scrollbar-width: thin;
-        scrollbar-color: color-mix(in srgb, var(--text-secondary) 35%, transparent) transparent;
-    }
-
-    .section-tabs::-webkit-scrollbar {
-        display: block;
-        height: 6px;
-    }
-
-    .section-tabs::-webkit-scrollbar-track {
-        background: transparent;
-    }
-
-    .section-tabs::-webkit-scrollbar-thumb {
-        background: color-mix(in srgb, var(--text-secondary) 35%, transparent);
-        border-radius: 999px;
     }
 }
 
