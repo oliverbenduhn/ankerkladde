@@ -147,6 +147,7 @@ export function createAppRuntime(deps) {
         getUploadMode,
         getVisibleCategories,
         invalidateCategoryCache,
+        loadCategories,
         loadItems,
         makeUploadProgressCallback,
         openNoteEditorWithNavigation,
