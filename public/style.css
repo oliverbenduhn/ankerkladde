@@ -1794,6 +1794,126 @@ button, input { font: inherit; }
     }
 }
 
+/* ── Desktop Kästchenansicht ─────────────────────────────────── */
+@media (min-width: 900px) {
+    .app[data-desktop-layout="grid"] .list-area {
+        padding: 16px;
+    }
+
+    .app[data-desktop-layout="grid"] #list {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+        align-items: start;
+        gap: 12px;
+    }
+
+    /* Grundlayout der Karte im Grid: etwas weniger Pill, mehr Card */
+    .app[data-desktop-layout="grid"] .item-card {
+        border-radius: 14px;
+        padding: 12px 14px;
+    }
+
+    /* Bild-Karten: Thumbnail als Karten-Hero ──────────────────── */
+    .app[data-desktop-layout="grid"] .item-card.item-type-images {
+        flex-wrap: wrap;
+        padding: 0;
+        overflow: hidden;
+        gap: 0;
+    }
+
+    .app[data-desktop-layout="grid"] .item-card.item-type-images .item-content-image {
+        order: 0;
+        flex: 0 0 100%;
+        width: 100%;
+        flex-direction: column;
+        gap: 0;
+    }
+
+    .app[data-desktop-layout="grid"] .item-card.item-type-images .attachment-preview-link {
+        width: 100%;
+        height: 160px;
+        border-radius: 12px 12px 0 0;
+        flex-shrink: 0;
+    }
+
+    .app[data-desktop-layout="grid"] .item-card.item-type-images .attachment-image-preview {
+        object-fit: cover;
+    }
+
+    .app[data-desktop-layout="grid"] .item-card.item-type-images .attachment-preview-placeholder {
+        width: 100%;
+        height: 160px;
+        border-radius: 12px 12px 0 0;
+        font-size: 2.4rem;
+    }
+
+    .app[data-desktop-layout="grid"] .item-card.item-type-images .attachment-meta {
+        padding: 8px 12px;
+        flex: 1;
+        min-width: 0;
+    }
+
+    .app[data-desktop-layout="grid"] .item-card.item-type-images .toggle {
+        order: 1;
+        flex: 0 0 auto;
+        align-self: center;
+        padding: 0 0 12px 12px;
+    }
+
+    .app[data-desktop-layout="grid"] .item-card.item-type-images .item-actions {
+        order: 1;
+        flex: 0 0 auto;
+        align-self: center;
+        padding: 0 10px 12px 0;
+    }
+
+    /* Datei-Karten: Icon-Block als Karten-Hero ─────────────────── */
+    .app[data-desktop-layout="grid"] .item-card.item-type-files {
+        flex-wrap: wrap;
+        padding: 0;
+        overflow: hidden;
+        gap: 0;
+    }
+
+    .app[data-desktop-layout="grid"] .item-card.item-type-files .item-content-file {
+        order: 0;
+        flex: 0 0 100%;
+        width: 100%;
+        flex-direction: column;
+        align-items: center;
+        gap: 0;
+    }
+
+    .app[data-desktop-layout="grid"] .item-card.item-type-files .attachment-preview-placeholder {
+        width: 100%;
+        height: 100px;
+        border-radius: 12px 12px 0 0;
+        font-size: 2.2rem;
+    }
+
+    .app[data-desktop-layout="grid"] .item-card.item-type-files .attachment-meta {
+        padding: 8px 12px;
+        width: 100%;
+        flex: 1;
+        min-width: 0;
+    }
+
+    .app[data-desktop-layout="grid"] .item-card.item-type-files .toggle {
+        order: 1;
+        flex: 0 0 auto;
+        align-self: center;
+        padding: 0 0 12px 12px;
+    }
+
+    .app[data-desktop-layout="grid"] .item-card.item-type-files .item-actions {
+        order: 1;
+        flex: 0 0 auto;
+        align-self: center;
+        padding: 0 10px 12px 0;
+    }
+}
+/* ─────────────────────────────────────────────────────────────── */
+
 @media (max-width: 480px) {
     .app-header {
         position: relative;
