@@ -6,17 +6,22 @@ on:
 jobs:
   deploy-vps:
     runs-on: ubuntu-latest
+    permissions:
+      packages: write
     steps:
-      - name: Build on VPS and restart container
+      - name: Build on VPS, push to registry, restart container
         env:
           VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           mkdir -p ~/.ssh
           echo "$VPS_SSH_KEY" > ~/.ssh/vps_key
           chmod 600 ~/.ssh/vps_key
 
-          ssh -i ~/.ssh/vps_key -o StrictHostKeyChecking=no ansible@91.98.42.99 << 'DEPLOY'
+          ssh -i ~/.ssh/vps_key -o StrictHostKeyChecking=no ansible@91.98.42.99 "bash -s '$GHCR_TOKEN'" << 'DEPLOY'
           set -e
+          GHCR_TOKEN="$1"
+
           cd /tmp
           if [ -d deploy-temp ]; then
             cd deploy-temp && git pull origin main
@@ -26,6 +31,11 @@ jobs:
 
           docker build -t ghcr.io/oliverbenduhn/ankerkladde:latest .
           docker build -t ghcr.io/oliverbenduhn/ankerkladde/websocket:latest ./websocket-server
+
+          echo "$GHCR_TOKEN" | docker login ghcr.io -u oliverbenduhn --password-stdin
+          docker push ghcr.io/oliverbenduhn/ankerkladde:latest
+          docker push ghcr.io/oliverbenduhn/ankerkladde/websocket:latest
+          docker logout ghcr.io
 
           docker compose -f /opt/ankerkladde/docker-compose.yml up -d --force-recreate --pull never
 
@@ -67,9 +77,9 @@ jobs:
           ssh web << 'DEPLOY'
           cd /var/www/projects/ankerkladde
           git pull origin main
-          sudo rc-service php-fpm83 reload
+          sudo rc-service php-fpm83 reload || true
           DEPLOY
 
-          ssh vps-proxy curl -s -X POST http://localhost:3000/notify -H \"Content-Type: application/json\" -d \'{\"action\":\"version_update\"}\' || true
+          ssh vps-proxy curl -s -X POST http://localhost:3000/notify -H "Content-Type: application/json" -d '{"action":"version_update"}' || true
 
           rm ~/.ssh/vps_key ~/.ssh/web_key
