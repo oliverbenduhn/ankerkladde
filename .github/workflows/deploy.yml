@@ -37,7 +37,8 @@ jobs:
           docker push ghcr.io/oliverbenduhn/ankerkladde/websocket:latest
           docker logout ghcr.io
 
-          docker compose -f /opt/ankerkladde/docker-compose.yml down && docker compose -f /opt/ankerkladde/docker-compose.yml up -d --pull never
+          docker rm -f ankerkladde ankerkladde_websocket 2>/dev/null || true
+          docker compose -f /opt/ankerkladde/docker-compose.yml up -d --pull never
 
           sleep 2
           curl -s -X POST http://localhost:3000/notify -H "Content-Type: application/json" -d '{"action":"version_update"}' || true
