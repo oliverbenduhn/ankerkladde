@@ -1,7 +1,7 @@
 'use strict';
 
-const VERSION = 'v4.2.91';
-const ASSET_VERSION = '4.2.91';
+const VERSION = 'v4.2.92';
+const ASSET_VERSION = '4.2.92';
 const STATIC_CACHE = `ankerkladde-static-${VERSION}`;
 const RUNTIME_CACHE = `ankerkladde-runtime-${VERSION}`;
 const SHARE_CACHE = 'ankerkladde-share-target';
@@ -52,6 +52,51 @@ const APP_SHELL_ASSET_URLS = [
     `icon.php?size=384&v=${ASSET_VERSION}`,
     `icon.php?size=512&v=${ASSET_VERSION}`,
 ].map(path => new URL(path, APP_SCOPE_URL).toString());
+
+const WINDOWS_1252_REVERSE_MAP = new Map([
+    ['€', 0x80], ['‚', 0x82], ['ƒ', 0x83], ['„', 0x84], ['…', 0x85],
+    ['†', 0x86], ['‡', 0x87], ['ˆ', 0x88], ['‰', 0x89], ['Š', 0x8A],
+    ['‹', 0x8B], ['Œ', 0x8C], ['Ž', 0x8E], ['‘', 0x91], ['’', 0x92],
+    ['“', 0x93], ['”', 0x94], ['•', 0x95], ['–', 0x96], ['—', 0x97],
+    ['˜', 0x98], ['™', 0x99], ['š', 0x9A], ['›', 0x9B], ['œ', 0x9C],
+    ['ž', 0x9E], ['Ÿ', 0x9F],
+]);
+
+const UTF8_MOJIBAKE_MARKERS = /(?:Ã.|Â.|â.|ð.|Ð.|Ñ.|Þ.|ß.)/u;
+const UTF8_MOJIBAKE_COUNT_PATTERN = /Ã|Â|â|ð|Ð|Ñ|Þ|ß/gu;
+
+function countUtf8MojibakeMarkers(value) {
+    return (value.match(UTF8_MOJIBAKE_COUNT_PATTERN) || []).length;
+}
+
+function windows1252ByteForChar(char) {
+    const codePoint = char.codePointAt(0);
+    if (codePoint === undefined) return null;
+    if (codePoint <= 0xFF) return codePoint;
+    return WINDOWS_1252_REVERSE_MAP.get(char) ?? null;
+}
+
+function repairUtf8Mojibake(value) {
+    if (typeof value !== 'string' || value === '' || !UTF8_MOJIBAKE_MARKERS.test(value)) {
+        return value;
+    }
+
+    const bytes = [];
+    for (const char of value) {
+        const byte = windows1252ByteForChar(char);
+        if (byte === null) {
+            return value;
+        }
+        bytes.push(byte);
+    }
+
+    try {
+        const repaired = new TextDecoder('utf-8', { fatal: true }).decode(new Uint8Array(bytes));
+        return countUtf8MojibakeMarkers(repaired) < countUtf8MojibakeMarkers(value) ? repaired : value;
+    } catch {
+        return value;
+    }
+}
 
 self.addEventListener('install', event => {
     event.waitUntil(
@@ -141,30 +186,11 @@ async function handleShareTargetPost(request) {
         }));
         redirectUrl.searchParams.set('share', 'file');
     } else {
-        // Repariere häufige Mojibake-Patterns (UTF-8 als ISO-8859-1 interpretiert)
-        const repairMojibake = (str) => {
-            if (typeof str !== 'string') return str;
-            // Häufige Umlaute-Mappings: Ã + Umlaut-Zeichen → ä,ö,ü,Ä,Ö,Ü,ß
-            const replacements = {
-                'Ã¤': 'ä', 'Ã¶': 'ö', 'Ã¼': 'ü',
-                'Ã„': 'Ä', 'Ã–': 'Ö', 'Ã›': 'Ü',
-                'Ã ': 'à', 'Ã©': 'é', 'Ã¨': 'è',
-                'Ã¡': 'á', 'Ã­': 'í', 'Ã³': 'ó',
-                'Ã²': 'ò', 'Ã±': 'ñ', 'Ã§': 'ç',
-                'ÃŸ': 'ß', 'Â°': '°',
-            };
-            let result = str;
-            for (const [mojibake, correct] of Object.entries(replacements)) {
-                result = result.split(mojibake).join(correct);
-            }
-            return result;
-        };
-
         const cache = await caches.open(SHARE_CACHE);
         await cache.put('pending-share', new Response(JSON.stringify({
-            title: repairMojibake(String(title)),
-            text: repairMojibake(String(text)),
-            url: repairMojibake(String(sharedUrl)),
+            title: repairUtf8Mojibake(String(title)),
+            text: repairUtf8Mojibake(String(text)),
+            url: repairUtf8Mojibake(String(sharedUrl)),
         }), {
             headers: {
                 'Content-Type': 'application/json; charset=UTF-8',
