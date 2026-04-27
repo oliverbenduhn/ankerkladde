@@ -164,12 +164,11 @@ export function createItemsActionsController(deps) {
             }
         }
 
-        const body = new URLSearchParams({
-            category_id: String(category.id),
-            name: url,
-            content: description,
+        await api('add', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ category_id: category.id, name: url, content: description })
         });
-        await api('add', { method: 'POST', body });
         invalidateCategoryCache(category.id);
         await loadItems(category.id, { useCache: false });
         setMessage('Link gespeichert.');
@@ -192,8 +191,11 @@ export function createItemsActionsController(deps) {
                 .join('')
             : '';
 
-        const body = new URLSearchParams({ category_id: String(category.id), name: noteName, content: noteContent });
-        const payload = await api('add', { method: 'POST', body });
+        const payload = await api('add', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ category_id: category.id, name: noteName, content: noteContent })
+        });
         invalidateCategoryCache(category.id);
         await loadItems(category.id, { useCache: false });
 
