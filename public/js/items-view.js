@@ -222,6 +222,30 @@ export function createItemsViewController(deps) {
                 link.textContent = item.name;
                 content.appendChild(link);
             }
+        } else if (type === 'notes') {
+            content.classList.add('item-content-note');
+
+            if (item.content) {
+                const meta = document.createElement('div');
+                meta.className = 'item-note-meta';
+
+                const title = document.createElement('span');
+                title.className = 'item-name item-note-title';
+                title.textContent = item.name;
+                meta.appendChild(title);
+
+                const notePreview = document.createElement('span');
+                notePreview.className = 'item-note-preview';
+                notePreview.textContent = item.content;
+                meta.appendChild(notePreview);
+
+                content.appendChild(meta);
+            } else {
+                const title = document.createElement('span');
+                title.className = 'item-name';
+                title.textContent = item.name;
+                content.appendChild(title);
+            }
         } else {
             const nameEl = item.category_type === 'list_due_date'
                 ? document.createElement('button')

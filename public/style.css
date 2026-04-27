@@ -805,6 +805,30 @@ button, input { font: inherit; }
     overflow-wrap: anywhere;
 }
 
+.item-note-meta {
+    min-width: 0;
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.item-note-meta .item-name {
+    flex: none;
+}
+
+.item-note-preview {
+    color: var(--text-secondary);
+    font-size: 0.82rem;
+    line-height: 1.35;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
 .item-note-details {
     margin-top: 0;
 }
