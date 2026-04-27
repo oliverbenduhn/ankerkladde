@@ -1,7 +1,7 @@
 'use strict';
 
-const VERSION = 'v4.2.88';
-const ASSET_VERSION = '4.2.88';
+const VERSION = 'v4.2.89';
+const ASSET_VERSION = '4.2.89';
 const STATIC_CACHE = `ankerkladde-static-${VERSION}`;
 const RUNTIME_CACHE = `ankerkladde-runtime-${VERSION}`;
 const SHARE_CACHE = 'ankerkladde-share-target';
@@ -141,11 +141,27 @@ async function handleShareTargetPost(request) {
         }));
         redirectUrl.searchParams.set('share', 'file');
     } else {
+        // Konvertiere möglicherweise fehlerhaft dekodierte Strings (z.B. von Google Keep mit ISO-8859-1)
+        const fixEncoding = (str) => {
+            if (typeof str !== 'string') return str;
+            // Wenn der String Mojibake-Zeichen wie "Ã¤" enthält, versuche zu korrigieren
+            if (str.match(/Ã[¤¶¼ÄÖÜ]/)) {
+                try {
+                    // Interpretiere als UTF-8-Bytes die als ISO-8859-1 dekodiert wurden
+                    const bytes = new TextEncoder().encode(str);
+                    return new TextDecoder('utf-8').decode(bytes);
+                } catch (e) {
+                    return str;
+                }
+            }
+            return str;
+        };
+
         const cache = await caches.open(SHARE_CACHE);
         await cache.put('pending-share', new Response(JSON.stringify({
-            title: String(title),
-            text: String(text),
-            url: String(sharedUrl),
+            title: fixEncoding(String(title)),
+            text: fixEncoding(String(text)),
+            url: fixEncoding(String(sharedUrl)),
         }), {
             headers: {
                 'Content-Type': 'application/json; charset=UTF-8',
