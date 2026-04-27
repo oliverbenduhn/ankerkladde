@@ -93,10 +93,25 @@ function requireMethod(string $expectedMethod): void
     }
 }
 
+function ensureUtf8(mixed $value): mixed
+{
+    if (is_string($value)) {
+        // Check if string is UTF-8; if not, convert from ISO-8859-1 to UTF-8
+        if (!mb_check_encoding($value, 'UTF-8')) {
+            return mb_convert_encoding($value, 'UTF-8', 'ISO-8859-1');
+        }
+        return $value;
+    }
+    if (is_array($value)) {
+        return array_map('ensureUtf8', $value);
+    }
+    return $value;
+}
+
 function requestData(): array
 {
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && $_POST !== []) {
-        return $_POST;
+        return ensureUtf8($_POST);
     }
 
     $raw = file_get_contents('php://input');
