@@ -141,20 +141,34 @@ async function handleShareTargetPost(request) {
         }));
         redirectUrl.searchParams.set('share', 'file');
     } else {
-        // Konvertiere möglicherweise fehlerhaft dekodierte Strings (z.B. von Google Keep mit ISO-8859-1)
+        // Konvertiere möglicherweise fehlerhaft dekodierte Strings
         const fixEncoding = (str) => {
             if (typeof str !== 'string') return str;
-            // Wenn der String Mojibake-Zeichen wie "Ã¤" enthält, versuche zu korrigieren
-            if (str.match(/Ã[¤¶¼ÄÖÜ]/)) {
-                try {
-                    // Interpretiere als UTF-8-Bytes die als ISO-8859-1 dekodiert wurden
-                    const bytes = new TextEncoder().encode(str);
-                    return new TextDecoder('utf-8').decode(bytes);
-                } catch (e) {
-                    return str;
+            try {
+                // Überprüfe, ob Mojibake-Zeichen vorhanden sind (UTF-8 als ISO-8859-1 interpretiert)
+                // Z.B. "ä" (U+00E4) → UTF-8: C3 A4 → als ISO-8859-1: "Ã¤"
+                const isMojibake = /[\xC0-\xFF][\x80-\xBF]/.test(str);
+                if (!isMojibake) return str;
+
+                // Re-encode als ISO-8859-1 zu UTF-8
+                const encoder = new TextEncoder();
+                const decoder = new TextDecoder('utf-8');
+
+                // Erstelle einen neuen String, der die ISO-8859-1 Bytes als UTF-8 interpretiert
+                let bytes = [];
+                for (let i = 0; i < str.length; i++) {
+                    const code = str.charCodeAt(i);
+                    if (code > 0xFF) {
+                        bytes.push(code >> 8, code & 0xFF);
+                    } else {
+                        bytes.push(code);
+                    }
                 }
+                const uint8Array = new Uint8Array(bytes);
+                return decoder.decode(uint8Array);
+            } catch (e) {
+                return str;
             }
-            return str;
         };
 
         const cache = await caches.open(SHARE_CACHE);
