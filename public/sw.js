@@ -1,7 +1,7 @@
 'use strict';
 
-const VERSION = 'v4.2.94';
-const ASSET_VERSION = '4.2.94';
+const VERSION = 'v4.2.95';
+const ASSET_VERSION = '4.2.95';
 const STATIC_CACHE = `ankerkladde-static-${VERSION}`;
 const RUNTIME_CACHE = `ankerkladde-runtime-${VERSION}`;
 const SHARE_CACHE = 'ankerkladde-share-target';
@@ -160,29 +160,6 @@ self.addEventListener('message', event => {
     }
 });
 
-// Repariere UTF-8 Mojibake (wenn UTF-8 Bytes als ISO-8859-1 interpretiert wurden)
-function repairUtf8Mojibake(str) {
-    if (typeof str !== 'string' || str.length === 0) return str;
-    try {
-        // Konvertiere String zu UTF-8 Bytes
-        const encoder = new TextEncoder();
-        const bytes = encoder.encode(str);
-
-        // Dekodiere als UTF-8 - wenn der String mojibake ist,
-        // werden die falschen Bytes zu den richtigen Zeichen dekodiert
-        const decoder = new TextDecoder('utf-8');
-        const result = decoder.decode(bytes);
-
-        // Überprüfe, ob eine Änderung stattgefunden hat
-        if (result !== str) {
-            console.log('[SW] UTF-8 Mojibake repariert:', str, '→', result);
-        }
-        return result;
-    } catch (e) {
-        console.log('[SW] UTF-8 Reparatur fehlgeschlagen:', e);
-        return str;
-    }
-}
 
 self.addEventListener('fetch', event => {
     const request = event.request;
