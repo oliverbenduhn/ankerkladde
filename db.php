@@ -153,6 +153,7 @@ function getDatabase(): PDO
     $db->exec('PRAGMA busy_timeout = 3000');
     $db->exec('PRAGMA journal_mode = WAL');
     $db->exec('PRAGMA foreign_keys = ON');
+    $db->exec("PRAGMA encoding = 'UTF-8'");
 
     $db->exec(
         "CREATE TABLE IF NOT EXISTS database_meta (
