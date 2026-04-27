@@ -236,7 +236,10 @@ export function createItemsViewController(deps) {
 
                 const notePreview = document.createElement('span');
                 notePreview.className = 'item-note-preview';
-                notePreview.textContent = item.content;
+                // Strip HTML tags: create a temporary element, set innerHTML, extract textContent
+                const tempEl = document.createElement('div');
+                tempEl.innerHTML = item.content;
+                notePreview.textContent = tempEl.textContent;
                 meta.appendChild(notePreview);
 
                 content.appendChild(meta);
