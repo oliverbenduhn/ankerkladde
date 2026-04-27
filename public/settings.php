@@ -546,6 +546,13 @@ $currentTab = $_GET['tab'] ?? ($passwordChangeRequired ? 'password' : 'app');
 $isEmbedded = isset($_GET['embed']) && $_GET['embed'] === '1';
 $settingsAction = appPath('settings.php' . ($isEmbedded ? '?embed=1&tab=' . rawurlencode((string) $currentTab) : ''));
 $assetVersion = require __DIR__ . '/version.php';
+
+// Extract Service Worker version
+$swVersion = '';
+$swContent = file_get_contents(__DIR__ . '/sw.js');
+if ($swContent && preg_match("/const\s+VERSION\s*=\s*['\"]([^'\"]+)['\"]/", $swContent, $matches)) {
+    $swVersion = $matches[1];
+}
 ?>
 <!DOCTYPE html>
 <html lang="de">
@@ -981,6 +988,9 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
         <div class="settings-block">
             <p class="settings-copy">Angemeldet als <strong><?= htmlspecialchars((string) ($currentUser['username'] ?? 'unbekannt'), ENT_QUOTES, 'UTF-8') ?></strong>.</p>
             <p class="settings-copy">App: <?= htmlspecialchars($assetVersion, ENT_QUOTES, 'UTF-8') ?></p>
+            <?php if ($swVersion): ?>
+            <p class="settings-copy">Service Worker: <?= htmlspecialchars($swVersion, ENT_QUOTES, 'UTF-8') ?></p>
+            <?php endif; ?>
             <p class="settings-copy">PHP: <?= htmlspecialchars(PHP_VERSION, ENT_QUOTES, 'UTF-8') ?></p>
             <p class="settings-copy">SQLite: <?= htmlspecialchars((string) $db->query('SELECT sqlite_version()')->fetchColumn(), ENT_QUOTES, 'UTF-8') ?></p>
             <a href="<?= htmlspecialchars(appPath('logout.php'), ENT_QUOTES, 'UTF-8') ?>" class="settings-link" target="_top">Abmelden</a>
