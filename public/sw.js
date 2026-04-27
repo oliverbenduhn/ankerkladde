@@ -1,7 +1,7 @@
 'use strict';
 
-const VERSION = 'v4.2.92';
-const ASSET_VERSION = '4.2.92';
+const VERSION = 'v4.2.93';
+const ASSET_VERSION = '4.2.93';
 const STATIC_CACHE = `ankerkladde-static-${VERSION}`;
 const RUNTIME_CACHE = `ankerkladde-runtime-${VERSION}`;
 const SHARE_CACHE = 'ankerkladde-share-target';
@@ -62,12 +62,8 @@ const WINDOWS_1252_REVERSE_MAP = new Map([
     ['ž', 0x9E], ['Ÿ', 0x9F],
 ]);
 
-const UTF8_MOJIBAKE_MARKERS = /(?:Ã.|Â.|â.|ð.|Ð.|Ñ.|Þ.|ß.)/u;
-const UTF8_MOJIBAKE_COUNT_PATTERN = /Ã|Â|â|ð|Ð|Ñ|Þ|ß/gu;
-
-function countUtf8MojibakeMarkers(value) {
-    return (value.match(UTF8_MOJIBAKE_COUNT_PATTERN) || []).length;
-}
+const UTF8_MOJIBAKE_LEAD_BYTES = /[Â-ô]/u;
+const UTF8_DECODER = new TextDecoder('utf-8', { fatal: true });
 
 function windows1252ByteForChar(char) {
     const codePoint = char.codePointAt(0);
@@ -77,25 +73,52 @@ function windows1252ByteForChar(char) {
 }
 
 function repairUtf8Mojibake(value) {
-    if (typeof value !== 'string' || value === '' || !UTF8_MOJIBAKE_MARKERS.test(value)) {
+    if (typeof value !== 'string' || value === '' || !UTF8_MOJIBAKE_LEAD_BYTES.test(value)) {
         return value;
     }
 
-    const bytes = [];
-    for (const char of value) {
-        const byte = windows1252ByteForChar(char);
-        if (byte === null) {
-            return value;
+    const chars = Array.from(value);
+    let repaired = '';
+    let changed = false;
+
+    for (let index = 0; index < chars.length; index += 1) {
+        const firstByte = windows1252ByteForChar(chars[index]);
+        const expectedLength = firstByte >= 0xC2 && firstByte <= 0xDF ? 2
+            : firstByte >= 0xE0 && firstByte <= 0xEF ? 3
+            : firstByte >= 0xF0 && firstByte <= 0xF4 ? 4
+            : 0;
+
+        if (expectedLength === 0 || index + expectedLength > chars.length) {
+            repaired += chars[index];
+            continue;
         }
-        bytes.push(byte);
+
+        const bytes = [firstByte];
+        let isUtf8Sequence = true;
+        for (let offset = 1; offset < expectedLength; offset += 1) {
+            const continuationByte = windows1252ByteForChar(chars[index + offset]);
+            if (continuationByte === null || continuationByte < 0x80 || continuationByte > 0xBF) {
+                isUtf8Sequence = false;
+                break;
+            }
+            bytes.push(continuationByte);
+        }
+
+        if (!isUtf8Sequence) {
+            repaired += chars[index];
+            continue;
+        }
+
+        try {
+            repaired += UTF8_DECODER.decode(new Uint8Array(bytes));
+            index += expectedLength - 1;
+            changed = true;
+        } catch {
+            repaired += chars[index];
+        }
     }
 
-    try {
-        const repaired = new TextDecoder('utf-8', { fatal: true }).decode(new Uint8Array(bytes));
-        return countUtf8MojibakeMarkers(repaired) < countUtf8MojibakeMarkers(value) ? repaired : value;
-    } catch {
-        return value;
-    }
+    return changed ? repaired : value;
 }
 
 self.addEventListener('install', event => {
