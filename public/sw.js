@@ -1,7 +1,7 @@
 'use strict';
 
-const VERSION = 'v4.3.1';
-const ASSET_VERSION = '4.3.1';
+const VERSION = 'v4.3.2';
+const ASSET_VERSION = '4.3.2';
 const STATIC_CACHE = `ankerkladde-static-${VERSION}`;
 const RUNTIME_CACHE = `ankerkladde-runtime-${VERSION}`;
 const SHARE_CACHE = 'ankerkladde-share-target';
@@ -72,6 +72,9 @@ const W1252_TO_BYTE = new Map([
  */
 function fixFormDataEncoding(value) {
     if (typeof value !== 'string' || value === '') return value;
+    if (!/[ÃÂâ][\u0080-\u00BF\u20AC\u201A-\u201E\u2013-\u201D\u2020-\u2022\u02C6\u2030\u2039\u0152\u017D\u02DC\u2122\u0161\u203A\u0153\u017E\u0178]/.test(value)) {
+        return value;
+    }
 
     const bytes = new Uint8Array(value.length);
     for (let i = 0; i < value.length; i++) {
