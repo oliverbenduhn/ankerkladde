@@ -1,11 +1,11 @@
-import { CATEGORY_SWIPE_THRESHOLD_PX, state } from './state.js?v=4.3.2';
+import { CATEGORY_SWIPE_THRESHOLD_PX, state } from './state.js?v=4.3.3';
 import {
     listAreaEl,
     listSwipePreviewEl,
     listSwipePreviewHeaderEl,
     listSwipePreviewListEl,
     listSwipeStageEl,
-} from './ui.js?v=4.3.2';
+} from './ui.js?v=4.3.3';
 
 export function createSwipeController(deps) {
     const {

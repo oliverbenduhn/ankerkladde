@@ -1,8 +1,8 @@
-import { isNotesCategory, state } from './state.js?v=4.3.2';
-import { clearDoneBtn, listEl, progressEl, svgIcon } from './ui.js?v=4.3.2';
-import { normalizeBarcodeValue, syncAutoHeight } from './utils.js?v=4.3.2';
-import { createLightboxController } from './lightbox.js?v=4.3.2';
-import { createItemMenuController } from './item-menu.js?v=4.3.2';
+import { isNotesCategory, state } from './state.js?v=4.3.3';
+import { clearDoneBtn, listEl, progressEl, svgIcon } from './ui.js?v=4.3.3';
+import { normalizeBarcodeValue, syncAutoHeight } from './utils.js?v=4.3.3';
+import { createLightboxController } from './lightbox.js?v=4.3.3';
+import { createItemMenuController } from './item-menu.js?v=4.3.3';
 
 export function createItemsViewController(deps) {
     const {
@@ -48,6 +48,28 @@ export function createItemsViewController(deps) {
 
     function getAttachmentTitle(item) {
         return item.name || item.attachmentOriginalName || 'Anhang';
+    }
+
+    function repairPreviewEncoding(value) {
+        if (typeof value !== 'string' || value === '') return value;
+
+        const bytes = new Uint8Array(value.length);
+        for (let i = 0; i < value.length; i++) {
+            const code = value.charCodeAt(i);
+            if (code > 0xFF) return value;
+            bytes[i] = code;
+        }
+
+        try {
+            const decoded = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+            return mojibakeScore(decoded) < mojibakeScore(value) ? decoded : value;
+        } catch {
+            return value;
+        }
+    }
+
+    function mojibakeScore(value) {
+        return (value.match(/[ÃÂâ][\u0080-\u00BF\u20AC\u201A-\u201E\u2013-\u201D\u2020-\u2022\u02C6\u2030\u2039\u0152\u017D\u02DC\u2122\u0161\u203A\u0153\u017E\u0178]?/g) || []).length;
     }
 
     function openItemMenu(item) {
@@ -239,7 +261,7 @@ export function createItemsViewController(deps) {
                 // Strip HTML tags: create a temporary element, set innerHTML, extract textContent
                 const tempEl = document.createElement('div');
                 tempEl.innerHTML = item.content;
-                notePreview.textContent = tempEl.textContent;
+                notePreview.textContent = repairPreviewEncoding(tempEl.textContent);
                 meta.appendChild(notePreview);
 
                 content.appendChild(meta);

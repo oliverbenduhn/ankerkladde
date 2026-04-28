@@ -1,9 +1,9 @@
-import { registerAppEventHandlers } from './app-events.js?v=4.3.2';
-import { initApp, registerServiceWorker, initWebSocketServer } from './app-init.js?v=4.3.2';
-import { createAppRuntime } from './app-runtime.js?v=4.3.2';
-import { readInitialPreferences, state } from './state.js?v=4.3.2';
-import { applyThemePreferences } from './theme.js?v=4.3.2';
-import { modeToggleBtns, desktopLayoutBtns } from './ui.js?v=4.3.2';
+import { registerAppEventHandlers } from './app-events.js?v=4.3.3';
+import { initApp, registerServiceWorker, initWebSocketServer } from './app-init.js?v=4.3.3';
+import { createAppRuntime } from './app-runtime.js?v=4.3.3';
+import { readInitialPreferences, state } from './state.js?v=4.3.3';
+import { applyThemePreferences } from './theme.js?v=4.3.3';
+import { modeToggleBtns, desktopLayoutBtns } from './ui.js?v=4.3.3';
 
 export function startApp(version) {
     let userPreferences = readInitialPreferences();
