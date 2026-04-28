@@ -1,4 +1,4 @@
-import { getCurrentCategory, getCurrentType, getTypeConfig, isAttachmentCategory, state } from './state.js?v=4.2.96';
+import { getCurrentCategory, getCurrentType, getTypeConfig, isAttachmentCategory, state } from './state.js?v=4.2.97';
 import {
     cameraBtn,
     diskFreeEl,
@@ -31,8 +31,8 @@ import {
     urlImportInput,
     magicBar,
     magicBtns,
-} from './ui.js?v=4.2.96';
-import { syncAutoHeight } from './utils.js?v=4.2.96';
+} from './ui.js?v=4.2.97';
+import { syncAutoHeight } from './utils.js?v=4.2.97';
 
 export function createAppUiController(deps = {}) {
     const { getUserPreferences = () => ({}), getPendingCount = () => 0, onSyncClick = () => {} } = deps;

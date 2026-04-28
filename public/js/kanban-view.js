@@ -1,5 +1,5 @@
-import { state } from './state.js?v=4.2.96';
-import { listAreaEl, listEl, progressEl, clearDoneBtn } from './ui.js?v=4.2.96';
+import { state } from './state.js?v=4.2.97';
+import { listAreaEl, listEl, progressEl, clearDoneBtn } from './ui.js?v=4.2.97';
 
 const COLUMNS = [
     { key: 'offen',      label: 'Offen',      icon: '○' },
