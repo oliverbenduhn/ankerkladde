@@ -1,7 +1,7 @@
 'use strict';
 
-const VERSION = 'v4.2.97';
-const ASSET_VERSION = '4.2.97';
+const VERSION = 'v4.2.98';
+const ASSET_VERSION = '4.2.98';
 const STATIC_CACHE = `ankerkladde-static-${VERSION}`;
 const RUNTIME_CACHE = `ankerkladde-runtime-${VERSION}`;
 const SHARE_CACHE = 'ankerkladde-share-target';
@@ -61,14 +61,14 @@ const APP_SHELL_ASSET_URLS = [
  */
 function parseMultipartTextFields(bodyText, boundary) {
     const result = new Map();
-    const delimiter = ‘--’ + boundary;
+    const delimiter = '--' + boundary;
     const sections = bodyText.split(delimiter);
 
     for (const section of sections) {
-        if (!section || section.trimStart().startsWith(‘--’)) continue;
+        if (!section || section.trimStart().startsWith('--')) continue;
 
-        const content = section.startsWith(‘\r\n’) ? section.substring(2) : section;
-        const separatorIndex = content.indexOf(‘\r\n\r\n’);
+        const content = section.startsWith('\r\n') ? section.substring(2) : section;
+        const separatorIndex = content.indexOf('\r\n\r\n');
         if (separatorIndex === -1) continue;
 
         const headerBlock = content.substring(0, separatorIndex);
@@ -81,7 +81,7 @@ function parseMultipartTextFields(bodyText, boundary) {
 
         let value = content.substring(separatorIndex + 4);
         // Strip trailing \r\n (appears before the next boundary)
-        if (value.endsWith(‘\r\n’)) {
+        if (value.endsWith('\r\n')) {
             value = value.slice(0, -2);
         }
 
@@ -91,7 +91,7 @@ function parseMultipartTextFields(bodyText, boundary) {
     return result;
 }
 
-self.addEventListener(‘install’, event => {
+self.addEventListener('install', event => {
     event.waitUntil(
         caches.open(STATIC_CACHE)
             .then(cache => {
