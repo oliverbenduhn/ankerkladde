@@ -1,6 +1,6 @@
-import { api } from './api.js?v=4.3.3';
-import { state } from './state.js?v=4.3.3';
-import { appEl, todoEditorEl, todoTitleInput, todoDateInput, todoNoteInput } from './ui.js?v=4.3.3';
+import { api } from './api.js?v=4.3.4';
+import { state } from './state.js?v=4.3.4';
+import { appEl, todoEditorEl, todoTitleInput, todoDateInput, todoNoteInput } from './ui.js?v=4.3.4';
 
 export function createTodoEditorController(deps) {
     const { invalidateCategoryCache, loadItems } = deps;

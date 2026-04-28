@@ -1,4 +1,4 @@
-import { LOCAL_PREF_KEYS, basePath, csrfToken, normalizePreferences, readLocalPrefs, saveLocalPrefs } from './state.js?v=4.3.3';
+import { LOCAL_PREF_KEYS, basePath, csrfToken, normalizePreferences, readLocalPrefs, saveLocalPrefs } from './state.js?v=4.3.4';
 
 export const SETTINGS_TABS = ['app', 'appearance', 'features', 'categories', 'new-category', 'ai', 'extension', 'password', 'system'];
 

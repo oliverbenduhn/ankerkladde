@@ -1,5 +1,5 @@
-import { appUrl } from './api.js?v=4.3.3';
-import { appEl, magicBtns, magicBar, magicInput, magicSubmit, magicClose, magicVoiceBtn } from './ui.js?v=4.3.3';
+import { appUrl } from './api.js?v=4.3.4';
+import { appEl, magicBtns, magicBar, magicInput, magicSubmit, magicClose, magicVoiceBtn } from './ui.js?v=4.3.4';
 
 export function createMagicController(deps) {
     const { getUserPreferences, loadCategories, loadItems, setCategory, setMessage, updateHeaders } = deps;

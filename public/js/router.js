@@ -1,6 +1,6 @@
-import { normalizeSettingsTab, settingsUrl } from './api.js?v=4.3.3';
-import { state } from './state.js?v=4.3.3';
-import { appEl, searchInput, settingsBtns, settingsEmbedEl, settingsFrameEl } from './ui.js?v=4.3.3';
+import { normalizeSettingsTab, settingsUrl } from './api.js?v=4.3.4';
+import { state } from './state.js?v=4.3.4';
+import { appEl, searchInput, settingsBtns, settingsEmbedEl, settingsFrameEl } from './ui.js?v=4.3.4';
 
 export function applyViewState() {
     const inSettings = state.view === 'settings';

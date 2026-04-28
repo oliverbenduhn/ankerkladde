@@ -92,6 +92,8 @@ ADD_SECOND_BODY="$TMP_DIR/add-second.json"
 UNICODE_ADD_BODY="$TMP_DIR/unicode-add.json"
 UNICODE_DELETE_BODY="$TMP_DIR/unicode-delete.json"
 UNICODE_LIST_BODY="$TMP_DIR/unicode-list.json"
+NOTE_UNICODE_ADD_BODY="$TMP_DIR/note-unicode-add.json"
+NOTE_UNICODE_LIST_BODY="$TMP_DIR/note-unicode-list.json"
 TODO_ADD_BODY="$TMP_DIR/todo-add.json"
 TODO_LIST_BODY="$TMP_DIR/todo-list.json"
 MOVE_CATEGORY_BODY="$TMP_DIR/move-category.json"
@@ -152,6 +154,7 @@ grep -q '"items"' "$LIST_BODY"
 [[ "$(status_code "$TODO_CATEGORIES_BODY" -b "$COOKIE_JAR" "http://127.0.0.1:$PORT/api.php?action=categories_list")" == "200" ]]
 TODO_CATEGORY_ID="$(php -r '$payload = json_decode(file_get_contents($argv[1]), true); foreach (($payload["categories"] ?? []) as $category) { if (($category["type"] ?? "") === "list_due_date") { echo (int) ($category["id"] ?? 0); exit; } } exit(1);' "$TODO_CATEGORIES_BODY")"
 SHOPPING_CATEGORY_ID="$(php -r '$payload = json_decode(file_get_contents($argv[1]), true); foreach (($payload["categories"] ?? []) as $category) { if (($category["type"] ?? "") === "list_quantity") { echo (int) ($category["id"] ?? 0); exit; } } exit(1);' "$TODO_CATEGORIES_BODY")"
+NOTES_CATEGORY_ID="$(php -r '$payload = json_decode(file_get_contents($argv[1]), true); foreach (($payload["categories"] ?? []) as $category) { if (($category["type"] ?? "") === "notes") { echo (int) ($category["id"] ?? 0); exit; } } exit(1);' "$TODO_CATEGORIES_BODY")"
 
 if [[ -z "$TODO_CATEGORY_ID" || "$TODO_CATEGORY_ID" -le 0 ]]; then
     echo "Todo-Kategorie konnte nicht aus categories_list gelesen werden." >&2
@@ -160,6 +163,11 @@ fi
 
 if [[ -z "$SHOPPING_CATEGORY_ID" || "$SHOPPING_CATEGORY_ID" -le 0 ]]; then
     echo "Einkauf-Kategorie konnte nicht aus categories_list gelesen werden." >&2
+    exit 1
+fi
+
+if [[ -z "$NOTES_CATEGORY_ID" || "$NOTES_CATEGORY_ID" -le 0 ]]; then
+    echo "Notizen-Kategorie konnte nicht aus categories_list gelesen werden." >&2
     exit 1
 fi
 
@@ -200,6 +208,10 @@ fi
 [[ "$(status_code "$UNICODE_LIST_BODY" -b "$COOKIE_JAR" "http://127.0.0.1:$PORT/api.php?action=list&category_id=$SHOPPING_CATEGORY_ID")" == "200" ]]
 php -r '$payload = json_decode(file_get_contents($argv[1]), true); foreach (($payload["items"] ?? []) as $item) { if (($item["name"] ?? "") === "Öl") { exit(0); } } fwrite(STDERR, "Unicode-Artikel wurde nicht korrekt gespeichert.\n"); exit(1);' "$UNICODE_LIST_BODY"
 [[ "$(status_code "$UNICODE_DELETE_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST -d "id=$UNICODE_ITEM_ID" "http://127.0.0.1:$PORT/api.php?action=delete")" == "200" ]]
+
+[[ "$(status_code "$NOTE_UNICODE_ADD_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST --data-urlencode "category_id=$NOTES_CATEGORY_ID" --data-urlencode 'name=Umlaut Notiz' --data-urlencode 'content=<p>Ä Ü Ö ü ö ä</p>' "http://127.0.0.1:$PORT/api.php?action=add")" == "201" ]]
+[[ "$(status_code "$NOTE_UNICODE_LIST_BODY" -b "$COOKIE_JAR" "http://127.0.0.1:$PORT/api.php?action=list&category_id=$NOTES_CATEGORY_ID")" == "200" ]]
+php -r '$payload = json_decode(file_get_contents($argv[1]), true); foreach (($payload["items"] ?? []) as $item) { if (($item["name"] ?? "") === "Umlaut Notiz" && str_contains((string) ($item["content"] ?? ""), "Ä Ü Ö ü ö ä")) { exit(0); } } fwrite(STDERR, "Unicode-Notizinhalt wurde nicht korrekt gespeichert.\n"); exit(1);' "$NOTE_UNICODE_LIST_BODY"
 
 [[ "$(status_code "$TODO_ADD_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST --data-urlencode "category_id=$TODO_CATEGORY_ID" --data-urlencode 'name=Abgabe' --data-urlencode 'due_date=2026-05-01' "http://127.0.0.1:$PORT/api.php?action=add")" == "201" ]]
 TODO_ITEM_ID="$(sed -n 's/.*"id":\([0-9][0-9]*\).*/\1/p' "$TODO_ADD_BODY" | head -n 1)"
