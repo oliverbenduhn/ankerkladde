@@ -1,4 +1,4 @@
-import { normalizeSettingsTab } from './api.js?v=4.2.94';
+import { normalizeSettingsTab } from './api.js?v=4.2.96';
 
 export function createNavigation({ applyRouteState, getCurrentRouteState }) {
     let appHistoryIndex = 0;

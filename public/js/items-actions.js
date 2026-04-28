@@ -1,76 +1,8 @@
-import { appUrl, api, apiUpload } from './api.js?v=4.2.94';
-import { getCurrentCategory, isAttachmentCategory, state } from './state.js?v=4.2.94';
-import { fileInput, itemInput, linkDescriptionInput, quantityInput, urlImportInput } from './ui.js?v=4.2.94';
-import { escapeRegExp } from './utils.js?v=4.2.94';
-import { enqueueAction } from './offline-queue.js?v=4.2.94';
-
-const WINDOWS_1252_REVERSE_MAP = new Map([
-    ['€', 0x80], ['‚', 0x82], ['ƒ', 0x83], ['„', 0x84], ['…', 0x85],
-    ['†', 0x86], ['‡', 0x87], ['ˆ', 0x88], ['‰', 0x89], ['Š', 0x8A],
-    ['‹', 0x8B], ['Œ', 0x8C], ['Ž', 0x8E], ['‘', 0x91], ['’', 0x92],
-    ['“', 0x93], ['”', 0x94], ['•', 0x95], ['–', 0x96], ['—', 0x97],
-    ['˜', 0x98], ['™', 0x99], ['š', 0x9A], ['›', 0x9B], ['œ', 0x9C],
-    ['ž', 0x9E], ['Ÿ', 0x9F],
-]);
-
-const UTF8_MOJIBAKE_LEAD_BYTES = /[Â-ô]/u;
-const UTF8_DECODER = new TextDecoder('utf-8', { fatal: true });
-
-function windows1252ByteForChar(char) {
-    const codePoint = char.codePointAt(0);
-    if (codePoint === undefined) return null;
-    if (codePoint <= 0xFF) return codePoint;
-    return WINDOWS_1252_REVERSE_MAP.get(char) ?? null;
-}
-
-function repairUtf8Mojibake(value) {
-    if (typeof value !== 'string' || value === '' || !UTF8_MOJIBAKE_LEAD_BYTES.test(value)) {
-        return value;
-    }
-
-    const chars = Array.from(value);
-    let repaired = '';
-    let changed = false;
-
-    for (let index = 0; index < chars.length; index += 1) {
-        const firstByte = windows1252ByteForChar(chars[index]);
-        const expectedLength = firstByte >= 0xC2 && firstByte <= 0xDF ? 2
-            : firstByte >= 0xE0 && firstByte <= 0xEF ? 3
-            : firstByte >= 0xF0 && firstByte <= 0xF4 ? 4
-            : 0;
-
-        if (expectedLength === 0 || index + expectedLength > chars.length) {
-            repaired += chars[index];
-            continue;
-        }
-
-        const bytes = [firstByte];
-        let isUtf8Sequence = true;
-        for (let offset = 1; offset < expectedLength; offset += 1) {
-            const continuationByte = windows1252ByteForChar(chars[index + offset]);
-            if (continuationByte === null || continuationByte < 0x80 || continuationByte > 0xBF) {
-                isUtf8Sequence = false;
-                break;
-            }
-            bytes.push(continuationByte);
-        }
-
-        if (!isUtf8Sequence) {
-            repaired += chars[index];
-            continue;
-        }
-
-        try {
-            repaired += UTF8_DECODER.decode(new Uint8Array(bytes));
-            index += expectedLength - 1;
-            changed = true;
-        } catch {
-            repaired += chars[index];
-        }
-    }
-
-    return changed ? repaired : value;
-}
+import { appUrl, api, apiUpload } from ‘./api.js?v=4.2.96’;
+import { getCurrentCategory, isAttachmentCategory, state } from ‘./state.js?v=4.2.96’;
+import { fileInput, itemInput, linkDescriptionInput, quantityInput, urlImportInput } from ‘./ui.js?v=4.2.96’;
+import { escapeRegExp } from ‘./utils.js?v=4.2.96’;
+import { enqueueAction } from ‘./offline-queue.js?v=4.2.96’;
 
 export function createItemsActionsController(deps) {
     const {
@@ -132,9 +64,9 @@ export function createItemsActionsController(deps) {
 
         const shareParam = params.get('share');
         const cachedShare = shareParam === 'data' ? await readCachedShareData() : null;
-        const title = repairUtf8Mojibake(cachedShare?.title ?? params.get('title') ?? '');
-        const text = repairUtf8Mojibake(cachedShare?.text ?? params.get('text') ?? '');
-        const sharedUrl = repairUtf8Mojibake(cachedShare?.url ?? params.get('url') ?? /https?:\/\/\S+/.exec(text)?.[0] ?? '');
+        const title = cachedShare?.title ?? params.get('title') ?? '';
+        const text = cachedShare?.text ?? params.get('text') ?? '';
+        const sharedUrl = cachedShare?.url ?? params.get('url') ?? /https?:\/\/\S+/.exec(text)?.[0] ?? '';
 
         try {
             if (shareParam === 'file') {

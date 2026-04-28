@@ -1,7 +1,7 @@
 'use strict';
 
-const VERSION = 'v4.2.95';
-const ASSET_VERSION = '4.2.95';
+const VERSION = 'v4.2.96';
+const ASSET_VERSION = '4.2.96';
 const STATIC_CACHE = `ankerkladde-static-${VERSION}`;
 const RUNTIME_CACHE = `ankerkladde-runtime-${VERSION}`;
 const SHARE_CACHE = 'ankerkladde-share-target';
@@ -53,75 +53,45 @@ const APP_SHELL_ASSET_URLS = [
     `icon.php?size=512&v=${ASSET_VERSION}`,
 ].map(path => new URL(path, APP_SCOPE_URL).toString());
 
-const WINDOWS_1252_REVERSE_MAP = new Map([
-    ['€', 0x80], ['‚', 0x82], ['ƒ', 0x83], ['„', 0x84], ['…', 0x85],
-    ['†', 0x86], ['‡', 0x87], ['ˆ', 0x88], ['‰', 0x89], ['Š', 0x8A],
-    ['‹', 0x8B], ['Œ', 0x8C], ['Ž', 0x8E], ['‘', 0x91], ['’', 0x92],
-    ['“', 0x93], ['”', 0x94], ['•', 0x95], ['–', 0x96], ['—', 0x97],
-    ['˜', 0x98], ['™', 0x99], ['š', 0x9A], ['›', 0x9B], ['œ', 0x9C],
-    ['ž', 0x9E], ['Ÿ', 0x9F],
-]);
+/**
+ * Parse text field values from a multipart/form-data body.
+ * Reads the raw UTF-8 bytes directly — avoids charset guessing bugs
+ * in some browser formData() implementations (especially Android Chrome
+ * share targets).
+ */
+function parseMultipartTextFields(bodyText, boundary) {
+    const result = new Map();
+    const delimiter = ‘--’ + boundary;
+    const sections = bodyText.split(delimiter);
 
-const UTF8_MOJIBAKE_LEAD_BYTES = /[Â-ô]/u;
-const UTF8_DECODER = new TextDecoder('utf-8', { fatal: true });
+    for (const section of sections) {
+        if (!section || section.trimStart().startsWith(‘--’)) continue;
 
-function windows1252ByteForChar(char) {
-    const codePoint = char.codePointAt(0);
-    if (codePoint === undefined) return null;
-    if (codePoint <= 0xFF) return codePoint;
-    return WINDOWS_1252_REVERSE_MAP.get(char) ?? null;
-}
+        const content = section.startsWith(‘\r\n’) ? section.substring(2) : section;
+        const separatorIndex = content.indexOf(‘\r\n\r\n’);
+        if (separatorIndex === -1) continue;
 
-function repairUtf8Mojibake(value) {
-    if (typeof value !== 'string' || value === '' || !UTF8_MOJIBAKE_LEAD_BYTES.test(value)) {
-        return value;
+        const headerBlock = content.substring(0, separatorIndex);
+
+        // Skip file parts (they have a filename parameter)
+        if (/filename=/i.test(headerBlock)) continue;
+
+        const nameMatch = headerBlock.match(/name=”([^”]+)”/);
+        if (!nameMatch) continue;
+
+        let value = content.substring(separatorIndex + 4);
+        // Strip trailing \r\n (appears before the next boundary)
+        if (value.endsWith(‘\r\n’)) {
+            value = value.slice(0, -2);
+        }
+
+        result.set(nameMatch[1], value);
     }
 
-    const chars = Array.from(value);
-    let repaired = '';
-    let changed = false;
-
-    for (let index = 0; index < chars.length; index += 1) {
-        const firstByte = windows1252ByteForChar(chars[index]);
-        const expectedLength = firstByte >= 0xC2 && firstByte <= 0xDF ? 2
-            : firstByte >= 0xE0 && firstByte <= 0xEF ? 3
-            : firstByte >= 0xF0 && firstByte <= 0xF4 ? 4
-            : 0;
-
-        if (expectedLength === 0 || index + expectedLength > chars.length) {
-            repaired += chars[index];
-            continue;
-        }
-
-        const bytes = [firstByte];
-        let isUtf8Sequence = true;
-        for (let offset = 1; offset < expectedLength; offset += 1) {
-            const continuationByte = windows1252ByteForChar(chars[index + offset]);
-            if (continuationByte === null || continuationByte < 0x80 || continuationByte > 0xBF) {
-                isUtf8Sequence = false;
-                break;
-            }
-            bytes.push(continuationByte);
-        }
-
-        if (!isUtf8Sequence) {
-            repaired += chars[index];
-            continue;
-        }
-
-        try {
-            repaired += UTF8_DECODER.decode(new Uint8Array(bytes));
-            index += expectedLength - 1;
-            changed = true;
-        } catch {
-            repaired += chars[index];
-        }
-    }
-
-    return changed ? repaired : value;
+    return result;
 }
 
-self.addEventListener('install', event => {
+self.addEventListener(‘install’, event => {
     event.waitUntil(
         caches.open(STATIC_CACHE)
             .then(cache => {
@@ -192,40 +162,65 @@ self.addEventListener('fetch', event => {
 });
 
 async function handleShareTargetPost(request) {
-    const formData   = await request.formData();
-    const file       = formData.get('file');
-    const title      = formData.get('title') || '';
-    const text       = formData.get('text')  || '';
-    const sharedUrl  = formData.get('url')   || '';
-
-    // DEBUG: Log raw data
-    console.log('[SW] Raw formData:', { title, text, sharedUrl });
-    console.log('[SW] Text bytes:', Array.from(text).map(c => c.charCodeAt(0).toString(16)).join(' '));
-
     const redirectUrl = new URL(APP_SCOPE_URL);
 
-    if (file instanceof File && file.size > 0) {
-        const cache = await caches.open(SHARE_CACHE);
-        await cache.put('pending-file', new Response(file, {
-            headers: {
-                'Content-Type':     file.type || 'application/octet-stream',
-                'X-Share-Filename': encodeURIComponent(file.name || 'shared'),
-            },
-        }));
-        redirectUrl.searchParams.set('share', 'file');
-    } else {
-        const cache = await caches.open(SHARE_CACHE);
-        await cache.put('pending-share', new Response(JSON.stringify({
-            title: repairUtf8Mojibake(String(title)),
-            text: repairUtf8Mojibake(String(text)),
-            url: repairUtf8Mojibake(String(sharedUrl)),
-        }), {
-            headers: {
-                'Content-Type': 'application/json; charset=UTF-8',
-            },
-        }));
-        redirectUrl.searchParams.set('share', 'data');
+    // Clone so we can read the body twice if needed (once raw, once via formData for files)
+    const cloneForFile = request.clone();
+
+    // Read raw body as explicit UTF-8 — bypasses any charset-guessing bugs
+    // in the browser's formData() parser (known issue on Android Chrome share targets)
+    const rawBytes = new Uint8Array(await request.arrayBuffer());
+    const rawText = new TextDecoder('utf-8').decode(rawBytes);
+
+    const contentType = request.headers.get('content-type') || '';
+    const boundaryMatch = contentType.match(/boundary=(?:"([^"]+)"|([^\s;]+))/);
+
+    if (!boundaryMatch) {
+        // No boundary — can't parse multipart, just redirect
+        return Response.redirect(redirectUrl.toString(), 303);
     }
+
+    const boundary = boundaryMatch[1] || boundaryMatch[2];
+
+    // Check if there's a file upload (filename present in any part header)
+    const hasFileUpload = /filename="[^"]+"/i.test(rawText);
+
+    if (hasFileUpload) {
+        // For files, use formData() from clone — binary data has no charset issues
+        try {
+            const formData = await cloneForFile.formData();
+            const file = formData.get('file');
+            if (file instanceof File && file.size > 0) {
+                const cache = await caches.open(SHARE_CACHE);
+                await cache.put('pending-file', new Response(file, {
+                    headers: {
+                        'Content-Type': file.type || 'application/octet-stream',
+                        'X-Share-Filename': encodeURIComponent(file.name || 'shared'),
+                    },
+                }));
+                redirectUrl.searchParams.set('share', 'file');
+                return Response.redirect(redirectUrl.toString(), 303);
+            }
+        } catch (err) {
+            console.warn('[SW] File share formData() failed:', err);
+        }
+    }
+
+    // Text share: parse multipart manually from raw UTF-8 string
+    const parts = parseMultipartTextFields(rawText, boundary);
+    const title = parts.get('title') || '';
+    const text = parts.get('text') || '';
+    const sharedUrl = parts.get('url') || '';
+
+    console.log('[SW] Share text fields (raw UTF-8):', { title, text, sharedUrl });
+
+    const cache = await caches.open(SHARE_CACHE);
+    await cache.put('pending-share', new Response(JSON.stringify({
+        title, text, url: sharedUrl,
+    }), {
+        headers: { 'Content-Type': 'application/json; charset=UTF-8' },
+    }));
+    redirectUrl.searchParams.set('share', 'data');
 
     return Response.redirect(redirectUrl.toString(), 303);
 }
