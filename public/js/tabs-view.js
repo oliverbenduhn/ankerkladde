@@ -1,5 +1,5 @@
-import { basePath, state } from './state.js?v=4.3.0';
-import { sectionTabsEl } from './ui.js?v=4.3.0';
+import { basePath, state } from './state.js?v=4.3.1';
+import { sectionTabsEl } from './ui.js?v=4.3.1';
 
 function normalizeIconKey(icon, fallbackIcon) {
     const value = String(icon || '').trim();

@@ -89,6 +89,9 @@ LIST_BODY="$TMP_DIR/list.json"
 TODO_CATEGORIES_BODY="$TMP_DIR/todo-categories.json"
 ADD_BODY="$TMP_DIR/add.json"
 ADD_SECOND_BODY="$TMP_DIR/add-second.json"
+UNICODE_ADD_BODY="$TMP_DIR/unicode-add.json"
+UNICODE_DELETE_BODY="$TMP_DIR/unicode-delete.json"
+UNICODE_LIST_BODY="$TMP_DIR/unicode-list.json"
 TODO_ADD_BODY="$TMP_DIR/todo-add.json"
 TODO_LIST_BODY="$TMP_DIR/todo-list.json"
 MOVE_CATEGORY_BODY="$TMP_DIR/move-category.json"
@@ -187,6 +190,16 @@ if [[ -z "$ITEM_ID" ]]; then
     echo "Artikel-ID konnte nicht aus der Add-Antwort gelesen werden." >&2
     exit 1
 fi
+
+[[ "$(status_code "$UNICODE_ADD_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST --data-urlencode "category_id=$SHOPPING_CATEGORY_ID" --data-urlencode 'name=Öl' --data-urlencode 'quantity=1' "http://127.0.0.1:$PORT/api.php?action=add")" == "201" ]]
+UNICODE_ITEM_ID="$(sed -n 's/.*"id":\([0-9][0-9]*\).*/\1/p' "$UNICODE_ADD_BODY" | head -n 1)"
+if [[ -z "$UNICODE_ITEM_ID" ]]; then
+    echo "Unicode-Artikel-ID konnte nicht aus der Add-Antwort gelesen werden." >&2
+    exit 1
+fi
+[[ "$(status_code "$UNICODE_LIST_BODY" -b "$COOKIE_JAR" "http://127.0.0.1:$PORT/api.php?action=list&category_id=$SHOPPING_CATEGORY_ID")" == "200" ]]
+php -r '$payload = json_decode(file_get_contents($argv[1]), true); foreach (($payload["items"] ?? []) as $item) { if (($item["name"] ?? "") === "Öl") { exit(0); } } fwrite(STDERR, "Unicode-Artikel wurde nicht korrekt gespeichert.\n"); exit(1);' "$UNICODE_LIST_BODY"
+[[ "$(status_code "$UNICODE_DELETE_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST -d "id=$UNICODE_ITEM_ID" "http://127.0.0.1:$PORT/api.php?action=delete")" == "200" ]]
 
 [[ "$(status_code "$TODO_ADD_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST --data-urlencode "category_id=$TODO_CATEGORY_ID" --data-urlencode 'name=Abgabe' --data-urlencode 'due_date=2026-05-01' "http://127.0.0.1:$PORT/api.php?action=add")" == "201" ]]
 TODO_ITEM_ID="$(sed -n 's/.*"id":\([0-9][0-9]*\).*/\1/p' "$TODO_ADD_BODY" | head -n 1)"
@@ -417,13 +430,10 @@ grep -q 'gleichartige Kategorien' "$MOVE_INVALID_BODY"
 grep -q 'Artikel verschoben' "$MOVE_BODY"
 
 [[ "$(status_code "$MOVE_SOURCE_LIST_BODY" -b "$COOKIE_JAR" "http://127.0.0.1:$PORT/api.php?action=list&category_id=$SHOPPING_CATEGORY_ID")" == "200" ]]
-if grep -q "\"id\":$MOVE_ITEM_ID" "$MOVE_SOURCE_LIST_BODY"; then
-    echo "Verschobener Artikel ist noch in der Quellkategorie sichtbar." >&2
-    exit 1
-fi
+php -r '$payload = json_decode(file_get_contents($argv[1]), true); $id = (int) $argv[2]; foreach (($payload["items"] ?? []) as $item) { if ((int) ($item["id"] ?? 0) === $id) { fwrite(STDERR, "Verschobener Artikel ist noch in der Quellkategorie sichtbar.\n"); exit(1); } }' "$MOVE_SOURCE_LIST_BODY" "$MOVE_ITEM_ID"
 
 [[ "$(status_code "$MOVE_TARGET_LIST_BODY" -b "$COOKIE_JAR" "http://127.0.0.1:$PORT/api.php?action=list&category_id=$MOVE_TARGET_CATEGORY_ID")" == "200" ]]
-grep -q "\"id\":$MOVE_ITEM_ID" "$MOVE_TARGET_LIST_BODY"
+php -r '$payload = json_decode(file_get_contents($argv[1]), true); $id = (int) $argv[2]; foreach (($payload["items"] ?? []) as $item) { if ((int) ($item["id"] ?? 0) === $id) { exit(0); } } fwrite(STDERR, "Verschobener Artikel ist nicht in der Zielkategorie sichtbar.\n"); exit(1);' "$MOVE_TARGET_LIST_BODY" "$MOVE_ITEM_ID"
 grep -q '"name":"Verschieben-Test"' "$MOVE_TARGET_LIST_BODY"
 
 DB_PROBE_STATUS="$(status_code "$NOT_FOUND_BODY" "http://127.0.0.1:$PORT/data/einkaufsliste.db")"

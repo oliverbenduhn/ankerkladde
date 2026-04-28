@@ -96,21 +96,9 @@ function requireMethod(string $expectedMethod): void
 function ensureUtf8(mixed $value): mixed
 {
     if (is_string($value)) {
-        // Überprüfe mehrere Encoding-Möglichkeiten und konvertiere
         if (!mb_check_encoding($value, 'UTF-8')) {
-            // Versuche verschiedene Quell-Encodings
-            $value = mb_convert_encoding($value, 'UTF-8', 'ISO-8859-1');
-
-            // Wenn immer noch nicht UTF-8, versuche auto-detect
-            if (!mb_check_encoding($value, 'UTF-8')) {
-                $value = mb_convert_encoding($value, 'UTF-8', mb_detect_encoding($value, 'UTF-8, ISO-8859-1, Windows-1252', true));
-            }
-        }
-
-        // Extra-Fix: Wenn String Mojibake-Zeichen wie "Ã¤" enthält, konvertiere aggressiv
-        if (preg_match('/[\xC3-\xC4][\x80-\xBF]/', $value)) {
-            // Dies sind UTF-8 Bytes die als ISO-8859-1 interpretiert wurden
-            $value = mb_convert_encoding($value, 'UTF-8', 'ISO-8859-1');
+            $detectedEncoding = mb_detect_encoding($value, 'UTF-8, Windows-1252, ISO-8859-1', true) ?: 'Windows-1252';
+            $value = mb_convert_encoding($value, 'UTF-8', $detectedEncoding);
         }
 
         return $value;
