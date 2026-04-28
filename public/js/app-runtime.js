@@ -1,20 +1,20 @@
-import { createAppUiController } from './app-ui.js?v=4.2.99';
-import { createHelpersController } from './helpers.js?v=4.2.99';
-import { createItemsActionsController } from './items-actions.js?v=4.2.99';
-import { createItemsController } from './items.js?v=4.2.99';
-import { createItemsViewController } from './items-view.js?v=4.2.99';
-import { createNavigation } from './navigation.js?v=4.2.99';
-import { createEditorController } from './editor.js?v=4.2.99';
-import { createTodoEditorController } from './todo-editor.js?v=4.2.99';
-import { createReorderController } from './reorder.js?v=4.2.99';
-import { createRouter } from './router.js?v=4.2.99';
-import { createScannerController } from './scanner.js?v=4.2.99';
-import { createSwipeController } from './swipe.js?v=4.2.99';
-import { createTabsViewController } from './tabs-view.js?v=4.2.99';
-import { createKanbanViewController } from './kanban-view.js?v=4.2.99';
-import { createMagicController } from './magic.js?v=4.2.99';
-import { flushQueue, getPendingCount } from './offline-queue.js?v=4.2.99';
-import { api } from './api.js?v=4.2.99';
+import { createAppUiController } from './app-ui.js?v=4.3.0';
+import { createHelpersController } from './helpers.js?v=4.3.0';
+import { createItemsActionsController } from './items-actions.js?v=4.3.0';
+import { createItemsController } from './items.js?v=4.3.0';
+import { createItemsViewController } from './items-view.js?v=4.3.0';
+import { createNavigation } from './navigation.js?v=4.3.0';
+import { createEditorController } from './editor.js?v=4.3.0';
+import { createTodoEditorController } from './todo-editor.js?v=4.3.0';
+import { createReorderController } from './reorder.js?v=4.3.0';
+import { createRouter } from './router.js?v=4.3.0';
+import { createScannerController } from './scanner.js?v=4.3.0';
+import { createSwipeController } from './swipe.js?v=4.3.0';
+import { createTabsViewController } from './tabs-view.js?v=4.3.0';
+import { createKanbanViewController } from './kanban-view.js?v=4.3.0';
+import { createMagicController } from './magic.js?v=4.3.0';
+import { flushQueue, getPendingCount } from './offline-queue.js?v=4.3.0';
+import { api } from './api.js?v=4.3.0';
 import {
     BARCODE_FORMATS,
     SCANNER_COOLDOWN_MS,
@@ -23,9 +23,9 @@ import {
     normalizePreferences,
     scannerState,
     state,
-} from './state.js?v=4.2.99';
-import { applyThemePreferences } from './theme.js?v=4.2.99';
-import { settingsFrameEl } from './ui.js?v=4.2.99';
+} from './state.js?v=4.3.0';
+import { applyThemePreferences } from './theme.js?v=4.3.0';
+import { settingsFrameEl } from './ui.js?v=4.3.0';
 
 export function createAppRuntime(deps) {
     const {

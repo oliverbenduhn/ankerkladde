@@ -1,7 +1,7 @@
 'use strict';
 
-const VERSION = 'v4.2.99';
-const ASSET_VERSION = '4.2.99';
+const VERSION = 'v4.3.0';
+const ASSET_VERSION = '4.3.0';
 const STATIC_CACHE = `ankerkladde-static-${VERSION}`;
 const RUNTIME_CACHE = `ankerkladde-runtime-${VERSION}`;
 const SHARE_CACHE = 'ankerkladde-share-target';
@@ -53,42 +53,46 @@ const APP_SHELL_ASSET_URLS = [
     `icon.php?size=512&v=${ASSET_VERSION}`,
 ].map(path => new URL(path, APP_SCOPE_URL).toString());
 
+// Windows-1252 codepoints that differ from Latin-1 (0x80-0x9F range)
+const W1252_TO_BYTE = new Map([
+    [0x20AC, 0x80], [0x201A, 0x82], [0x0192, 0x83], [0x201E, 0x84],
+    [0x2026, 0x85], [0x2020, 0x86], [0x2021, 0x87], [0x02C6, 0x88],
+    [0x2030, 0x89], [0x0160, 0x8A], [0x2039, 0x8B], [0x0152, 0x8C],
+    [0x017D, 0x8E], [0x2018, 0x91], [0x2019, 0x92], [0x201C, 0x93],
+    [0x201D, 0x94], [0x2022, 0x95], [0x2013, 0x96], [0x2014, 0x97],
+    [0x02DC, 0x98], [0x2122, 0x99], [0x0161, 0x9A], [0x203A, 0x9B],
+    [0x0153, 0x9C], [0x017E, 0x9E], [0x0178, 0x9F],
+]);
+
 /**
- * Parse text field values from a multipart/form-data body.
- * Handles both \r\n and \n line endings (Android Chrome may use either).
+ * Fix text that was mojibake'd by formData() interpreting UTF-8 bytes
+ * as Latin-1/Windows-1252. Maps each char back to its byte value, then
+ * decodes the byte sequence as UTF-8. If the roundtrip fails (not mojibake),
+ * the original string is returned unchanged.
  */
-function parseMultipartTextFields(bodyText, boundary) {
-    const result = new Map();
-    const delimiter = '--' + boundary;
-    const sections = bodyText.split(delimiter);
+function fixFormDataEncoding(value) {
+    if (typeof value !== 'string' || value === '') return value;
 
-    for (const section of sections) {
-        if (!section || section.trimStart().startsWith('--')) continue;
-
-        // Strip leading line break (either \r\n or \n)
-        const content = section.replace(/^\r?\n/, '');
-
-        // Find blank line separating headers from value (handle both \r\n\r\n and \n\n)
-        const separatorMatch = content.match(/\r?\n\r?\n/);
-        if (!separatorMatch) continue;
-
-        const separatorIndex = separatorMatch.index;
-        const headerBlock = content.substring(0, separatorIndex);
-
-        // Skip file parts
-        if (/filename=/i.test(headerBlock)) continue;
-
-        const nameMatch = headerBlock.match(/name=”([^”]+)”/);
-        if (!nameMatch) continue;
-
-        let value = content.substring(separatorIndex + separatorMatch[0].length);
-        // Strip trailing line break before next boundary
-        value = value.replace(/\r?\n$/, '');
-
-        result.set(nameMatch[1], value);
+    const bytes = new Uint8Array(value.length);
+    for (let i = 0; i < value.length; i++) {
+        const cp = value.charCodeAt(i);
+        if (cp <= 0xFF) {
+            bytes[i] = cp;
+        } else {
+            const mapped = W1252_TO_BYTE.get(cp);
+            if (mapped !== undefined) {
+                bytes[i] = mapped;
+            } else {
+                return value; // Char outside Latin-1/W1252 = not mojibake
+            }
+        }
     }
 
-    return result;
+    try {
+        return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+    } catch {
+        return value; // Bytes are not valid UTF-8 = not mojibake
+    }
 }
 
 self.addEventListener('install', event => {
@@ -163,9 +167,6 @@ self.addEventListener('fetch', event => {
 
 async function handleShareTargetPost(request) {
     const redirectUrl = new URL(APP_SCOPE_URL);
-
-    // Two clones: one for raw UTF-8 parsing, one for formData() fallback
-    const cloneForRaw = request.clone();
     const formData = await request.formData();
 
     const file = formData.get('file');
@@ -181,33 +182,11 @@ async function handleShareTargetPost(request) {
         return Response.redirect(redirectUrl.toString(), 303);
     }
 
-    // Text share: try raw UTF-8 parsing first for correct encoding
-    let title = '';
-    let text = '';
-    let sharedUrl = '';
-
-    try {
-        const contentType = cloneForRaw.headers.get('content-type') || '';
-        const boundaryMatch = contentType.match(/boundary=(?:"([^"]+)"|([^\s;]+))/);
-        if (boundaryMatch) {
-            const boundary = boundaryMatch[1] || boundaryMatch[2];
-            const rawBytes = new Uint8Array(await cloneForRaw.arrayBuffer());
-            const rawText = new TextDecoder('utf-8').decode(rawBytes);
-            const parts = parseMultipartTextFields(rawText, boundary);
-            title = parts.get('title') || '';
-            text = parts.get('text') || '';
-            sharedUrl = parts.get('url') || '';
-        }
-    } catch (err) {
-        console.warn('[SW] Raw UTF-8 parsing failed, using formData:', err);
-    }
-
-    // Fallback to formData() values if raw parsing yielded nothing
-    if (!title && !text && !sharedUrl) {
-        title = formData.get('title') || '';
-        text = formData.get('text') || '';
-        sharedUrl = formData.get('url') || '';
-    }
+    // formData() may decode UTF-8 bytes as Latin-1/W1252 on Android Chrome,
+    // producing mojibake (e.g. "ü" → "Ã¼"). fixFormDataEncoding reverses this.
+    const title = fixFormDataEncoding(formData.get('title') || '');
+    const text = fixFormDataEncoding(formData.get('text') || '');
+    const sharedUrl = fixFormDataEncoding(formData.get('url') || '');
 
     console.log('[SW] Share text fields:', { title, text, sharedUrl });
 
