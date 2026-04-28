@@ -1,7 +1,7 @@
 'use strict';
 
-const VERSION = 'v4.2.98';
-const ASSET_VERSION = '4.2.98';
+const VERSION = 'v4.2.99';
+const ASSET_VERSION = '4.2.99';
 const STATIC_CACHE = `ankerkladde-static-${VERSION}`;
 const RUNTIME_CACHE = `ankerkladde-runtime-${VERSION}`;
 const SHARE_CACHE = 'ankerkladde-share-target';
@@ -55,9 +55,7 @@ const APP_SHELL_ASSET_URLS = [
 
 /**
  * Parse text field values from a multipart/form-data body.
- * Reads the raw UTF-8 bytes directly — avoids charset guessing bugs
- * in some browser formData() implementations (especially Android Chrome
- * share targets).
+ * Handles both \r\n and \n line endings (Android Chrome may use either).
  */
 function parseMultipartTextFields(bodyText, boundary) {
     const result = new Map();
@@ -67,23 +65,25 @@ function parseMultipartTextFields(bodyText, boundary) {
     for (const section of sections) {
         if (!section || section.trimStart().startsWith('--')) continue;
 
-        const content = section.startsWith('\r\n') ? section.substring(2) : section;
-        const separatorIndex = content.indexOf('\r\n\r\n');
-        if (separatorIndex === -1) continue;
+        // Strip leading line break (either \r\n or \n)
+        const content = section.replace(/^\r?\n/, '');
 
+        // Find blank line separating headers from value (handle both \r\n\r\n and \n\n)
+        const separatorMatch = content.match(/\r?\n\r?\n/);
+        if (!separatorMatch) continue;
+
+        const separatorIndex = separatorMatch.index;
         const headerBlock = content.substring(0, separatorIndex);
 
-        // Skip file parts (they have a filename parameter)
+        // Skip file parts
         if (/filename=/i.test(headerBlock)) continue;
 
         const nameMatch = headerBlock.match(/name=”([^”]+)”/);
         if (!nameMatch) continue;
 
-        let value = content.substring(separatorIndex + 4);
-        // Strip trailing \r\n (appears before the next boundary)
-        if (value.endsWith('\r\n')) {
-            value = value.slice(0, -2);
-        }
+        let value = content.substring(separatorIndex + separatorMatch[0].length);
+        // Strip trailing line break before next boundary
+        value = value.replace(/\r?\n$/, '');
 
         result.set(nameMatch[1], value);
     }
@@ -164,55 +164,52 @@ self.addEventListener('fetch', event => {
 async function handleShareTargetPost(request) {
     const redirectUrl = new URL(APP_SCOPE_URL);
 
-    // Clone so we can read the body twice if needed (once raw, once via formData for files)
-    const cloneForFile = request.clone();
+    // Two clones: one for raw UTF-8 parsing, one for formData() fallback
+    const cloneForRaw = request.clone();
+    const formData = await request.formData();
 
-    // Read raw body as explicit UTF-8 — bypasses any charset-guessing bugs
-    // in the browser's formData() parser (known issue on Android Chrome share targets)
-    const rawBytes = new Uint8Array(await request.arrayBuffer());
-    const rawText = new TextDecoder('utf-8').decode(rawBytes);
-
-    const contentType = request.headers.get('content-type') || '';
-    const boundaryMatch = contentType.match(/boundary=(?:"([^"]+)"|([^\s;]+))/);
-
-    if (!boundaryMatch) {
-        // No boundary — can't parse multipart, just redirect
+    const file = formData.get('file');
+    if (file instanceof File && file.size > 0) {
+        const cache = await caches.open(SHARE_CACHE);
+        await cache.put('pending-file', new Response(file, {
+            headers: {
+                'Content-Type': file.type || 'application/octet-stream',
+                'X-Share-Filename': encodeURIComponent(file.name || 'shared'),
+            },
+        }));
+        redirectUrl.searchParams.set('share', 'file');
         return Response.redirect(redirectUrl.toString(), 303);
     }
 
-    const boundary = boundaryMatch[1] || boundaryMatch[2];
+    // Text share: try raw UTF-8 parsing first for correct encoding
+    let title = '';
+    let text = '';
+    let sharedUrl = '';
 
-    // Check if there's a file upload (filename present in any part header)
-    const hasFileUpload = /filename="[^"]+"/i.test(rawText);
-
-    if (hasFileUpload) {
-        // For files, use formData() from clone — binary data has no charset issues
-        try {
-            const formData = await cloneForFile.formData();
-            const file = formData.get('file');
-            if (file instanceof File && file.size > 0) {
-                const cache = await caches.open(SHARE_CACHE);
-                await cache.put('pending-file', new Response(file, {
-                    headers: {
-                        'Content-Type': file.type || 'application/octet-stream',
-                        'X-Share-Filename': encodeURIComponent(file.name || 'shared'),
-                    },
-                }));
-                redirectUrl.searchParams.set('share', 'file');
-                return Response.redirect(redirectUrl.toString(), 303);
-            }
-        } catch (err) {
-            console.warn('[SW] File share formData() failed:', err);
+    try {
+        const contentType = cloneForRaw.headers.get('content-type') || '';
+        const boundaryMatch = contentType.match(/boundary=(?:"([^"]+)"|([^\s;]+))/);
+        if (boundaryMatch) {
+            const boundary = boundaryMatch[1] || boundaryMatch[2];
+            const rawBytes = new Uint8Array(await cloneForRaw.arrayBuffer());
+            const rawText = new TextDecoder('utf-8').decode(rawBytes);
+            const parts = parseMultipartTextFields(rawText, boundary);
+            title = parts.get('title') || '';
+            text = parts.get('text') || '';
+            sharedUrl = parts.get('url') || '';
         }
+    } catch (err) {
+        console.warn('[SW] Raw UTF-8 parsing failed, using formData:', err);
     }
 
-    // Text share: parse multipart manually from raw UTF-8 string
-    const parts = parseMultipartTextFields(rawText, boundary);
-    const title = parts.get('title') || '';
-    const text = parts.get('text') || '';
-    const sharedUrl = parts.get('url') || '';
+    // Fallback to formData() values if raw parsing yielded nothing
+    if (!title && !text && !sharedUrl) {
+        title = formData.get('title') || '';
+        text = formData.get('text') || '';
+        sharedUrl = formData.get('url') || '';
+    }
 
-    console.log('[SW] Share text fields (raw UTF-8):', { title, text, sharedUrl });
+    console.log('[SW] Share text fields:', { title, text, sharedUrl });
 
     const cache = await caches.open(SHARE_CACHE);
     await cache.put('pending-share', new Response(JSON.stringify({
