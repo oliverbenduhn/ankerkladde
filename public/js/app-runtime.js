@@ -206,7 +206,7 @@ export function createAppRuntime(deps) {
                 const statusMap = { offen: '', in_arbeit: 'in_progress', wartet_auf: 'waiting' };
                 const newStatus = statusMap[columnKey] ?? '';
                 if (item.status !== newStatus) {
-                    await itemsActionsController.handleStatus(itemId, newStatus);
+                    await itemsActionsController.handleStatus(itemId, item.status, newStatus);
                 }
             }
             renderItems();

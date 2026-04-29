@@ -400,8 +400,8 @@ export function createItemsActionsController(deps) {
         }
     }
 
-    async function handleStatus(id, currentStatus) {
-        const next = currentStatus === '' ? 'in_progress' : currentStatus === 'in_progress' ? 'waiting' : '';
+    async function handleStatus(id, currentStatus, targetStatus) {
+        const next = targetStatus !== undefined ? targetStatus : (currentStatus === '' ? 'in_progress' : currentStatus === 'in_progress' ? 'waiting' : '');
         await api('status', { method: 'POST', body: new URLSearchParams({ id: String(id), status: next }) });
         const item = getItemById(id);
         if (item) {
