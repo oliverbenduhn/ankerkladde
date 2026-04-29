@@ -1824,16 +1824,12 @@ button, input { font: inherit; }
         max-width: none;
     }
 
-    /* Liste-Ansicht: Inhaltsspalte zentriert und lesbar halten */
+    /* Liste-Ansicht: volle Breite auf Desktop */
     .app[data-desktop-layout="liste"] #list {
-        width: min(1240px, calc(100vw - 40px));
-        max-width: 100%;
-        margin-inline: auto;
+        width: 100%;
     }
 
     .app[data-desktop-layout="liste"] .input-area {
-        max-width: 1240px;
-        margin-inline: auto;
         width: 100%;
     }
 
