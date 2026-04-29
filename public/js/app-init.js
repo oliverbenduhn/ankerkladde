@@ -1,6 +1,6 @@
 import { basePath, state } from './state.js?v=4.3.4';
 import { applyViewState } from './router.js?v=4.3.4';
-import { appEl, updateBannerEl, updateViewportHeight } from './ui.js?v=4.3.4';
+import { appEl, desktopLayoutBtns, updateBannerEl, updateViewportHeight } from './ui.js?v=4.3.4';
 
 export async function initApp(deps) {
     const {
@@ -30,6 +30,9 @@ export async function initApp(deps) {
             appEl.dataset.mode = state.mode;
             appEl.dataset.desktopLayout = state.desktopLayout;
         }
+        desktopLayoutBtns.forEach(btn => {
+            btn.setAttribute('aria-pressed', btn.dataset.layout === state.desktopLayout ? 'true' : 'false');
+        });
         deps.applyTabsVisibility(userPreferences.tabs_hidden);
         reorderController.initItemDragReorder();
         swipeController.initCategorySwipe();
