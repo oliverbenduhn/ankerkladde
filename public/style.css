@@ -531,7 +531,8 @@ button, input { font: inherit; }
 .app.settings-view .btn-magic,
 .app.settings-view .btn-scan,
 .app.settings-view .header-actions [href$="barcode.php"],
-.app.settings-view .btn-mode-toggle {
+.app.settings-view .btn-mode-toggle,
+.app.settings-view .desktop-layout-switcher {
     visibility: hidden;
     pointer-events: none;
 }
