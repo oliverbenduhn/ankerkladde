@@ -200,9 +200,9 @@ export function createAppRuntime(deps) {
             const item = getItemById(itemId);
             if (!item) return;
             if (columnKey === 'erledigt') {
-                if (!item.done) await itemsActionsController.handleToggle(itemId, true);
+                if (!item.done) await itemsActionsController.handleToggle(itemId, 1);
             } else {
-                if (item.done) await itemsActionsController.handleToggle(itemId, false);
+                if (item.done) await itemsActionsController.handleToggle(itemId, 0);
                 const statusMap = { offen: '', in_arbeit: 'in_progress', wartet_auf: 'waiting' };
                 const newStatus = statusMap[columnKey] ?? '';
                 if (item.status !== newStatus) {

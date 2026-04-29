@@ -1,4 +1,4 @@
 <?php
 declare(strict_types=1);
 
-return '4.3.5';
+return '4.3.6';
