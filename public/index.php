@@ -35,7 +35,9 @@ function icon(string $name): string {
     global $assetVersion;
     $href = appPath('icons/ui-sprite.svg?v=' . rawurlencode((string) $assetVersion)) . '#icon-' . $name;
 
-    return '<svg class="icon icon-filled" viewBox="0 0 24 24" aria-hidden="true"><use href="' . htmlspecialchars($href, ENT_QUOTES, 'UTF-8') . '"></use></svg>';
+    $safeHref = htmlspecialchars($href, ENT_QUOTES, 'UTF-8');
+
+    return '<svg class="icon icon-filled" viewBox="0 0 24 24" aria-hidden="true" xmlns:xlink="http://www.w3.org/1999/xlink"><use href="' . $safeHref . '" xlink:href="' . $safeHref . '"></use></svg>';
 }
 ?>
 <?php
