@@ -44,16 +44,34 @@ export function createItemsViewController(deps) {
         },
         handleEditStart: (item) => {
             state.editingId = item.id;
-            state.editDraft = {
-                name: item.name || '',
-                barcode: item.barcode || '',
-                quantity: item.quantity || '',
-                due_date: item.due_date || '',
-                content: item.content || '',
-            };
+            state.editDraft = createEditDraft(item);
             renderItems();
         },
     });
+
+    function createEditDraft(item) {
+        return {
+            itemId: item.id,
+            categoryId: item.category_id,
+            name: item.name || '',
+            barcode: item.barcode || '',
+            quantity: item.quantity || '',
+            due_date: item.due_date || '',
+            content: item.content || '',
+        };
+    }
+
+    function resetEditDraft() {
+        state.editingId = null;
+        state.editDraft = createEditDraft({ id: null, category_id: null });
+    }
+
+    function getEditDraftForItem(item) {
+        if (state.editDraft?.itemId !== item.id) {
+            state.editDraft = createEditDraft(item);
+        }
+        return state.editDraft;
+    }
 
     function getAttachmentTitle(item) {
         return item.name || item.attachmentOriginalName || 'Anhang';
@@ -384,6 +402,7 @@ export function createItemsViewController(deps) {
     }
 
     function buildEditContent(item, content) {
+        const draft = getEditDraftForItem(item);
         const fields = document.createElement('div');
         fields.className = 'item-edit-fields';
 
@@ -396,9 +415,9 @@ export function createItemsViewController(deps) {
             nameInput.rows = 3;
             nameInput.inputMode = 'url';
         }
-        nameInput.value = state.editDraft.name;
+        nameInput.value = draft.name;
         nameInput.addEventListener('input', event => {
-            state.editDraft.name = event.target.value;
+            draft.name = event.target.value;
             syncAutoHeight(nameInput);
         });
         syncAutoHeight(nameInput);
@@ -411,10 +430,10 @@ export function createItemsViewController(deps) {
             barcodeInput.className = 'item-edit-input';
             barcodeInput.maxLength = 64;
             barcodeInput.placeholder = 'Barcode';
-            barcodeInput.value = state.editDraft.barcode;
+            barcodeInput.value = draft.barcode;
             barcodeInput.addEventListener('input', event => {
-                state.editDraft.barcode = normalizeBarcodeValue(event.target.value);
-                barcodeInput.value = state.editDraft.barcode;
+                draft.barcode = normalizeBarcodeValue(event.target.value);
+                barcodeInput.value = draft.barcode;
             });
             fields.appendChild(barcodeInput);
 
@@ -422,10 +441,10 @@ export function createItemsViewController(deps) {
             quantity.type = 'text';
             quantity.className = 'item-edit-input';
             quantity.maxLength = 40;
-            quantity.value = state.editDraft.quantity;
+            quantity.value = draft.quantity;
             quantity.placeholder = 'Menge';
             quantity.addEventListener('input', event => {
-                state.editDraft.quantity = event.target.value;
+                draft.quantity = event.target.value;
             });
             fields.appendChild(quantity);
         }
@@ -434,9 +453,9 @@ export function createItemsViewController(deps) {
             const dueDate = document.createElement('input');
             dueDate.type = 'date';
             dueDate.className = 'item-edit-input';
-            dueDate.value = state.editDraft.due_date;
+            dueDate.value = draft.due_date;
             dueDate.addEventListener('input', event => {
-                state.editDraft.due_date = event.target.value;
+                draft.due_date = event.target.value;
             });
             fields.appendChild(dueDate);
 
@@ -445,9 +464,9 @@ export function createItemsViewController(deps) {
             noteInput.rows = 6;
             noteInput.maxLength = 8000;
             noteInput.placeholder = 'Notiz optional';
-            noteInput.value = state.editDraft.content;
+            noteInput.value = draft.content;
             noteInput.addEventListener('input', event => {
-                state.editDraft.content = event.target.value;
+                draft.content = event.target.value;
                 syncAutoHeight(noteInput);
             });
             syncAutoHeight(noteInput);
@@ -460,9 +479,9 @@ export function createItemsViewController(deps) {
             descriptionInput.rows = 3;
             descriptionInput.maxLength = 4000;
             descriptionInput.placeholder = 'Beschreibung optional';
-            descriptionInput.value = state.editDraft.content;
+            descriptionInput.value = draft.content;
             descriptionInput.addEventListener('input', event => {
-                state.editDraft.content = event.target.value;
+                draft.content = event.target.value;
                 syncAutoHeight(descriptionInput);
             });
             syncAutoHeight(descriptionInput);
@@ -538,7 +557,7 @@ export function createItemsViewController(deps) {
         if (state.editingId === item.id) {
             actions.appendChild(buildActionButton('check', `${item.name} speichern`, () => void handleEditSave(item.id)));
             actions.appendChild(buildActionButton('rotate-ccw', `${item.name} abbrechen`, () => {
-                state.editingId = null;
+                resetEditDraft();
                 renderItems();
             }));
         } else {
@@ -630,6 +649,9 @@ export function createItemsViewController(deps) {
         }
 
         const items = getVisibleItems();
+        if (state.editingId !== null && !items.some(item => item.id === state.editingId)) {
+            resetEditDraft();
+        }
         const doneCount = items.filter(item => item.done === 1).length;
         progressEl.textContent = `${doneCount} / ${items.length}`;
         clearDoneBtn.disabled = doneCount === 0;

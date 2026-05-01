@@ -1,8 +1,8 @@
 import { createAppUiController } from './app-ui.js?v=4.3.10';
 import { createHelpersController } from './helpers.js?v=4.3.4';
-import { createItemsActionsController } from './items-actions.js?v=4.3.4';
+import { createItemsActionsController } from './items-actions.js?v=4.3.11';
 import { createItemsController } from './items.js?v=4.3.4';
-import { createItemsViewController } from './items-view.js?v=4.3.10';
+import { createItemsViewController } from './items-view.js?v=4.3.11';
 import { createNavigation } from './navigation.js?v=4.3.4';
 import { createEditorController } from './editor.js?v=4.3.4';
 import { createTodoEditorController } from './todo-editor.js?v=4.3.4';

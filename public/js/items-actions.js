@@ -464,17 +464,27 @@ export function createItemsActionsController(deps) {
     }
 
     async function handleEditSave(id) {
+        const draft = state.editDraft || {};
+        if (state.editingId !== id || Number(draft.itemId) !== Number(id)) {
+            state.editingId = null;
+            state.editDraft = { itemId: null, categoryId: null, name: '', barcode: '', quantity: '', due_date: '', content: '' };
+            renderItems();
+            setMessage('Der Bearbeitungsentwurf passte nicht mehr zu diesem Eintrag. Bitte erneut öffnen.', true);
+            return;
+        }
+
         const body = new URLSearchParams({
             id: String(id),
-            name: state.editDraft.name.trim(),
-            barcode: state.editDraft.barcode.trim(),
-            quantity: state.editDraft.quantity.trim(),
-            due_date: state.editDraft.due_date.trim(),
-            content: state.editDraft.content.trim(),
+            name: (draft.name || '').trim(),
+            barcode: (draft.barcode || '').trim(),
+            quantity: (draft.quantity || '').trim(),
+            due_date: (draft.due_date || '').trim(),
+            content: (draft.content || '').trim(),
         });
 
         await api('update', { method: 'POST', body });
         state.editingId = null;
+        state.editDraft = { itemId: null, categoryId: null, name: '', barcode: '', quantity: '', due_date: '', content: '' };
         invalidateCategoryCache(state.categoryId);
         await loadItems();
         setMessage('Artikel gespeichert.');

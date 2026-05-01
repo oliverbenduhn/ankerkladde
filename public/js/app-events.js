@@ -80,6 +80,37 @@ export function registerAppEventHandlers(deps) {
         magicController,
     } = deps;
 
+    const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+
+    function applyDesktopLayout(layout) {
+        state.desktopLayout = layout;
+        if (appEl) appEl.dataset.desktopLayout = layout;
+        deps.desktopLayoutBtns.forEach(btn => {
+            btn.setAttribute('aria-pressed', btn.dataset.layout === layout ? 'true' : 'false');
+        });
+        saveLocalPrefs({ desktop_layout: layout });
+        renderItems();
+    }
+
+    function transitionDesktopLayout(layout) {
+        if (layout === state.desktopLayout) return;
+        const reduceMotion = Boolean(prefersReducedMotion?.matches);
+        const canUseViewTransition = !reduceMotion && typeof document.startViewTransition === 'function';
+
+        if (canUseViewTransition) {
+            document.startViewTransition(() => applyDesktopLayout(layout));
+            return;
+        }
+
+        if (!reduceMotion) {
+            appEl?.classList.add('is-layout-transitioning');
+            window.setTimeout(() => {
+                appEl?.classList.remove('is-layout-transitioning');
+            }, 260);
+        }
+        applyDesktopLayout(layout);
+    }
+
     itemForm?.addEventListener('submit', event => {
         void addItem(event).catch(error => {
             setUploadProgress(0);
@@ -192,13 +223,7 @@ export function registerAppEventHandlers(deps) {
             if (layout === 'kanban' && getCurrentType() !== 'list_due_date') {
                 layout = 'liste';
             }
-            state.desktopLayout = layout;
-            if (appEl) appEl.dataset.desktopLayout = layout;
-            deps.desktopLayoutBtns.forEach(btn => {
-                btn.setAttribute('aria-pressed', btn.dataset.layout === layout ? 'true' : 'false');
-            });
-            saveLocalPrefs({ desktop_layout: layout });
-            renderItems();
+            transitionDesktopLayout(layout);
         });
     });
 

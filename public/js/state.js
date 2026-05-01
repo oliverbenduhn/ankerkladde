@@ -88,7 +88,7 @@ export const state = {
     mode: 'liste',
     desktopLayout: 'liste',
     editingId: null,
-    editDraft: { name: '', barcode: '', quantity: '', due_date: '', content: '' },
+    editDraft: { itemId: null, categoryId: null, name: '', barcode: '', quantity: '', due_date: '', content: '' },
     search: { open: false, query: '', results: [] },
     noteEditorId: null,
     diskFreeBytes: null,
