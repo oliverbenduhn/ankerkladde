@@ -126,7 +126,6 @@ if (!empty($data['test_only'])) {
     ]);
     $response = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
-    curl_close($ch);
 
     if ($httpCode === 200) {
         echo json_encode(['success' => true, 'message' => 'Key ist gültig für ' . $geminiModel . '.']);
@@ -197,12 +196,10 @@ $response = curl_exec($ch);
 $httpCode = curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
 if ($response === false) {
     $error = curl_error($ch);
-    curl_close($ch);
     http_response_code(502);
     echo json_encode(['error' => 'Gemini konnte nicht erreicht werden: ' . $error]);
     exit;
 }
-curl_close($ch);
 
 if ($httpCode !== 200) {
     $errorPayload = json_decode($response, true);

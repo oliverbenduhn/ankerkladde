@@ -86,7 +86,6 @@ function validateGeminiApiKey(string $apiKey, string $modelName): array
     $response = curl_exec($ch);
     if ($response === false) {
         $error = curl_error($ch);
-        curl_close($ch);
 
         return [
             'type' => 'warn',
@@ -95,7 +94,6 @@ function validateGeminiApiKey(string $apiKey, string $modelName): array
     }
 
     $httpCode = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
-    curl_close($ch);
 
     if ($httpCode >= 200 && $httpCode < 300) {
         return [
@@ -211,7 +209,6 @@ function notifyWebSocket(int $userId, string $action = 'settings_update'): void
         // Log WS notification failure, but don't crash settings page
         error_log('[WS] Settings notification failed: ' . curl_error($ch));
     }
-    curl_close($ch);
 }
 
 function wantsJsonResponse(): bool
