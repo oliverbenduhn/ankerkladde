@@ -1,4 +1,4 @@
-import { createAppUiController } from './app-ui.js?v=4.3.4';
+import { createAppUiController } from './app-ui.js?v=4.3.10';
 import { createHelpersController } from './helpers.js?v=4.3.4';
 import { createItemsActionsController } from './items-actions.js?v=4.3.4';
 import { createItemsController } from './items.js?v=4.3.4';
@@ -13,7 +13,7 @@ import { createSwipeController } from './swipe.js?v=4.3.4';
 import { createTabsViewController } from './tabs-view.js?v=4.3.4';
 import { createKanbanViewController } from './kanban-view.js?v=4.3.4';
 import { createMagicController } from './magic.js?v=4.3.4';
-import { flushQueue, getPendingCount } from './offline-queue.js?v=4.3.4';
+import { flushQueue, getConflictCount, getPendingCount } from './offline-queue.js?v=4.3.10';
 import { api } from './api.js?v=4.3.4';
 import {
     BARCODE_FORMATS,
@@ -43,7 +43,7 @@ export function createAppRuntime(deps) {
         await loadItems();
     };
 
-    const appUiController = createAppUiController({ getUserPreferences, getPendingCount, onSyncClick });
+    const appUiController = createAppUiController({ getUserPreferences, getConflictCount, getPendingCount, onSyncClick });
 
     const updateFilePickerLabel = () => appUiController.updateFilePickerLabel();
     const helpersController = createHelpersController({

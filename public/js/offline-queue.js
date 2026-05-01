@@ -1,4 +1,5 @@
 const QUEUE_KEY = 'ankerkladde-offline-queue';
+const CONFLICTS_KEY = 'ankerkladde-offline-conflicts';
 
 export function getQueue() {
     try {
@@ -16,6 +17,30 @@ export function enqueueAction(type, payload) {
 
 export function getPendingCount() {
     return getQueue().length;
+}
+
+export function getConflicts() {
+    try {
+        return JSON.parse(localStorage.getItem(CONFLICTS_KEY) || '[]');
+    } catch {
+        return [];
+    }
+}
+
+export function getConflictCount() {
+    return getConflicts().length;
+}
+
+function addConflict(type, payload, error) {
+    const conflicts = getConflicts();
+    conflicts.push({
+        type,
+        payload,
+        status: Number(error?.status) || null,
+        message: error instanceof Error ? error.message : 'Unbekannter Fehler',
+        failedAt: new Date().toISOString(),
+    });
+    localStorage.setItem(CONFLICTS_KEY, JSON.stringify(conflicts));
 }
 
 export async function flushQueue(apiFn) {
@@ -43,8 +68,9 @@ export async function flushQueue(apiFn) {
                 remainingQueue.push({ type, payload });
                 queueHalted = true;
             } else {
-                // 4xx error - drop it and continue with the next
-                console.warn('Dropping offline queue item due to client error:', error);
+                // 4xx/conflict: remove it from the retry queue, but keep the payload recoverable.
+                addConflict(type, payload, error);
+                console.warn('Offline queue item moved to conflicts due to client error:', error);
                 flushedAny = true; // Queue changed
             }
         }

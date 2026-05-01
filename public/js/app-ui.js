@@ -35,7 +35,12 @@ import {
 import { syncAutoHeight } from './utils.js?v=4.3.4';
 
 export function createAppUiController(deps = {}) {
-    const { getUserPreferences = () => ({}), getPendingCount = () => 0, onSyncClick = () => {} } = deps;
+    const {
+        getUserPreferences = () => ({}),
+        getConflictCount = () => 0,
+        getPendingCount = () => 0,
+        onSyncClick = () => {},
+    } = deps;
     let messageTimer = null;
     let uploadMode = 'file';
     let lastUploadCategoryId = null;
@@ -300,7 +305,8 @@ export function createAppUiController(deps = {}) {
     function setNetworkStatus() {
         if (!networkStatusEl) return;
         const count = getPendingCount();
-        if (navigator.onLine && count === 0) {
+        const conflictCount = getConflictCount();
+        if (navigator.onLine && count === 0 && conflictCount === 0) {
             networkStatusEl.hidden = true;
             networkStatusEl.textContent = '';
             networkStatusEl.innerHTML = '';
@@ -317,6 +323,8 @@ export function createAppUiController(deps = {}) {
                         onSyncClick();
                     });
                 }
+            } else if (conflictCount > 0) {
+                networkStatusEl.textContent = `${conflictCount} Offline-Änderung${conflictCount === 1 ? '' : 'en'} konnte${conflictCount === 1 ? '' : 'n'} nicht automatisch synchronisiert werden und wurde${conflictCount === 1 ? '' : 'n'} lokal gesichert.`;
             } else {
                 networkStatusEl.textContent = 'Offline: Die zuletzt geladene Liste bleibt sichtbar.';
             }
