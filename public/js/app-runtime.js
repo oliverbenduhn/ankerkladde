@@ -4,16 +4,16 @@ import { createItemsActionsController } from './items-actions.js?v=4.3.11';
 import { createItemsController } from './items.js?v=4.3.4';
 import { createItemsViewController } from './items-view.js?v=4.3.11';
 import { createNavigation } from './navigation.js?v=4.3.4';
-import { createEditorController } from './editor.js?v=4.3.4';
+import { createEditorController } from './editor.js?v=4.3.11';
 import { createTodoEditorController } from './todo-editor.js?v=4.3.4';
 import { createReorderController } from './reorder.js?v=4.3.4';
 import { createRouter } from './router.js?v=4.3.4';
-import { createScannerController } from './scanner.js?v=4.3.10';
+import { createScannerController } from './scanner.js?v=4.3.11';
 import { createSwipeController } from './swipe.js?v=4.3.4';
 import { createTabsViewController } from './tabs-view.js?v=4.3.4';
 import { createKanbanViewController } from './kanban-view.js?v=4.3.10';
 import { createMagicController } from './magic.js?v=4.3.10';
-import { flushQueue, getConflictCount, getPendingCount } from './offline-queue.js?v=4.3.10';
+import { flushQueue, getConflictCount, getPendingCount } from './offline-queue.js?v=4.3.11';
 import { api } from './api.js?v=4.3.4';
 import {
     BARCODE_FORMATS,

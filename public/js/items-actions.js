@@ -1,8 +1,8 @@
 import { appUrl, api, apiUpload } from './api.js?v=4.3.4';
 import { getCurrentCategory, isAttachmentCategory, state } from './state.js?v=4.3.4';
 import { fileInput, itemInput, linkDescriptionInput, quantityInput, urlImportInput } from './ui.js?v=4.3.4';
-import { escapeRegExp } from './utils.js?v=4.3.4';
-import { enqueueAction } from './offline-queue.js?v=4.3.4';
+import { escapeRegExp, limitText, sanitizeItemField, sanitizeItemPayload } from './utils.js?v=4.3.11';
+import { enqueueAction } from './offline-queue.js?v=4.3.11';
 
 export function createItemsActionsController(deps) {
     const {
@@ -32,6 +32,10 @@ export function createItemsActionsController(deps) {
 
     function shouldQueueOffline(error) {
         return Boolean(error?.isNetworkError || Number(error?.status) >= 500);
+    }
+
+    function itemParams(payload) {
+        return new URLSearchParams(sanitizeItemPayload(payload));
     }
 
     async function handleStaleCategory(error, categoryId) {
@@ -108,7 +112,7 @@ export function createItemsActionsController(deps) {
         }
 
         const contentType = response.headers.get('Content-Type') || 'application/octet-stream';
-        const filename = decodeURIComponent(response.headers.get('X-Share-Filename') || 'shared');
+        const filename = sanitizeItemField('name', decodeURIComponent(response.headers.get('X-Share-Filename') || 'shared'));
         const blob = await response.blob();
         await cache.delete('pending-file');
 
@@ -154,20 +158,20 @@ export function createItemsActionsController(deps) {
         }
         await setCategory(category.id);
 
-        let description = buildSharedLinkDescription(title, text, url);
+        let description = sanitizeItemField('content', buildSharedLinkDescription(title, text, url));
 
         if (!description.trim()) {
             setMessage('Lade Seiten-Infos...');
             const meta = await fetchLinkMetadata(url);
             if (meta?.title || meta?.description) {
-                description = [meta.title, meta.description].filter(Boolean).join('\n\n');
+                description = sanitizeItemField('content', [meta.title, meta.description].filter(Boolean).join('\n\n'));
             }
         }
 
         await api('add', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ category_id: category.id, name: url, content: description })
+            body: JSON.stringify(sanitizeItemPayload({ category_id: category.id, name: url, content: description }))
         });
         invalidateCategoryCache(category.id);
         await loadItems(category.id, { useCache: false });
@@ -182,9 +186,10 @@ export function createItemsActionsController(deps) {
         }
         await setCategory(category.id);
 
-        const noteName = title || (text.length > 60 ? text.substring(0, 60) + '\u2026' : text) || 'Geteilte Notiz';
-        const noteContent = text
-            ? text.split('\n')
+        const cleanedText = limitText(text, 8000);
+        const noteName = sanitizeItemField('name', title || (cleanedText.length > 60 ? cleanedText.substring(0, 60) + '\u2026' : cleanedText) || 'Geteilte Notiz');
+        const noteContent = cleanedText
+            ? cleanedText.split('\n')
                 .map(line => line.trim())
                 .filter(line => line.length > 0)
                 .map(line => `<p>${line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>`)
@@ -194,7 +199,7 @@ export function createItemsActionsController(deps) {
         const payload = await api('add', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ category_id: category.id, name: noteName, content: noteContent })
+            body: JSON.stringify(sanitizeItemPayload({ category_id: category.id, name: noteName, content: noteContent }))
         });
         invalidateCategoryCache(category.id);
         await loadItems(category.id, { useCache: false });
@@ -219,7 +224,7 @@ export function createItemsActionsController(deps) {
 
         const formData = new FormData();
         formData.append('category_id', String(category.id));
-        formData.append('name', itemInput.value.trim() || file.name);
+        formData.append('name', sanitizeItemField('name', itemInput.value.trim() || file.name));
         formData.append('attachment', file);
 
         await apiUpload('upload', formData, makeUploadProgressCallback());
@@ -233,7 +238,7 @@ export function createItemsActionsController(deps) {
         const category = getCurrentCategory();
         if (!category || category.type !== 'files') return;
 
-        const url = urlImportInput?.value.trim() || '';
+        const url = sanitizeItemField('url', urlImportInput?.value || '');
         if (!url) {
             setMessage('Bitte gib eine URL ein.', true);
             return;
@@ -250,7 +255,7 @@ export function createItemsActionsController(deps) {
             return;
         }
 
-        const body = new URLSearchParams({
+        const body = itemParams({
             category_id: String(category.id),
             url,
             name: itemInput.value.trim(),
@@ -274,8 +279,8 @@ export function createItemsActionsController(deps) {
         if (!category) return;
 
         if (category.type === 'notes') {
-            const name = itemInput.value.trim() || 'Neue Notiz';
-            const body = new URLSearchParams({ category_id: String(category.id), name });
+            const name = sanitizeItemField('name', itemInput.value.trim() || 'Neue Notiz');
+            const body = itemParams({ category_id: String(category.id), name });
             try {
                 const payload = await api('add', { method: 'POST', body });
                 resetItemForm();
@@ -301,30 +306,30 @@ export function createItemsActionsController(deps) {
             return;
         }
 
-        const body = new URLSearchParams({
+        const body = itemParams({
             category_id: String(category.id),
             name: itemInput.value.trim(),
         });
 
         if (category.type === 'links') {
-            const manualDescription = linkDescriptionInput?.value.trim();
+            const manualDescription = sanitizeItemField('content', linkDescriptionInput?.value.trim());
             if (manualDescription) {
                 body.set('content', manualDescription);
             } else {
                 setMessage('Lade Seiten-Infos...');
                 const meta = await fetchLinkMetadata(itemInput.value.trim());
                 if (meta?.title || meta?.description) {
-                    body.set('content', [meta.title, meta.description].filter(Boolean).join('\n\n'));
+                    body.set('content', sanitizeItemField('content', [meta.title, meta.description].filter(Boolean).join('\n\n')));
                 }
             }
         }
 
         if (category.type === 'list_quantity' && quantityInput.value.trim() !== '') {
-            body.set('quantity', quantityInput.value.trim());
+            body.set('quantity', sanitizeItemField('quantity', quantityInput.value.trim()));
         }
 
         if (category.type === 'list_due_date' && quantityInput.value.trim() !== '') {
-            body.set('due_date', quantityInput.value.trim());
+            body.set('due_date', sanitizeItemField('due_date', quantityInput.value.trim()));
         }
 
         try {
@@ -473,7 +478,7 @@ export function createItemsActionsController(deps) {
             return;
         }
 
-        const body = new URLSearchParams({
+        const body = itemParams({
             id: String(id),
             name: (draft.name || '').trim(),
             barcode: (draft.barcode || '').trim(),

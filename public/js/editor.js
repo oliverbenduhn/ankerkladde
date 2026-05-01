@@ -1,6 +1,7 @@
 import { api } from './api.js?v=4.3.4';
 import { NOTE_SAVE_DEBOUNCE_MS, state } from './state.js?v=4.3.4';
 import { appEl, noteEditorBody, noteEditorEl, noteSaveStatus, noteTitleInput, noteToolbar } from './ui.js?v=4.3.4';
+import { sanitizeItemField, sanitizeItemPayload } from './utils.js?v=4.3.11';
 
 export function createEditorController(deps) {
     const {
@@ -39,15 +40,17 @@ export function createEditorController(deps) {
     }
 
     async function saveNoteContent(id, title, htmlContent) {
+        const sanitizedTitle = sanitizeItemField('name', title || 'Ohne Titel') || 'Ohne Titel';
+        const sanitizedContent = sanitizeItemField('content', htmlContent);
         try {
             await api('update', {
                 method: 'POST',
-                body: new URLSearchParams({ id: String(id), name: title || 'Ohne Titel', content: htmlContent }),
+                body: new URLSearchParams(sanitizeItemPayload({ id: String(id), name: sanitizedTitle, content: sanitizedContent })),
             });
             const item = deps.getItemById(id);
             if (item) {
-                item.name = title || 'Ohne Titel';
-                item.content = htmlContent;
+                item.name = sanitizedTitle;
+                item.content = sanitizedContent;
             }
             cacheCurrentCategoryItems();
             setNoteSaveStatus('Gespeichert');

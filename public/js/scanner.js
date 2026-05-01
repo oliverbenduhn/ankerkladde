@@ -1,7 +1,7 @@
 import { api } from './api.js?v=4.3.4';
 import { BARCODE_FORMATS, isBarcodeCategory, isIosWebKit, isScannerSupported, scannerState, state } from './state.js?v=4.3.4';
 import { itemForm, itemInput, quantityInput, scannerManualForm, scannerManualInput, scannerOverlay, scannerStatus, scannerSubtitle, scannerVideo } from './ui.js?v=4.3.4';
-import { normalizeBarcodeValue, syncAutoHeight } from './utils.js?v=4.3.4';
+import { normalizeBarcodeValue, sanitizeItemField, sanitizeItemPayload, syncAutoHeight } from './utils.js?v=4.3.11';
 
 export function createScannerController(deps) {
     /**
@@ -224,18 +224,18 @@ export function createScannerController(deps) {
         const product = await lookupProductByBarcode(barcode);
         const productName = typeof product?.product_name === 'string' ? product.product_name.trim() : '';
         const brandName = typeof product?.brands === 'string' ? product.brands.trim() : '';
-        const name = productName !== ''
+        const name = sanitizeItemField('name', productName !== ''
             ? (brandName !== '' ? `${productName} (${brandName})` : productName)
-            : (brandName !== '' ? brandName : `Artikel ${barcode}`);
-        const body = new URLSearchParams({
+            : (brandName !== '' ? brandName : `Artikel ${barcode}`));
+        const body = new URLSearchParams(sanitizeItemPayload({
             category_id: String(category.id),
             name,
             barcode,
-        });
+        }));
 
         const quantity = quantityInput?.value.trim() || product?.quantity?.trim() || '';
         if (quantity !== '') {
-            body.set('quantity', quantity);
+            body.set('quantity', sanitizeItemField('quantity', quantity));
         }
 
         await api('add', { method: 'POST', body });

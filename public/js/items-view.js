@@ -1,6 +1,6 @@
 import { isNotesCategory, state } from './state.js?v=4.3.4';
 import { clearDoneBtn, listEl, progressEl, svgIcon } from './ui.js?v=4.3.4';
-import { normalizeBarcodeValue, syncAutoHeight } from './utils.js?v=4.3.4';
+import { normalizeBarcodeValue, sanitizeItemField, syncAutoHeight } from './utils.js?v=4.3.11';
 import { createLightboxController } from './lightbox.js?v=4.3.4';
 import { createItemMenuController } from './item-menu.js?v=4.3.10';
 
@@ -417,7 +417,8 @@ export function createItemsViewController(deps) {
         }
         nameInput.value = draft.name;
         nameInput.addEventListener('input', event => {
-            draft.name = event.target.value;
+            draft.name = sanitizeItemField('name', event.target.value);
+            if (event.target.value !== draft.name) event.target.value = draft.name;
             syncAutoHeight(nameInput);
         });
         syncAutoHeight(nameInput);
@@ -444,7 +445,8 @@ export function createItemsViewController(deps) {
             quantity.value = draft.quantity;
             quantity.placeholder = 'Menge';
             quantity.addEventListener('input', event => {
-                draft.quantity = event.target.value;
+                draft.quantity = sanitizeItemField('quantity', event.target.value);
+                if (event.target.value !== draft.quantity) event.target.value = draft.quantity;
             });
             fields.appendChild(quantity);
         }
@@ -455,7 +457,8 @@ export function createItemsViewController(deps) {
             dueDate.className = 'item-edit-input';
             dueDate.value = draft.due_date;
             dueDate.addEventListener('input', event => {
-                draft.due_date = event.target.value;
+                draft.due_date = sanitizeItemField('due_date', event.target.value);
+                if (event.target.value !== draft.due_date) event.target.value = draft.due_date;
             });
             fields.appendChild(dueDate);
 
@@ -466,7 +469,8 @@ export function createItemsViewController(deps) {
             noteInput.placeholder = 'Notiz optional';
             noteInput.value = draft.content;
             noteInput.addEventListener('input', event => {
-                draft.content = event.target.value;
+                draft.content = sanitizeItemField('content', event.target.value);
+                if (event.target.value !== draft.content) event.target.value = draft.content;
                 syncAutoHeight(noteInput);
             });
             syncAutoHeight(noteInput);
@@ -481,7 +485,8 @@ export function createItemsViewController(deps) {
             descriptionInput.placeholder = 'Beschreibung optional';
             descriptionInput.value = draft.content;
             descriptionInput.addEventListener('input', event => {
-                draft.content = event.target.value;
+                draft.content = sanitizeItemField('content', event.target.value);
+                if (event.target.value !== draft.content) event.target.value = draft.content;
                 syncAutoHeight(descriptionInput);
             });
             syncAutoHeight(descriptionInput);

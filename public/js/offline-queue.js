@@ -1,5 +1,12 @@
+import { OFFLINE_QUEUE_ITEM_MAX_BYTES, OFFLINE_QUEUE_MAX_BYTES, sanitizeItemPayload } from './utils.js?v=4.3.11';
+
 const QUEUE_KEY = 'ankerkladde-offline-queue';
 const CONFLICTS_KEY = 'ankerkladde-offline-conflicts';
+const textEncoder = typeof TextEncoder === 'function' ? new TextEncoder() : null;
+
+function storageBytes(value) {
+    return textEncoder ? textEncoder.encode(value).byteLength : value.length;
+}
 
 export function getQueue() {
     try {
@@ -10,9 +17,20 @@ export function getQueue() {
 }
 
 export function enqueueAction(type, payload) {
+    const sanitizedPayload = sanitizeItemPayload(payload);
+    const item = { type, payload: sanitizedPayload };
+    const itemJson = JSON.stringify(item);
+    if (storageBytes(itemJson) > OFFLINE_QUEUE_ITEM_MAX_BYTES) {
+        throw new Error('Dieser Eintrag ist zu groß für die Offline-Synchronisation.');
+    }
+
     const queue = getQueue();
-    queue.push({ type, payload });
-    localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
+    queue.push(item);
+    const queueJson = JSON.stringify(queue);
+    if (storageBytes(queueJson) > OFFLINE_QUEUE_MAX_BYTES) {
+        throw new Error('Der Offline-Speicher ist voll. Bitte synchronisiere oder lösche alte Offline-Einträge.');
+    }
+    localStorage.setItem(QUEUE_KEY, queueJson);
 }
 
 export function getPendingCount() {
@@ -32,15 +50,18 @@ export function getConflictCount() {
 }
 
 function addConflict(type, payload, error) {
-    const conflicts = getConflicts();
+    const conflicts = getConflicts().slice(-49);
     conflicts.push({
         type,
-        payload,
+        payload: sanitizeItemPayload(payload),
         status: Number(error?.status) || null,
         message: error instanceof Error ? error.message : 'Unbekannter Fehler',
         failedAt: new Date().toISOString(),
     });
-    localStorage.setItem(CONFLICTS_KEY, JSON.stringify(conflicts));
+    const conflictsJson = JSON.stringify(conflicts);
+    if (storageBytes(conflictsJson) <= OFFLINE_QUEUE_MAX_BYTES) {
+        localStorage.setItem(CONFLICTS_KEY, conflictsJson);
+    }
 }
 
 export async function flushQueue(apiFn) {
@@ -53,23 +74,24 @@ export async function flushQueue(apiFn) {
 
     for (let index = 0; index < queue.length; index += 1) {
         const { type, payload } = queue[index];
+        const sanitizedPayload = sanitizeItemPayload(payload);
         
         if (queueHalted) {
-            remainingQueue.push({ type, payload });
+            remainingQueue.push({ type, payload: sanitizedPayload });
             continue;
         }
 
         try {
-            await apiFn(type, { method: 'POST', body: new URLSearchParams(payload) });
+            await apiFn(type, { method: 'POST', body: new URLSearchParams(sanitizedPayload) });
             flushedAny = true;
         } catch (error) {
             if (error.isNetworkError || (error.status && error.status >= 500)) {
                 // Keep this and all subsequent items in the queue
-                remainingQueue.push({ type, payload });
+                remainingQueue.push({ type, payload: sanitizedPayload });
                 queueHalted = true;
             } else {
                 // 4xx/conflict: remove it from the retry queue, but keep the payload recoverable.
-                addConflict(type, payload, error);
+                addConflict(type, sanitizedPayload, error);
                 console.warn('Offline queue item moved to conflicts due to client error:', error);
                 flushedAny = true; // Queue changed
             }
