@@ -68,6 +68,46 @@ export function createItemsViewController(deps) {
         }
     }
 
+    function decodeHtmlEntities(value) {
+        const namedEntities = {
+            amp: '&',
+            apos: "'",
+            gt: '>',
+            lt: '<',
+            nbsp: ' ',
+            quot: '"',
+        };
+
+        return value.replace(/&(#x[0-9a-f]+|#[0-9]+|[a-z][a-z0-9]+);/gi, (match, entity) => {
+            const normalized = entity.toLowerCase();
+            if (Object.prototype.hasOwnProperty.call(namedEntities, normalized)) {
+                return namedEntities[normalized];
+            }
+
+            if (normalized.startsWith('#x')) {
+                const codePoint = Number.parseInt(normalized.slice(2), 16);
+                return Number.isInteger(codePoint) && codePoint >= 0 && codePoint <= 0x10FFFF ? String.fromCodePoint(codePoint) : match;
+            }
+
+            if (normalized.startsWith('#')) {
+                const codePoint = Number.parseInt(normalized.slice(1), 10);
+                return Number.isInteger(codePoint) && codePoint >= 0 && codePoint <= 0x10FFFF ? String.fromCodePoint(codePoint) : match;
+            }
+
+            return match;
+        });
+    }
+
+    function htmlPreviewText(value) {
+        if (typeof value !== 'string' || value === '') return '';
+
+        return decodeHtmlEntities(
+            value
+                .replace(/<\s*(script|style)[^>]*>[\s\S]*?<\s*\/\s*\1\s*>/gi, ' ')
+                .replace(/<[^>]*>/g, ' ')
+        ).replace(/\s+/g, ' ').trim();
+    }
+
     function mojibakeScore(value) {
         return (value.match(/[ÃÂâ][\u0080-\u00BF\u20AC\u201A-\u201E\u2013-\u201D\u2020-\u2022\u02C6\u2030\u2039\u0152\u017D\u02DC\u2122\u0161\u203A\u0153\u017E\u0178]?/g) || []).length;
     }
@@ -258,10 +298,7 @@ export function createItemsViewController(deps) {
 
                 const notePreview = document.createElement('span');
                 notePreview.className = 'item-note-preview';
-                // Strip HTML tags: create a temporary element, set innerHTML, extract textContent
-                const tempEl = document.createElement('div');
-                tempEl.innerHTML = item.content;
-                notePreview.textContent = repairPreviewEncoding(tempEl.textContent);
+                notePreview.textContent = repairPreviewEncoding(htmlPreviewText(item.content));
                 meta.appendChild(notePreview);
 
                 content.appendChild(meta);

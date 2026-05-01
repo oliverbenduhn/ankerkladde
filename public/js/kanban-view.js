@@ -15,6 +15,24 @@ function itemColumn(item) {
     return 'offen';
 }
 
+function buildColumnHeader(icon, label, count) {
+    const header = document.createElement('div');
+    header.className = 'kanban-column-header';
+
+    const iconEl = document.createElement('span');
+    iconEl.className = 'kanban-col-icon';
+    iconEl.textContent = icon;
+
+    const labelEl = document.createTextNode(` ${label} `);
+
+    const countEl = document.createElement('span');
+    countEl.className = 'kanban-col-count';
+    countEl.textContent = String(count);
+
+    header.append(iconEl, labelEl, countEl);
+    return header;
+}
+
 export function createKanbanViewController({ buildItemNode, getVisibleItems, handleKanbanDrop }) {
     let boardEl = null;
 
@@ -48,9 +66,7 @@ export function createKanbanViewController({ buildItemNode, getVisibleItems, han
             col.className = 'kanban-column';
             col.dataset.status = key;
 
-            const header = document.createElement('div');
-            header.className = 'kanban-column-header';
-            header.innerHTML = `<span class="kanban-col-icon">${icon}</span> ${label} <span class="kanban-col-count">${groups[key].length}</span>`;
+            const header = buildColumnHeader(icon, label, groups[key].length);
             col.appendChild(header);
 
             const ul = document.createElement('ul');
