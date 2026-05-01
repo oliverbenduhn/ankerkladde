@@ -8,6 +8,7 @@ export function createItemMenuController(deps) {
         handleDelete,
         handleEditStart,
         handleMove,
+        onActionError = () => {},
     } = deps;
 
     function open(item) {
@@ -45,11 +46,14 @@ export function createItemMenuController(deps) {
             button.addEventListener('click', async event => {
                 event.stopPropagation();
                 if (closeOnClick) close();
+                button.disabled = true;
                 try {
                     await onClick();
                 } catch (error) {
-                    // Silently ignore errors from actions (they should handle themselves)
-                    // This prevents unhandled rejections from showing in console
+                    console.error('Item menu action failed:', error);
+                    onActionError(error);
+                } finally {
+                    button.disabled = false;
                 }
             });
             actions.appendChild(button);

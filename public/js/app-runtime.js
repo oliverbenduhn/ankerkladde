@@ -191,6 +191,7 @@ export function createAppRuntime(deps) {
         openNoteEditorWithNavigation,
         openTodoEditor,
         setCategory,
+        setMessage,
     });
 
     kanbanViewController = createKanbanViewController({

@@ -2,7 +2,7 @@ import { isNotesCategory, state } from './state.js?v=4.3.4';
 import { clearDoneBtn, listEl, progressEl, svgIcon } from './ui.js?v=4.3.4';
 import { normalizeBarcodeValue, syncAutoHeight } from './utils.js?v=4.3.4';
 import { createLightboxController } from './lightbox.js?v=4.3.4';
-import { createItemMenuController } from './item-menu.js?v=4.3.4';
+import { createItemMenuController } from './item-menu.js?v=4.3.10';
 
 export function createItemsViewController(deps) {
     const {
@@ -22,6 +22,7 @@ export function createItemsViewController(deps) {
         openNoteEditorWithNavigation,
         openTodoEditor,
         setCategory,
+        setMessage,
     } = deps;
 
     const lightbox = createLightboxController();
@@ -33,6 +34,12 @@ export function createItemsViewController(deps) {
         handlePin,
         handleDelete,
         handleMove,
+        onActionError: (error) => {
+            const message = error instanceof Error && error.message
+                ? error.message
+                : 'Aktion fehlgeschlagen.';
+            setMessage(message, true);
+        },
         handleEditStart: (item) => {
             state.editingId = item.id;
             state.editDraft = {
