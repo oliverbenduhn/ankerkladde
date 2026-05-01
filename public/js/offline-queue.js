@@ -61,7 +61,18 @@ function addConflict(type, payload, error) {
     const conflictsJson = JSON.stringify(conflicts);
     if (storageBytes(conflictsJson) <= OFFLINE_QUEUE_MAX_BYTES) {
         localStorage.setItem(CONFLICTS_KEY, conflictsJson);
+        window.dispatchEvent(new Event('ankerkladde-conflicts-updated'));
     }
+}
+
+export function setConflicts(conflicts) {
+    localStorage.setItem(CONFLICTS_KEY, JSON.stringify(conflicts));
+    window.dispatchEvent(new Event('ankerkladde-conflicts-updated'));
+}
+
+export function clearConflicts() {
+    localStorage.removeItem(CONFLICTS_KEY);
+    window.dispatchEvent(new Event('ankerkladde-conflicts-updated'));
 }
 
 export async function flushQueue(apiFn) {

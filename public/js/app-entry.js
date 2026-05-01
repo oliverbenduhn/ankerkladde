@@ -4,6 +4,7 @@ import { createAppRuntime } from './app-runtime.js?v=4.3.11';
 import { readInitialPreferences, state } from './state.js?v=4.3.4';
 import { applyThemePreferences } from './theme.js?v=4.3.4';
 import { modeToggleBtns, desktopLayoutBtns } from './ui.js?v=4.3.4';
+import { initConflictUI } from './offline-conflicts.js?v=4.3.11';
 
 export function startApp(version) {
     let userPreferences = readInitialPreferences();
@@ -68,6 +69,12 @@ export function startApp(version) {
 
     applyUserPreferences = runtimeApplyUserPreferences;
     applyUserPreferences(userPreferences);
+
+    initConflictUI({
+        loadItems,
+        invalidateCategoryCache: runtime.invalidateCategoryCache,
+        setMessage
+    });
 
     registerAppEventHandlers({
         addItem,

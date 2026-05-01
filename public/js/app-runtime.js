@@ -305,6 +305,7 @@ export function createAppRuntime(deps) {
         flushOfflineQueue,
         handleIncomingShare: async () => { await itemsActionsController.handleIncomingShare(); },
         handleScannedBarcode,
+        invalidateCategoryCache,
         loadCategories,
         loadItems,
         navigation,

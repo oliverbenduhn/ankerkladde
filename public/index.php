@@ -101,6 +101,7 @@ $clientWebSocketUrl = is_string($clientWebSocketUrl) ? trim($clientWebSocketUrl)
             </div>
         </div>
         <div class="header-actions">
+            <button type="button" id="conflictAlertBtn" class="header-icon-btn btn-conflict-alert" aria-label="Konflikte anzeigen" hidden><?= icon('alert-triangle') ?></button>
             <button type="button" id="tabsToggleBtn" class="header-icon-btn btn-tabs-toggle" aria-label="Kategorienleiste ein-/ausblenden"><?= icon('panel-bottom') ?></button>
             <a href="<?= htmlspecialchars(appPath('barcode.php'), ENT_QUOTES, 'UTF-8') ?>" class="header-icon-btn" aria-label="Produktinfos per Scan öffnen"<?= !$productScannerEnabled ? ' hidden' : '' ?>><?= icon('scan-info') ?></a>
             <button type="button" id="searchBtn" class="header-icon-btn btn-search" aria-label="Suchen"><?= icon('search') ?></button>
@@ -141,6 +142,7 @@ $clientWebSocketUrl = is_string($clientWebSocketUrl) ? trim($clientWebSocketUrl)
             </div>
         </div>
         <div class="header-actions">
+            <button type="button" id="conflictAlertBtn" class="header-icon-btn btn-conflict-alert" aria-label="Konflikte anzeigen" hidden><?= icon('alert-triangle') ?></button>
             <span class="progress" id="progress" aria-live="polite">0 / 0</span>
             <button type="button" class="header-icon-btn btn-tabs-toggle" aria-label="Kategorienleiste ein-/ausblenden"><?= icon('panel-bottom') ?></button>
             <a href="<?= htmlspecialchars(appPath('barcode.php'), ENT_QUOTES, 'UTF-8') ?>" class="header-icon-btn" aria-label="Produktinfos per Scan öffnen"<?= !$productScannerEnabled ? ' hidden' : '' ?>><?= icon('scan-info') ?></a>
@@ -216,6 +218,22 @@ $clientWebSocketUrl = is_string($clientWebSocketUrl) ? trim($clientWebSocketUrl)
 
     <div class="upload-progress" id="uploadProgress" hidden>
         <div class="upload-progress-bar" id="uploadProgressBar"></div>
+    </div>
+
+    <div class="conflict-overlay" id="conflictOverlay" hidden>
+        <div class="conflict-sheet" role="dialog" aria-modal="true" aria-labelledby="conflictTitle">
+            <div class="conflict-header">
+                <div>
+                    <h2 class="conflict-title" id="conflictTitle">Konflikte</h2>
+                    <p class="conflict-subtitle">Diese Einträge konnten nicht gespeichert werden.</p>
+                </div>
+                <button type="button" id="conflictCloseBtn" class="header-icon-btn" aria-label="Schließen"><?= icon('x') ?></button>
+            </div>
+            <div class="conflict-list-container" id="conflictListContainer"></div>
+            <div class="conflict-actions" id="conflictGlobalActions" hidden>
+                <button type="button" id="conflictClearAllBtn" class="btn-clear" style="width:100%; border-radius: var(--radius);">Alle verwerfen</button>
+            </div>
+        </div>
     </div>
 
     <?php if ($shoppingListScannerEnabled): ?>
