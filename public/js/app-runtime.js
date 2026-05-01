@@ -8,11 +8,11 @@ import { createEditorController } from './editor.js?v=4.3.4';
 import { createTodoEditorController } from './todo-editor.js?v=4.3.4';
 import { createReorderController } from './reorder.js?v=4.3.4';
 import { createRouter } from './router.js?v=4.3.4';
-import { createScannerController } from './scanner.js?v=4.3.4';
+import { createScannerController } from './scanner.js?v=4.3.10';
 import { createSwipeController } from './swipe.js?v=4.3.4';
 import { createTabsViewController } from './tabs-view.js?v=4.3.4';
 import { createKanbanViewController } from './kanban-view.js?v=4.3.10';
-import { createMagicController } from './magic.js?v=4.3.4';
+import { createMagicController } from './magic.js?v=4.3.10';
 import { flushQueue, getConflictCount, getPendingCount } from './offline-queue.js?v=4.3.10';
 import { api } from './api.js?v=4.3.4';
 import {

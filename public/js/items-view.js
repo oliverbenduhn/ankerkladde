@@ -485,6 +485,31 @@ export function createItemsViewController(deps) {
         return button;
     }
 
+    function isNestedInteractiveTarget(event, root) {
+        const target = event.target;
+        if (!(target instanceof Element)) return false;
+        const interactive = target.closest('button, a, input, textarea, select, [tabindex], [role="button"]');
+        return Boolean(interactive && interactive !== root);
+    }
+
+    function makeListItemButton(li, label, onActivate) {
+        li.setAttribute('role', 'button');
+        li.tabIndex = 0;
+        li.setAttribute('aria-label', label);
+
+        li.addEventListener('click', event => {
+            if (isNestedInteractiveTarget(event, li)) return;
+            onActivate();
+        });
+
+        li.addEventListener('keydown', event => {
+            if (isNestedInteractiveTarget(event, li)) return;
+            if (event.key !== 'Enter' && event.key !== ' ') return;
+            event.preventDefault();
+            onActivate();
+        });
+    }
+
     function buildItemNode(item) {
         const li = document.createElement('li');
         li.className = `item-card item-type-${item.category_type} ${item.done === 1 ? 'done' : 'open'}${item.is_pinned ? ' is-pinned' : ''}${isOverdueItem(item) ? ' is-overdue' : ''}`;
@@ -532,10 +557,7 @@ export function createItemsViewController(deps) {
         li.append(checkbox, content, actions);
 
         if (item.category_type === 'notes') {
-            li.addEventListener('click', event => {
-                if (event.target.closest('.toggle') || event.target.closest('.btn-item-menu')) return;
-                void openNoteEditorWithNavigation(item);
-            });
+            makeListItemButton(li, `${item.name} öffnen`, () => void openNoteEditorWithNavigation(item));
         }
 
         return li;
@@ -579,7 +601,7 @@ export function createItemsViewController(deps) {
             content.appendChild(badge);
 
             li.appendChild(content);
-            li.addEventListener('click', async () => {
+            makeListItemButton(li, `${item.name} in ${item.category_name} öffnen`, async () => {
                 closeSearch();
                 await setCategory(item.category_id);
                 if (item.category_type === 'notes') {

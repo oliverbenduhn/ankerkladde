@@ -1,6 +1,6 @@
 import { api } from './api.js?v=4.3.4';
 import { BARCODE_FORMATS, isBarcodeCategory, isIosWebKit, isScannerSupported, scannerState, state } from './state.js?v=4.3.4';
-import { itemForm, itemInput, quantityInput, scannerManualInput, scannerOverlay, scannerStatus, scannerSubtitle, scannerVideo } from './ui.js?v=4.3.4';
+import { itemForm, itemInput, quantityInput, scannerManualForm, scannerManualInput, scannerOverlay, scannerStatus, scannerSubtitle, scannerVideo } from './ui.js?v=4.3.4';
 import { normalizeBarcodeValue, syncAutoHeight } from './utils.js?v=4.3.4';
 
 export function createScannerController(deps) {
@@ -37,6 +37,21 @@ export function createScannerController(deps) {
         triggerHapticFeedback,
         updateFilePickerLabel,
     } = deps;
+
+    function setScannerProcessing(processing) {
+        scannerState.processing = processing;
+        if (scannerOverlay) {
+            scannerOverlay.classList.toggle('is-processing', processing);
+            scannerOverlay.setAttribute('aria-busy', processing ? 'true' : 'false');
+        }
+        if (scannerManualForm) {
+            scannerManualForm.classList.toggle('is-processing', processing);
+            scannerManualForm.setAttribute('aria-busy', processing ? 'true' : 'false');
+            scannerManualForm.querySelectorAll('input, button').forEach(control => {
+                control.disabled = processing;
+            });
+        }
+    }
 
     function getScannerActionLabel() {
         return scannerState.action === 'toggle' ? 'Eintrag abhaken' : 'Artikel hinzufügen';
@@ -90,7 +105,7 @@ export function createScannerController(deps) {
         stopScannerStream();
         scannerState.detector = null;
         scannerState.mode = 'native';
-        scannerState.processing = false;
+        setScannerProcessing(false);
         scannerState.open = false;
         if (scannerOverlay) scannerOverlay.hidden = true;
     }
@@ -256,6 +271,7 @@ export function createScannerController(deps) {
     async function handleScannedBarcode(rawValue) {
         const barcode = normalizeBarcodeValue(rawValue);
         if (barcode.length < 8) return;
+        if (scannerState.processing) return;
 
         const now = Date.now();
         if (barcode === scannerState.lastValue && now - scannerState.lastHandledAt < getScannerCooldownMs()) {
@@ -264,7 +280,7 @@ export function createScannerController(deps) {
 
         scannerState.lastValue = barcode;
         scannerState.lastHandledAt = now;
-        scannerState.processing = true;
+        setScannerProcessing(true);
         stopScannerWatchdog();
         setScannerStatus(`${getScannerActionLabel()}: ${barcode}`);
 
@@ -285,7 +301,7 @@ export function createScannerController(deps) {
             setScannerStatus(error instanceof Error ? error.message : 'Barcode konnte nicht verarbeitet werden.', true);
         } finally {
             window.setTimeout(() => {
-                scannerState.processing = false;
+                setScannerProcessing(false);
                 if (scannerState.open) {
                     scheduleScannerWatchdog();
                 }
@@ -335,7 +351,7 @@ export function createScannerController(deps) {
         }
 
         scannerState.action = action;
-        scannerState.processing = false;
+        setScannerProcessing(false);
         scannerState.lastValue = '';
         scannerState.lastHandledAt = 0;
         scannerState.controls = null;

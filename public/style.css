@@ -1437,6 +1437,23 @@ button, input { font: inherit; }
     border-color: color-mix(in srgb, var(--error) 25%, transparent);
 }
 
+.scanner-overlay.is-processing .scanner-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.scanner-overlay.is-processing .scanner-status::before {
+    content: "";
+    width: 14px;
+    height: 14px;
+    border: 2px solid color-mix(in srgb, var(--accent) 28%, transparent);
+    border-top-color: var(--accent);
+    border-radius: 999px;
+    flex: 0 0 auto;
+    animation: controlSpin 0.8s linear infinite;
+}
+
 .scanner-manual-form {
     display: flex;
     gap: 8px;
@@ -1457,6 +1474,12 @@ button, input { font: inherit; }
     outline: none;
     border-color: var(--accent);
     box-shadow: 0 0 0 3px rgba(200, 184, 154, 0.2);
+}
+
+.scanner-manual-form.is-processing input,
+.scanner-manual-form.is-processing button {
+    opacity: 0.62;
+    cursor: wait;
 }
 
 .barcode-page-app {
@@ -3078,15 +3101,22 @@ button, input { font: inherit; }
     pointer-events: none;
 }
 
+.magic-bar.is-loading .btn-magic-voice,
+.magic-bar.is-loading .btn-search-close,
 .magic-bar.is-loading .btn-magic-submit {
-    animation: magicPulse 1.5s infinite ease-in-out;
     pointer-events: none;
+    cursor: wait;
+    opacity: 0.7;
 }
 
-@keyframes magicPulse {
-    0% { transform: scale(1); opacity: 1; }
-    50% { transform: scale(1.15); opacity: 0.7; }
-    100% { transform: scale(1); opacity: 1; }
+.magic-bar.is-loading .btn-magic-submit .icon {
+    animation: controlSpin 0.8s linear infinite;
+}
+
+.magic-bar.is-loading .btn-magic-submit:hover { transform: none; }
+
+@keyframes controlSpin {
+    to { transform: rotate(360deg); }
 }
 
 /* ===========================================

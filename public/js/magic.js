@@ -4,6 +4,18 @@ import { appEl, magicBtns, magicBar, magicInput, magicSubmit, magicClose, magicV
 export function createMagicController(deps) {
     const { getUserPreferences, loadCategories, loadItems, setCategory, setMessage, updateHeaders } = deps;
     let recognition = null;
+    let isSubmitting = false;
+
+    function setMagicLoading(loading) {
+        isSubmitting = loading;
+        if (!magicBar) return;
+        magicBar.classList.toggle('is-loading', loading);
+        magicBar.setAttribute('aria-busy', loading ? 'true' : 'false');
+        if (magicInput) magicInput.disabled = loading;
+        if (magicSubmit) magicSubmit.disabled = loading;
+        if (magicVoiceBtn) magicVoiceBtn.disabled = loading;
+        if (magicClose) magicClose.disabled = loading;
+    }
 
     function openMagic() {
         if (getUserPreferences().magic_button_enabled === false) {
@@ -21,7 +33,8 @@ export function createMagicController(deps) {
         magicInput.focus();
     }
 
-    function closeMagic() {
+    function closeMagic(force = false) {
+        if (isSubmitting && !force) return;
         if (!magicBar) return;
         magicBar.hidden = true;
         appEl.classList.remove('is-magic-active');
@@ -33,6 +46,7 @@ export function createMagicController(deps) {
     }
 
     function startVoiceRecognition() {
+        if (isSubmitting) return;
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SpeechRecognition) {
             setMessage('Spracherkennung wird von diesem Browser nicht unterstützt.', true);
@@ -87,6 +101,7 @@ export function createMagicController(deps) {
     }
 
     async function submitMagic() {
+        if (isSubmitting) return;
         if (getUserPreferences().magic_button_enabled === false) {
             setMessage('Der Magic Button ist in den Einstellungen deaktiviert.', true);
             return;
@@ -94,7 +109,7 @@ export function createMagicController(deps) {
         const input = magicInput.value.trim();
         if (!input) return;
 
-        magicBar.classList.add('is-loading');
+        setMagicLoading(true);
         setMessage('Magie wird gewirkt...');
 
         try {
@@ -127,12 +142,12 @@ export function createMagicController(deps) {
                 updateHeaders();
             }
             
-            closeMagic();
+            closeMagic(true);
         } catch (error) {
             console.error('[Magic] Error:', error);
             setMessage(error.message, true);
         } finally {
-            magicBar.classList.remove('is-loading');
+            setMagicLoading(false);
         }
     }
 
