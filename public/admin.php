@@ -95,7 +95,6 @@ function downloadFileToPath(string $url, string $targetPath): void
 
     $ok = curl_exec($ch);
     $error = $ok === false ? curl_error($ch) : null;
-    curl_close($ch);
     fclose($fp);
 
     if ($ok === false) {

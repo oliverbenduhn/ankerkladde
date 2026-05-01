@@ -64,7 +64,6 @@ function respond(int $status, array $payload): never
                     CURLOPT_HTTPHEADER => ['Content-Type: application/json']
                 ]);
                 curl_exec($ch);
-                curl_close($ch);
             }
         } else {
             $context = stream_context_create([
@@ -309,7 +308,6 @@ function fetchWithCurl(string $url, int $connectTimeoutSeconds, int $requestTime
     $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
     $contentType = strtolower((string) curl_getinfo($ch, CURLINFO_CONTENT_TYPE));
     $error = curl_errno($ch) !== 0 ? curl_error($ch) : '';
-    curl_close($ch);
 
     if (!is_string($body) || $body === '') {
         return ['html' => null, 'error' => $error !== '' ? $error : 'Seite nicht abrufbar.'];
@@ -925,7 +923,6 @@ PROMPT;
 
     $response = curl_exec($ch);
     $httpCode = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
-    curl_close($ch);
 
     if (!is_string($response) || $response === '' || $httpCode !== 200) {
         return $normalized;
@@ -1464,7 +1461,6 @@ function downloadRemoteFile(string $url): array
         $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
         $curlErrno = curl_errno($ch);
         $error = curl_error($ch);
-        curl_close($ch);
         fclose($handle);
 
         $sizeBytes = filesize($tmpPath);
