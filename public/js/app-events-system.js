@@ -1,8 +1,8 @@
-import { saveLocalPrefs, state, scannerState, userPreferencesRef } from './state.js?v=4.3.4';
+import { saveLocalPrefs, state, scannerState } from './state.js?v=4.3.4';
 import { magicBar } from './ui.js?v=4.3.4';
 
 export function registerSystemEvents(deps) {
-    const { navigation, setMessage, flushOfflineQueue, setNetworkStatus, magicController, closeSearch } = deps;
+    const { navigation, setMessage, flushOfflineQueue, setNetworkStatus, magicController, closeSearch, savePreferences } = deps;
 
     window.addEventListener('popstate', event => {
         void navigation.handlePopState(event, setMessage);
@@ -67,7 +67,7 @@ export function registerSystemEvents(deps) {
     const installDismiss = document.getElementById('installDismiss');
 
     window.addEventListener('beforeinstallprompt', event => {
-        if (userPreferencesRef().install_banner_dismissed || !installBannerEl || !installBtn) return;
+        if (deps.userPreferencesRef().install_banner_dismissed || !installBannerEl || !installBtn) return;
         deferredInstallPrompt = event;
         event.preventDefault();
         installBannerEl.hidden = false;

@@ -1,6 +1,6 @@
-import { registerAppEventHandlers } from './app-events.js?v=4.3.11';
+import { registerAppEventHandlers } from './app-events.js?v=4.3.12';
 import { initApp, registerServiceWorker, initWebSocketServer } from './app-init.js?v=4.3.4';
-import { createAppRuntime } from './app-runtime.js?v=4.3.11';
+import { createAppRuntime } from './app-runtime.js?v=4.3.12';
 import { readInitialPreferences, state } from './state.js?v=4.3.4';
 import { applyThemePreferences } from './theme.js?v=4.3.4';
 import { modeToggleBtns, desktopLayoutBtns } from './ui.js?v=4.3.4';

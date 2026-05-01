@@ -51,7 +51,7 @@ const APP_SHELL_ASSET_URLS = [
     `icon.php?size=192&v=${ASSET_VERSION}`,
     `icon.php?size=384&v=${ASSET_VERSION}`,
     `icon.php?size=512&v=${ASSET_VERSION}`,
-    `icons/ui-sprite.svg?v=${ASSET_VERSION}`,
+    `ui-sprite.php?v=${ASSET_VERSION}`,
 ].map(path => new URL(path, APP_SCOPE_URL).toString());
 
 // Windows-1252 codepoints that differ from Latin-1 (0x80-0x9F range)

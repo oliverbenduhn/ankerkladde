@@ -58,8 +58,8 @@ if (/function getIconPaths\(\)|static \$paths\s*=|<path d=/.test(indexSource)) {
     fail('index.php should not contain the old inline SVG path table.');
 }
 
-if (!indexSource.includes('icons/ui-sprite.svg?v=')) {
-    fail('index.php icon() helper must reference the external UI sprite.');
+if (!indexSource.includes('ui-sprite.php?v=')) {
+    fail('index.php icon() helper must reference the UI sprite endpoint.');
 }
 
 if (process.exitCode) {

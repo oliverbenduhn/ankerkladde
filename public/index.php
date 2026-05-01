@@ -33,7 +33,7 @@ function icon(string $name): string {
     }
 
     global $assetVersion;
-    $href = appPath('icons/ui-sprite.svg?v=' . rawurlencode((string) $assetVersion)) . '#icon-' . $name;
+    $href = appPath('ui-sprite.php?v=' . rawurlencode((string) $assetVersion)) . '#icon-' . $name;
 
     $safeHref = htmlspecialchars($href, ENT_QUOTES, 'UTF-8');
 

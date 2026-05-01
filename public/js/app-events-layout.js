@@ -1,4 +1,4 @@
-import { saveLocalPrefs, state, themeMediaQuery, getCurrentType, userPreferencesRef } from './state.js?v=4.3.4';
+import { saveLocalPrefs, state, themeMediaQuery, getCurrentType } from './state.js?v=4.3.4';
 import { appEl, sectionTabsEl, updateViewportHeight } from './ui.js?v=4.3.4';
 import { applyThemePreferences } from './theme.js?v=4.3.4';
 
@@ -92,7 +92,7 @@ export function registerLayoutEvents(deps) {
 
     if (themeMediaQuery) {
         const onThemeMediaChange = () => {
-            if (userPreferencesRef().theme_mode === 'auto') applyThemePreferences(userPreferencesRef());
+            if (deps.userPreferencesRef().theme_mode === 'auto') applyThemePreferences(deps.userPreferencesRef());
         };
         if (typeof themeMediaQuery.addEventListener === 'function') {
             themeMediaQuery.addEventListener('change', onThemeMediaChange);

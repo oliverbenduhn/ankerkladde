@@ -1,4 +1,4 @@
-import { saveLocalPrefs, state, scannerState, normalizePreferences, userPreferencesRef } from './state.js?v=4.3.4';
+import { saveLocalPrefs, state, scannerState, normalizePreferences } from './state.js?v=4.3.4';
 import { applyThemePreferences } from './theme.js?v=4.3.4';
 import { normalizeSettingsTab } from './api.js?v=4.3.4';
 import {
@@ -121,7 +121,7 @@ export function registerToolsEvents(deps) {
             const patch = event.data?.preferences || {};
             saveLocalPrefs(patch);
             const nextPreferences = normalizePreferences({
-                ...userPreferencesRef(),
+                ...deps.userPreferencesRef(),
                 ...patch,
             });
             setUserPreferences(nextPreferences);
