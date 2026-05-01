@@ -26,6 +26,8 @@ export function createItemsViewController(deps) {
     } = deps;
 
     const lightbox = createLightboxController();
+    const previewDecoder = typeof TextDecoder === 'function' ? new TextDecoder('utf-8', { fatal: true }) : null;
+    const previewTextCache = new Map();
     const itemMenu = createItemMenuController({
         getAttachmentTitle: (item) => item.name || item.attachmentOriginalName || 'Anhang',
         getMoveTargetCategories,
@@ -57,8 +59,21 @@ export function createItemsViewController(deps) {
         return item.name || item.attachmentOriginalName || 'Anhang';
     }
 
+    function hasLikelyMojibake(value) {
+        return value.includes('Ã') || value.includes('Â') || value.includes('â');
+    }
+
+    function mojibakeScore(value) {
+        let score = 0;
+        for (let i = 0; i < value.length; i += 1) {
+            const code = value.charCodeAt(i);
+            if (code === 0x00C3 || code === 0x00C2 || code === 0x00E2) score += 1;
+        }
+        return score;
+    }
+
     function repairPreviewEncoding(value) {
-        if (typeof value !== 'string' || value === '') return value;
+        if (typeof value !== 'string' || value === '' || !previewDecoder || !hasLikelyMojibake(value)) return value;
 
         const bytes = new Uint8Array(value.length);
         for (let i = 0; i < value.length; i++) {
@@ -68,7 +83,7 @@ export function createItemsViewController(deps) {
         }
 
         try {
-            const decoded = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+            const decoded = previewDecoder.decode(bytes);
             return mojibakeScore(decoded) < mojibakeScore(value) ? decoded : value;
         } catch {
             return value;
@@ -115,8 +130,16 @@ export function createItemsViewController(deps) {
         ).replace(/\s+/g, ' ').trim();
     }
 
-    function mojibakeScore(value) {
-        return (value.match(/[ÃÂâ][\u0080-\u00BF\u20AC\u201A-\u201E\u2013-\u201D\u2020-\u2022\u02C6\u2030\u2039\u0152\u017D\u02DC\u2122\u0161\u203A\u0153\u017E\u0178]?/g) || []).length;
+    function getNotePreviewText(content) {
+        if (typeof content !== 'string' || content === '') return '';
+        if (previewTextCache.has(content)) return previewTextCache.get(content);
+
+        const preview = repairPreviewEncoding(htmlPreviewText(content));
+        previewTextCache.set(content, preview);
+        if (previewTextCache.size > 250) {
+            previewTextCache.delete(previewTextCache.keys().next().value);
+        }
+        return preview;
     }
 
     function openItemMenu(item) {
@@ -132,26 +155,55 @@ export function createItemsViewController(deps) {
         return placeholder;
     }
 
+    function createAttachmentSubline(text) {
+        const subline = document.createElement('span');
+        subline.className = 'attachment-subline';
+        subline.textContent = text;
+        return subline;
+    }
+
+    function createDownloadLink(item) {
+        const downloadLink = document.createElement('a');
+        downloadLink.className = 'attachment-download-link';
+        downloadLink.href = item.attachmentDownloadUrl || item.attachmentUrl;
+        downloadLink.target = '_blank';
+        downloadLink.rel = 'noopener noreferrer';
+        downloadLink.download = item.attachmentOriginalName || getAttachmentTitle(item);
+        downloadLink.textContent = 'Download';
+        downloadLink.addEventListener('click', event => event.stopPropagation());
+        return downloadLink;
+    }
+
+    function createAttachmentMeta(item, sublineText = '') {
+        const meta = document.createElement('div');
+        meta.className = 'attachment-meta';
+
+        const titleEl = document.createElement('span');
+        titleEl.className = 'item-name attachment-title';
+        titleEl.textContent = getAttachmentTitle(item);
+        meta.appendChild(titleEl);
+
+        if (sublineText) {
+            meta.appendChild(createAttachmentSubline(sublineText));
+        }
+
+        return meta;
+    }
+
+    function appendDownloadAction(meta, item) {
+        const actions = document.createElement('div');
+        actions.className = 'attachment-inline-actions';
+        actions.appendChild(createDownloadLink(item));
+        meta.appendChild(actions);
+    }
+
     function buildReadOnlyContent(item, content) {
         const type = item.category_type;
 
         if ((type === 'images' || type === 'files') && !item.has_attachment) {
             content.classList.add('item-content-attachment', 'item-content-missing-attachment');
 
-            const meta = document.createElement('div');
-            meta.className = 'attachment-meta';
-
-            const titleEl = document.createElement('span');
-            titleEl.className = 'item-name attachment-title';
-            titleEl.textContent = getAttachmentTitle(item);
-            meta.appendChild(titleEl);
-
-            const missingEl = document.createElement('span');
-            missingEl.className = 'attachment-subline';
-            missingEl.textContent = 'Anhang nicht verfügbar';
-            meta.appendChild(missingEl);
-
-            content.appendChild(meta);
+            content.appendChild(createAttachmentMeta(item, 'Anhang nicht verfügbar'));
             return;
         }
 
@@ -186,35 +238,8 @@ export function createItemsViewController(deps) {
                 previewLink.appendChild(createImagePreviewPlaceholder());
             }
 
-            const meta = document.createElement('div');
-            meta.className = 'attachment-meta';
-
-            const titleEl = document.createElement('span');
-            titleEl.className = 'item-name attachment-title';
-            titleEl.textContent = getAttachmentTitle(item);
-            meta.appendChild(titleEl);
-
-            if (item.attachmentOriginalName) {
-                const originalEl = document.createElement('span');
-                originalEl.className = 'attachment-subline';
-                originalEl.textContent = item.attachmentOriginalName;
-                meta.appendChild(originalEl);
-            }
-
-            const actions = document.createElement('div');
-            actions.className = 'attachment-inline-actions';
-
-            const downloadLink = document.createElement('a');
-            downloadLink.className = 'attachment-download-link';
-            downloadLink.href = item.attachmentDownloadUrl || item.attachmentUrl;
-            downloadLink.target = '_blank';
-            downloadLink.rel = 'noopener noreferrer';
-            downloadLink.download = item.attachmentOriginalName || getAttachmentTitle(item);
-            downloadLink.textContent = 'Download';
-            downloadLink.addEventListener('click', event => event.stopPropagation());
-            actions.appendChild(downloadLink);
-
-            meta.appendChild(actions);
+            const meta = createAttachmentMeta(item, item.attachmentOriginalName || '');
+            appendDownloadAction(meta, item);
             content.append(previewLink, meta);
             return;
         }
@@ -222,41 +247,14 @@ export function createItemsViewController(deps) {
         if (type === 'files' && item.has_attachment) {
             content.classList.add('item-content-attachment', 'item-content-file');
 
-            const meta = document.createElement('div');
-            meta.className = 'attachment-meta';
-
-            const titleEl = document.createElement('span');
-            titleEl.className = 'item-name attachment-title';
-            titleEl.textContent = getAttachmentTitle(item);
-            meta.appendChild(titleEl);
-
             const detailValues = [
                 item.attachmentOriginalName || null,
                 item.attachmentMediaType || null,
                 item.attachmentSizeBytes > 0 ? formatBytes(item.attachmentSizeBytes) : null,
             ].filter(Boolean);
 
-            if (detailValues.length > 0) {
-                const detailsEl = document.createElement('span');
-                detailsEl.className = 'attachment-subline';
-                detailsEl.textContent = detailValues.join(' · ');
-                meta.appendChild(detailsEl);
-            }
-
-            const actions = document.createElement('div');
-            actions.className = 'attachment-inline-actions';
-
-            const downloadLink = document.createElement('a');
-            downloadLink.className = 'attachment-download-link';
-            downloadLink.href = item.attachmentDownloadUrl || item.attachmentUrl;
-            downloadLink.target = '_blank';
-            downloadLink.rel = 'noopener noreferrer';
-            downloadLink.download = item.attachmentOriginalName || getAttachmentTitle(item);
-            downloadLink.textContent = 'Download';
-            downloadLink.addEventListener('click', event => event.stopPropagation());
-            actions.appendChild(downloadLink);
-
-            meta.appendChild(actions);
+            const meta = createAttachmentMeta(item, detailValues.join(' · '));
+            appendDownloadAction(meta, item);
             content.appendChild(meta);
             return;
         }
@@ -305,7 +303,7 @@ export function createItemsViewController(deps) {
 
                 const notePreview = document.createElement('span');
                 notePreview.className = 'item-note-preview';
-                notePreview.textContent = repairPreviewEncoding(htmlPreviewText(item.content));
+                notePreview.textContent = getNotePreviewText(item.content);
                 meta.appendChild(notePreview);
 
                 content.appendChild(meta);

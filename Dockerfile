@@ -10,9 +10,12 @@ RUN apt-get update \
         libpng-dev \
         libjpeg-dev \
         libwebp-dev \
+        libxml2-utils \
         libonig-dev \
     && docker-php-ext-configure gd --with-jpeg --with-webp \
     && docker-php-ext-install curl pdo pdo_sqlite gd mbstring \
+    && php -m | grep -qx SimpleXML \
+    && command -v xmllint >/dev/null \
     && rm -rf /var/lib/apt/lists/*
 
 # Apache-Module aktivieren
