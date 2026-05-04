@@ -3,7 +3,7 @@ import { state } from './state.js?v=4.3.4';
 import { appEl, todoEditorEl, todoTitleInput, todoDateInput, todoNoteInput } from './ui.js?v=4.3.4';
 
 export function createTodoEditorController(deps) {
-    const { invalidateCategoryCache, loadItems } = deps;
+    const { invalidateCategoryCache, loadItems, handleToggle } = deps;
 
     let currentItem = null;
     let currentStatus = '';
@@ -60,6 +60,18 @@ export function createTodoEditorController(deps) {
                 await save();
             };
         });
+
+        const doneBtn = document.getElementById('todoDoneBtn');
+        if (doneBtn) {
+            doneBtn.onclick = async () => {
+                await save();
+                await handleToggle(item.id, 1);
+                currentItem = null;
+                currentStatus = '';
+                if (todoEditorEl) todoEditorEl.hidden = true;
+                appEl?.classList.remove('todo-editor-open');
+            };
+        }
 
         if (todoTitleInput) todoTitleInput.value = item.name || '';
         if (todoDateInput) todoDateInput.value = item.due_date || '';

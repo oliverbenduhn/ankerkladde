@@ -307,6 +307,7 @@ $clientWebSocketUrl = is_string($clientWebSocketUrl) ? trim($clientWebSocketUrl)
                     <button type="button" class="todo-status-btn" data-status="">Offen</button>
                     <button type="button" class="todo-status-btn" data-status="in_progress">In Arbeit</button>
                     <button type="button" class="todo-status-btn" data-status="waiting">Wartet</button>
+                    <button type="button" class="todo-status-btn todo-status-btn--done" id="todoDoneBtn" aria-label="Erledigt"><?= icon('check') ?></button>
                 </div>
             </div>
             <div class="todo-editor-section todo-editor-section--note">

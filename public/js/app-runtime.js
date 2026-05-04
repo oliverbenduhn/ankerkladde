@@ -261,6 +261,7 @@ export function createAppRuntime(deps) {
     todoEditorController = createTodoEditorController({
         invalidateCategoryCache,
         loadItems,
+        handleToggle: async (id, done) => { await itemsActionsController.handleToggle(id, done); },
     });
 
     reorderController = createReorderController({
