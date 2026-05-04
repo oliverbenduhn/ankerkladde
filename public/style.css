@@ -1933,13 +1933,15 @@ button, input { font: inherit; }
     }
 
     .app[data-desktop-layout="grid"] #list {
-        columns: 220px;
+        column-count: 3;
         column-gap: 10px;
     }
 
     .app[data-desktop-layout="grid"] #list > .item-card {
         break-inside: avoid;
         margin-bottom: 10px;
+        display: inline-flex;
+        width: 100%;
     }
 
     /* Grundlayout der Karte im Grid: etwas weniger Pill, mehr Card */
@@ -2081,6 +2083,16 @@ button, input { font: inherit; }
     .app[data-desktop-layout="kanban"] .item-type-list_due_date .date-badge {
         flex: 0 0 auto;
     }
+}
+
+@media (min-width: 1200px) {
+    .app[data-desktop-layout="grid"] #list { column-count: 4; }
+}
+@media (min-width: 1600px) {
+    .app[data-desktop-layout="grid"] #list { column-count: 5; }
+}
+@media (min-width: 2000px) {
+    .app[data-desktop-layout="grid"] #list { column-count: 6; }
 }
 
 /* ── Desktop Kanban-Ansicht ─────────────────────────────────────── */
