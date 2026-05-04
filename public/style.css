@@ -1933,10 +1933,13 @@ button, input { font: inherit; }
     }
 
     .app[data-desktop-layout="grid"] #list {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-        align-items: start;
-        gap: 10px;
+        columns: 220px;
+        column-gap: 10px;
+    }
+
+    .app[data-desktop-layout="grid"] #list > .item-card {
+        break-inside: avoid;
+        margin-bottom: 10px;
     }
 
     /* Grundlayout der Karte im Grid: etwas weniger Pill, mehr Card */
