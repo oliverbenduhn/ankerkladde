@@ -65,12 +65,12 @@ export function createTodoEditorController(deps) {
         if (doneBtn) {
             doneBtn.onclick = async () => {
                 await save();
-                await handleToggle(item.id, 1);
-                currentItem = null;
-                currentStatus = '';
-                if (todoEditorEl) todoEditorEl.hidden = true;
-                appEl?.classList.remove('todo-editor-open');
+                await handleToggle(item.id, item.done === 1 ? 0 : 1);
+                currentItem = { ...currentItem, done: item.done === 1 ? 0 : 1 };
+                item.done = currentItem.done;
+                doneBtn.classList.toggle('is-active', currentItem.done === 1);
             };
+            doneBtn.classList.toggle('is-active', item.done === 1);
         }
 
         if (todoTitleInput) todoTitleInput.value = item.name || '';
