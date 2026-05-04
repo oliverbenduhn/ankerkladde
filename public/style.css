@@ -1929,20 +1929,20 @@ button, input { font: inherit; }
 /* ── Desktop Kästchenansicht ─────────────────────────────────── */
 @media (min-width: 900px) {
     .app[data-desktop-layout="grid"] .list-area {
-        padding: 16px;
+        padding: 12px;
     }
 
     .app[data-desktop-layout="grid"] #list {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
         align-items: start;
-        gap: 12px;
+        gap: 10px;
     }
 
     /* Grundlayout der Karte im Grid: etwas weniger Pill, mehr Card */
     .app[data-desktop-layout="grid"] .item-card {
-        border-radius: 14px;
-        padding: 12px 14px;
+        border-radius: 12px;
+        padding: 10px 12px;
     }
 
     /* Bild-Karten: Thumbnail als Karten-Hero ──────────────────── */
