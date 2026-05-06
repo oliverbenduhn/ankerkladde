@@ -2369,7 +2369,7 @@ button, input { font: inherit; }
         gap: 8px;
         flex: 1 0 100%;
         width: 100%;
-        padding-right: 42px;
+        padding-right: 54px;
     }
 
     .brand-mark-app {
@@ -2380,14 +2380,29 @@ button, input { font: inherit; }
 
     .header-actions {
         width: 100%;
-        gap: 5px;
-        justify-content: space-between;
+        gap: 6px;
+        justify-content: flex-start;
+        overflow-x: auto;
+        overflow-y: hidden;
+        padding: 1px 0 2px;
+        scrollbar-width: none;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .header-actions::-webkit-scrollbar {
+        display: none;
+    }
+
+    .desktop-layout-switcher {
+        display: contents;
     }
 
     .header-icon-btn {
-        flex: 1 1 0;
-        min-width: 34px;
-        min-height: 34px;
+        width: 42px;
+        height: 42px;
+        min-width: 42px;
+        min-height: 42px;
+        flex: 0 0 42px;
         padding: 0;
         border-radius: 50px;
     }
@@ -2396,11 +2411,11 @@ button, input { font: inherit; }
         position: absolute;
         top: 14px;
         right: 12px;
-        width: 34px;
-        height: 34px;
-        min-width: 34px;
-        min-height: 34px;
-        flex: 0 0 34px;
+        width: 42px;
+        height: 42px;
+        min-width: 42px;
+        min-height: 42px;
+        flex: 0 0 42px;
         z-index: 2;
     }
 
