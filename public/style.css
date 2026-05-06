@@ -1745,6 +1745,120 @@ button, input { font: inherit; }
     color: var(--error);
 }
 
+.share-category-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    background: rgba(0, 0, 0, 0.48);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding: 0;
+}
+
+.share-category-sheet {
+    width: min(100%, 560px);
+    max-height: 82vh;
+    overflow: hidden;
+    background: var(--surface);
+    border-radius: var(--radius) var(--radius) 0 0;
+    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.2);
+    display: flex;
+    flex-direction: column;
+}
+
+.share-category-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1.25rem 1.25rem 1rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.share-category-title {
+    margin: 0 0 0.25rem;
+    color: var(--text-primary);
+    font-size: 1.15rem;
+    font-weight: 700;
+    line-height: 1.25;
+}
+
+.share-category-subtitle {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+}
+
+.share-category-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 1rem 1.25rem 1.25rem;
+    overflow-y: auto;
+}
+
+.share-category-option {
+    width: 100%;
+    min-height: 56px;
+    display: grid;
+    grid-template-columns: 38px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.55rem 0.75rem;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text-primary);
+    cursor: pointer;
+    text-align: left;
+}
+
+.share-category-option:hover,
+.share-category-option:focus-visible {
+    border-color: var(--accent);
+    outline: none;
+}
+
+.share-category-icon {
+    width: 34px;
+    height: 34px;
+    object-fit: contain;
+}
+
+.share-category-text {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 0.1rem;
+}
+
+.share-category-name {
+    font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.share-category-type {
+    color: var(--text-secondary);
+    font-size: 0.82rem;
+}
+
+.share-category-badge {
+    padding: 0.25rem 0.45rem;
+    border-radius: 999px;
+    background: var(--surface);
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+    font-size: 0.74rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
 /* ===========================================
    EMPTY STATE
    =========================================== */

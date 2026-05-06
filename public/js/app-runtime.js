@@ -152,6 +152,7 @@ export function createAppRuntime(deps) {
     itemsActionsController = createItemsActionsController({
         cacheCurrentCategoryItems,
         closeNoteEditor,
+        getCurrentCategory,
         getItemById,
         getUploadMode,
         getVisibleCategories,

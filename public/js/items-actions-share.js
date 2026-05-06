@@ -3,6 +3,7 @@ import { escapeRegExp, limitText, sanitizeItemField, sanitizeItemPayload } from 
 
 export function createShareActions(deps) {
     const {
+        getCurrentCategory,
         getVisibleCategories,
         loadItems,
         makeUploadProgressCallback,
@@ -12,6 +13,15 @@ export function createShareActions(deps) {
         invalidateCategoryCache,
         getItemById,
     } = deps;
+
+    const CATEGORY_TYPE_LABELS = {
+        list_quantity: 'Liste',
+        list_due_date: 'Aufgaben',
+        notes: 'Notizen',
+        images: 'Bilder',
+        files: 'Dateien',
+        links: 'Links',
+    };
 
     async function fetchLinkMetadata(url) {
         try {
@@ -41,6 +51,142 @@ export function createShareActions(deps) {
         };
     }
 
+    function categoryIconUrl(category) {
+        const icon = category.icon || category.type || 'einkauf';
+        return appUrl(`category-icon.php?icon=${encodeURIComponent(icon)}`);
+    }
+
+    function makeCategoryOption(category, badge = '') {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'share-category-option';
+        button.dataset.categoryId = String(category.id);
+
+        const icon = document.createElement('img');
+        icon.className = 'share-category-icon';
+        icon.src = categoryIconUrl(category);
+        icon.alt = '';
+        icon.draggable = false;
+
+        const textWrap = document.createElement('span');
+        textWrap.className = 'share-category-text';
+
+        const name = document.createElement('span');
+        name.className = 'share-category-name';
+        name.textContent = category.name || 'Kategorie';
+
+        const type = document.createElement('span');
+        type.className = 'share-category-type';
+        type.textContent = CATEGORY_TYPE_LABELS[category.type] || category.type || '';
+
+        textWrap.append(name, type);
+        button.append(icon, textWrap);
+
+        if (badge) {
+            const badgeEl = document.createElement('span');
+            badgeEl.className = 'share-category-badge';
+            badgeEl.textContent = badge;
+            button.appendChild(badgeEl);
+        }
+
+        return button;
+    }
+
+    function orderShareCategories(categories, recommendedType) {
+        const currentCategoryId = Number(getCurrentCategory?.()?.id || 0);
+
+        return [...categories].sort((a, b) => {
+            const aRecommended = a.type === recommendedType ? 0 : 1;
+            const bRecommended = b.type === recommendedType ? 0 : 1;
+            if (aRecommended !== bRecommended) return aRecommended - bRecommended;
+
+            const aCurrent = Number(a.id) === currentCategoryId ? 0 : 1;
+            const bCurrent = Number(b.id) === currentCategoryId ? 0 : 1;
+            if (aCurrent !== bCurrent) return aCurrent - bCurrent;
+
+            return Number(a.sort_order || 0) - Number(b.sort_order || 0);
+        });
+    }
+
+    function pickShareCategory({ title, subtitle, recommendedType, isCompatible }) {
+        const categories = getVisibleCategories().filter(isCompatible);
+        if (categories.length === 0) return Promise.resolve(null);
+
+        return new Promise(resolve => {
+            const currentCategoryId = Number(getCurrentCategory?.()?.id || 0);
+            const overlay = document.createElement('div');
+            overlay.className = 'share-category-overlay';
+            overlay.setAttribute('role', 'dialog');
+            overlay.setAttribute('aria-modal', 'true');
+            overlay.setAttribute('aria-labelledby', 'shareCategoryTitle');
+
+            const sheet = document.createElement('div');
+            sheet.className = 'share-category-sheet';
+
+            const header = document.createElement('div');
+            header.className = 'share-category-header';
+
+            const headingWrap = document.createElement('div');
+            const heading = document.createElement('h2');
+            heading.id = 'shareCategoryTitle';
+            heading.className = 'share-category-title';
+            heading.textContent = title;
+
+            const sub = document.createElement('p');
+            sub.className = 'share-category-subtitle';
+            sub.textContent = subtitle;
+            headingWrap.append(heading, sub);
+
+            const closeBtn = document.createElement('button');
+            closeBtn.type = 'button';
+            closeBtn.className = 'header-icon-btn';
+            closeBtn.setAttribute('aria-label', 'Auswahl abbrechen');
+            closeBtn.innerHTML = '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>';
+
+            header.append(headingWrap, closeBtn);
+
+            const list = document.createElement('div');
+            list.className = 'share-category-list';
+
+            orderShareCategories(categories, recommendedType).forEach(category => {
+                const badge = category.type === recommendedType
+                    ? 'Empfohlen'
+                    : Number(category.id) === currentCategoryId ? 'Zuletzt' : '';
+                const option = makeCategoryOption(category, badge);
+                option.addEventListener('click', () => {
+                    cleanup();
+                    resolve(category);
+                });
+                list.appendChild(option);
+            });
+
+            sheet.append(header, list);
+            overlay.appendChild(sheet);
+
+            function cleanup() {
+                document.removeEventListener('keydown', onKeydown);
+                overlay.remove();
+            }
+
+            function cancel() {
+                cleanup();
+                resolve(null);
+            }
+
+            function onKeydown(event) {
+                if (event.key === 'Escape') cancel();
+            }
+
+            closeBtn.addEventListener('click', cancel);
+            overlay.addEventListener('click', event => {
+                if (event.target === overlay) cancel();
+            });
+            document.addEventListener('keydown', onKeydown);
+            document.body.appendChild(overlay);
+            list.querySelector('button')?.focus();
+        });
+    }
+
     async function handleSharedFile() {
         const cache = await caches.open('ankerkladde-share-target');
         const response = await cache.match('pending-file');
@@ -56,9 +202,14 @@ export function createShareActions(deps) {
 
         const isImage = contentType.startsWith('image/');
         const targetType = isImage ? 'images' : 'files';
-        const category = getVisibleCategories().find(c => c.type === targetType);
+        const category = await pickShareCategory({
+            title: 'Speichern in',
+            subtitle: filename,
+            recommendedType: targetType,
+            isCompatible: candidate => candidate.type === 'files' || (isImage && candidate.type === 'images'),
+        });
         if (!category) {
-            setMessage(`Kein ${isImage ? 'Bilder' : 'Dateien'}-Bereich vorhanden.`, true);
+            setMessage('Teilen abgebrochen.', true);
             return;
         }
 
@@ -73,7 +224,7 @@ export function createShareActions(deps) {
         await apiUpload('upload', formData, makeUploadProgressCallback());
         invalidateCategoryCache(category.id);
         await loadItems(category.id, { useCache: false });
-        setMessage(isImage ? 'Bild gespeichert.' : 'Datei gespeichert.');
+        setMessage(category.type === 'images' ? 'Bild gespeichert.' : 'Datei gespeichert.');
     }
 
     function buildSharedLinkDescription(title, text, url) {
@@ -101,12 +252,42 @@ export function createShareActions(deps) {
         return match?.[0].replace(/[),.;:!?]+$/g, '') || '';
     }
 
-    async function handleSharedLink(url, title = '', text = '') {
-        const category = getVisibleCategories().find(c => c.type === 'links');
-        if (!category) {
-            setMessage('Kein Links-Bereich vorhanden.', true);
-            return;
+    function buildNoteHtml(title, text, url = '') {
+        const raw = [title, text, url]
+            .filter((value, index, values) => typeof value === 'string' && value.trim() !== '' && values.indexOf(value) === index)
+            .join('\n');
+        const cleanedText = limitText(raw, 8000);
+
+        return cleanedText
+            ? cleanedText.split('\n')
+                .map(line => line.trim())
+                .filter(line => line.length > 0)
+                .map(line => `<p>${line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>`)
+                .join('')
+            : '';
+    }
+
+    async function addSharedListItem(category, title, text, url = '') {
+        await setCategory(category.id);
+
+        const name = sanitizeItemField('name', title || url || (text.length > 80 ? `${text.substring(0, 80)}...` : text) || 'Geteilter Eintrag');
+        const payload = { category_id: category.id, name };
+
+        if (category.type === 'list_due_date') {
+            payload.content = sanitizeItemField('content', [text, url].filter(Boolean).join('\n'));
         }
+
+        await api('add', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(sanitizeItemPayload(payload))
+        });
+        invalidateCategoryCache(category.id);
+        await loadItems(category.id, { useCache: false });
+        setMessage('Eintrag gespeichert.');
+    }
+
+    async function handleSharedLink(category, url, title = '', text = '') {
         await setCategory(category.id);
 
         let description = sanitizeItemField('content', buildSharedLinkDescription(title, text, url));
@@ -129,23 +310,12 @@ export function createShareActions(deps) {
         setMessage('Link gespeichert.');
     }
 
-    async function handleSharedText(title, text) {
-        const category = getVisibleCategories().find(c => c.type === 'notes');
-        if (!category) {
-            setMessage('Kein Notizen-Bereich vorhanden.', true);
-            return;
-        }
+    async function handleSharedText(category, title, text, url = '') {
         await setCategory(category.id);
 
         const cleanedText = limitText(text, 8000);
-        const noteName = sanitizeItemField('name', title || (cleanedText.length > 60 ? cleanedText.substring(0, 60) + '\u2026' : cleanedText) || 'Geteilte Notiz');
-        const noteContent = cleanedText
-            ? cleanedText.split('\n')
-                .map(line => line.trim())
-                .filter(line => line.length > 0)
-                .map(line => `<p>${line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>`)
-                .join('')
-            : '';
+        const noteName = sanitizeItemField('name', title || (cleanedText.length > 60 ? cleanedText.substring(0, 60) + '\u2026' : cleanedText) || url || 'Geteilte Notiz');
+        const noteContent = buildNoteHtml(title ? '' : title, text, url);
 
         const payload = await api('add', {
             method: 'POST',
@@ -180,9 +350,41 @@ export function createShareActions(deps) {
             if (shareParam === 'file') {
                 await handleSharedFile();
             } else if (sharedUrl) {
-                await handleSharedLink(sharedUrl, title, text);
+                const category = await pickShareCategory({
+                    title: 'Link speichern in',
+                    subtitle: title || sharedUrl,
+                    recommendedType: 'links',
+                    isCompatible: candidate => candidate.type !== 'images' && candidate.type !== 'files',
+                });
+                if (!category) {
+                    setMessage('Teilen abgebrochen.', true);
+                    return;
+                }
+
+                if (category.type === 'links') {
+                    await handleSharedLink(category, sharedUrl, title, text);
+                } else if (category.type === 'notes') {
+                    await handleSharedText(category, title, text, sharedUrl);
+                } else {
+                    await addSharedListItem(category, title, text, sharedUrl);
+                }
             } else if (text || title) {
-                await handleSharedText(title, text);
+                const category = await pickShareCategory({
+                    title: 'Text speichern in',
+                    subtitle: title || (text.length > 80 ? `${text.substring(0, 80)}...` : text),
+                    recommendedType: 'notes',
+                    isCompatible: candidate => candidate.type !== 'links' && candidate.type !== 'images' && candidate.type !== 'files',
+                });
+                if (!category) {
+                    setMessage('Teilen abgebrochen.', true);
+                    return;
+                }
+
+                if (category.type === 'notes') {
+                    await handleSharedText(category, title, text);
+                } else {
+                    await addSharedListItem(category, title, text);
+                }
             }
         } catch (error) {
             setMessage(error instanceof Error ? error.message : 'Teilen fehlgeschlagen.', true);
