@@ -1,5 +1,5 @@
 import { createActionUtils } from './items-actions-utils.js?v=4.3.11';
-import { createShareActions } from './items-actions-share.js?v=4.3.11';
+import { createShareActions } from './items-actions-share.js?v=4.3.19';
 import { createUploadActions } from './items-actions-upload.js?v=4.3.11';
 import { createAddActions } from './items-actions-add.js?v=4.3.11';
 import { createUpdateActions } from './items-actions-update.js?v=4.3.11';

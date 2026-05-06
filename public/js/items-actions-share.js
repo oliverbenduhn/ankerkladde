@@ -88,6 +88,19 @@ export function createShareActions(deps) {
             .join('\n\n');
     }
 
+    function firstNonEmpty(...values) {
+        return values.find(value => typeof value === 'string' && value.trim() !== '')?.trim() || '';
+    }
+
+    function extractSharedUrl(...values) {
+        const match = values
+            .filter(value => typeof value === 'string' && value.trim() !== '')
+            .join('\n')
+            .match(/https?:\/\/[^\s<>"']+/i);
+
+        return match?.[0].replace(/[),.;:!?]+$/g, '') || '';
+    }
+
     async function handleSharedLink(url, title = '', text = '') {
         const category = getVisibleCategories().find(c => c.type === 'links');
         if (!category) {
@@ -161,7 +174,7 @@ export function createShareActions(deps) {
         const cachedShare = shareParam === 'data' ? await readCachedShareData() : null;
         const title = cachedShare?.title ?? params.get('title') ?? '';
         const text = cachedShare?.text ?? params.get('text') ?? '';
-        const sharedUrl = cachedShare?.url ?? params.get('url') ?? /https?:\/\/\S+/.exec(text)?.[0] ?? '';
+        const sharedUrl = firstNonEmpty(cachedShare?.url, params.get('url')) || extractSharedUrl(text, title);
 
         try {
             if (shareParam === 'file') {
