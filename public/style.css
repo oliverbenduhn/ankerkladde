@@ -2043,30 +2043,106 @@ button, input { font: inherit; }
 /* ── Desktop Kästchenansicht ─────────────────────────────────── */
 @media (min-width: 900px) {
     .app[data-desktop-layout="grid"] .list-area {
-        padding: 12px;
+        padding: 16px;
     }
 
     .app[data-desktop-layout="grid"] #list {
+        display: block;
         column-count: 3;
-        column-gap: 10px;
+        column-gap: 12px;
     }
 
     .app[data-desktop-layout="grid"] #list > .item-card {
         break-inside: avoid;
-        margin-bottom: 10px;
+        margin: 0 0 12px;
         display: inline-flex;
         width: 100%;
     }
 
-    /* Grundlayout der Karte im Grid: etwas weniger Pill, mehr Card */
     .app[data-desktop-layout="grid"] .item-card {
-        border-radius: 12px;
-        padding: 10px 12px;
+        position: relative;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+        min-height: 108px;
+        padding: 14px 14px 10px;
+        border-width: 1px;
+        border-radius: 8px;
+        cursor: default;
+        box-shadow: none;
+        transition: border-color 0.15s ease, box-shadow 0.15s ease, opacity 0.2s ease, background 0.2s ease;
     }
 
-    /* Bild-Karten: Thumbnail als Karten-Hero ──────────────────── */
+    .app[data-desktop-layout="grid"] .item-card:hover,
+    .app[data-desktop-layout="grid"] .item-card:focus-within {
+        border-color: color-mix(in srgb, var(--text-muted) 42%, var(--border));
+        box-shadow: 0 1px 4px rgba(44, 36, 22, 0.14);
+    }
+
+    .app[data-desktop-layout="grid"] .item-card .toggle {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        z-index: 2;
+        background: var(--surface);
+        box-shadow: 0 1px 3px rgba(44, 36, 22, 0.14);
+    }
+
+    .app[data-desktop-layout="grid"] .item-card.done .toggle {
+        background: var(--accent);
+    }
+
+    .app[data-desktop-layout="grid"] .item-card .item-content {
+        width: 100%;
+        min-height: 54px;
+        align-items: flex-start;
+        gap: 8px;
+        padding-left: 34px;
+    }
+
+    .app[data-desktop-layout="grid"] .item-card .item-actions {
+        width: 100%;
+        justify-content: flex-end;
+        margin-left: 0;
+        min-height: 32px;
+    }
+
+    .app[data-desktop-layout="grid"] .item-card .btn-item-menu,
+    .app[data-desktop-layout="grid"] .item-card .btn-item-action {
+        width: 32px;
+        height: 32px;
+        min-width: 32px;
+        min-height: 32px;
+    }
+
+    .app[data-desktop-layout="grid"] .item-card .item-name {
+        flex: 1 1 100%;
+        font-size: 0.98rem;
+        line-height: 1.45;
+    }
+
+    .app[data-desktop-layout="grid"] .item-content-note,
+    .app[data-desktop-layout="grid"] .item-content-link,
+    .app[data-desktop-layout="grid"] .item-note-meta,
+    .app[data-desktop-layout="grid"] .item-link-meta {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 6px;
+    }
+
+    .app[data-desktop-layout="grid"] .item-note-title {
+        font-size: 1.03rem;
+    }
+
+    .app[data-desktop-layout="grid"] .item-note-preview,
+    .app[data-desktop-layout="grid"] .item-link-description {
+        font-size: 0.9rem;
+        line-height: 1.45;
+        -webkit-line-clamp: 9;
+        line-clamp: 9;
+    }
+
     .app[data-desktop-layout="grid"] .item-card.item-type-images {
-        flex-wrap: wrap;
         padding: 0;
         overflow: hidden;
         gap: 0;
@@ -2077,13 +2153,16 @@ button, input { font: inherit; }
         flex: 0 0 100%;
         width: 100%;
         flex-direction: column;
+        min-height: 0;
+        padding-left: 0;
         gap: 0;
     }
 
     .app[data-desktop-layout="grid"] .item-card.item-type-images .attachment-preview-link {
         width: 100%;
         height: 160px;
-        border-radius: 12px 12px 0 0;
+        border-width: 0 0 1px 0;
+        border-radius: 8px 8px 0 0;
         flex-shrink: 0;
     }
 
@@ -2094,33 +2173,26 @@ button, input { font: inherit; }
     .app[data-desktop-layout="grid"] .item-card.item-type-images .attachment-preview-placeholder {
         width: 100%;
         height: 160px;
-        border-radius: 12px 12px 0 0;
+        border-radius: 8px 8px 0 0;
         font-size: 2.4rem;
     }
 
     .app[data-desktop-layout="grid"] .item-card.item-type-images .attachment-meta {
-        padding: 8px 12px;
+        padding: 10px 14px 8px 48px;
         flex: 1;
         min-width: 0;
     }
 
     .app[data-desktop-layout="grid"] .item-card.item-type-images .toggle {
-        order: 1;
-        flex: 0 0 auto;
-        align-self: center;
-        padding: 0 0 12px 12px;
+        top: 10px;
+        left: 10px;
     }
 
     .app[data-desktop-layout="grid"] .item-card.item-type-images .item-actions {
-        order: 1;
-        flex: 0 0 auto;
-        align-self: center;
-        padding: 0 10px 12px 0;
+        padding: 0 10px 8px;
     }
 
-    /* Datei-Karten: Icon-Block als Karten-Hero ─────────────────── */
     .app[data-desktop-layout="grid"] .item-card.item-type-files {
-        flex-wrap: wrap;
         padding: 0;
         overflow: hidden;
         gap: 0;
@@ -2132,35 +2204,32 @@ button, input { font: inherit; }
         width: 100%;
         flex-direction: column;
         align-items: center;
+        min-height: 0;
+        padding-left: 0;
         gap: 0;
     }
 
     .app[data-desktop-layout="grid"] .item-card.item-type-files .attachment-preview-placeholder {
         width: 100%;
         height: 100px;
-        border-radius: 12px 12px 0 0;
+        border-radius: 8px 8px 0 0;
         font-size: 2.2rem;
     }
 
     .app[data-desktop-layout="grid"] .item-card.item-type-files .attachment-meta {
-        padding: 8px 12px;
+        padding: 10px 14px 8px 48px;
         width: 100%;
         flex: 1;
         min-width: 0;
     }
 
     .app[data-desktop-layout="grid"] .item-card.item-type-files .toggle {
-        order: 1;
-        flex: 0 0 auto;
-        align-self: center;
-        padding: 0 0 12px 12px;
+        top: 10px;
+        left: 10px;
     }
 
     .app[data-desktop-layout="grid"] .item-card.item-type-files .item-actions {
-        order: 1;
-        flex: 0 0 auto;
-        align-self: center;
-        padding: 0 10px 12px 0;
+        padding: 0 10px 8px;
     }
 
     .app[data-desktop-layout="grid"] .item-type-list_due_date.item-card,
