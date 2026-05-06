@@ -1998,21 +1998,15 @@ button, input { font: inherit; }
 }
 
 .desktop-layout-switcher {
-    display: none;
+    display: flex;
+    gap: 2px;
+    align-items: center;
 }
 
-@media (min-width: 900px) {
-    .desktop-layout-switcher {
-        display: flex;
-        gap: 2px;
-        align-items: center;
-    }
-
-    .desktop-layout-switcher .header-icon-btn[aria-pressed="true"] {
-        background: var(--accent);
-        color: var(--accent-contrast, var(--text-primary));
-        border-color: var(--accent);
-    }
+.desktop-layout-switcher .header-icon-btn[aria-pressed="true"] {
+    background: var(--accent);
+    color: var(--accent-contrast, var(--text-primary));
+    border-color: var(--accent);
 }
 
 /* ── Desktop: volle Breite für alle Layouts ─────────────────── */
@@ -2040,15 +2034,14 @@ button, input { font: inherit; }
     }
 }
 
-/* ── Desktop Kästchenansicht ─────────────────────────────────── */
-@media (min-width: 900px) {
+/* ── Kästchenansicht ─────────────────────────────────────────── */
     .app[data-desktop-layout="grid"] .list-area {
         padding: 16px;
     }
 
     .app[data-desktop-layout="grid"] #list {
         display: block;
-        column-count: 3;
+        column-count: 1;
         column-gap: 12px;
     }
 
@@ -2266,8 +2259,13 @@ button, input { font: inherit; }
     .app[data-desktop-layout="kanban"] .item-type-list_due_date .date-badge {
         flex: 0 0 auto;
     }
-}
 
+@media (min-width: 560px) {
+    .app[data-desktop-layout="grid"] #list { column-count: 2; }
+}
+@media (min-width: 900px) {
+    .app[data-desktop-layout="grid"] #list { column-count: 3; }
+}
 @media (min-width: 1200px) {
     .app[data-desktop-layout="grid"] #list { column-count: 4; }
 }
@@ -2278,11 +2276,11 @@ button, input { font: inherit; }
     .app[data-desktop-layout="grid"] #list { column-count: 6; }
 }
 
-/* ── Desktop Kanban-Ansicht ─────────────────────────────────────── */
-@media (min-width: 900px) {
+/* ── Kanban-Ansicht ───────────────────────────────────────────── */
     .app[data-desktop-layout="kanban"] .list-area {
         padding: 16px;
         overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
     }
 
     .kanban-board {
@@ -2290,7 +2288,7 @@ button, input { font: inherit; }
         grid-template-columns: repeat(4, minmax(220px, 1fr));
         gap: 12px;
         align-items: start;
-        min-width: 0;
+        min-width: 916px;
     }
 
     .kanban-column {
@@ -2357,7 +2355,6 @@ button, input { font: inherit; }
     .kanban-column-list .item-card.is-kanban-dragging {
         opacity: 0.5;
     }
-}
 /* ─────────────────────────────────────────────────────────────── */
 
 @media (max-width: 480px) {
