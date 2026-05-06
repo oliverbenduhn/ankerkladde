@@ -1,9 +1,17 @@
 #!/usr/bin/env node
 const { chromium } = require('playwright');
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 const path = require('path');
+const fs = require('fs');
 
-const BASE = 'http://127.0.0.1:8099';
+const DEFAULT_DATA_DIR = path.join(__dirname, '..', '.tmp', 'ui-test-data');
+if (!process.env.EINKAUF_DATA_DIR && fs.existsSync(DEFAULT_DATA_DIR)) {
+    process.env.EINKAUF_DATA_DIR = DEFAULT_DATA_DIR;
+}
+
+const BASE = process.env.SCREENSHOT_BASE
+    || process.env.PLAYWRIGHT_BASE_URL
+    || `http://${process.env.PLAYWRIGHT_HOST || '127.0.0.1'}:${process.env.PLAYWRIGHT_PORT || '8099'}`;
 const OUT = path.join(__dirname, '..', 'screenshots');
 
 const REGULAR_USER = process.env.EINKAUF_REGULAR_USER || 'playwright-user';
@@ -25,7 +33,10 @@ const themes = [
 ];
 
 function applyTheme(theme) {
-    execSync(`php "${path.join(__dirname, 'set-tester-theme.php')}" ${theme.mode} ${theme.id}`);
+    execFileSync('php', [path.join(__dirname, 'set-tester-theme.php'), theme.mode, theme.id], {
+        stdio: 'ignore',
+        env: process.env,
+    });
 }
 
 (async () => {
@@ -61,6 +72,9 @@ function applyTheme(theme) {
     await browser.close();
 
     // Preferences zurücksetzen
-    execSync(`php "${path.join(__dirname, 'reset-tester-prefs.php')}"`);
+    execFileSync('php', [path.join(__dirname, 'reset-tester-prefs.php')], {
+        stdio: 'ignore',
+        env: process.env,
+    });
     console.log('Preferences zurückgesetzt.');
 })();

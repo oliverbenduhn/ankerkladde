@@ -1,11 +1,18 @@
 #!/usr/bin/env node
 // Playwright-Script: Produktvorstellung Screenshots für Ankerkladde
 const { chromium } = require('playwright');
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
-const BASE = 'http://127.0.0.1:8099';
+const DEFAULT_DATA_DIR = path.join(__dirname, '..', '.tmp', 'ui-test-data');
+if (!process.env.EINKAUF_DATA_DIR && fs.existsSync(DEFAULT_DATA_DIR)) {
+    process.env.EINKAUF_DATA_DIR = DEFAULT_DATA_DIR;
+}
+
+const BASE = process.env.SCREENSHOT_BASE
+    || process.env.PLAYWRIGHT_BASE_URL
+    || `http://${process.env.PLAYWRIGHT_HOST || '127.0.0.1'}:${process.env.PLAYWRIGHT_PORT || '8099'}`;
 const OUT  = path.join(__dirname, '..', 'screenshots');
 
 const REGULAR_USER = process.env.EINKAUF_REGULAR_USER || 'playwright-user';
@@ -20,8 +27,15 @@ const VIEWPORT_DESKTOP = { width: 1280, height: 800 };
 
 fs.mkdirSync(OUT, { recursive: true });
 
+function runHelper(script, args = []) {
+    execFileSync('php', [path.join(__dirname, script), ...args], {
+        stdio: 'ignore',
+        env: process.env,
+    });
+}
+
 // Tester-Preferences vor jedem Lauf zurücksetzen
-execSync(`php "${path.join(__dirname, 'reset-tester-prefs.php')}"`);
+runHelper('reset-tester-prefs.php');
 console.log('Preferences zurückgesetzt.');
 
 async function login(page, username = REGULAR_USER, password = REGULAR_PASS) {
@@ -51,6 +65,47 @@ async function shot(page, name) {
     await page.waitForTimeout(350);
     await page.screenshot({ path: path.join(OUT, `${name}.png`), fullPage: false });
     console.log(`  ✓ ${name}.png`);
+}
+
+async function setDesktopLayout(page, layout) {
+    const button = page.locator(`.btn-desktop-layout[data-layout="${layout}"]`).first();
+    if (await button.count() === 0) return false;
+    await button.click({ force: true });
+    await page.waitForFunction(
+        value => document.getElementById('app')?.dataset.desktopLayout === value,
+        layout,
+        { timeout: 5000 }
+    ).catch(() => {});
+    await page.waitForTimeout(450);
+    return true;
+}
+
+async function scrollActiveTabIntoView(page) {
+    await page.evaluate(() => {
+        document.querySelector('.section-tab[aria-current="page"]')
+            ?.scrollIntoView({ block: 'nearest', inline: 'center' });
+    }).catch(() => {});
+}
+
+async function setVisibleItemStatuses(page, statusByName) {
+    await page.evaluate(async entries => {
+        const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
+        const cards = Array.from(document.querySelectorAll('#list .item-card[data-item-id]'));
+        for (const [name, status] of Object.entries(entries)) {
+            const card = cards.find(node => node.textContent.includes(name));
+            const id = card?.dataset.itemId;
+            if (!id) continue;
+            const body = new URLSearchParams({ id, status });
+            await fetch('/api.php?action=status', {
+                method: 'POST',
+                headers: { 'X-CSRF-Token': csrf },
+                body,
+            });
+        }
+    }, statusByName);
+    await page.reload();
+    await page.waitForSelector('.section-tab', { timeout: 10000 });
+    await waitForItems(page);
 }
 
 // Wartet auf ProseMirror und injiziert Demo-Inhalt falls leer
@@ -103,6 +158,7 @@ async function clickTab(page, nameRegex) {
         try {
             await direct.click({ timeout: 3000 });
             await waitForItems(page);
+            await scrollActiveTabIntoView(page);
             return true;
         } catch (_) { /* Tab nicht klickbar, versuche Mehr-Menü */ }
     }
@@ -116,6 +172,7 @@ async function clickTab(page, nameRegex) {
             if (await item.count() > 0) {
                 await item.click({ timeout: 3000 });
                 await waitForItems(page);
+                await scrollActiveTabIntoView(page);
                 return true;
             }
         } catch (_) { /* ignore */ }
@@ -230,7 +287,7 @@ async function clickTab(page, nameRegex) {
     // ===== DESKTOP =====
     {
         // Preferences vor Desktop-Session zurücksetzen
-        execSync(`php "${path.join(__dirname, 'reset-tester-prefs.php')}"`);
+        runHelper('reset-tester-prefs.php');
 
         const ctx = await browser.newContext({ viewport: VIEWPORT_DESKTOP, deviceScaleFactor: 1 });
         const page = await ctx.newPage();
@@ -240,6 +297,12 @@ async function clickTab(page, nameRegex) {
 
         // 01 Einkaufsliste
         await shot(page, 'desktop-01-einkauf');
+
+        // Einkauf in Kästchenansicht
+        if (await setDesktopLayout(page, 'grid')) {
+            await shot(page, 'desktop-01-einkauf-karten');
+            await setDesktopLayout(page, 'liste');
+        }
 
         // 02 Einkaufen-Modus
         const toShopBtn = page.locator('.btn-mode-toggle[data-nav="einkaufen"]').first();
@@ -262,9 +325,25 @@ async function clickTab(page, nameRegex) {
         await clickTab(page, /privat/i);
         await shot(page, 'desktop-03-privat');
 
+        // 03b Privat als Kanban-Board mit Demo-Statusspalten
+        await setVisibleItemStatuses(page, {
+            'Auto zum TÜV': 'in_progress',
+            'Steuererklärung abgeben': 'waiting',
+        });
+        if (await setDesktopLayout(page, 'kanban')) {
+            await shot(page, 'desktop-03-privat-kanban');
+            await setDesktopLayout(page, 'liste');
+        }
+
         // 04 Notizen
         await clickTab(page, /notiz/i);
         await shot(page, 'desktop-04-notizen');
+
+        // Notizen als Karten nutzen den Desktop-Platz deutlich besser
+        if (await setDesktopLayout(page, 'grid')) {
+            await shot(page, 'desktop-04-notizen-karten');
+            await setDesktopLayout(page, 'liste');
+        }
 
         // 05 Notiz offen
         const firstNote = page.locator('#list li').first();
@@ -286,6 +365,11 @@ async function clickTab(page, nameRegex) {
         // 07 Links
         await clickTab(page, /links/i);
         await shot(page, 'desktop-07-links');
+
+        if (await setDesktopLayout(page, 'grid')) {
+            await shot(page, 'desktop-07-links-karten');
+            await setDesktopLayout(page, 'liste');
+        }
 
         // 08 Suche
         await page.reload();
