@@ -70,5 +70,13 @@
     "todo.status_in_progress": "In Arbeit",
     "todo.status_waiting": "Wartet",
     "todo.status_done": "Erledigt",
-    "todo.notes_placeholder": "Notizen zur Aufgabe..."
+    "todo.notes_placeholder": "Notizen zur Aufgabe...",
+    "login.title": "Anmelden — Ankerkladde",
+    "login.heading": "Ankerkladde",
+    "login.username": "Benutzername",
+    "login.password": "Passwort",
+    "login.submit": "Anmelden",
+    "login.invalid_csrf": "Ungültiges Sicherheits-Token. Bitte Seite neu laden.",
+    "login.credentials_required": "Benutzername und Passwort sind erforderlich.",
+    "login.invalid_credentials": "Ungültige Anmeldedaten."
 }
