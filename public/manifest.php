@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require dirname(__DIR__) . '/security.php';
+require dirname(__DIR__) . '/i18n.php';
 /** @var string $assetVersion */
 $assetVersion = require __DIR__ . '/version.php';
 
@@ -26,10 +27,10 @@ $manifestBase = isCanonicalProductionHost($requestHost)
 
 $manifest = [
     'id' => $manifestBase,
-    'name' => 'Ankerkladde',
-    'short_name' => 'Ankerkladde',
-    'description' => 'Mobile Kladde für Listen, Notizen, Bilder, Dateien und Links.',
-    'lang' => 'de',
+    'name' => t('app.name'),
+    'short_name' => t('app.short_name'),
+    'description' => t('app.description'),
+    'lang' => getCurrentLanguage(),
     'start_url' => $manifestBase,
     'scope' => $manifestBase,
     'display' => 'standalone',

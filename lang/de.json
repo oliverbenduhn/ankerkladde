@@ -280,5 +280,9 @@
     "admin.flash.dataset_imported": "{label} wurde heruntergeladen und importiert.",
     "admin.flash.product_db_update_failed": "Produktdatenbank-Update fehlgeschlagen: {error}",
     "admin.flash.product_db_cleared": "Produktdatenbank geleert.",
-    "admin.flash.product_db_clear_failed": "Produktdatenbank konnte nicht geleert werden: {error}"
+    "admin.flash.product_db_clear_failed": "Produktdatenbank konnte nicht geleert werden: {error}",
+    "app.name": "Ankerkladde",
+    "app.short_name": "Ankerkladde",
+    "app.description": "Mobile Kladde für Listen, Notizen, Bilder, Dateien und Links.",
+    "error.access_denied": "Kein Zugriff."
 }

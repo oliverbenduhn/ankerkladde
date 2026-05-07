@@ -9,6 +9,8 @@ $_envDefaultLanguage = getenv('ANKERKLADDE_DEFAULT_LANGUAGE');
 define('ANKERKLADDE_DEFAULT_LANGUAGE', $_envDefaultLanguage !== false ? (string)$_envDefaultLanguage : 'de');
 unset($_envDefaultLanguage);
 
+require_once __DIR__ . '/i18n.php';
+
 function getEnvBool(string $name): ?bool
 {
     $value = getenv($name);
@@ -58,7 +60,7 @@ function ensureDirectoryExists(string $path): void
     }
 
     if (!mkdir($path, 0775, true) && !is_dir($path)) {
-        throw new RuntimeException(sprintf('Verzeichnis konnte nicht erstellt werden: %s', $path));
+        throw new RuntimeException(sprintf('Directory could not be created: %s', $path));
     }
 }
 
@@ -334,7 +336,7 @@ function requireAdmin(): int
     if (($_SESSION['is_admin'] ?? false) !== true) {
         http_response_code(403);
         header('Content-Type: text/plain; charset=utf-8');
-        echo 'Kein Zugriff.';
+        echo t('error.access_denied');
         exit;
     }
 
