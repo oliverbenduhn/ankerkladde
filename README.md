@@ -6,70 +6,70 @@
 
 [Projektvorstellung ansehen →](https://oliverbenduhn.github.io/ankerkladde/vorstellung/)
 
-Mobile-first PHP-Webanwendung und PWA fuer Einkaufslisten, Todos, Notizen, Bilder, Dateien und Links. Die App speichert ihre Daten in SQLite, laeuft ohne grosses Framework und bringt fuer Live-Updates sowie den Notizeditor optional einen separaten WebSocket-Dienst mit.
+Mobile-first PHP-Webanwendung und PWA für Einkaufslisten, Todos, Notizen, Bilder, Dateien und Links. Die App speichert ihre Daten in SQLite, läuft ohne großes Framework und bringt für Live-Updates sowie den Notizeditor optional einen separaten WebSocket-Dienst mit.
 
-## Kurzueberblick
+## Kurzüberblick
 
-- Frei konfigurierbare Kategorien pro Nutzer mit Typen fuer Einkaufslisten, Aufgaben, Notizen, Bilder, Dateien und Links
+- Frei konfigurierbare Kategorien pro Nutzer mit Typen für Einkaufslisten, Aufgaben, Notizen, Bilder, Dateien und Links
 - Zwei Arbeitsmodi: `Liste` zum Bearbeiten und `Einkaufen` zum Abhaken unterwegs
-- Inline-Bearbeitung, Drag and Drop, Anheften, Sammelloeschen erledigter Eintraege und Volltextsuche per FTS5
-- Bild- und Dateiupload mit Thumbnail-Erzeugung, sicherem Streaming und Austausch vorhandener Anhaenge
-- Rich-Text-Notizen mit TipTap; Live-Sync im Editor ueber Yjs/WebSocket
-- Barcode-Scanner fuer Einkaufslisten sowie separate Produktseite mit lokalem Open-Food-Facts-Katalog
-- "Magic Bar" mit Google Gemini fuer freie Eingaben wie "Zutaten fuer Lasagne", optional mit Spracheingabe im Browser
+- Inline-Bearbeitung, Drag and Drop, Anheften, Sammellöschen erledigter Einträge und Volltextsuche per FTS5
+- Bild- und Dateiupload mit Thumbnail-Erzeugung, sicherem Streaming und Austausch vorhandener Anhänge
+- Rich-Text-Notizen mit TipTap; Live-Sync im Editor über Yjs/WebSocket
+- Barcode-Scanner für Einkaufslisten sowie separate Produktseite mit lokalem Open-Food-Facts-Katalog
+- "Magic Bar" mit Google Gemini für freie Eingaben wie "Zutaten für Lasagne", optional mit Spracheingabe im Browser
 - Installierbare PWA mit Service Worker, Offline-Seite, Share Target und Update-Reload
 - Kuratierte Light- und Dark-Themes mit Vorschaukarten in den Einstellungen
-- Browser-Erweiterung fuer Chrome/Edge und Firefox, authentifiziert ueber `X-API-Key`
+- Browser-Erweiterung für Chrome/Edge und Firefox, authentifiziert über `X-API-Key`
 
 ## Was aktuell im Repo steckt
 
 ### Produktfunktionen
 
 - Kategorien sind frei anlegbar, umbenennbar, ausblendbar und sortierbar.
-- Verfuegbare Kategorien-Typen: `list_quantity`, `list_due_date`, `notes`, `images`, `files`, `links`
-- Einkaufslisten koennen Mengen und Barcodes speichern.
-- Aufgabenlisten unterstuetzen Faelligkeitsdaten.
-- Links koennen Metadaten wie Titel und Beschreibung serverseitig nachladen.
+- Verfügbare Kategorien-Typen: `list_quantity`, `list_due_date`, `notes`, `images`, `files`, `links`
+- Einkaufslisten können Mengen und Barcodes speichern.
+- Aufgabenlisten unterstützen Fälligkeitsdaten.
+- Links können Metadaten wie Titel und Beschreibung serverseitig nachladen.
 - Die Suche durchsucht alle Kategorien eines Nutzers.
 
 ### Medien und Uploads
 
 - Genau ein Anhang pro Item
 - Bilder und Dateien werden unter `data/uploads/` gespeichert, nicht im Webroot
-- Bilder koennen Thumbnails bekommen, wenn `gd` verfuegbar ist
-- Bilder werden inline ausgeliefert, Dateien standardmaessig als Download
-- In `public/.user.ini` sind hohe Upload-Grenzen fuer Datei-Workflows vorbereitet
+- Bilder können Thumbnails bekommen, wenn `gd` verfügbar ist
+- Bilder werden inline ausgeliefert, Dateien standardmäßig als Download
+- In `public/.user.ini` sind hohe Upload-Grenzen für Datei-Workflows vorbereitet
 
 ### Notizen und Echtzeit
 
 - Der Notizeditor basiert auf TipTap
-- Bei laufendem WebSocket-Dienst werden Notizen ueber Yjs live synchronisiert
-- Aenderungen an Listen und Einstellungen koennen ohne Reload an andere offene Tabs verteilt werden
-- Versionsaenderungen loesen einen automatischen Reload aus
+- Bei laufendem WebSocket-Dienst werden Notizen über Yjs live synchronisiert
+- Änderungen an Listen und Einstellungen können ohne Reload an andere offene Tabs verteilt werden
+- Versionsänderungen lösen einen automatischen Reload aus
 
 ### Scanner und KI
 
-- Produktscan in der App fuer Einkaufslisten
-- Separate Seite `public/barcode.php` fuer Produktdetails aus dem lokalen Katalog
+- Produktscan in der App für Einkaufslisten
+- Separate Seite `public/barcode.php` für Produktdetails aus dem lokalen Katalog
 - Ohne Produktkatalog funktioniert der Scan trotzdem; unbekannte Codes werden als generischer Artikel angelegt
-- Mit hinterlegtem Gemini-Key kann die Magic Bar mehrere Eintraege aus Freitext erzeugen
+- Mit hinterlegtem Gemini-Key kann die Magic Bar mehrere Einträge aus Freitext erzeugen
 - Derselbe Key kann auch zur Aufbereitung importierter Produktdaten genutzt werden
 
 ### PWA, Settings und Erweiterung
 
 - Install-Banner auf Login und App
-- Manifest mit Share Target fuer Links und Dateien
-- Einstellungen fuer Themes, Feature-Toggles, Kategorien, Passwort, KI und Browser-Erweiterung
-- Direktdownloads fuer die Browser-Erweiterung werden in der App on demand als ZIP erzeugt
+- Manifest mit Share Target für Links und Dateien
+- Einstellungen für Themes, Feature-Toggles, Kategorien, Passwort, KI und Browser-Erweiterung
+- Direktdownloads für die Browser-Erweiterung werden in der App on demand als ZIP erzeugt
 
 ### Nutzer und Sicherheit
 
 - Session-basierter Login mit Admin- und Normalnutzer-Rollen
-- CSRF-Schutz fuer schreibende Requests
-- Kanonische Host-Weiterleitung fuer produktive Deployments
+- CSRF-Schutz für schreibende Requests
+- Kanonische Host-Weiterleitung für produktive Deployments
 - Proxy-Header werden nur gezielt vertraut
-- Attachment-Pfade werden ausschliesslich serverseitig aus Datenbankwerten gebildet
-- Link-Metadaten duerfen nur von externen, oeffentlichen HTTP(S)-Zielen geladen werden
+- Attachment-Pfade werden ausschließlich serverseitig aus Datenbankwerten gebildet
+- Link-Metadaten dürfen nur von externen, öffentlichen HTTP(S)-Zielen geladen werden
 
 ## Architektur
 
@@ -79,8 +79,8 @@ Mobile-first PHP-Webanwendung und PWA fuer Einkaufslisten, Todos, Notizen, Bilde
 | `public/js/` | Frontend als ESM-Module |
 | `db.php` | SQLite-Initialisierung, Migrationen, Kategorien-, Nutzer- und Produkt-Helper |
 | `security.php` | Session, CSRF, Host-/Proxy-Logik, Basis-Pfade |
-| `websocket-server/` | Live-Updates, Versionsbroadcasts und Yjs-Raeume fuer Notizen |
-| `browser-extension/` | Browser-Erweiterung fuer Chromium und Firefox |
+| `websocket-server/` | Live-Updates, Versionsbroadcasts und Yjs-Räume für Notizen |
+| `browser-extension/` | Browser-Erweiterung für Chromium und Firefox |
 | `scripts/` | Nutzeranlage, Smoke-Tests, DB-Migrationstests, Open-Food-Facts-Import |
 | `tests/ui/` | Playwright-UI-Tests |
 | `deploy/` | Apache-/Docker-Konfiguration und Deploy-Helfer |
@@ -95,8 +95,8 @@ Mobile-first PHP-Webanwendung und PWA fuer Einkaufslisten, Todos, Notizen, Bilde
 
 - PHP 8.1+; empfohlen ist die Docker-Variante mit PHP 8.3
 - PHP-Erweiterungen: `pdo_sqlite`, `curl`, `mbstring`
-- Fuer Bild-Thumbnails zusaetzlich `gd`
-- Node.js nur fuer den WebSocket-Server, Playwright-Tests und Browser-Extension-Workflows
+- Für Bild-Thumbnails zusätzlich `gd`
+- Node.js nur für den WebSocket-Server, Playwright-Tests und Browser-Extension-Workflows
 
 ## Schnellstart mit Docker
 
@@ -115,7 +115,7 @@ Hinweise:
 
 - Die Daten landen per Default in `./data`.
 - Apache proxyt `/ws/` auf den WebSocket-Container.
-- Der Docker-Stack stellt ausserdem `/healthz` bereit.
+- Der Docker-Stack stellt außerdem `/healthz` bereit.
 
 ## Lokal ohne Docker entwickeln
 
@@ -145,27 +145,27 @@ Im Docker-Container wird bei einer frischen Installation automatisch ein initial
 - Passwort: `admin1234`
 - Beim ersten Login ist ein Passwortwechsel zwingend erforderlich
 
-Optional kannst du die Standardwerte mit `EINKAUF_BOOTSTRAP_ADMIN_USER` und `EINKAUF_BOOTSTRAP_ADMIN_PASS` ueberschreiben.
+Optional kannst du die Standardwerte mit `EINKAUF_BOOTSTRAP_ADMIN_USER` und `EINKAUF_BOOTSTRAP_ADMIN_PASS` überschreiben.
 
 Wichtig:
 
 - `localhost` und `127.0.0.1` gelten als Entwicklungsumgebung und werden nicht auf den kanonischen Produktionshost umgeleitet.
 - Kamera, PWA-Installation und einige Browser-APIs brauchen HTTPS oder localhost.
-- Beim nackten `php -S` ist kein Reverse Proxy fuer `/ws/` vorhanden. Die App laeuft trotzdem, aber Live-Updates und Yjs-Notizen funktionieren erst mit zusaetzlichem WebSocket-Setup.
+- Beim nackten `php -S` ist kein Reverse Proxy für `/ws/` vorhanden. Die App läuft trotzdem, aber Live-Updates und Yjs-Notizen funktionieren erst mit zusätzlichem WebSocket-Setup.
 
 ## Wichtige Umgebungsvariablen
 
 | Variable | Standard | Zweck |
 | --- | --- | --- |
-| `EINKAUF_DATA_DIR` | `./data` bzw. `/data` im Container | Speicherort fuer SQLite-Dateien und Uploads |
-| `ANKERKLADDE_CANONICAL_HOST` | `ankerkladde.benduhn.de` | Produktiver Hostname; leer fuer freie Hostnamen |
-| `ANKERKLADDE_SESSION_LIFETIME_DAYS` | `30` | Dauer, fuer die Browser-Login und PHP-Session gueltig bleiben; `0` nutzt ein Browser-Session-Cookie |
+| `EINKAUF_DATA_DIR` | `./data` bzw. `/data` im Container | Speicherort für SQLite-Dateien und Uploads |
+| `ANKERKLADDE_CANONICAL_HOST` | `ankerkladde.benduhn.de` | Produktiver Hostname; leer für freie Hostnamen |
+| `ANKERKLADDE_SESSION_LIFETIME_DAYS` | `30` | Dauer, für die Browser-Login und PHP-Session gültig bleiben; `0` nutzt ein Browser-Session-Cookie |
 | `EINKAUF_TRUST_PROXY_HEADERS` | automatisch nur lokal vertraut | Aktiviert Vertrauen in `X-Forwarded-*` |
-| `WS_NOTIFY_URL` | `http://127.0.0.1:3000/notify` | Ziel fuer Update-Broadcasts aus `api.php` |
-| `WS_HOST` | `127.0.0.1` | Host fuer WebSocket-Benachrichtigungen aus `settings.php` |
-| `WS_PORT` | `3000` | Port fuer denselben Zweck |
-| `EINKAUF_BOOTSTRAP_ADMIN_USER` | `admin` | Standard-Admin fuer frische Docker-Installationen |
-| `EINKAUF_BOOTSTRAP_ADMIN_PASS` | `admin1234` | Initiales Passwort fuer denselben Admin; Passwortwechsel beim ersten Login bleibt aktiv |
+| `WS_NOTIFY_URL` | `http://127.0.0.1:3000/notify` | Ziel für Update-Broadcasts aus `api.php` |
+| `WS_HOST` | `127.0.0.1` | Host für WebSocket-Benachrichtigungen aus `settings.php` |
+| `WS_PORT` | `3000` | Port für denselben Zweck |
+| `EINKAUF_BOOTSTRAP_ADMIN_USER` | `admin` | Standard-Admin für frische Docker-Installationen |
+| `EINKAUF_BOOTSTRAP_ADMIN_PASS` | `admin1234` | Initiales Passwort für denselben Admin; Passwortwechsel beim ersten Login bleibt aktiv |
 
 ## API in Kurzform
 
@@ -174,23 +174,23 @@ Die JSON-API liegt unter `public/api.php` und wird sowohl vom Frontend als auch 
 | Action | Methode | Zweck |
 | --- | --- | --- |
 | `categories_list`, `categories_create`, `categories_update`, `categories_reorder`, `categories_delete` | `GET` / `POST` | Kategorien laden und verwalten |
-| `list`, `add`, `upload`, `update`, `toggle`, `delete`, `clear`, `reorder`, `pin` | `GET` / `POST` | Items und Anhaenge bearbeiten |
+| `list`, `add`, `upload`, `update`, `toggle`, `delete`, `clear`, `reorder`, `pin` | `GET` / `POST` | Items und Anhänge bearbeiten |
 | `search` | `GET` | Nutzerweite Volltextsuche |
 | `product_lookup`, `product_details` | `GET` | Produktdaten per Barcode laden |
 | `fetch_metadata` | `GET` | Titel/Beschreibung/Bild zu einer externen URL holen |
-| `preferences` | `GET` / `POST` | Nutzerpraeferenzen lesen und speichern |
+| `preferences` | `GET` / `POST` | Nutzerpräferenzen lesen und speichern |
 
-Die Browser-Erweiterung authentifiziert sich mit `X-API-Key`. Regulare Browser-Sessions verwenden Session-Cookies und CSRF-Token. Im Docker-Betrieb werden PHP-Session-Dateien unter `/data/sessions` abgelegt und ueberleben damit Rebuilds oder Container-Neustarts, solange das Daten-Volume erhalten bleibt.
+Die Browser-Erweiterung authentifiziert sich mit `X-API-Key`. Reguläre Browser-Sessions verwenden Session-Cookies und CSRF-Token. Im Docker-Betrieb werden PHP-Session-Dateien unter `/data/sessions` abgelegt und überleben damit Rebuilds oder Container-Neustarts, solange das Daten-Volume erhalten bleibt.
 
 ## WebSocket und Live-Sync
 
 Wenn du Live-Updates und kollaborative Notizen nutzen willst, brauchst du den Dienst aus `websocket-server/`.
 
-Mit Docker ist das bereits verdrahtet. Fuer einen klassischen Apache- oder Nginx-Betrieb brauchst du zusaetzlich:
+Mit Docker ist das bereits verdrahtet. Für einen klassischen Apache- oder Nginx-Betrieb brauchst du zusätzlich:
 
 1. den Node-Dienst aus `websocket-server/`
-2. einen Reverse Proxy fuer `/ws/`
-3. einen erreichbaren `/notify`-Endpoint fuer PHP
+2. einen Reverse Proxy für `/ws/`
+3. einen erreichbaren `/notify`-Endpoint für PHP
 
 Die Details stehen in:
 
@@ -220,7 +220,7 @@ php browser-extension/build-extension.php
 php browser-extension/build-firefox.php
 ```
 
-Optional fuer neu erzeugte PNG-Icons:
+Optional für neu erzeugte PNG-Icons:
 
 ```bash
 php browser-extension/build-icons.php
@@ -247,16 +247,16 @@ npm run test:ui:install
 npm run test:ui
 ```
 
-Die UI-Tests starten ihren eigenen PHP-Testserver und legen temporare Daten unter `.tmp/ui-test-data/` an.
+Die UI-Tests starten ihren eigenen PHP-Testserver und legen temporäre Daten unter `.tmp/ui-test-data/` an.
 
 ## Deployment-Hinweise
 
 - Die Docker-Variante nutzt `php:8.3-apache` und aktiviert `rewrite`, `headers`, `proxy`, `proxy_http` und `proxy_wstunnel`.
 - Upload-Grenzen sind in `public/.user.ini` vorbereitet.
 - Die mitgelieferte Apache-Konfiguration verweist den Dokumentenstamm auf `public/`.
-- Fuer PWA, Kamera und installierbare Browser-Erlebnisse sollte die App hinter HTTPS laufen.
+- Für PWA, Kamera und installierbare Browser-Erlebnisse sollte die App hinter HTTPS laufen.
 
-## Weiterfuehrende Dateien
+## Weiterführende Dateien
 
 - [WEBSOCKET-SETUP.md](WEBSOCKET-SETUP.md)
 - [TipTapWebsocket.md](TipTapWebsocket.md)
