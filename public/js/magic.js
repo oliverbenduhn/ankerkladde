@@ -60,7 +60,8 @@ export function createMagicController(deps) {
         }
 
         recognition = new SpeechRecognition();
-        recognition.lang = 'de-DE';
+        const langMap = { de: 'de-DE', en: 'en-US' };
+        recognition.lang = langMap[window.__lang] || 'de-DE';
         recognition.interimResults = true;
 
         recognition.onstart = () => {
