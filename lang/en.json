@@ -351,5 +351,14 @@
     "category.default.notes": "Notes",
     "category.default.images": "Images",
     "category.default.files": "Files",
-    "category.default.links": "Links"
+    "category.default.links": "Links",
+
+    "settings.language": "Language",
+    "settings.language_saved": "Language changed.",
+    "language.de": "Deutsch",
+    "language.en": "English",
+
+    "settings.rename_categories_title": "Rename default categories?",
+    "settings.rename_categories_submit": "Rename",
+    "settings.categories_renamed": "{count} categories renamed."
 }

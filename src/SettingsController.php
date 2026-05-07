@@ -448,6 +448,22 @@ class SettingsController
                 }
                 break;
 
+            case 'save_language':
+                $newLang = $postData['language'] ?? '';
+                if (!in_array($newLang, getAvailableLanguages(), true)) {
+                    return ['flash' => t('error.invalid_params'), 'flashType' => 'err', 'aiKeyStatus' => null, 'aiKeyStatusType' => 'ok'];
+                }
+                $oldLang = getCurrentLanguage();
+                $stmt = $this->db->prepare('UPDATE users SET language = :lang WHERE id = :id');
+                $stmt->execute([':lang' => $newLang, ':id' => $this->userId]);
+
+                if ($oldLang !== $newLang) {
+                    $_SESSION['i18n_rename_from'] = $oldLang;
+                    $_SESSION['i18n_rename_to'] = $newLang;
+                }
+
+                return ['flash' => t('settings.language_saved'), 'flashType' => 'ok', 'aiKeyStatus' => null, 'aiKeyStatusType' => 'ok'];
+
             case 'save_theme':
                 $flash = t('settings.flash.theme_saved');
                 break;

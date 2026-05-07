@@ -129,6 +129,25 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
         </div>
     <?php endif; ?>
 
+    <details class="settings-section settings-accordion" data-settings-panel="language" open>
+        <summary><?= t('settings.language') ?></summary>
+        <div class="settings-block">
+            <form method="post" action="<?= htmlspecialchars(appPath('settings.php' . ($isEmbedded ? '?embed=1&tab=app' : '')), ENT_QUOTES, 'UTF-8') ?>">
+                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
+                <input type="hidden" name="action" value="save_language">
+                <label class="settings-field">
+                    <select name="language" class="settings-select" onchange="this.form.submit()">
+                        <?php foreach (getAvailableLanguages() as $langCode): ?>
+                            <option value="<?= htmlspecialchars($langCode, ENT_QUOTES, 'UTF-8') ?>" <?= $langCode === getCurrentLanguage() ? 'selected' : '' ?>>
+                                <?= t('language.' . $langCode) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </label>
+            </form>
+        </div>
+    </details>
+
     <details class="settings-section settings-accordion" data-settings-panel="appearance" open>
         <summary><?= t('settings.section.appearance') ?></summary>
         <form method="post" action="<?= htmlspecialchars($settingsAction, ENT_QUOTES, 'UTF-8') ?>" class="settings-form" data-auto-submit="change" data-theme-form="1">
