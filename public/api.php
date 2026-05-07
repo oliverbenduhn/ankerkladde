@@ -5,6 +5,7 @@ ini_set('default_charset', 'UTF-8');
 
 require dirname(__DIR__) . '/db.php';
 require dirname(__DIR__) . '/security.php';
+require dirname(__DIR__) . '/i18n.php';
 require __DIR__ . '/theme.php';
 
 enforceCanonicalRequest();
@@ -88,7 +89,7 @@ function requireMethod(string $expectedMethod): void
 {
     if ($_SERVER['REQUEST_METHOD'] !== $expectedMethod) {
         header('Allow: ' . $expectedMethod);
-        respond(405, ['error' => sprintf('Nur %s ist für diese Aktion erlaubt.', $expectedMethod)]);
+        respond(405, ['error' => t('error.method_not_allowed', ['method' => $expectedMethod]), 'error_key' => 'error.method_not_allowed']);
     }
 }
 
@@ -280,7 +281,7 @@ function fetchWithCurl(string $url, int $connectTimeoutSeconds, int $requestTime
 {
     $ch = curl_init($url);
     if ($ch === false) {
-        return ['html' => null, 'error' => 'cURL konnte nicht initialisiert werden.'];
+        return ['html' => null, 'error' => t('error.curl_init_failed'), 'error_key' => 'error.curl_init_failed'];
     }
 
     curl_setopt_array($ch, [
@@ -310,7 +311,7 @@ function fetchWithCurl(string $url, int $connectTimeoutSeconds, int $requestTime
     $error = curl_errno($ch) !== 0 ? curl_error($ch) : '';
 
     if (!is_string($body) || $body === '') {
-        return ['html' => null, 'error' => $error !== '' ? $error : 'Seite nicht abrufbar.'];
+        return ['html' => null, 'error' => $error !== '' ? $error : t('error.page_unreachable'), 'error_key' => 'error.page_unreachable'];
     }
 
     if ($status >= 400) {
@@ -318,7 +319,7 @@ function fetchWithCurl(string $url, int $connectTimeoutSeconds, int $requestTime
     }
 
     if (!isHtmlContentType($contentType)) {
-        return ['html' => null, 'error' => 'Ziel liefert kein HTML.'];
+        return ['html' => null, 'error' => t('error.not_html'), 'error_key' => 'error.not_html'];
     }
 
     return ['html' => truncateText($body, 512000), 'error' => null];
@@ -345,7 +346,7 @@ function fetchWithStream(string $url, int $requestTimeoutSeconds, int $maxRedire
 
     if (!is_string($body) || $body === '') {
         $error = error_get_last();
-        return ['html' => null, 'error' => is_array($error) ? (string) ($error['message'] ?? 'Seite nicht abrufbar.') : 'Seite nicht abrufbar.'];
+        return ['html' => null, 'error' => is_array($error) ? (string) ($error['message'] ?? t('error.page_unreachable')) : t('error.page_unreachable'), 'error_key' => 'error.page_unreachable'];
     }
 
     if (($responseHeaders['status'] ?? 0) >= 400) {
@@ -353,7 +354,7 @@ function fetchWithStream(string $url, int $requestTimeoutSeconds, int $maxRedire
     }
 
     if (!isHtmlContentType((string) ($responseHeaders['content_type'] ?? ''))) {
-        return ['html' => null, 'error' => 'Ziel liefert kein HTML.'];
+        return ['html' => null, 'error' => t('error.not_html'), 'error_key' => 'error.not_html'];
     }
 
     return ['html' => truncateText($body, 512000), 'error' => null];
@@ -431,7 +432,7 @@ function requireCsrfToken(array $data): void
     $providedToken = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? ($data['csrf_token'] ?? null);
 
     if (!hasValidCsrfToken(is_string($providedToken) ? $providedToken : null)) {
-        respond(403, ['error' => 'Ungültiges Sicherheits-Token.']);
+        respond(403, ['error' => t('error.invalid_csrf'), 'error_key' => 'error.invalid_csrf']);
     }
 }
 
@@ -1241,11 +1242,11 @@ function detectMimeType(string $path): string
 function uploadedFileErrorMessage(int $errorCode): array
 {
     return match ($errorCode) {
-        UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE => [413, 'Datei ist zu groß.'],
-        UPLOAD_ERR_PARTIAL => [422, 'Datei wurde unvollständig hochgeladen.'],
-        UPLOAD_ERR_NO_FILE => [422, 'Bitte wähle eine Datei aus.'],
-        UPLOAD_ERR_NO_TMP_DIR, UPLOAD_ERR_CANT_WRITE, UPLOAD_ERR_EXTENSION => [500, 'Upload konnte nicht gespeichert werden.'],
-        default => [422, 'Ungültiger Upload.'],
+        UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE => [413, t('error.upload_too_large'), 'error.upload_too_large'],
+        UPLOAD_ERR_PARTIAL => [422, t('error.upload_partial'), 'error.upload_partial'],
+        UPLOAD_ERR_NO_FILE => [422, t('error.file_required'), 'error.file_required'],
+        UPLOAD_ERR_NO_TMP_DIR, UPLOAD_ERR_CANT_WRITE, UPLOAD_ERR_EXTENSION => [500, t('error.upload_save_failed'), 'error.upload_save_failed'],
+        default => [422, t('error.invalid_upload'), 'error.invalid_upload'],
     };
 }
 
@@ -1286,28 +1287,28 @@ function formatBytesForMessage(int $bytes): string
 function getSingleUploadedFile(): array
 {
     if ($_FILES === []) {
-        respond(422, ['error' => 'Bitte wähle eine Datei aus.']);
+        respond(422, ['error' => t('error.file_required'), 'error_key' => 'error.file_required']);
     }
 
     $candidate = $_FILES['file'] ?? $_FILES['attachment'] ?? $_FILES['upload'] ?? reset($_FILES);
 
     if (!is_array($candidate)) {
-        respond(422, ['error' => 'Bitte wähle eine Datei aus.']);
+        respond(422, ['error' => t('error.file_required'), 'error_key' => 'error.file_required']);
     }
 
     if (is_array($candidate['error'] ?? null)) {
-        respond(422, ['error' => 'Mehrere Dateien pro Request werden nicht unterstützt.']);
+        respond(422, ['error' => t('error.multiple_files'), 'error_key' => 'error.multiple_files']);
     }
 
     $errorCode = (int) ($candidate['error'] ?? UPLOAD_ERR_NO_FILE);
     if ($errorCode !== UPLOAD_ERR_OK) {
-        [$status, $message] = uploadedFileErrorMessage($errorCode);
-        respond($status, ['error' => $message]);
+        [$status, $message, $errorKey] = uploadedFileErrorMessage($errorCode);
+        respond($status, ['error' => $message, 'error_key' => $errorKey]);
     }
 
     $tmpName = (string) ($candidate['tmp_name'] ?? '');
     if ($tmpName === '' || !is_uploaded_file($tmpName)) {
-        respond(422, ['error' => 'Ungültiger Upload.']);
+        respond(422, ['error' => t('error.invalid_upload'), 'error_key' => 'error.invalid_upload']);
     }
 
     $sizeBytes = filter_var($candidate['size'] ?? null, FILTER_VALIDATE_INT, [
@@ -1330,18 +1331,18 @@ function validateImageUpload(array $uploadedFile): array
 {
     $maxBytes = activeUploadLimitBytes('image_upload_max_mb');
     if ((int) $uploadedFile['size_bytes'] > $maxBytes) {
-        respond(413, ['error' => 'Bilder dürfen maximal ' . formatBytesForMessage($maxBytes) . ' groß sein.']);
+        respond(413, ['error' => t('error.image_too_large', ['max' => formatBytesForMessage($maxBytes)]), 'error_key' => 'error.image_too_large']);
     }
 
     $mediaType = detectMimeType((string) $uploadedFile['tmp_name']);
     $extension = IMAGE_UPLOAD_MIME_TYPES[$mediaType] ?? null;
 
     if (!is_string($extension)) {
-        respond(422, ['error' => 'Nur JPG, PNG, WebP und GIF sind als Bilder erlaubt.']);
+        respond(422, ['error' => t('error.image_type_invalid'), 'error_key' => 'error.image_type_invalid']);
     }
 
     if (function_exists('getimagesize') && @getimagesize((string) $uploadedFile['tmp_name']) === false) {
-        respond(422, ['error' => 'Die hochgeladene Datei ist kein gültiges Bild.']);
+        respond(422, ['error' => t('error.image_corrupt'), 'error_key' => 'error.image_corrupt']);
     }
 
     return [
@@ -1354,7 +1355,7 @@ function validateFileUpload(array $uploadedFile, string $limitKey = 'file_upload
 {
     $maxBytes = activeUploadLimitBytes($limitKey);
     if ((int) $uploadedFile['size_bytes'] > $maxBytes) {
-        respond(413, ['error' => 'Dateien dürfen maximal ' . formatBytesForMessage($maxBytes) . ' groß sein.']);
+        respond(413, ['error' => t('error.file_too_large', ['max' => formatBytesForMessage($maxBytes)]), 'error_key' => 'error.file_too_large']);
     }
 
     $pathInfoExtension = pathinfo((string) $uploadedFile['original_name'], PATHINFO_EXTENSION);
@@ -1374,7 +1375,7 @@ function validateFileUpload(array $uploadedFile, string $limitKey = 'file_upload
 function validateSsrfSafeUrl(string $url): void
 {
     if ($url === '' || !isAllowedRemoteUrl($url)) {
-        respond(422, ['error' => 'URL ist nicht erlaubt.']);
+        respond(422, ['error' => t('error.url_not_allowed'), 'error_key' => 'error.url_not_allowed']);
     }
 }
 
@@ -1469,13 +1470,13 @@ function downloadRemoteFile(string $url): array
         if ($ok === false || $status < 200 || $status >= 300) {
             @unlink($tmpPath);
             if ($abortedDueToSize || (defined('CURLE_ABORTED_BY_CALLBACK') && $curlErrno === CURLE_ABORTED_BY_CALLBACK)) {
-                return ['error' => 'Dateien dürfen maximal ' . formatBytesForMessage($maxBytes) . ' groß sein.'];
+                return ['error' => t('error.file_too_large', ['max' => formatBytesForMessage($maxBytes)]), 'error_key' => 'error.file_too_large'];
             }
-            return ['error' => $error !== '' ? $error : 'Datei konnte nicht geladen werden.'];
+            return ['error' => $error !== '' ? $error : t('error.page_unreachable'), 'error_key' => 'error.page_unreachable'];
         }
         if ($sizeBytes > $maxBytes) {
             @unlink($tmpPath);
-            return ['error' => 'Dateien dürfen maximal ' . formatBytesForMessage($maxBytes) . ' groß sein.'];
+            return ['error' => t('error.file_too_large', ['max' => formatBytesForMessage($maxBytes)]), 'error_key' => 'error.file_too_large'];
         }
 
         $contentType = preg_replace('/;.*$/', '', (string) ($headers['content-type'] ?? '')) ?? '';
@@ -1515,7 +1516,7 @@ function downloadRemoteFile(string $url): array
             fclose($source);
             fclose($target);
             @unlink($tmpPath);
-            return ['error' => 'Dateien dürfen maximal ' . formatBytesForMessage($maxBytes) . ' groß sein.'];
+            return ['error' => t('error.file_too_large', ['max' => formatBytesForMessage($maxBytes)]), 'error_key' => 'error.file_too_large'];
         }
         fwrite($target, $chunk);
     }
@@ -1564,12 +1565,12 @@ function resolveCategoryId(array $data, PDO $db, int $userId): int
             return (int) $categories[0]['id'];
         }
 
-        respond(404, ['error' => 'Kategorie nicht gefunden.']);
+        respond(404, ['error' => t('error.category_not_found'), 'error_key' => 'error.category_not_found']);
     }
 
     $definition = legacyCategoryDefinition(trim($legacySection));
     if ($definition === null) {
-        respond(422, ['error' => 'Ungültige Kategorie.']);
+        respond(422, ['error' => t('error.invalid_category'), 'error_key' => 'error.invalid_category']);
     }
 
     $stmt = $db->prepare(
@@ -1585,7 +1586,7 @@ function resolveCategoryId(array $data, PDO $db, int $userId): int
     $categoryId = $stmt->fetchColumn();
 
     if ($categoryId === false) {
-        respond(404, ['error' => 'Kategorie nicht gefunden.']);
+        respond(404, ['error' => t('error.category_not_found'), 'error_key' => 'error.category_not_found']);
     }
 
     return (int) $categoryId;
@@ -1597,16 +1598,16 @@ function requireCategory(array $data, PDO $db, int $userId): array
     $category = loadUserCategory($db, $userId, $categoryId);
 
     if ($category === null) {
-        respond(404, ['error' => 'Kategorie nicht gefunden.']);
+        respond(404, ['error' => t('error.category_not_found'), 'error_key' => 'error.category_not_found']);
     }
 
     return $category;
 }
 
-function validateCategoryType(array $category, array $allowedTypes, string $message): void
+function validateCategoryType(array $category, array $allowedTypes, string $message, string $errorKey = 'error.invalid_category'): void
 {
     if (!in_array((string) $category['type'], $allowedTypes, true)) {
-        respond(422, ['error' => $message]);
+        respond(422, ['error' => $message, 'error_key' => $errorKey]);
     }
 }
 
@@ -1746,11 +1747,11 @@ try {
             $type = trim((string) ($data['type'] ?? ''));
 
             if ($name === '') {
-                respond(422, ['error' => 'Bitte gib einen Kategorienamen ein.']);
+                respond(422, ['error' => t('error.category_name_required'), 'error_key' => 'error.category_name_required']);
             }
 
             if (!in_array($type, CATEGORY_TYPES, true)) {
-                respond(422, ['error' => 'Ungültiger Kategorietyp.']);
+                respond(422, ['error' => t('error.invalid_category_type'), 'error_key' => 'error.invalid_category_type']);
             }
 
             $icon = normalizeCategoryIcon($data['icon'] ?? null, $type);
@@ -1784,12 +1785,12 @@ try {
 
             $categoryId = filter_var($data['category_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
             if (!is_int($categoryId)) {
-                respond(422, ['error' => 'Ungültige Kategorie.']);
+                respond(422, ['error' => t('error.invalid_category'), 'error_key' => 'error.invalid_category']);
             }
 
             $category = loadUserCategory($db, $userId, $categoryId);
             if ($category === null) {
-                respond(404, ['error' => 'Kategorie nicht gefunden.']);
+                respond(404, ['error' => t('error.category_not_found'), 'error_key' => 'error.category_not_found']);
             }
 
             $patches = [];
@@ -1798,7 +1799,7 @@ try {
             if (array_key_exists('name', $data)) {
                 $name = normalizeName($data['name'] ?? null);
                 if ($name === '') {
-                    respond(422, ['error' => 'Bitte gib einen Kategorienamen ein.']);
+                    respond(422, ['error' => t('error.category_name_required'), 'error_key' => 'error.category_name_required']);
                 }
                 $patches[] = 'name = :name';
                 $params[':name'] = $name;
@@ -1815,7 +1816,7 @@ try {
             }
 
             if ($patches === []) {
-                respond(422, ['error' => 'Keine Änderungen übergeben.']);
+                respond(422, ['error' => t('error.no_changes'), 'error_key' => 'error.no_changes']);
             }
 
             $stmt = $db->prepare(
@@ -1838,7 +1839,7 @@ try {
 
             $ids = normalizeIdList($data['ids'] ?? ($data['ids[]'] ?? null));
             if ($ids === []) {
-                respond(422, ['error' => 'Ungültige Reihenfolge.']);
+                respond(422, ['error' => t('error.invalid_order'), 'error_key' => 'error.invalid_order']);
             }
 
             $stmt = $db->prepare('SELECT id FROM categories WHERE user_id = :user_id ORDER BY sort_order ASC, id ASC');
@@ -1851,7 +1852,7 @@ try {
             sort($sortedExisting);
 
             if ($sortedIds !== $sortedExisting) {
-                respond(422, ['error' => 'Reihenfolge passt nicht zu den vorhandenen Kategorien.']);
+                respond(422, ['error' => t('error.order_mismatch_categories'), 'error_key' => 'error.order_mismatch_categories']);
             }
 
             $stmt = $db->prepare(
@@ -1883,7 +1884,7 @@ try {
             $countStmt = $db->prepare('SELECT COUNT(*) FROM items WHERE user_id = :user_id AND category_id = :category_id');
             $countStmt->execute([':user_id' => $userId, ':category_id' => (int) $category['id']]);
             if ((int) $countStmt->fetchColumn() > 0) {
-                respond(422, ['error' => 'Kategorie kann nur gelöscht werden, wenn sie leer ist.']);
+                respond(422, ['error' => t('error.category_not_empty'), 'error_key' => 'error.category_not_empty']);
             }
 
             $db->prepare('DELETE FROM categories WHERE id = :id AND user_id = :user_id')
@@ -1962,7 +1963,7 @@ try {
             $content = normalizeContent($data['content'] ?? null);
 
             if ($name === '') {
-                respond(422, ['error' => 'Bitte gib einen Artikelnamen ein.']);
+                respond(422, ['error' => t('error.item_name_required'), 'error_key' => 'error.item_name_required']);
             }
 
             $type = (string) $category['type'];
@@ -2026,7 +2027,7 @@ try {
             }
 
             $category = requireCategory($data, $db, $userId);
-            validateCategoryType($category, ['images', 'files'], 'Uploads sind nur in Kategorien vom Typ Bilder oder Dateien erlaubt.');
+            validateCategoryType($category, ['images', 'files'], t('error.invalid_category'));
 
             $uploadedFile = getSingleUploadedFile();
             $uploadMeta = $category['type'] === 'images'
@@ -2043,7 +2044,7 @@ try {
             if (is_int($replaceItemId)) {
                 $existingItem = fetchItemForUser($db, $userId, $replaceItemId);
                 if ($existingItem === null || (int) $existingItem['category_id'] !== (int) $category['id']) {
-                    respond(404, ['error' => 'Artikel nicht gefunden.']);
+                    respond(404, ['error' => t('error.item_not_found'), 'error_key' => 'error.item_not_found']);
                 }
 
                 $storedName = buildStoredFilename((string) $category['type'], (string) $uploadMeta['stored_extension']);
@@ -2112,7 +2113,7 @@ try {
             }
 
             if ($name === '') {
-                respond(422, ['error' => 'Bitte gib einen Artikelnamen ein.']);
+                respond(422, ['error' => t('error.item_name_required'), 'error_key' => 'error.item_name_required']);
             }
 
             $storedName = buildStoredFilename((string) $category['type'], (string) $uploadMeta['stored_extension']);
@@ -2178,14 +2179,18 @@ try {
             }
 
             $category = requireCategory($data, $db, $userId);
-            validateCategoryType($category, ['files'], 'URL-Import nur in Dateien-Kategorien.');
+            validateCategoryType($category, ['files'], t('error.invalid_category'));
 
             $importUrl = trim((string) ($data['url'] ?? ''));
             validateSsrfSafeUrl($importUrl);
 
             $downloaded = downloadRemoteFile($importUrl);
             if (isset($downloaded['error'])) {
-                respond(422, ['error' => (string) $downloaded['error']]);
+                $payload = ['error' => (string) $downloaded['error']];
+                if (isset($downloaded['error_key'])) {
+                    $payload['error_key'] = (string) $downloaded['error_key'];
+                }
+                respond(422, $payload);
             }
 
             $uploadedFile = [
@@ -2262,14 +2267,14 @@ try {
             $done = filter_var($data['done'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 0, 'max_range' => 1]]);
 
             if (!is_int($id) || !is_int($done)) {
-                respond(422, ['error' => 'Ungültige Parameter für den Statuswechsel.']);
+                respond(422, ['error' => t('error.invalid_status_params'), 'error_key' => 'error.invalid_status_params']);
             }
 
             $stmt = $db->prepare('UPDATE items SET done = :done, updated_at = CURRENT_TIMESTAMP WHERE id = :id AND user_id = :user_id');
             $stmt->execute([':done' => $done, ':id' => $id, ':user_id' => $userId]);
 
             if ($stmt->rowCount() === 0) {
-                respond(404, ['error' => 'Artikel nicht gefunden.']);
+                respond(404, ['error' => t('error.item_not_found'), 'error_key' => 'error.item_not_found']);
             }
 
             respond(200, ['message' => 'Status aktualisiert.']);
@@ -2283,12 +2288,12 @@ try {
 
             $id = filter_var($data['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
             if (!is_int($id)) {
-                respond(422, ['error' => 'Ungültige ID.']);
+                respond(422, ['error' => t('error.invalid_id'), 'error_key' => 'error.invalid_id']);
             }
 
             $item = fetchItemForUser($db, $userId, $id);
             if ($item === null) {
-                respond(404, ['error' => 'Artikel nicht gefunden.']);
+                respond(404, ['error' => t('error.item_not_found'), 'error_key' => 'error.item_not_found']);
             }
 
             $type = (string) $item['category_type'];
@@ -2300,7 +2305,7 @@ try {
             $content = normalizeContent($data['content'] ?? null);
 
             if ($name === '') {
-                respond(422, ['error' => 'Bitte gib einen Artikelnamen ein.']);
+                respond(422, ['error' => t('error.item_name_required'), 'error_key' => 'error.item_name_required']);
             }
 
             if ($type !== 'list_quantity') {
@@ -2384,7 +2389,7 @@ try {
 
             $id = filter_var($data['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
             if (!is_int($id)) {
-                respond(422, ['error' => 'Ungültige ID.']);
+                respond(422, ['error' => t('error.invalid_id'), 'error_key' => 'error.invalid_id']);
             }
 
             $attachment = findAttachmentByItemId($db, $id);
@@ -2394,7 +2399,7 @@ try {
 
             if ($stmt->rowCount() === 0) {
                 $db->rollBack();
-                respond(404, ['error' => 'Artikel nicht gefunden.']);
+                respond(404, ['error' => t('error.item_not_found'), 'error_key' => 'error.item_not_found']);
             }
             $db->commit();
 
@@ -2419,19 +2424,19 @@ try {
             $targetCategoryId = filter_var($data['target_category_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
 
             if (!is_int($id) || !is_int($targetCategoryId)) {
-                respond(422, ['error' => 'Ungültige Verschiebe-Anfrage.']);
+                respond(422, ['error' => t('error.invalid_move'), 'error_key' => 'error.invalid_move']);
             }
 
             $item = fetchItemForUser($db, $userId, $id);
             if ($item === null) {
-                respond(404, ['error' => 'Artikel nicht gefunden.']);
+                respond(404, ['error' => t('error.item_not_found'), 'error_key' => 'error.item_not_found']);
             }
 
             $sourceCategory = loadUserCategory($db, $userId, (int) $item['category_id']);
             $targetCategory = loadUserCategory($db, $userId, $targetCategoryId);
 
             if ($sourceCategory === null || $targetCategory === null) {
-                respond(404, ['error' => 'Kategorie nicht gefunden.']);
+                respond(404, ['error' => t('error.category_not_found'), 'error_key' => 'error.category_not_found']);
             }
 
             if ((int) $sourceCategory['id'] === (int) $targetCategory['id']) {
@@ -2443,7 +2448,7 @@ try {
             }
 
             if ((string) $sourceCategory['type'] !== (string) $targetCategory['type']) {
-                respond(422, ['error' => 'Artikel können nur in gleichartige Kategorien verschoben werden.']);
+                respond(422, ['error' => t('error.move_type_mismatch'), 'error_key' => 'error.move_type_mismatch']);
             }
 
             $stmt = $db->prepare(
@@ -2510,7 +2515,7 @@ try {
             $category = requireCategory($data, $db, $userId);
             $orderedIds = normalizeIdList($data['ids'] ?? ($data['ids[]'] ?? null));
             if ($orderedIds === []) {
-                respond(422, ['error' => 'Ungültige Reihenfolge.']);
+                respond(422, ['error' => t('error.invalid_order'), 'error_key' => 'error.invalid_order']);
             }
 
             $existingStmt = $db->prepare(
@@ -2525,7 +2530,7 @@ try {
             sort($sortedExistingIds);
 
             if ($sortedIds !== $sortedExistingIds) {
-                respond(422, ['error' => 'Reihenfolge passt nicht zur aktuellen Liste.']);
+                respond(422, ['error' => t('error.order_mismatch_items'), 'error_key' => 'error.order_mismatch_items']);
             }
 
             $stmt = $db->prepare(
@@ -2555,14 +2560,14 @@ try {
             $isPinned = filter_var($data['is_pinned'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 0, 'max_range' => 1]]);
 
             if (!is_int($id) || !is_int($isPinned)) {
-                respond(422, ['error' => 'Ungültige Parameter.']);
+                respond(422, ['error' => t('error.invalid_params'), 'error_key' => 'error.invalid_params']);
             }
 
             $stmt = $db->prepare('UPDATE items SET is_pinned = :is_pinned, updated_at = CURRENT_TIMESTAMP WHERE id = :id AND user_id = :user_id');
             $stmt->execute([':is_pinned' => $isPinned, ':id' => $id, ':user_id' => $userId]);
 
             if ($stmt->rowCount() === 0) {
-                respond(404, ['error' => 'Artikel nicht gefunden.']);
+                respond(404, ['error' => t('error.item_not_found'), 'error_key' => 'error.item_not_found']);
             }
 
             respond(200, ['message' => 'Pinned-Status aktualisiert.']);
@@ -2578,14 +2583,14 @@ try {
             $status = $data['status'] ?? null;
 
             if (!is_int($id) || !in_array($status, ['', 'in_progress', 'waiting'], true)) {
-                respond(422, ['error' => 'Ungültige Parameter.']);
+                respond(422, ['error' => t('error.invalid_params'), 'error_key' => 'error.invalid_params']);
             }
 
             $stmt = $db->prepare('UPDATE items SET status = :status, updated_at = CURRENT_TIMESTAMP WHERE id = :id AND user_id = :user_id');
             $stmt->execute([':status' => $status, ':id' => $id, ':user_id' => $userId]);
 
             if ($stmt->rowCount() === 0) {
-                respond(404, ['error' => 'Artikel nicht gefunden.']);
+                respond(404, ['error' => t('error.item_not_found'), 'error_key' => 'error.item_not_found']);
             }
 
             respond(200, ['message' => 'Status aktualisiert.']);
@@ -2645,7 +2650,7 @@ try {
             $barcode = truncateText($barcode, 64);
 
             if ($barcode === '') {
-                respond(422, ['error' => 'Ungültiger Barcode.']);
+                respond(422, ['error' => t('error.invalid_barcode'), 'error_key' => 'error.invalid_barcode']);
             }
 
             // 1. scanned_products — Single Point of Truth
@@ -2704,7 +2709,7 @@ try {
             }
 
 
-            respond(404, ['error' => 'Produkt nicht gefunden.']);
+            respond(404, ['error' => t('error.product_not_found'), 'error_key' => 'error.product_not_found']);
 
         case 'product_normalize_debug':
             requireMethod('GET');
@@ -2712,7 +2717,7 @@ try {
             $barcode = truncateText($barcode, 64);
 
             if ($barcode === '') {
-                respond(422, ['error' => 'Ungültiger Barcode.']);
+                respond(422, ['error' => t('error.invalid_barcode'), 'error_key' => 'error.invalid_barcode']);
             }
 
             $productDb = getProductDatabase();
@@ -2726,7 +2731,7 @@ try {
             $catalog = $stmt->fetch();
 
             if (!is_array($catalog)) {
-                respond(404, ['error' => 'Produkt nicht gefunden.']);
+                respond(404, ['error' => t('error.product_not_found'), 'error_key' => 'error.product_not_found']);
             }
 
             $rawProduct = [
@@ -2752,11 +2757,11 @@ try {
             requireMethod('GET');
             $url = trim((string) ($_GET['url'] ?? ''));
             if ($url === '' || !filter_var($url, FILTER_VALIDATE_URL)) {
-                respond(422, ['error' => 'Ungültige URL.']);
+                respond(422, ['error' => t('error.invalid_url'), 'error_key' => 'error.invalid_url']);
             }
 
             if (!isAllowedRemoteUrl($url)) {
-                respond(422, ['error' => 'Nur externe HTTP(S)-Links sind erlaubt.']);
+                respond(422, ['error' => t('error.url_external_only'), 'error_key' => 'error.url_external_only']);
             }
 
             $remote = fetchRemoteHtml($url);
@@ -2765,7 +2770,8 @@ try {
                     'title' => '',
                     'description' => '',
                     'image' => '',
-                    'error' => (string) ($remote['error'] ?? 'Seite nicht abrufbar.'),
+                    'error' => (string) ($remote['error'] ?? t('error.page_unreachable')),
+                    'error_key' => (string) ($remote['error_key'] ?? 'error.page_unreachable'),
                 ]);
             }
 
@@ -2808,7 +2814,7 @@ try {
             $barcode = truncateText($barcode, 64);
 
             if ($barcode === '') {
-                respond(422, ['error' => 'Ungültiger Barcode.']);
+                respond(422, ['error' => t('error.invalid_barcode'), 'error_key' => 'error.invalid_barcode']);
             }
 
             $productDb = getProductDatabase();
@@ -2822,7 +2828,7 @@ try {
             $summary = $summaryStmt->fetch();
 
             if (!is_array($summary)) {
-                respond(404, ['error' => 'Produkt nicht gefunden.']);
+                respond(404, ['error' => t('error.product_not_found'), 'error_key' => 'error.product_not_found']);
             }
 
             $sources = [];
@@ -2898,7 +2904,7 @@ try {
             respond(200, ['preferences' => $preferences]);
 
         default:
-            respond(404, ['error' => 'Unbekannte Aktion.']);
+            respond(404, ['error' => t('error.unknown_action'), 'error_key' => 'error.unknown_action']);
     }
 } catch (Throwable $exception) {
     if ($db instanceof PDO && $db->inTransaction()) {
@@ -2912,5 +2918,5 @@ try {
         (string) ($_SERVER['REMOTE_ADDR'] ?? ''),
         (string) $exception
     ));
-    respond(500, ['error' => 'Serverfehler.']);
+    respond(500, ['error' => t('error.server_error'), 'error_key' => 'error.server_error']);
 }
