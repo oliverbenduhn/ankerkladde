@@ -5,6 +5,10 @@ $_envCanonicalHost = getenv('ANKERKLADDE_CANONICAL_HOST');
 define('EINKAUF_CANONICAL_HOST', $_envCanonicalHost !== false ? (string)$_envCanonicalHost : 'ankerkladde.benduhn.de');
 unset($_envCanonicalHost);
 
+$_envDefaultLanguage = getenv('ANKERKLADDE_DEFAULT_LANGUAGE');
+define('ANKERKLADDE_DEFAULT_LANGUAGE', $_envDefaultLanguage !== false ? (string)$_envDefaultLanguage : 'de');
+unset($_envDefaultLanguage);
+
 function getEnvBool(string $name): ?bool
 {
     $value = getenv($name);
