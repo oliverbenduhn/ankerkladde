@@ -5,7 +5,6 @@ require dirname(__DIR__) . '/db.php';
 require dirname(__DIR__) . '/security.php';
 require __DIR__ . '/theme.php';
 require dirname(__DIR__) . '/src/SettingsController.php';
-require dirname(__DIR__) . '/i18n.php';
 
 enforceCanonicalRequest();
 sendHtmlPageSecurityHeaders(allowSameOriginFraming: true);

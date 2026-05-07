@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-require_once __DIR__ . '/../i18n.php';
+
 
 function validateSettingsPassword(string $password): ?string
 {

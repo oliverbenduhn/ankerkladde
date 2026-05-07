@@ -2,7 +2,6 @@
 declare(strict_types=1);
 
 require dirname(__DIR__) . '/security.php';
-require dirname(__DIR__) . '/i18n.php';
 /** @var string $assetVersion */
 $assetVersion = require __DIR__ . '/version.php';
 

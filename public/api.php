@@ -5,7 +5,6 @@ ini_set('default_charset', 'UTF-8');
 
 require dirname(__DIR__) . '/db.php';
 require dirname(__DIR__) . '/security.php';
-require dirname(__DIR__) . '/i18n.php';
 require __DIR__ . '/theme.php';
 
 enforceCanonicalRequest();
