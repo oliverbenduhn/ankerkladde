@@ -1,3 +1,4 @@
+import { t } from './i18n.js';
 import { OFFLINE_QUEUE_ITEM_MAX_BYTES, OFFLINE_QUEUE_MAX_BYTES, sanitizeItemPayload } from './utils.js?v=4.3.11';
 
 const QUEUE_KEY = 'ankerkladde-offline-queue';
@@ -21,14 +22,14 @@ export function enqueueAction(type, payload) {
     const item = { type, payload: sanitizedPayload };
     const itemJson = JSON.stringify(item);
     if (storageBytes(itemJson) > OFFLINE_QUEUE_ITEM_MAX_BYTES) {
-        throw new Error('Dieser Eintrag ist zu groß für die Offline-Synchronisation.');
+        throw new Error(t('error.offline_too_large'));
     }
 
     const queue = getQueue();
     queue.push(item);
     const queueJson = JSON.stringify(queue);
     if (storageBytes(queueJson) > OFFLINE_QUEUE_MAX_BYTES) {
-        throw new Error('Der Offline-Speicher ist voll. Bitte synchronisiere oder lösche alte Offline-Einträge.');
+        throw new Error(t('error.offline_storage_full'));
     }
     localStorage.setItem(QUEUE_KEY, queueJson);
 }

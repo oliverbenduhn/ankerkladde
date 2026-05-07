@@ -68,13 +68,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $providedToken = $_POST['csrf_token'] ?? null;
 
     if (!hasValidCsrfToken(is_string($providedToken) ? $providedToken : null)) {
-        $error = 'Ungültiges Sicherheits-Token. Bitte Seite neu laden.';
+        $error = t('login.invalid_csrf');
     } else {
         $username = normalizeUsername((string) ($_POST['username'] ?? ''));
         $password = (string) ($_POST['password'] ?? '');
 
         if ($username === '' || $password === '') {
-            $error = 'Benutzername und Passwort sind erforderlich.';
+            $error = t('login.credentials_required');
         } else {
             // Apply delay before verifying — delay scales with prior failures
             applyLoginBruteForceDelay();
@@ -101,7 +101,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             incrementLoginFailureCount();
-            $error = 'Ungültige Anmeldedaten.';
+            $error = t('login.invalid_credentials');
         }
     }
 }
@@ -109,7 +109,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $csrfToken = getCsrfToken();
 ?>
 <!DOCTYPE html>
-<html lang="de">
+<html lang="<?= htmlspecialchars(getCurrentLanguage(), ENT_QUOTES, 'UTF-8') ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -121,16 +121,16 @@ $csrfToken = getCsrfToken();
     <link rel="manifest" href="<?= htmlspecialchars(appPath('manifest.php?v=' . $assetVersion), ENT_QUOTES, 'UTF-8') ?>">
     <link rel="icon" type="image/png" href="<?= htmlspecialchars(appPath('icon.php?size=96&v=' . rawurlencode($assetVersion)), ENT_QUOTES, 'UTF-8') ?>">
     <link rel="apple-touch-icon" href="<?= htmlspecialchars(appPath('icon.php?size=180&v=' . rawurlencode($assetVersion)), ENT_QUOTES, 'UTF-8') ?>">
-    <title>Anmelden — Ankerkladde</title>
+    <title><?= t('login.title') ?></title>
     <link rel="stylesheet" href="<?= htmlspecialchars(appPath('theme-css.php'), ENT_QUOTES, 'UTF-8') ?>">
     <link rel="stylesheet" href="<?= htmlspecialchars(appPath('style.css?v=' . $assetVersion), ENT_QUOTES, 'UTF-8') ?>">
 </head>
 <body class="login-page" data-theme="<?= htmlspecialchars($effectiveTheme, ENT_QUOTES, 'UTF-8') ?>">
 
 <div class="install-banner" id="installBanner" hidden style="position:fixed;top:0;left:0;right:0;z-index:100">
-    <span class="install-text">App installieren?</span>
-    <button type="button" id="installBtn" class="btn-install">Installieren</button>
-    <button type="button" id="installDismiss" class="btn-install-dismiss" aria-label="Schließen">✕</button>
+    <span class="install-text"><?= t('ui.install_prompt') ?></span>
+    <button type="button" id="installBtn" class="btn-install"><?= t('ui.install') ?></button>
+    <button type="button" id="installDismiss" class="btn-install-dismiss" aria-label="<?= t('ui.close') ?>">✕</button>
 </div>
 
 <div class="login-card">
@@ -144,20 +144,20 @@ $csrfToken = getCsrfToken();
     <form method="post" action="<?= htmlspecialchars(appPath('login.php'), ENT_QUOTES, 'UTF-8') ?>">
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
         <div class="login-field">
-            <label for="username">Benutzername</label>
+            <label for="username"><?= t('login.username') ?></label>
             <input type="text" id="username" name="username"
                    autocomplete="username" required autofocus
                    <?= $error !== null ? 'aria-invalid="true"' : '' ?>
                    value="<?= htmlspecialchars((string) ($_POST['username'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
         </div>
         <div class="login-field">
-            <label for="password">Passwort</label>
+            <label for="password"><?= t('login.password') ?></label>
             <input type="password" id="password" name="password"
                    autocomplete="current-password" required
                    <?= $error !== null ? 'aria-invalid="true"' : '' ?>
                    enterkeyhint="go">
         </div>
-        <button type="submit" class="login-btn">Anmelden</button>
+        <button type="submit" class="login-btn"><?= t('login.submit') ?></button>
     </form>
 </div>
 <script>

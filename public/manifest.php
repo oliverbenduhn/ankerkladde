@@ -26,10 +26,10 @@ $manifestBase = isCanonicalProductionHost($requestHost)
 
 $manifest = [
     'id' => $manifestBase,
-    'name' => 'Ankerkladde',
-    'short_name' => 'Ankerkladde',
-    'description' => 'Mobile Kladde für Listen, Notizen, Bilder, Dateien und Links.',
-    'lang' => 'de',
+    'name' => t('app.name'),
+    'short_name' => t('app.short_name'),
+    'description' => t('app.description'),
+    'lang' => getCurrentLanguage(),
     'start_url' => $manifestBase,
     'scope' => $manifestBase,
     'display' => 'standalone',

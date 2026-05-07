@@ -1,3 +1,4 @@
+import { t } from './i18n.js';
 import { api, apiUpload } from './api.js?v=4.3.4';
 import { getCurrentCategory, isAttachmentCategory } from './state.js?v=4.3.4';
 import { fileInput, itemInput, urlImportInput } from './ui.js?v=4.3.4';
@@ -20,7 +21,7 @@ export function createUploadActions(deps) {
 
         const file = fileInput?.files?.[0] || null;
         if (!file) {
-            setMessage(category.type === 'images' ? 'Bitte wähle ein Bild aus.' : 'Bitte wähle eine Datei aus.', true);
+            setMessage(category.type === 'images' ? t('error.select_image') : t('error.select_file'), true);
             return;
         }
 
@@ -53,7 +54,7 @@ export function createUploadActions(deps) {
                 return;
             }
         } catch {
-            setMessage('Ungültige URL.', true);
+            setMessage(t('error.invalid_url_client'), true);
             return;
         }
 
@@ -62,7 +63,7 @@ export function createUploadActions(deps) {
             url,
             name: itemInput.value.trim(),
         });
-        setRemoteImportLoading?.(true, 'Datei wird von URL geladen... Das kann bei großen Dateien dauern.');
+        setRemoteImportLoading?.(true, t('msg.url_loading'));
         try {
             await api('import_url', { method: 'POST', body });
             resetItemForm();

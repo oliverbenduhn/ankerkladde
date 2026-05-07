@@ -1,3 +1,4 @@
+import { t } from './i18n.js';
 import { appUrl } from './api.js?v=4.3.4';
 import { appEl, magicBtns, magicBar, magicInput, magicSubmit, magicClose, magicVoiceBtn } from './ui.js?v=4.3.4';
 
@@ -49,7 +50,7 @@ export function createMagicController(deps) {
         if (isSubmitting) return;
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SpeechRecognition) {
-            setMessage('Spracherkennung wird von diesem Browser nicht unterstützt.', true);
+            setMessage(t('msg.speech_not_supported'), true);
             return;
         }
 
@@ -59,12 +60,13 @@ export function createMagicController(deps) {
         }
 
         recognition = new SpeechRecognition();
-        recognition.lang = 'de-DE';
+        const langMap = { de: 'de-DE', en: 'en-US' };
+        recognition.lang = langMap[window.__lang] || 'de-DE';
         recognition.interimResults = true;
 
         recognition.onstart = () => {
             magicVoiceBtn.classList.add('is-listening');
-            magicInput.placeholder = 'Höre zu...';
+            magicInput.placeholder = t('msg.listening');
         };
 
         recognition.onresult = (event) => {

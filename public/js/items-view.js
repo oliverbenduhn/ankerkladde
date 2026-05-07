@@ -1,3 +1,4 @@
+import { t } from './i18n.js';
 import { isNotesCategory, state } from './state.js?v=4.3.4';
 import { clearDoneBtn, listEl, progressEl, svgIcon } from './ui.js?v=4.3.4';
 import { normalizeBarcodeValue, sanitizeItemField, syncAutoHeight } from './utils.js?v=4.3.11';
@@ -221,7 +222,7 @@ export function createItemsViewController(deps) {
         if ((type === 'images' || type === 'files') && !item.has_attachment) {
             content.classList.add('item-content-attachment', 'item-content-missing-attachment');
 
-            content.appendChild(createAttachmentMeta(item, 'Anhang nicht verfügbar'));
+            content.appendChild(createAttachmentMeta(item, t('msg.attachment_unavailable')));
             return;
         }
 
@@ -665,10 +666,10 @@ export function createItemsViewController(deps) {
             const li = document.createElement('li');
             li.className = 'empty-state';
             li.textContent = isNotesCategory()
-                ? 'Noch keine Notizen. Titel eingeben und + drücken.'
+                ? t('msg.no_notes_yet')
                 : state.mode === 'liste'
-                    ? 'Noch nichts auf der Liste. Füge oben etwas hinzu.'
-                    : 'Keine Einträge vorhanden.';
+                    ? t('msg.list_empty')
+                    : t('msg.no_entries');
             listEl.replaceChildren(li);
             return;
         }

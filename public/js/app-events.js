@@ -1,3 +1,4 @@
+import { t } from './i18n.js';
 import { saveLocalPrefs, state, scannerState, themeMediaQuery, isAttachmentCategory, normalizePreferences, getCurrentType } from './state.js?v=4.3.4';
 import { normalizeSettingsTab } from './api.js?v=4.3.4';
 import {
@@ -163,7 +164,7 @@ export function registerAppEventHandlers(deps) {
 
     clearDoneBtn?.addEventListener('click', () => {
         void clearDone().catch(error => {
-            setMessage(error instanceof Error ? error.message : 'Löschen fehlgeschlagen.', true);
+            setMessage(error instanceof Error ? error.message : t('msg.delete_failed'), true);
         });
     });
 

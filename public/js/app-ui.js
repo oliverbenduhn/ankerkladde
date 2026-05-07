@@ -1,3 +1,4 @@
+import { t } from './i18n.js';
 import { getCurrentCategory, getCurrentType, getTypeConfig, isAttachmentCategory, state } from './state.js?v=4.3.4';
 import {
     cameraBtn,
@@ -109,7 +110,7 @@ export function createAppUiController(deps = {}) {
     function updateFilePickerLabel() {
         if (!filePickerName) return;
         const attachment = fileInput?.files?.[0] || null;
-        filePickerName.textContent = attachment ? attachment.name : 'Keine Datei ausgewählt';
+        filePickerName.textContent = attachment ? attachment.name : t('item.no_file_selected');
     }
 
     function setUploadMode(mode) {
@@ -188,7 +189,7 @@ export function createAppUiController(deps = {}) {
         if (scanAddBtn) scanAddBtn.hidden = !shoppingListScannerEnabled || !barcodeCategory || uploadCategory;
         if (scanShoppingBtn) scanShoppingBtn.hidden = !shoppingListScannerEnabled || !barcodeCategory;
 
-        if (filePickerButton) filePickerButton.textContent = imageCategory ? 'Bild wählen' : 'Datei wählen';
+        if (filePickerButton) filePickerButton.textContent = imageCategory ? t('item.choose_image') : t('item.choose_file');
         if (remoteImportLoading) {
             setRemoteImportLoading(true);
         }
@@ -201,8 +202,8 @@ export function createAppUiController(deps = {}) {
             const label = dropZoneEl.querySelector('.drop-zone-label');
             if (label) {
                 label.textContent = imageCategory
-                    ? 'Bild hierher ziehen oder aus Zwischenablage einfügen'
-                    : 'Datei hierher ziehen oder aus Zwischenablage einfügen';
+                    ? t('item.drop_image')
+                    : t('item.drop_file');
             }
         }
         if (diskFreeEl) {

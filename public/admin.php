@@ -41,7 +41,7 @@ const PRODUCT_FACTS_DATASETS = [
 function validateNewPassword(string $password): ?string
 {
     if (strlen($password) < 8) {
-        return 'Passwort muss mindestens 8 Zeichen lang sein.';
+        return t('admin.flash.password_too_short');
     }
     return null;
 }
@@ -226,7 +226,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $providedToken = $_POST['csrf_token'] ?? null;
 
     if (!hasValidCsrfToken(is_string($providedToken) ? $providedToken : null)) {
-        $flash     = 'Ungültiges Sicherheits-Token.';
+        $flash     = t('error.invalid_csrf');
         $flashType = 'err';
     } else {
         $postAction = (string) ($_POST['action'] ?? '');
@@ -237,7 +237,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $mustChangePassword = isset($_POST['must_change_password']);
 
             if ($newUsername === '') {
-                $flash = 'Benutzername darf nicht leer sein.';
+                $flash = t('admin.flash.username_required');
                 $flashType = 'err';
             } elseif (($pwErr = validateNewPassword($newPassword)) !== null) {
                 $flash = $pwErr;
@@ -255,12 +255,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     ]);
                     $newUserId = (int) $db->lastInsertId();
                     createDefaultCategoriesForUser($db, $newUserId);
-                    $flash = "Nutzer '{$newUsername}' angelegt." . ($mustChangePassword ? ' Passwortwechsel beim ersten Login ist aktiviert.' : '');
+                    $flash = t('admin.flash.user_created', ['username' => $newUsername])
+                        . ($mustChangePassword ? ' ' . t('admin.flash.password_change_forced') : '');
                 } catch (PDOException $e) {
                     if (str_contains($e->getMessage(), 'UNIQUE')) {
-                        $flash = "Benutzername '{$newUsername}' ist bereits vergeben.";
+                        $flash = t('admin.flash.username_taken', ['username' => $newUsername]);
                     } else {
-                        $flash = 'Fehler beim Anlegen des Nutzers.';
+                        $flash = t('admin.flash.user_create_failed');
                     }
                     $flashType = 'err';
                 }
@@ -278,7 +279,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ]);
 
             if (!is_int($imageLimit) || !is_int($fileLimit) || !is_int($remoteLimit)) {
-                $flash = 'Upload-Grenzen müssen zwischen 1 MB und 10240 MB liegen.';
+                $flash = t('admin.flash.upload_limits_invalid');
                 $flashType = 'err';
             } else {
                 updateUploadLimitSettings($db, [
@@ -286,7 +287,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'file_upload_max_mb' => $fileLimit,
                     'remote_file_import_max_mb' => $remoteLimit,
                 ]);
-                $flash = 'Upload-Grenzen gespeichert.';
+                $flash = t('admin.flash.upload_limits_saved');
             }
 
         } elseif ($postAction === 'delete') {
@@ -295,7 +296,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ]);
 
             if (!$targetId) {
-                $flash = 'Ungültige Nutzer-ID.';
+                $flash = t('admin.flash.invalid_user_id');
                 $flashType = 'err';
             } else {
                 // Prevent deleting admin accounts
@@ -304,13 +305,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $targetUser = $targetStmt->fetch();
 
                 if (!is_array($targetUser)) {
-                    $flash = 'Nutzer nicht gefunden.';
+                    $flash = t('admin.flash.user_not_found');
                     $flashType = 'err';
                 } elseif ((bool) $targetUser['is_admin']) {
-                    $flash = 'Admin-Konten können nicht gelöscht werden.';
+                    $flash = t('admin.flash.admin_cannot_delete');
                     $flashType = 'err';
                 } elseif ($targetId === $currentUserId) {
-                    $flash = 'Du kannst dein eigenes Konto nicht löschen.';
+                    $flash = t('admin.flash.cannot_delete_self');
                     $flashType = 'err';
                 } else {
                     // Collect attachment file paths for physical deletion
@@ -338,7 +339,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         }
                     }
 
-                    $flash = "Nutzer '{$targetUser['username']}' gelöscht.";
+                    $flash = t('admin.flash.user_deleted', ['username' => $targetUser['username']]);
                 }
             }
 
@@ -349,7 +350,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $newPassword = (string) ($_POST['new_password'] ?? '');
 
             if (!$targetId) {
-                $flash = 'Ungültige Nutzer-ID.';
+                $flash = t('admin.flash.invalid_user_id');
                 $flashType = 'err';
             } elseif (($pwErr = validateNewPassword($newPassword)) !== null) {
                 $flash = $pwErr;
@@ -362,13 +363,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $targetUser = $targetStmt->fetch();
 
                 if (!is_array($targetUser)) {
-                    $flash = 'Nutzer nicht gefunden.';
+                    $flash = t('admin.flash.user_not_found');
                     $flashType = 'err';
                 } elseif ((bool) $targetUser['is_admin']) {
-                    $flash = 'Admin-Passwort kann hier nicht geändert werden.';
+                    $flash = t('admin.flash.admin_password_readonly');
                     $flashType = 'err';
                 } elseif ($targetId === $currentUserId) {
-                    $flash = 'Eigenes Passwort kann hier nicht zurückgesetzt werden.';
+                    $flash = t('admin.flash.cannot_reset_own_password');
                     $flashType = 'err';
                 } else {
                     $db->prepare(
@@ -377,7 +378,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         ':hash' => password_hash($newPassword, PASSWORD_BCRYPT),
                         ':id'   => $targetId,
                     ]);
-                    $flash = "Passwort für '{$targetUser['username']}' zurückgesetzt. Passwortwechsel beim nächsten Login ist aktiviert.";
+                    $flash = t('admin.flash.password_reset', ['username' => $targetUser['username']]);
                 }
             }
         } elseif ($postAction === 'toggle_password_change') {
@@ -387,7 +388,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $required = isset($_POST['required']);
 
             if (!$targetId) {
-                $flash = 'Ungültige Nutzer-ID.';
+                $flash = t('admin.flash.invalid_user_id');
                 $flashType = 'err';
             } else {
                 $targetStmt = $db->prepare('SELECT username, is_admin FROM users WHERE id = :id LIMIT 1');
@@ -395,23 +396,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $targetUser = $targetStmt->fetch();
 
                 if (!is_array($targetUser)) {
-                    $flash = 'Nutzer nicht gefunden.';
+                    $flash = t('admin.flash.user_not_found');
                     $flashType = 'err';
                 } elseif ((bool) $targetUser['is_admin']) {
-                    $flash = 'Für Admin-Konten bitte die Einstellungen nutzen.';
+                    $flash = t('admin.flash.admin_use_settings');
                     $flashType = 'err';
                 } else {
                     setPasswordChangeRequired($db, $targetId, $required);
                     $flash = $required
-                        ? "Passwortwechsel für '{$targetUser['username']}' aktiviert."
-                        : "Passwortwechsel für '{$targetUser['username']}' aufgehoben.";
+                        ? t('admin.flash.password_change_enabled', ['username' => $targetUser['username']])
+                        : t('admin.flash.password_change_disabled', ['username' => $targetUser['username']]);
                 }
             }
         } elseif ($postAction === 'refresh_product_dataset') {
             $dataset = (string) ($_POST['dataset'] ?? '');
 
             if (!array_key_exists($dataset, PRODUCT_FACTS_DATASETS)) {
-                $flash = 'Ungültiges Produkt-Dataset.';
+                $flash = t('admin.flash.invalid_dataset');
                 $flashType = 'err';
             } else {
                 $config = PRODUCT_FACTS_DATASETS[$dataset];
@@ -423,9 +424,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     downloadFileToPath($config['url'], $targetFile);
                     runOpenFactsImport($dataset, $targetFile, $truncate);
                     setAdminMetaValue($db, importMetaKeyForDataset($dataset), date('Y-m-d H:i:s'));
-                    $flash = $config['label'] . ' wurde heruntergeladen und importiert.';
+                    $flash = t('admin.flash.dataset_imported', ['label' => $config['label']]);
                 } catch (Throwable $e) {
-                    $flash = 'Produktdatenbank-Update fehlgeschlagen: ' . $e->getMessage();
+                    $flash = t('admin.flash.product_db_update_failed', ['error' => $e->getMessage()]);
                     $flashType = 'err';
                 }
             }
@@ -444,12 +445,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 }
                 $productDb->commit();
-                $flash = 'Produktdatenbank geleert.';
+                $flash = t('admin.flash.product_db_cleared');
             } catch (Throwable $e) {
                 if (isset($productDb) && $productDb instanceof PDO && $productDb->inTransaction()) {
                     $productDb->rollBack();
                 }
-                $flash = 'Produktdatenbank konnte nicht geleert werden: ' . $e->getMessage();
+                $flash = t('admin.flash.product_db_clear_failed', ['error' => $e->getMessage()]);
                 $flashType = 'err';
             }
         }
@@ -479,7 +480,7 @@ $productStatus = getProductDatabaseStatus($db, $productDb);
 $uploadLimits = getUploadLimitSettings($db);
 ?>
 <!DOCTYPE html>
-<html lang="de">
+<html lang="<?= htmlspecialchars(getCurrentLanguage(), ENT_QUOTES, 'UTF-8') ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -491,7 +492,7 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
 ?>
     <meta name="theme-color" content="<?= htmlspecialchars($themeColor, ENT_QUOTES, 'UTF-8') ?>">
     <?= renderThemeBootScript($adminPreferences) ?>
-    <title>Nutzerverwaltung — Ankerkladde</title>
+    <title><?= htmlspecialchars(t('admin.page_title'), ENT_QUOTES, 'UTF-8') ?></title>
     <link rel="icon" type="image/png" href="<?= htmlspecialchars(appPath('icon.php?size=96&v=' . rawurlencode($assetVersion)), ENT_QUOTES, 'UTF-8') ?>">
     <link rel="apple-touch-icon" href="<?= htmlspecialchars(appPath('icon.php?size=180&v=' . rawurlencode($assetVersion)), ENT_QUOTES, 'UTF-8') ?>">
     <link rel="stylesheet" href="<?= htmlspecialchars(appPath('theme-css.php'), ENT_QUOTES, 'UTF-8') ?>">
@@ -503,9 +504,9 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
     <div class="admin-header">
         <div class="admin-title-group">
             <img src="<?= htmlspecialchars($brandMarkSrc, ENT_QUOTES, 'UTF-8') ?>" alt="" class="brand-mark brand-mark-admin" aria-hidden="true">
-            <h1>Nutzerverwaltung</h1>
+            <h1><?= htmlspecialchars(t('admin.title'), ENT_QUOTES, 'UTF-8') ?></h1>
         </div>
-        <a href="<?= htmlspecialchars(appPath('logout.php'), ENT_QUOTES, 'UTF-8') ?>" class="admin-logout">Abmelden</a>
+        <a href="<?= htmlspecialchars(appPath('logout.php'), ENT_QUOTES, 'UTF-8') ?>" class="admin-logout"><?= htmlspecialchars(t('settings.action.logout'), ENT_QUOTES, 'UTF-8') ?></a>
     </div>
 
     <?php if ($flash !== null): ?>
@@ -515,79 +516,79 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
     <?php endif; ?>
 
     <div class="admin-section">
-        <h2>Upload-Grenzen</h2>
+        <h2><?= htmlspecialchars(t('admin.section.upload_limits'), ENT_QUOTES, 'UTF-8') ?></h2>
         <form method="post" action="<?= htmlspecialchars(appPath('admin.php'), ENT_QUOTES, 'UTF-8') ?>">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
             <input type="hidden" name="action" value="save_upload_limits">
             <div class="admin-limit-grid">
                 <label class="admin-limit-field">
-                    <span>Bilder</span>
+                    <span><?= htmlspecialchars(t('admin.upload.images'), ENT_QUOTES, 'UTF-8') ?></span>
                     <input type="number" name="image_upload_max_mb" min="1" max="10240" step="1" required
                            value="<?= (int) $uploadLimits['image_upload_max_mb'] ?>"
-                           aria-label="Maximale Bildgröße in MB">
-                    <small>MB pro Bild-Upload</small>
+                           aria-label="<?= htmlspecialchars(t('admin.upload.images_label'), ENT_QUOTES, 'UTF-8') ?>">
+                    <small><?= htmlspecialchars(t('admin.upload.images_hint'), ENT_QUOTES, 'UTF-8') ?></small>
                 </label>
                 <label class="admin-limit-field">
-                    <span>Dateien</span>
+                    <span><?= htmlspecialchars(t('admin.upload.files'), ENT_QUOTES, 'UTF-8') ?></span>
                     <input type="number" name="file_upload_max_mb" min="1" max="10240" step="1" required
                            value="<?= (int) $uploadLimits['file_upload_max_mb'] ?>"
-                           aria-label="Maximale Dateigröße in MB">
-                    <small>MB pro Datei-Upload</small>
+                           aria-label="<?= htmlspecialchars(t('admin.upload.files_label'), ENT_QUOTES, 'UTF-8') ?>">
+                    <small><?= htmlspecialchars(t('admin.upload.files_hint'), ENT_QUOTES, 'UTF-8') ?></small>
                 </label>
                 <label class="admin-limit-field">
-                    <span>URL-Import</span>
+                    <span><?= htmlspecialchars(t('admin.upload.url_import'), ENT_QUOTES, 'UTF-8') ?></span>
                     <input type="number" name="remote_file_import_max_mb" min="1" max="10240" step="1" required
                            value="<?= (int) $uploadLimits['remote_file_import_max_mb'] ?>"
-                           aria-label="Maximale URL-Importgröße in MB">
-                    <small>MB pro serverseitigem Download</small>
+                           aria-label="<?= htmlspecialchars(t('admin.upload.url_import_label'), ENT_QUOTES, 'UTF-8') ?>">
+                    <small><?= htmlspecialchars(t('admin.upload.url_import_hint'), ENT_QUOTES, 'UTF-8') ?></small>
                 </label>
             </div>
-            <p class="admin-notice">Die tatsaechliche Obergrenze kann zusaetzlich durch PHP- oder Webserver-Limits begrenzt sein.</p>
+            <p class="admin-notice"><?= htmlspecialchars(t('admin.upload.notice'), ENT_QUOTES, 'UTF-8') ?></p>
             <div class="admin-actions">
-                <button type="submit" class="admin-btn">Speichern</button>
+                <button type="submit" class="admin-btn"><?= htmlspecialchars(t('admin.action.save'), ENT_QUOTES, 'UTF-8') ?></button>
             </div>
         </form>
     </div>
 
     <div class="admin-section">
-        <h2>Nutzer anlegen</h2>
+        <h2><?= htmlspecialchars(t('admin.section.create_user'), ENT_QUOTES, 'UTF-8') ?></h2>
         <form method="post" action="<?= htmlspecialchars(appPath('admin.php'), ENT_QUOTES, 'UTF-8') ?>">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
             <input type="hidden" name="action" value="create">
             <div class="admin-form-row">
-                <input type="text" name="username" placeholder="Benutzername" required autocomplete="off" aria-label="Benutzername">
-                <input type="password" name="password" placeholder="Passwort (min. 8 Zeichen)" required aria-label="Passwort (mindestens 8 Zeichen)">
+                <input type="text" name="username" placeholder="<?= htmlspecialchars(t('login.username'), ENT_QUOTES, 'UTF-8') ?>" required autocomplete="off" aria-label="<?= htmlspecialchars(t('login.username'), ENT_QUOTES, 'UTF-8') ?>">
+                <input type="password" name="password" placeholder="<?= htmlspecialchars(t('admin.create.password_placeholder'), ENT_QUOTES, 'UTF-8') ?>" required aria-label="<?= htmlspecialchars(t('admin.create.password_label'), ENT_QUOTES, 'UTF-8') ?>">
                 <label class="admin-inline-check">
                     <input type="checkbox" name="must_change_password" checked>
-                    <span>Wechsel erzwingen</span>
+                    <span><?= htmlspecialchars(t('admin.create.force_change'), ENT_QUOTES, 'UTF-8') ?></span>
                 </label>
-                <button type="submit" class="admin-btn">Anlegen</button>
+                <button type="submit" class="admin-btn"><?= htmlspecialchars(t('admin.action.create'), ENT_QUOTES, 'UTF-8') ?></button>
             </div>
         </form>
     </div>
 
     <div class="admin-section">
-        <h2>Nutzer</h2>
+        <h2><?= htmlspecialchars(t('admin.section.users'), ENT_QUOTES, 'UTF-8') ?></h2>
         <?php if ($users === []): ?>
-            <p class="admin-notice">Noch keine regulären Nutzer vorhanden.</p>
+            <p class="admin-notice"><?= htmlspecialchars(t('admin.users.empty'), ENT_QUOTES, 'UTF-8') ?></p>
         <?php else: ?>
             <ul class="admin-user-list">
             <?php foreach ($users as $user): ?>
                 <li class="admin-user-item">
                     <span class="admin-user-name"><?= htmlspecialchars((string) $user['username'], ENT_QUOTES, 'UTF-8') ?></span>
                     <span class="admin-user-date"><?= htmlspecialchars(substr((string) $user['created_at'], 0, 10), ENT_QUOTES, 'UTF-8') ?></span>
-                    <span class="admin-user-date"><?= (int) $user['category_count'] ?> Kategorien</span>
-                    <span class="admin-user-date"><?= (int) $user['item_count'] ?> Einträge</span>
+                    <span class="admin-user-date"><?= (int) $user['category_count'] ?> <?= htmlspecialchars(t('admin.users.categories'), ENT_QUOTES, 'UTF-8') ?></span>
+                    <span class="admin-user-date"><?= (int) $user['item_count'] ?> <?= htmlspecialchars(t('admin.users.items'), ENT_QUOTES, 'UTF-8') ?></span>
                     <?php if (!empty($user['must_change_password'])): ?>
-                        <span class="admin-user-date">Passwortwechsel offen</span>
+                        <span class="admin-user-date"><?= htmlspecialchars(t('admin.users.password_change_pending'), ENT_QUOTES, 'UTF-8') ?></span>
                     <?php endif; ?>
 
                     <form method="post" action="<?= htmlspecialchars(appPath('admin.php'), ENT_QUOTES, 'UTF-8') ?>" class="admin-inline-form">
                         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
                         <input type="hidden" name="action" value="reset_password">
                         <input type="hidden" name="user_id" value="<?= (int) $user['id'] ?>">
-                        <input type="password" name="new_password" placeholder="Neues Passwort" required aria-label="Neues Passwort für <?= htmlspecialchars((string) $user['username'], ENT_QUOTES, 'UTF-8') ?>">
-                        <button type="submit" class="admin-btn-sm">Setzen</button>
+                        <input type="password" name="new_password" placeholder="<?= htmlspecialchars(t('admin.users.new_password_placeholder'), ENT_QUOTES, 'UTF-8') ?>" required aria-label="<?= htmlspecialchars(t('admin.users.new_password_label', ['username' => (string) $user['username']]), ENT_QUOTES, 'UTF-8') ?>">
+                        <button type="submit" class="admin-btn-sm"><?= htmlspecialchars(t('admin.action.set_password'), ENT_QUOTES, 'UTF-8') ?></button>
                     </form>
 
                     <form method="post" action="<?= htmlspecialchars(appPath('admin.php'), ENT_QUOTES, 'UTF-8') ?>" class="admin-inline-form">
@@ -596,18 +597,18 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                         <input type="hidden" name="user_id" value="<?= (int) $user['id'] ?>">
                         <?php if (empty($user['must_change_password'])): ?>
                             <input type="hidden" name="required" value="1">
-                            <button type="submit" class="admin-btn-sm">Wechsel erzwingen</button>
+                            <button type="submit" class="admin-btn-sm"><?= htmlspecialchars(t('admin.action.force_change'), ENT_QUOTES, 'UTF-8') ?></button>
                         <?php else: ?>
-                            <button type="submit" class="admin-btn-sm">Freigeben</button>
+                            <button type="submit" class="admin-btn-sm"><?= htmlspecialchars(t('admin.action.release'), ENT_QUOTES, 'UTF-8') ?></button>
                         <?php endif; ?>
                     </form>
 
                     <form method="post" action="<?= htmlspecialchars(appPath('admin.php'), ENT_QUOTES, 'UTF-8') ?>" class="admin-inline-form"
-                          onsubmit="return confirm(<?= htmlspecialchars(json_encode('Nutzer ' . $user['username'] . ' wirklich löschen?'), ENT_QUOTES, 'UTF-8') ?>)">
+                          onsubmit="return confirm(<?= htmlspecialchars(json_encode(t('admin.confirm.delete_user', ['username' => $user['username']])), ENT_QUOTES, 'UTF-8') ?>)">
                         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
                         <input type="hidden" name="action" value="delete">
                         <input type="hidden" name="user_id" value="<?= (int) $user['id'] ?>">
-                        <button type="submit" class="admin-btn-sm admin-btn-sm-danger">Löschen</button>
+                        <button type="submit" class="admin-btn-sm admin-btn-sm-danger"><?= htmlspecialchars(t('admin.action.delete'), ENT_QUOTES, 'UTF-8') ?></button>
                     </form>
                 </li>
             <?php endforeach; ?>
@@ -616,18 +617,18 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
     </div>
 
     <div class="admin-section">
-        <h2>Produktdatenbank</h2>
+        <h2><?= htmlspecialchars(t('admin.section.product_db'), ENT_QUOTES, 'UTF-8') ?></h2>
         <div class="admin-product-summary">
             <div class="admin-product-stat">
-                <span class="admin-product-stat-label">Gesamt</span>
+                <span class="admin-product-stat-label"><?= htmlspecialchars(t('admin.product.total'), ENT_QUOTES, 'UTF-8') ?></span>
                 <strong class="admin-product-stat-value"><?= number_format((int) $productStatus['summary_count'], 0, ',', '.') ?></strong>
             </div>
             <div class="admin-product-stat">
-                <span class="admin-product-stat-label">Letztes Update</span>
-                <strong class="admin-product-stat-value"><?= $productStatus['summary_updated_at'] !== null ? htmlspecialchars(substr((string) $productStatus['summary_updated_at'], 0, 16), ENT_QUOTES, 'UTF-8') : 'Unbekannt' ?></strong>
+                <span class="admin-product-stat-label"><?= htmlspecialchars(t('admin.product.last_update'), ENT_QUOTES, 'UTF-8') ?></span>
+                <strong class="admin-product-stat-value"><?= $productStatus['summary_updated_at'] !== null ? htmlspecialchars(substr((string) $productStatus['summary_updated_at'], 0, 16), ENT_QUOTES, 'UTF-8') : htmlspecialchars(t('admin.product.unknown'), ENT_QUOTES, 'UTF-8') ?></strong>
             </div>
             <div class="admin-product-stat">
-                <span class="admin-product-stat-label">DB-Größe</span>
+                <span class="admin-product-stat-label"><?= htmlspecialchars(t('admin.product.db_size'), ENT_QUOTES, 'UTF-8') ?></span>
                 <strong class="admin-product-stat-value"><?= htmlspecialchars(formatBytesAdmin((int) $productStatus['db_file_size']), ENT_QUOTES, 'UTF-8') ?></strong>
             </div>
         </div>
@@ -638,29 +639,29 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                     <div class="admin-product-card-head">
                         <h3><?= htmlspecialchars((string) $dataset['label'], ENT_QUOTES, 'UTF-8') ?></h3>
                         <span class="admin-product-badge<?= (int) $dataset['row_count'] > 0 ? ' is-ready' : '' ?>">
-                            <?= (int) $dataset['row_count'] > 0 ? 'Importiert' : 'Leer' ?>
+                            <?= (int) $dataset['row_count'] > 0 ? htmlspecialchars(t('admin.product.imported'), ENT_QUOTES, 'UTF-8') : htmlspecialchars(t('admin.product.empty'), ENT_QUOTES, 'UTF-8') ?>
                         </span>
                     </div>
                     <div class="admin-product-meta">
-                        <span><?= number_format((int) $dataset['row_count'], 0, ',', '.') ?> Datensätze</span>
-                        <span>Datei: <?= !empty($dataset['file_exists']) ? htmlspecialchars(formatBytesAdmin((int) $dataset['file_size']), ENT_QUOTES, 'UTF-8') : 'fehlt' ?></span>
-                        <span><?= $dataset['updated_at'] !== null ? 'Import: ' . htmlspecialchars(substr((string) $dataset['updated_at'], 0, 16), ENT_QUOTES, 'UTF-8') : 'Importzeit unbekannt' ?></span>
+                        <span><?= number_format((int) $dataset['row_count'], 0, ',', '.') ?> <?= htmlspecialchars(t('admin.product.records'), ENT_QUOTES, 'UTF-8') ?></span>
+                        <span><?= htmlspecialchars(t('admin.product.file'), ENT_QUOTES, 'UTF-8') ?>: <?= !empty($dataset['file_exists']) ? htmlspecialchars(formatBytesAdmin((int) $dataset['file_size']), ENT_QUOTES, 'UTF-8') : htmlspecialchars(t('admin.product.file_missing'), ENT_QUOTES, 'UTF-8') ?></span>
+                        <span><?= $dataset['updated_at'] !== null ? htmlspecialchars(t('admin.product.import_date'), ENT_QUOTES, 'UTF-8') . ': ' . htmlspecialchars(substr((string) $dataset['updated_at'], 0, 16), ENT_QUOTES, 'UTF-8') : htmlspecialchars(t('admin.product.import_unknown'), ENT_QUOTES, 'UTF-8') ?></span>
                     </div>
                     <form method="post" action="<?= htmlspecialchars(appPath('admin.php'), ENT_QUOTES, 'UTF-8') ?>" class="admin-product-actions">
                         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
                         <input type="hidden" name="action" value="refresh_product_dataset">
                         <input type="hidden" name="dataset" value="<?= htmlspecialchars((string) $dataset['key'], ENT_QUOTES, 'UTF-8') ?>">
-                        <button type="submit" class="admin-btn-sm">Herunterladen &amp; importieren</button>
+                        <button type="submit" class="admin-btn-sm"><?= htmlspecialchars(t('admin.action.download_import'), ENT_QUOTES, 'UTF-8') ?></button>
                     </form>
                 </section>
             <?php endforeach; ?>
         </div>
 
         <form method="post" action="<?= htmlspecialchars(appPath('admin.php'), ENT_QUOTES, 'UTF-8') ?>" class="admin-inline-form"
-              onsubmit="return confirm('Produktdatenbank wirklich leeren?')">
+              onsubmit="return confirm('<?= htmlspecialchars(t('admin.confirm.clear_product_db'), ENT_QUOTES, 'UTF-8') ?>')">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
             <input type="hidden" name="action" value="clear_product_database">
-            <button type="submit" class="admin-btn-sm admin-btn-sm-danger">Produktdatenbank leeren</button>
+            <button type="submit" class="admin-btn-sm admin-btn-sm-danger"><?= htmlspecialchars(t('admin.action.clear_product_db'), ENT_QUOTES, 'UTF-8') ?></button>
         </form>
     </div>
 

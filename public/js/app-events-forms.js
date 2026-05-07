@@ -1,3 +1,4 @@
+import { t } from './i18n.js';
 import { isAttachmentCategory, state } from './state.js?v=4.3.4';
 import {
     cameraBtn,
@@ -85,7 +86,7 @@ export function registerFormsEvents(deps) {
 
     clearDoneBtn?.addEventListener('click', () => {
         void clearDone().catch(error => {
-            setMessage(error instanceof Error ? error.message : 'Löschen fehlgeschlagen.', true);
+            setMessage(error instanceof Error ? error.message : t('msg.delete_failed'), true);
         });
     });
 

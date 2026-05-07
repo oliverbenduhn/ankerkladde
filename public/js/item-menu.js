@@ -1,3 +1,5 @@
+import { t } from './i18n.js';
+
 export function createItemMenuController(deps) {
     const {
         getAttachmentTitle,
@@ -64,35 +66,35 @@ export function createItemMenuController(deps) {
 
             const targets = getMoveTargetCategories(item);
             if (targets.length === 0) {
-                appendAction('Keine passende Zielkategorie', async () => {}, 'is-secondary');
-                appendAction('Zurück', async () => showMainActions(), 'is-secondary', false);
+                appendAction(t('msg.no_move_target'), async () => {}, 'is-secondary');
+                appendAction(t('ui.back'), async () => showMainActions(), 'is-secondary', false);
                 return;
             }
 
             targets.forEach(category => {
                 appendAction(category.name, () => handleMove(item, category.id));
             });
-            appendAction('Zurück', async () => showMainActions(), 'is-secondary', false);
+            appendAction(t('ui.back'), async () => showMainActions(), 'is-secondary', false);
         }
 
         function showMainActions() {
             actions.replaceChildren();
 
             if (item.category_type === 'notes') {
-                appendAction('Notiz öffnen', () => openNoteEditorWithNavigation(item));
+                appendAction(t('ui.open_note'), () => openNoteEditorWithNavigation(item));
             } else if (item.category_type === 'list_due_date') {
-                appendAction('Bearbeiten', () => openTodoEditor(item));
+                appendAction(t('ui.edit'), () => openTodoEditor(item));
             } else {
-                appendAction('Bearbeiten', () => handleEditStart(item));
+                appendAction(t('ui.edit'), () => handleEditStart(item));
             }
 
             if (getMoveTargetCategories(item).length > 0) {
-                appendAction('Verschieben', async () => showMoveTargets(), '', false);
+                appendAction(t('ui.move'), async () => showMoveTargets(), '', false);
             }
 
-            appendAction(item.is_pinned ? 'Lösen' : 'Anheften', () => handlePin(item.id, item.is_pinned ? 0 : 1));
-            appendAction('Löschen', () => handleDelete(item.id), 'is-danger');
-            appendAction('Abbrechen', async () => {}, 'is-secondary');
+            appendAction(item.is_pinned ? t('ui.unpin') : t('ui.pin'), () => handlePin(item.id, item.is_pinned ? 0 : 1));
+            appendAction(t('ui.delete'), () => handleDelete(item.id), 'is-danger');
+            appendAction(t('ui.cancel'), async () => {}, 'is-secondary');
         }
 
         showMainActions();

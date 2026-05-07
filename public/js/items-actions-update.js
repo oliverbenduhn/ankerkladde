@@ -1,3 +1,4 @@
+import { t } from './i18n.js';
 import { api } from './api.js?v=4.3.4';
 import { getCurrentCategory, state } from './state.js?v=4.3.4';
 import { enqueueAction } from './offline-queue.js?v=4.3.11';
@@ -50,7 +51,7 @@ export function createUpdateActions(deps) {
                 }
             }
             renderItems();
-            setMessage('Artikel gelöscht.');
+            setMessage(t('msg.item_deleted'));
 
             try {
                 await api('delete', { method: 'POST', body: new URLSearchParams({ id: String(id) }) });
@@ -62,7 +63,7 @@ export function createUpdateActions(deps) {
                 }
             }
         } catch (error) {
-            setMessage(error instanceof Error ? error.message : 'Löschen fehlgeschlagen.', true);
+            setMessage(error instanceof Error ? error.message : t('msg.delete_failed'), true);
         }
     }
 
@@ -135,7 +136,7 @@ export function createUpdateActions(deps) {
             state.editingId = null;
             state.editDraft = { itemId: null, categoryId: null, name: '', barcode: '', quantity: '', due_date: '', content: '' };
             renderItems();
-            setMessage('Der Bearbeitungsentwurf passte nicht mehr zu diesem Eintrag. Bitte erneut öffnen.', true);
+            setMessage(t('msg.edit_draft_stale'), true);
             return;
         }
 

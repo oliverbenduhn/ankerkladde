@@ -85,7 +85,7 @@ if ($swContent && preg_match("/const\s+VERSION\s*=\s*['\"]([^'\"]+)['\"]/", $swC
 }
 ?>
 <!DOCTYPE html>
-<html lang="de">
+<html lang="<?= htmlspecialchars(getCurrentLanguage(), ENT_QUOTES, 'UTF-8') ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -96,7 +96,7 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
 ?>
     <meta name="theme-color" content="<?= htmlspecialchars($themeColor, ENT_QUOTES, 'UTF-8') ?>">
     <?= renderThemeBootScript($preferences) ?>
-    <title>Einstellungen — Ankerkladde</title>
+    <title><?= t('settings.page_title') ?></title>
     <link rel="icon" type="image/png" href="<?= htmlspecialchars(appPath('icon.php?size=96&v=' . rawurlencode($assetVersion)), ENT_QUOTES, 'UTF-8') ?>">
     <link rel="apple-touch-icon" href="<?= htmlspecialchars(appPath('icon.php?size=180&v=' . rawurlencode($assetVersion)), ENT_QUOTES, 'UTF-8') ?>">
     <link rel="stylesheet" href="<?= htmlspecialchars(appPath('theme-css.php'), ENT_QUOTES, 'UTF-8') ?>">
@@ -108,9 +108,9 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
     <div class="settings-header">
         <div class="settings-title-group">
             <img src="<?= htmlspecialchars($brandMarkSrc, ENT_QUOTES, 'UTF-8') ?>" alt="" class="brand-mark brand-mark-settings" aria-hidden="true">
-            <h1>Einstellungen</h1>
+            <h1><?= t('ui.settings') ?></h1>
         </div>
-        <a href="<?= htmlspecialchars(appPath('index.php'), ENT_QUOTES, 'UTF-8') ?>" class="settings-back" aria-label="Zurück zur App">←</a>
+        <a href="<?= htmlspecialchars(appPath('index.php'), ENT_QUOTES, 'UTF-8') ?>" class="settings-back" aria-label="<?= t('settings.back_to_app') ?>">←</a>
     </div>
     <?php endif; ?>
 
@@ -124,17 +124,84 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
 
     <?php if ($passwordChangeRequired): ?>
         <div class="settings-flash settings-flash-err" role="alert">
-            Beim ersten Login musst du dein Passwort ändern, bevor du die App weiter nutzen kannst.
+            <?= t('settings.password_change_required') ?>
         </div>
     <?php endif; ?>
 
+    <?php
+    $renameFrom = $_SESSION['i18n_rename_from'] ?? null;
+    $renameTo = $_SESSION['i18n_rename_to'] ?? null;
+    unset($_SESSION['i18n_rename_from'], $_SESSION['i18n_rename_to']);
+
+    if ($renameFrom !== null && $renameTo !== null):
+        $oldStrings = loadStrings($renameFrom);
+        $newStrings = loadStrings($renameTo);
+        $renameCategories = loadUserCategories($db, $userId);
+        $renameSuggestions = [];
+
+        $defaultKeys = array_filter(array_keys($oldStrings), fn($k) => str_starts_with($k, 'category.default.'));
+        foreach ($renameCategories as $cat) {
+            foreach ($defaultKeys as $key) {
+                if ($cat['name'] === $oldStrings[$key] && isset($newStrings[$key]) && $newStrings[$key] !== $oldStrings[$key]) {
+                    $renameSuggestions[] = [
+                        'id' => $cat['id'],
+                        'old_name' => $cat['name'],
+                        'new_name' => $newStrings[$key],
+                    ];
+                    break;
+                }
+            }
+        }
+
+        if (!empty($renameSuggestions)):
+    ?>
+    <div class="rename-dialog card" style="margin: 1rem 0; padding: 1rem;">
+        <h3><?= t('settings.rename_categories_title') ?></h3>
+        <form method="post" action="<?= htmlspecialchars(appPath('settings.php' . ($isEmbedded ? '?embed=1&tab=app' : '')), ENT_QUOTES, 'UTF-8') ?>">
+            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
+            <input type="hidden" name="action" value="rename_categories">
+            <?php foreach ($renameSuggestions as $suggestion): ?>
+            <label style="display: flex; align-items: center; gap: 0.5rem; margin: 0.5rem 0;">
+                <input type="checkbox" name="rename[<?= (int) $suggestion['id'] ?>]" value="<?= htmlspecialchars($suggestion['new_name'], ENT_QUOTES, 'UTF-8') ?>" checked>
+                <span><?= htmlspecialchars($suggestion['old_name'], ENT_QUOTES, 'UTF-8') ?></span>
+                <span>→</span>
+                <span><strong><?= htmlspecialchars($suggestion['new_name'], ENT_QUOTES, 'UTF-8') ?></strong></span>
+            </label>
+            <?php endforeach; ?>
+            <button type="submit" class="btn" style="margin-top: 0.5rem;"><?= t('settings.rename_categories_submit') ?></button>
+        </form>
+    </div>
+    <?php
+        endif;
+    endif;
+    ?>
+
+    <details class="settings-section settings-accordion" data-settings-panel="language" open>
+        <summary><?= t('settings.language') ?></summary>
+        <div class="settings-block">
+            <form method="post" action="<?= htmlspecialchars(appPath('settings.php' . ($isEmbedded ? '?embed=1&tab=app' : '')), ENT_QUOTES, 'UTF-8') ?>">
+                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
+                <input type="hidden" name="action" value="save_language">
+                <label class="settings-field">
+                    <select name="language" class="settings-select" onchange="this.form.submit()">
+                        <?php foreach (getAvailableLanguages() as $langCode): ?>
+                            <option value="<?= htmlspecialchars($langCode, ENT_QUOTES, 'UTF-8') ?>" <?= $langCode === getCurrentLanguage() ? 'selected' : '' ?>>
+                                <?= t('language.' . $langCode) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </label>
+            </form>
+        </div>
+    </details>
+
     <details class="settings-section settings-accordion" data-settings-panel="appearance" open>
-        <summary>Erscheinungsbild</summary>
+        <summary><?= t('settings.section.appearance') ?></summary>
         <form method="post" action="<?= htmlspecialchars($settingsAction, ENT_QUOTES, 'UTF-8') ?>" class="settings-form" data-auto-submit="change" data-theme-form="1">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
             <input type="hidden" name="action" value="save_theme">
             <div class="settings-block">
-                <p class="settings-copy">Änderungen werden sofort auf diesem Gerät übernommen.</p>
+                <p class="settings-copy"><?= t('settings.appearance_hint') ?></p>
                 <div class="theme-mode-list">
                     <label>
                         <?php
@@ -142,17 +209,17 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                         $autoDotDark  = htmlspecialchars(getThemeColor($preferences['dark_theme']  ?? 'nachtwache'), ENT_QUOTES, 'UTF-8');
                         ?>
                         <span class="theme-mode-dot theme-mode-dot-auto" style="background:conic-gradient(<?= $autoDotLight ?> 0deg 180deg,<?= $autoDotDark ?> 180deg 360deg)"></span>
-                        Auto
+                        <?= t('settings.theme.auto') ?>
                         <input type="radio" name="theme_mode" value="auto" <?= ($preferences['theme_mode'] ?? 'auto') === 'auto' ? 'checked' : '' ?>>
                     </label>
                     <label>
                         <span class="theme-mode-dot theme-mode-dot-light"></span>
-                        Hell
+                        <?= t('settings.theme.light') ?>
                         <input type="radio" name="theme_mode" value="light" <?= ($preferences['theme_mode'] ?? 'auto') === 'light' ? 'checked' : '' ?>>
                     </label>
                     <label>
                         <span class="theme-mode-dot theme-mode-dot-dark"></span>
-                        Dunkel
+                        <?= t('settings.theme.dark') ?>
                         <input type="radio" name="theme_mode" value="dark" <?= ($preferences['theme_mode'] ?? 'auto') === 'dark' ? 'checked' : '' ?>>
                     </label>
                 </div>
@@ -163,8 +230,8 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                     $validDarkThemes = array_keys($themes['dark'] ?? []);
                     ?>
                     <div>
-                        <h3 class="theme-group-title">Light Theme</h3>
-                        <p class="theme-group-hint">Empfohlen: <strong>Hafenblau</strong> · Warm: <strong>Pergament</strong></p>
+                        <h3 class="theme-group-title"><?= t('settings.theme.light_title') ?></h3>
+                        <p class="theme-group-hint"><?= t('settings.theme.light_hint') ?></p>
                         <div class="theme-cards">
                             <?php foreach ($validLightThemes as $key): ?>
                             <?php $theme = $themes['light'][$key] ?? null; if (!$theme) continue; ?>
@@ -188,8 +255,8 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                         </div>
                     </div>
                     <div>
-                        <h3 class="theme-group-title">Dark Theme</h3>
-                        <p class="theme-group-hint">Empfohlen: <strong>Nachtwache</strong> · Editorial: <strong>Pier</strong></p>
+                        <h3 class="theme-group-title"><?= t('settings.theme.dark_title') ?></h3>
+                        <p class="theme-group-hint"><?= t('settings.theme.dark_hint') ?></p>
                         <div class="theme-cards">
                             <?php foreach ($validDarkThemes as $key): ?>
                             <?php $theme = $themes['dark'][$key] ?? null; if (!$theme) continue; ?>
@@ -218,13 +285,13 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
     </details>
 
     <details class="settings-section settings-section-secondary settings-accordion" data-settings-panel="features">
-        <summary>Funktionen</summary>
+        <summary><?= t('settings.section.features') ?></summary>
         <form method="post" action="<?= htmlspecialchars($settingsAction, ENT_QUOTES, 'UTF-8') ?>" class="settings-form" data-auto-submit="change">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
             <input type="hidden" name="action" value="save_feature_preferences">
             <div class="settings-block">
-                <p class="settings-copy">Ausgeschaltete Funktionen verschwinden in der App komplett aus der Oberfläche.</p>
-                <p class="settings-copy">Änderungen werden sofort für deinen Account gespeichert.</p>
+                <p class="settings-copy"><?= t('settings.features_hint1') ?></p>
+                <p class="settings-copy"><?= t('settings.features_hint2') ?></p>
                 <div class="settings-options">
                     <label class="settings-option">
                         <input
@@ -233,7 +300,7 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                             value="1"
                             <?= !array_key_exists('product_scanner_enabled', $preferences) || !empty($preferences['product_scanner_enabled']) ? 'checked' : '' ?>
                         >
-                        <span>Produktscanner anzeigen</span>
+                        <span><?= t('settings.feature.product_scanner') ?></span>
                     </label>
                     <label class="settings-option">
                         <input
@@ -242,7 +309,7 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                             value="1"
                             <?= !array_key_exists('shopping_list_scanner_enabled', $preferences) || !empty($preferences['shopping_list_scanner_enabled']) ? 'checked' : '' ?>
                         >
-                        <span>Scanfunktion für die Einkaufsliste anzeigen</span>
+                        <span><?= t('settings.feature.shopping_scanner') ?></span>
                     </label>
                     <label class="settings-option">
                         <input
@@ -251,14 +318,14 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                             value="1"
                             <?= !array_key_exists('magic_button_enabled', $preferences) || !empty($preferences['magic_button_enabled']) ? 'checked' : '' ?>
                         >
-                        <span>Magic Button anzeigen</span>
+                        <span><?= t('settings.feature.magic_button') ?></span>
                     </label>
                 </div>
             </div>
         </form>
         <form method="post" action="<?= htmlspecialchars($settingsAction, ENT_QUOTES, 'UTF-8') ?>" class="settings-form" data-auto-submit="change" data-local-preferences="1">
             <div class="settings-block">
-                <p class="settings-copy">Diese Einstellung gilt nur auf diesem Gerät.</p>
+                <p class="settings-copy"><?= t('settings.feature.device_only_hint') ?></p>
                 <div class="settings-options">
                     <label class="settings-option">
                         <input
@@ -267,7 +334,7 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                             value="1"
                             <?= !array_key_exists('category_swipe_enabled', $preferences) || !empty($preferences['category_swipe_enabled']) ? 'checked' : '' ?>
                         >
-                        <span>Wischgeste für Kategorien aktivieren</span>
+                        <span><?= t('settings.feature.category_swipe') ?></span>
                     </label>
                 </div>
             </div>
@@ -275,9 +342,9 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
     </details>
 
     <details class="settings-section settings-accordion" data-settings-panel="categories" open>
-        <summary>Kategorien</summary>
+        <summary><?= t('settings.section.categories') ?></summary>
         <div class="settings-block">
-            <p class="settings-copy">Neue Kategorien werden direkt angelegt. Bestehende Kategorien speicherst du pro Zeile.</p>
+            <p class="settings-copy"><?= t('settings.categories_hint') ?></p>
             <div class="settings-options settings-category-list" data-category-list>
                 <?php foreach ($categories as $category): ?>
                     <?php
@@ -293,7 +360,7 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                         <input type="hidden" name="category_id" value="<?= (int) $category['id'] ?>">
                         <details class="settings-category-details">
                             <summary class="settings-category-summary">
-                                <span class="settings-drag-handle" aria-hidden="true" title="Zum Verschieben ziehen">
+                                <span class="settings-drag-handle" aria-hidden="true" title="<?= t('settings.drag_hint') ?>">
                                     <svg width="16" height="20" viewBox="0 0 16 20" fill="currentColor" aria-hidden="true">
                                         <circle cx="5" cy="4" r="2"/><circle cx="11" cy="4" r="2"/>
                                         <circle cx="5" cy="10" r="2"/><circle cx="11" cy="10" r="2"/>
@@ -312,7 +379,7 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                             <div class="settings-category-body">
                                 <div class="settings-row-main">
                                     <label class="settings-field settings-field-name">
-                                        <span>Name</span>
+                                        <span><?= t('settings.field.name') ?></span>
                                         <input
                                             type="text"
                                             name="category_name"
@@ -322,7 +389,7 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                                         >
                                     </label>
                                     <fieldset class="settings-field settings-field-icon settings-icon-field">
-                                        <legend>Symbol</legend>
+                                        <legend><?= t('settings.field.symbol') ?></legend>
                                         <div class="category-icon-grid">
                                             <?php foreach ($categoryIconOptions as $iconOption): ?>
                                                 <label class="category-icon-choice" title="<?= htmlspecialchars(categoryIconLabel($iconOption), ENT_QUOTES, 'UTF-8') ?>">
@@ -349,18 +416,18 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                                             value="1"
                                             <?= (int) $category['is_hidden'] === 1 ? 'checked' : '' ?>
                                         >
-                                        <span>Ausblenden</span>
+                                        <span><?= t('settings.field.hide') ?></span>
                                     </label>
                                     <div class="settings-row-actions">
-                                        <button type="submit" class="settings-save settings-row-save">Speichern</button>
+                                        <button type="submit" class="settings-save settings-row-save"><?= t('settings.action.save') ?></button>
                                         <button
                                             type="submit"
                                             name="action"
                                             value="delete_category"
                                             class="settings-delete-button"
                                             formnovalidate
-                                            onclick="return confirm('Kategorie wirklich löschen?')"
-                                        >Löschen</button>
+                                            onclick="return confirm('<?= t('settings.confirm.delete_category') ?>')"
+                                        ><?= t('settings.action.delete') ?></button>
                                     </div>
                                 </div>
                             </div>
@@ -372,20 +439,20 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
     </details>
 
     <details class="settings-section settings-accordion" data-settings-panel="new-category">
-        <summary>Neue Kategorie</summary>
+        <summary><?= t('settings.section.new_category') ?></summary>
         <form method="post" action="<?= htmlspecialchars($settingsAction, ENT_QUOTES, 'UTF-8') ?>" class="settings-form">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
             <input type="hidden" name="action" value="create_category">
             <div class="settings-block">
-                <p class="settings-copy">Name frei wählen, Strukturtyp bleibt fest im Produkt definiert.</p>
+                <p class="settings-copy"><?= t('settings.new_category_hint') ?></p>
                 <div class="settings-password-fields">
                     <fieldset class="settings-field settings-icon-field">
-                        <legend>Symbol</legend>
+                        <legend><?= t('settings.field.symbol') ?></legend>
                         <div class="category-icon-grid category-icon-grid-new">
-                            <label class="category-icon-choice category-icon-choice-auto" title="Automatisch nach Typ">
+                            <label class="category-icon-choice category-icon-choice-auto" title="<?= t('settings.icon.auto_title') ?>">
                                 <input type="radio" name="icon" value="" checked>
                                 <span class="category-icon-choice-visual category-icon-choice-auto-visual" aria-hidden="true">A</span>
-                                <span class="category-icon-choice-label">Automatisch</span>
+                                <span class="category-icon-choice-label"><?= t('settings.icon.auto_label') ?></span>
                             </label>
                             <?php foreach ($iconOptions as $iconOption): ?>
                                 <label class="category-icon-choice" title="<?= htmlspecialchars(categoryIconLabel($iconOption), ENT_QUOTES, 'UTF-8') ?>">
@@ -399,11 +466,11 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                         </div>
                     </fieldset>
                     <label class="settings-field">
-                        <span>Name</span>
+                        <span><?= t('settings.field.name') ?></span>
                         <input type="text" name="name" maxlength="120" required>
                     </label>
                     <label class="settings-field">
-                        <span>Typ</span>
+                        <span><?= t('settings.field.type') ?></span>
                         <select name="type" required>
                             <?php foreach (CATEGORY_TYPES as $type): ?>
                                 <option value="<?= htmlspecialchars($type, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars(categoryTypeLabel($type), ENT_QUOTES, 'UTF-8') ?></option>
@@ -414,26 +481,26 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
             </div>
 
             <div class="settings-actions">
-                <button type="submit" class="settings-save">Kategorie anlegen</button>
+                <button type="submit" class="settings-save"><?= t('settings.action.create_category') ?></button>
             </div>
         </form>
     </details>
 
     <?php if (!empty($preferences['magic_button_enabled'])): ?>
     <details class="settings-section settings-accordion" data-settings-panel="ai" open>
-        <summary>KI-Assistent (Magic Bar)</summary>
+        <summary><?= t('settings.section.ai') ?></summary>
         <form method="post" action="<?= htmlspecialchars($settingsAction, ENT_QUOTES, 'UTF-8') ?>" class="settings-form">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
             <input type="hidden" name="action" value="save_ai_preferences">
             <div class="settings-block">
-                <p class="settings-copy">Hinterlege hier deinen <strong>Google Gemini API-Key</strong>, um die Magic Bar zu nutzen. Kostenlose Keys gibt es im <a href="https://aistudio.google.com/" target="_blank" rel="noopener">Google AI Studio</a>.</p>
+                <p class="settings-copy"><?= t('settings.ai_hint') ?></p>
                 <div class="settings-password-fields">
                     <label class="settings-field">
-                        <span>Gemini API-Key</span>
+                        <span><?= t('settings.field.gemini_api_key') ?></span>
                         <input type="password" id="gemini_api_key_input" name="gemini_api_key" value="<?= htmlspecialchars((string) ($preferences['gemini_api_key'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="AIzaSy...">
                     </label>
                     <label class="settings-field">
-                        <span>Gemini-Modell</span>
+                        <span><?= t('settings.field.gemini_model') ?></span>
                         <select id="gemini_model_select" name="gemini_model">
                             <?php foreach ($geminiModels as $modelValue => $modelLabel): ?>
                                 <option value="<?= htmlspecialchars($modelValue, ENT_QUOTES, 'UTF-8') ?>" <?= ($preferences['gemini_model'] ?? 'gemini-2.5-flash') === $modelValue ? 'selected' : '' ?>>
@@ -442,7 +509,7 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                             <?php endforeach; ?>
                         </select>
                     </label>
-                    <button type="button" id="test-api-key" class="settings-link">Verbindung testen</button>
+                    <button type="button" id="test-api-key" class="settings-link"><?= t('settings.action.test_connection') ?></button>
                 </div>
                 <div id="api-test-status" class="api-test-status" style="margin-top: 8px; font-size: 0.85rem; display: none;"></div>
                 <?php if ($aiKeyStatus !== null): ?>
@@ -452,78 +519,78 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                 <?php endif; ?>
             </div>
             <div class="settings-actions">
-                <button type="submit" class="settings-save">KI-Einstellungen speichern</button>
+                <button type="submit" class="settings-save"><?= t('settings.action.save_ai') ?></button>
             </div>
         </form>
     </details>
     <?php endif; ?>
 
     <details class="settings-section settings-accordion" data-settings-panel="extension">
-        <summary>Browser-Extension</summary>
+        <summary><?= t('settings.section.extension') ?></summary>
         <div class="settings-block">
-            <p class="settings-copy">Diesen API-Key in die Extension kopieren. Er verbindet die Erweiterung direkt mit deinem Account.</p>
+            <p class="settings-copy"><?= t('settings.extension_hint') ?></p>
             <div class="settings-password-fields">
                 <label class="settings-field">
-                    <span>API-Key</span>
+                    <span><?= t('settings.field.api_key') ?></span>
                     <input type="text" id="api-key-value" value="<?= htmlspecialchars($apiKey, ENT_QUOTES, 'UTF-8') ?>" readonly>
                 </label>
             </div>
             <div class="settings-actions" style="gap: 0.75rem; flex-wrap: wrap;">
-                <button type="button" class="settings-save" id="copy-api-key">Kopieren</button>
-                <a href="<?= htmlspecialchars(appPath('extension-download.php') . '?firefox', ENT_QUOTES, 'UTF-8') ?>" class="settings-link settings-link-firefox">Firefox-Erweiterung laden</a>
-                <a href="<?= htmlspecialchars(appPath('extension-download.php'), ENT_QUOTES, 'UTF-8') ?>" class="settings-link settings-link-chrome">Chrome/Edge-Erweiterung laden</a>
+                <button type="button" class="settings-save" id="copy-api-key"><?= t('settings.action.copy') ?></button>
+                <a href="<?= htmlspecialchars(appPath('extension-download.php') . '?firefox', ENT_QUOTES, 'UTF-8') ?>" class="settings-link settings-link-firefox"><?= t('settings.action.download_firefox') ?></a>
+                <a href="<?= htmlspecialchars(appPath('extension-download.php'), ENT_QUOTES, 'UTF-8') ?>" class="settings-link settings-link-chrome"><?= t('settings.action.download_chrome') ?></a>
                 <form method="post" action="<?= htmlspecialchars($settingsAction, ENT_QUOTES, 'UTF-8') ?>" class="settings-form" style="margin:0;">
                     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
                     <input type="hidden" name="action" value="regenerate_api_key">
-                    <button type="submit" class="settings-link" formnovalidate>Neu erzeugen</button>
+                    <button type="submit" class="settings-link" formnovalidate><?= t('settings.action.regenerate_key') ?></button>
                 </form>
             </div>
-            <p class="settings-copy">Wenn sich die Erweiterung spaeter aendert, hier einfach erneut herunterladen.</p>
+            <p class="settings-copy"><?= t('settings.extension_download_hint') ?></p>
         </div>
     </details>
 
     <details class="settings-section settings-section-secondary settings-accordion" data-settings-panel="password"<?= $passwordChangeRequired ? ' open' : '' ?>>
-        <summary>Passwort ändern</summary>
+        <summary><?= t('settings.section.password') ?></summary>
         <form method="post" action="<?= htmlspecialchars($settingsAction, ENT_QUOTES, 'UTF-8') ?>" class="settings-form">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
             <input type="hidden" name="action" value="change_password">
             <div class="settings-block">
-                <p class="settings-copy">Dein neues Passwort muss mindestens 8 Zeichen lang sein.</p>
+                <p class="settings-copy"><?= t('settings.password_hint') ?></p>
                 <div class="settings-password-fields">
                     <?php if (!$passwordChangeRequired): ?>
                         <label class="settings-field">
-                            <span>Aktuelles Passwort</span>
+                            <span><?= t('settings.field.current_password') ?></span>
                             <input type="password" name="current_password" autocomplete="current-password" required>
                         </label>
                     <?php endif; ?>
                     <label class="settings-field">
-                        <span>Neues Passwort</span>
+                        <span><?= t('settings.field.new_password') ?></span>
                         <input type="password" name="new_password" autocomplete="new-password" required>
                     </label>
                     <label class="settings-field">
-                        <span>Neues Passwort wiederholen</span>
+                        <span><?= t('settings.field.new_password_confirm') ?></span>
                         <input type="password" name="new_password_confirm" autocomplete="new-password" required>
                     </label>
                 </div>
             </div>
 
             <div class="settings-actions">
-                <button type="submit" class="settings-save">Passwort ändern</button>
+                <button type="submit" class="settings-save"><?= t('settings.section.password') ?></button>
             </div>
         </form>
     </details>
 
     <details class="settings-section settings-section-secondary settings-accordion" data-settings-panel="system">
-        <summary>System & Abmelden</summary>
+        <summary><?= t('settings.section.system') ?></summary>
         <div class="settings-block">
-            <p class="settings-copy">Angemeldet als <strong><?= htmlspecialchars((string) ($currentUser['username'] ?? 'unbekannt'), ENT_QUOTES, 'UTF-8') ?></strong>.</p>
-            <p class="settings-copy">App: <?= htmlspecialchars($assetVersion, ENT_QUOTES, 'UTF-8') ?></p>
+            <p class="settings-copy"><?= t('settings.logged_in_as') ?> <strong><?= htmlspecialchars((string) ($currentUser['username'] ?? 'unbekannt'), ENT_QUOTES, 'UTF-8') ?></strong>.</p>
+            <p class="settings-copy"><?= t('settings.info.app_version') ?> <?= htmlspecialchars($assetVersion, ENT_QUOTES, 'UTF-8') ?></p>
             <?php if ($swVersion): ?>
-            <p class="settings-copy">Service Worker: <?= htmlspecialchars($swVersion, ENT_QUOTES, 'UTF-8') ?></p>
+            <p class="settings-copy"><?= t('settings.info.sw_version') ?> <?= htmlspecialchars($swVersion, ENT_QUOTES, 'UTF-8') ?></p>
             <?php endif; ?>
-            <p class="settings-copy">PHP: <?= htmlspecialchars(PHP_VERSION, ENT_QUOTES, 'UTF-8') ?></p>
-            <p class="settings-copy">SQLite: <?= htmlspecialchars((string) $db->query('SELECT sqlite_version()')->fetchColumn(), ENT_QUOTES, 'UTF-8') ?></p>
-            <a href="<?= htmlspecialchars(appPath('logout.php'), ENT_QUOTES, 'UTF-8') ?>" class="settings-link" target="_top">Abmelden</a>
+            <p class="settings-copy"><?= t('settings.info.php_version') ?> <?= htmlspecialchars(PHP_VERSION, ENT_QUOTES, 'UTF-8') ?></p>
+            <p class="settings-copy"><?= t('settings.info.sqlite_version') ?> <?= htmlspecialchars((string) $db->query('SELECT sqlite_version()')->fetchColumn(), ENT_QUOTES, 'UTF-8') ?></p>
+            <a href="<?= htmlspecialchars(appPath('logout.php'), ENT_QUOTES, 'UTF-8') ?>" class="settings-link" target="_top"><?= t('settings.action.logout') ?></a>
         </div>
     </details>
 </div>
