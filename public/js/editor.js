@@ -1,3 +1,4 @@
+import { t } from './i18n.js';
 import { api } from './api.js?v=4.3.4';
 import { NOTE_SAVE_DEBOUNCE_MS, state } from './state.js?v=4.3.4';
 import { appEl, noteEditorBody, noteEditorEl, noteSaveStatus, noteTitleInput, noteToolbar } from './ui.js?v=4.3.4';
@@ -56,7 +57,7 @@ export function createEditorController(deps) {
             setNoteSaveStatus('Gespeichert');
         } catch (error) {
             if (error.message.includes('Artikel nicht gefunden')) {
-                setNoteSaveStatus('❌ Notiz wurde gelöscht');
+                setNoteSaveStatus(t('msg.note_deleted'));
                 console.log('[Note] Item was deleted by another user, closing editor');
                 await closeNoteEditor();
             } else {

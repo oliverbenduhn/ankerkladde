@@ -1,3 +1,4 @@
+import { t } from './i18n.js';
 import { state } from './state.js?v=4.3.4';
 import { sanitizeItemPayload } from './utils.js?v=4.3.11';
 
@@ -31,7 +32,7 @@ export function createActionUtils(deps) {
         await loadCategories();
         await loadItems(undefined, { useCache: false });
         setNetworkStatus();
-        setMessage('Diese Kategorie wurde auf einem anderen Gerät gelöscht. Ich habe die Liste aktualisiert.', true);
+        setMessage(t('msg.category_deleted_remote'), true);
         return true;
     }
 

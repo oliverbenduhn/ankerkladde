@@ -1,3 +1,5 @@
+import { t } from './i18n.js';
+
 export function createLightboxController() {
     let currentOverlay = null;
     let onKeyHandler = null;
@@ -30,7 +32,7 @@ export function createLightboxController() {
         const closeBtn = document.createElement('button');
         closeBtn.type = 'button';
         closeBtn.className = 'lightbox-close';
-        closeBtn.setAttribute('aria-label', 'Schließen');
+        closeBtn.setAttribute('aria-label', t('ui.close'));
         closeBtn.textContent = '×';
 
         const closeOverlay = () => {

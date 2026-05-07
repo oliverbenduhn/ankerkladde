@@ -1,3 +1,4 @@
+import { t } from './i18n.js';
 import {
     panelsKey,
     categoriesKey,
@@ -170,12 +171,12 @@ export function initUIHandling() {
         copyButton.addEventListener('click', async () => {
             try {
                 await navigator.clipboard.writeText(apiKeyInput.value);
-                copyButton.textContent = 'Kopiert';
+                copyButton.textContent = t('ui.copied');
                 window.setTimeout(() => {
-                    copyButton.textContent = 'Kopieren';
+                    copyButton.textContent = t('settings.action.copy');
                 }, 1500);
             } catch (error) {
-                copyButton.textContent = 'Nicht kopierbar';
+                copyButton.textContent = t('ui.copy_failed');
             }
         });
     }
@@ -191,14 +192,14 @@ export function initUIHandling() {
             const key = geminiKeyInput.value.trim();
             const model = geminiModelSelect.value;
             if (!key) {
-                apiTestStatus.textContent = 'Bitte zuerst einen Key eingeben.';
+                apiTestStatus.textContent = t('error.enter_key_first');
                 apiTestStatus.style.color = 'var(--error)';
                 apiTestStatus.style.display = 'block';
                 return;
             }
 
             testApiKeyBtn.disabled = true;
-            apiTestStatus.textContent = 'Teste Verbindung...';
+            apiTestStatus.textContent = t('msg.testing_connection');
             apiTestStatus.style.color = '';
             apiTestStatus.style.display = 'block';
 
@@ -211,14 +212,14 @@ export function initUIHandling() {
 
                 const result = await response.json();
                 if (response.ok) {
-                    apiTestStatus.textContent = '✅ Verbindung erfolgreich mit ' + model + '!';
+                    apiTestStatus.textContent = t('msg.connection_success', { model });
                     apiTestStatus.style.color = 'green';
                 } else {
-                    apiTestStatus.textContent = '❌ Fehler: ' + (result.error || 'Ungültiger Key');
+                    apiTestStatus.textContent = t('error.connection_failed', { error: result.error || t('error.invalid_key') });
                     apiTestStatus.style.color = 'var(--error)';
                 }
             } catch (error) {
-                apiTestStatus.textContent = '❌ Netzwerkfehler beim Testen.';
+                apiTestStatus.textContent = t('error.network_test_failed');
                 apiTestStatus.style.color = 'var(--error)';
             } finally {
                 testApiKeyBtn.disabled = false;

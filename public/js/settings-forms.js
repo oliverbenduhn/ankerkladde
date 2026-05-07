@@ -1,3 +1,4 @@
+import { t } from './i18n.js';
 import {
     scrollKey,
     openCategoryKey,
@@ -108,7 +109,7 @@ export function initFormHandling() {
                 saveLocalPrefs(localThemePatch);
                 applySettingsTheme();
                 postPreferencesUpdate(localThemePatch);
-                renderFlash('Theme für dieses Gerät gespeichert.');
+                renderFlash(t('msg.theme_saved'));
                 return;
             }
 
@@ -117,7 +118,7 @@ export function initFormHandling() {
                 if (Object.keys(localFormPatch).length > 0) {
                     saveLocalPrefs(localFormPatch);
                     postPreferencesUpdate(localFormPatch);
-                    renderFlash('Einstellung für dieses Gerät gespeichert.');
+                    renderFlash(t('msg.setting_saved'));
                 }
                 return;
             }

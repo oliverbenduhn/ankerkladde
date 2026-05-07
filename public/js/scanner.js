@@ -1,3 +1,4 @@
+import { t } from './i18n.js';
 import { api } from './api.js?v=4.3.4';
 import { BARCODE_FORMATS, isBarcodeCategory, isIosWebKit, isScannerSupported, scannerState, state } from './state.js?v=4.3.4';
 import { itemForm, itemInput, quantityInput, scannerManualForm, scannerManualInput, scannerOverlay, scannerStatus, scannerSubtitle, scannerVideo } from './ui.js?v=4.3.4';
@@ -54,14 +55,14 @@ export function createScannerController(deps) {
     }
 
     function getScannerActionLabel() {
-        return scannerState.action === 'toggle' ? 'Eintrag abhaken' : 'Artikel hinzufügen';
+        return scannerState.action === 'toggle' ? t('scanner.check_item') : t('scanner.add_item');
     }
 
     function updateScannerSubtitle() {
         if (!scannerSubtitle) return;
         scannerSubtitle.textContent = scannerState.action === 'toggle'
-            ? 'Barcode scannt offene Einträge der aktuellen Liste und hakt sie ab.'
-            : 'Barcode scannt Produkte und legt sie direkt in der aktuellen Liste an.';
+            ? t('scanner.hint_shopping')
+            : t('scanner.hint_add');
     }
 
     function stopScannerLoop() {
@@ -198,11 +199,11 @@ export function createScannerController(deps) {
             }
 
             if (scannerState.mode === 'zxing' && isIosWebKit()) {
-                setScannerStatus('Kamera aktiv. Auf iPad/iPhone erkennt WebKit Barcodes nicht immer zuverlässig. Falls nichts passiert, Barcode unten manuell eingeben.', true);
+                setScannerStatus(t('scanner.camera_active_ios'), true);
                 return;
             }
 
-            setScannerStatus('Kamera aktiv. Falls kein Scan erkannt wird, Barcode unten manuell eingeben.', true);
+            setScannerStatus(t('scanner.camera_active_hint'), true);
         }, 7000);
     }
 
@@ -218,7 +219,7 @@ export function createScannerController(deps) {
     async function addItemFromBarcode(barcode) {
         const category = getCurrentCategory();
         if (!isBarcodeCategory(category)) {
-            throw new Error('Barcode-Scan ist nur in Einkaufslisten verfügbar.');
+            throw new Error(t('scanner.shopping_only'));
         }
 
         const product = await lookupProductByBarcode(barcode);
@@ -250,7 +251,7 @@ export function createScannerController(deps) {
     async function toggleItemFromBarcode(barcode) {
         const category = getCurrentCategory();
         if (!isBarcodeCategory(category)) {
-            throw new Error('Barcode-Scan ist nur in Einkaufslisten verfügbar.');
+            throw new Error(t('scanner.shopping_only'));
         }
 
         const openItem = state.items.find(item => item.barcode === barcode && item.done !== 1) || null;
@@ -337,16 +338,16 @@ export function createScannerController(deps) {
             return;
         }
         if (getUserPreferences().shopping_list_scanner_enabled === false) {
-            setMessage('Die Scanfunktion für die Einkaufsliste ist in den Einstellungen deaktiviert.', true);
+            setMessage(t('scanner.disabled'), true);
             return;
         }
         const category = getCurrentCategory();
         if (!isBarcodeCategory(category)) {
-            setMessage('Barcode-Scan ist nur in Einkaufslisten verfügbar.', true);
+            setMessage(t('scanner.shopping_only'), true);
             return;
         }
         if (state.noteEditorId !== null || state.search.open) {
-            setMessage('Scanner ist während Suche oder Notizbearbeitung nicht verfügbar.', true);
+            setMessage(t('scanner.not_during_search'), true);
             return;
         }
 
@@ -362,7 +363,7 @@ export function createScannerController(deps) {
         if (scannerManualInput) scannerManualInput.value = '';
 
         if (!isScannerSupported()) {
-            setScannerStatus('Kamera-Scan braucht HTTPS oder localhost. Manueller Barcode-Eintrag bleibt verfügbar.', true);
+            setScannerStatus(t('scanner.needs_https'), true);
             scannerManualInput?.focus();
             return;
         }
@@ -370,7 +371,7 @@ export function createScannerController(deps) {
         try {
             const engine = await createBarcodeDetector();
             if (!engine) {
-                setScannerStatus('Automatischer Barcode-Scan wird in diesem Browser nicht unterstützt. Manueller Barcode-Eintrag ist aktiv.', true);
+                setScannerStatus(t('scanner.not_supported'), true);
                 scannerManualInput?.focus();
                 return;
             }
@@ -397,8 +398,8 @@ export function createScannerController(deps) {
                     );
                     await waitForVideoReady(scannerVideo);
                     setScannerStatus(isIosWebKit()
-                        ? 'Kamera aktiv (ZXing). Auf dem iPad/iPhone bitte ruhig halten; alternativ Barcode unten manuell eingeben.'
-                        : 'Kamera aktiv (ZXing). Barcode in den Rahmen halten.');
+                        ? t('scanner.camera_active_zxing_ios')
+                        : t('scanner.camera_active_zxing'));
                     scheduleScannerWatchdog();
                 } catch (err) {
                     setScannerStatus('ZXing-Fehler: ' + err.message, true);
@@ -419,7 +420,7 @@ export function createScannerController(deps) {
                 await waitForVideoReady(scannerVideo);
             }
 
-            setScannerStatus('Kamera aktiv (nativ). Barcode in den Rahmen halten.');
+            setScannerStatus(t('scanner.camera_active_native'));
             scheduleScannerWatchdog();
             scheduleScannerLoop();
         } catch (error) {

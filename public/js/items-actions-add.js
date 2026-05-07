@@ -1,3 +1,4 @@
+import { t } from './i18n.js';
 import { appUrl, api } from './api.js?v=4.3.4';
 import { getCurrentCategory, isAttachmentCategory } from './state.js?v=4.3.4';
 import { itemInput, linkDescriptionInput, quantityInput } from './ui.js?v=4.3.4';
@@ -95,7 +96,7 @@ export function createAddActions(deps) {
             resetItemForm();
             invalidateCategoryCache(category.id);
             await loadItems();
-            setMessage('Artikel hinzugefügt.');
+            setMessage(t('msg.item_added'));
         } catch (error) {
             if (await handleStaleCategory(error, category.id)) return;
 
