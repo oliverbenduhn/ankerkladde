@@ -322,6 +322,10 @@ function getDatabase(): PDO
         $db->exec('ALTER TABLE users ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 0');
     }
 
+    if (!in_array('language', $userColumnNames, true)) {
+        $db->exec('ALTER TABLE users ADD COLUMN language TEXT');
+    }
+
     $db->exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_api_key ON users(api_key)');
 
     $columns = $db->query('PRAGMA table_info(items)')->fetchAll();
