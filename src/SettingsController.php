@@ -1,10 +1,12 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/../i18n.php';
+
 function validateSettingsPassword(string $password): ?string
 {
     if (strlen($password) < 8) {
-        return 'Passwort muss mindestens 8 Zeichen lang sein.';
+        return t('settings.flash.password_too_short');
     }
     return null;
 }
@@ -33,7 +35,7 @@ function validateGeminiApiKey(string $apiKey, string $modelName): array
     if ($apiKey === '') {
         return [
             'type' => 'info',
-            'message' => 'Noch kein Gemini API-Key hinterlegt.',
+            'message' => t('settings.flash.gemini_no_key'),
         ];
     }
 
@@ -65,7 +67,7 @@ function validateGeminiApiKey(string $apiKey, string $modelName): array
 
         return [
             'type' => 'warn',
-            'message' => 'Key gespeichert, Validierung aktuell nicht möglich (' . $error . ').',
+            'message' => t('settings.flash.gemini_validation_unavailable', ['error' => $error]),
         ];
     }
 
@@ -74,7 +76,7 @@ function validateGeminiApiKey(string $apiKey, string $modelName): array
     if ($httpCode >= 200 && $httpCode < 300) {
         return [
             'type' => 'ok',
-            'message' => 'Gemini API-Key ist gültig für ' . $modelName . '.',
+            'message' => t('settings.flash.gemini_valid', ['model' => $modelName]),
         ];
     }
 
@@ -82,7 +84,7 @@ function validateGeminiApiKey(string $apiKey, string $modelName): array
     if (!is_array($decoded) && $httpCode !== 200) {
         return [
             'type' => 'err',
-            'message' => 'Unerwartete Antwort von der Gemini API (HTTP ' . $httpCode . '). Bitte API-Key und Modell prüfen.',
+            'message' => t('settings.flash.gemini_unexpected_response', ['code' => $httpCode]),
         ];
     }
     
@@ -94,13 +96,13 @@ function validateGeminiApiKey(string $apiKey, string $modelName): array
     if ($httpCode === 400 || $httpCode === 401 || $httpCode === 403 || $httpCode === 404) {
         return [
             'type' => 'err',
-            'message' => 'Gemini API-Key oder Modell ist ungültig.' . ($apiMessage !== '' ? ' ' . $apiMessage : ''),
+            'message' => t('settings.flash.gemini_invalid_key') . ($apiMessage !== '' ? ' ' . $apiMessage : ''),
         ];
     }
 
     return [
         'type' => 'warn',
-        'message' => 'Key gespeichert, Google-Validierung antwortete mit HTTP ' . $httpCode . '.' . ($apiMessage !== '' ? ' ' . $apiMessage : ''),
+        'message' => t('settings.flash.gemini_http_response', ['code' => $httpCode]) . ($apiMessage !== '' ? ' ' . $apiMessage : ''),
     ];
 }
 
@@ -226,7 +228,7 @@ class SettingsController
         $providedToken = $postData['csrf_token'] ?? null;
 
         if (!hasValidCsrfToken(is_string($providedToken) ? $providedToken : null)) {
-            $flash = 'Ungültiges Sicherheits-Token.';
+            $flash = t('error.invalid_csrf');
             $flashType = 'err';
             return ['flash' => $flash, 'flashType' => $flashType, 'aiKeyStatus' => $aiKeyStatus, 'aiKeyStatusType' => $aiKeyStatusType];
         }
@@ -247,13 +249,13 @@ class SettingsController
                 $newPasswordConfirm = (string) ($postData['new_password_confirm'] ?? '');
 
                 if (($passwordChangeRequired ? false : $currentPassword === '') || $newPassword === '' || $newPasswordConfirm === '') {
-                    $flash = 'Bitte alle Passwort-Felder ausfüllen.';
+                    $flash = t('settings.flash.password_fields_required');
                     $flashType = 'err';
                 } elseif (($passwordError = validateSettingsPassword($newPassword)) !== null) {
                     $flash = $passwordError;
                     $flashType = 'err';
                 } elseif ($newPassword !== $newPasswordConfirm) {
-                    $flash = 'Die neuen Passwörter stimmen nicht überein.';
+                    $flash = t('settings.flash.password_mismatch');
                     $flashType = 'err';
                 } elseif ($passwordChangeRequired) {
                     $this->db->prepare('UPDATE users SET password_hash = :password_hash, must_change_password = 0 WHERE id = :id')
@@ -263,14 +265,14 @@ class SettingsController
                         ]);
                     $_SESSION['must_change_password'] = false;
                     $passwordChangeRequired = false;
-                    $flash = 'Passwort geändert.';
+                    $flash = t('settings.flash.password_changed');
                 } else {
                     $stmt = $this->db->prepare('SELECT password_hash FROM users WHERE id = :id LIMIT 1');
                     $stmt->execute([':id' => $this->userId]);
                     $user = $stmt->fetch();
 
                     if (!is_array($user) || !password_verify($currentPassword, (string) $user['password_hash'])) {
-                        $flash = 'Aktuelles Passwort ist nicht korrekt.';
+                        $flash = t('settings.flash.password_wrong');
                         $flashType = 'err';
                     } else {
                         $this->db->prepare('UPDATE users SET password_hash = :password_hash, must_change_password = 0 WHERE id = :id')
@@ -280,7 +282,7 @@ class SettingsController
                             ]);
                         $_SESSION['must_change_password'] = false;
                         $passwordChangeRequired = false;
-                        $flash = 'Passwort geändert.';
+                        $flash = t('settings.flash.password_changed');
                     }
                 }
                 break;
@@ -291,10 +293,10 @@ class SettingsController
                 $icon = normalizeCategoryIcon((string) ($postData['icon'] ?? ''), $type);
 
                 if ($name === '') {
-                    $flash = 'Bitte einen Kategorienamen eingeben.';
+                    $flash = t('error.category_name_required');
                     $flashType = 'err';
                 } elseif (!in_array($type, CATEGORY_TYPES, true)) {
-                    $flash = 'Ungültiger Kategorietyp.';
+                    $flash = t('error.invalid_category_type');
                     $flashType = 'err';
                 } else {
                     $stmt = $this->db->prepare(
@@ -310,7 +312,7 @@ class SettingsController
                     ]);
                     $categoryId = (int) $this->db->lastInsertId();
                     updateExtendedUserPreferences($this->db, $this->userId, ['last_category_id' => $categoryId]);
-                    $flash = 'Kategorie erstellt.';
+                    $flash = t('settings.flash.category_created');
                     notifyWebSocket($this->userId);
                 }
                 break;
@@ -319,12 +321,12 @@ class SettingsController
                 $categoryId = filter_var($postData['category_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
 
                 if (!is_int($categoryId)) {
-                    $flash = 'Kategorie nicht gefunden.';
+                    $flash = t('error.category_not_found');
                     $flashType = 'err';
                 } else {
                     $category = loadUserCategory($this->db, $this->userId, $categoryId);
                     if ($category === null) {
-                        $flash = 'Kategorie nicht gefunden.';
+                        $flash = t('error.category_not_found');
                         $flashType = 'err';
                     } else {
                         $name = normalizeSettingsName((string) ($postData['category_name'] ?? $category['name']));
@@ -347,7 +349,7 @@ class SettingsController
                             ':user_id' => $this->userId,
                         ]);
 
-                        $flash = 'Kategorie gespeichert.';
+                        $flash = t('settings.flash.category_saved');
                         notifyWebSocket($this->userId);
                     }
                 }
@@ -359,13 +361,13 @@ class SettingsController
                 $direction = $action === 'move_category_up' ? 'up' : 'down';
 
                 if (!is_int($categoryId)) {
-                    $flash = 'Kategorie konnte nicht verschoben werden.';
+                    $flash = t('settings.flash.category_move_failed');
                     $flashType = 'err';
                 } elseif (moveCategorySortOrder($this->db, $this->userId, $categoryId, $direction)) {
-                    $flash = 'Reihenfolge aktualisiert.';
+                    $flash = t('settings.flash.order_updated');
                     notifyWebSocket($this->userId);
                 } else {
-                    $flash = 'Kategorie konnte nicht verschoben werden.';
+                    $flash = t('settings.flash.category_move_failed');
                     $flashType = 'err';
                 }
                 break;
@@ -375,7 +377,7 @@ class SettingsController
                 $orderIds = json_decode($rawOrder, true);
 
                 if (!is_array($orderIds)) {
-                    $flash = 'Ungültige Reihenfolge.';
+                    $flash = t('error.invalid_order');
                     $flashType = 'err';
                 } else {
                     $validStmt = $this->db->prepare('SELECT id FROM categories WHERE user_id = :user_id');
@@ -401,13 +403,13 @@ class SettingsController
                             $updateStmt->execute([':sort_order' => $i + 1, ':id' => $id, ':user_id' => $this->userId]);
                         }
                         $this->db->commit();
-                        $flash = 'Reihenfolge gespeichert.';
+                        $flash = t('settings.flash.order_saved');
                         notifyWebSocket($this->userId);
                     } catch (Throwable $e) {
                         if ($this->db->inTransaction()) {
                             $this->db->rollBack();
                         }
-                        $flash = 'Reihenfolge konnte nicht gespeichert werden.';
+                        $flash = t('settings.flash.order_save_failed');
                         $flashType = 'err';
                     }
                 }
@@ -417,19 +419,19 @@ class SettingsController
                 $deleteCategoryId = filter_var($postData['category_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
 
                 if (!is_int($deleteCategoryId)) {
-                    $flash = 'Kategorie nicht gefunden.';
+                    $flash = t('error.category_not_found');
                     $flashType = 'err';
                 } else {
                     $category = loadUserCategory($this->db, $this->userId, $deleteCategoryId);
                     if ($category === null) {
-                        $flash = 'Kategorie nicht gefunden.';
+                        $flash = t('error.category_not_found');
                         $flashType = 'err';
                     } else {
                         $countStmt = $this->db->prepare('SELECT COUNT(*) FROM items WHERE user_id = :user_id AND category_id = :category_id');
                         $countStmt->execute([':user_id' => $this->userId, ':category_id' => $deleteCategoryId]);
 
                         if ((int) $countStmt->fetchColumn() > 0) {
-                            $flash = 'Kategorie kann nur gelöscht werden, wenn sie leer ist.';
+                            $flash = t('error.category_not_empty');
                             $flashType = 'err';
                         } else {
                             $this->db->prepare('DELETE FROM categories WHERE id = :id AND user_id = :user_id')
@@ -439,7 +441,7 @@ class SettingsController
                                 $fallback = loadUserCategories($this->db, $this->userId, false)[0]['id'] ?? null;
                                 updateExtendedUserPreferences($this->db, $this->userId, ['last_category_id' => $fallback]);
                             }
-                            $flash = 'Kategorie gelöscht.';
+                            $flash = t('settings.flash.category_deleted');
                             notifyWebSocket($this->userId);
                         }
                     }
@@ -447,14 +449,14 @@ class SettingsController
                 break;
 
             case 'save_theme':
-                $flash = 'Theme-Einstellungen werden pro Gerät gespeichert.';
+                $flash = t('settings.flash.theme_saved');
                 break;
 
             case 'save_app_preferences':
                 $preferences = updateExtendedUserPreferences($this->db, $this->userId, [
                     'category_swipe_enabled' => isset($postData['category_swipe_enabled']),
                 ]);
-                $flash = 'Anzeige-Einstellungen gespeichert.';
+                $flash = t('settings.flash.app_prefs_saved');
                 notifyWebSocket($this->userId);
                 break;
 
@@ -464,13 +466,13 @@ class SettingsController
                     'shopping_list_scanner_enabled' => isset($postData['shopping_list_scanner_enabled']),
                     'magic_button_enabled' => isset($postData['magic_button_enabled']),
                 ]);
-                $flash = 'Funktions-Einstellungen gespeichert.';
+                $flash = t('settings.flash.feature_prefs_saved');
                 notifyWebSocket($this->userId);
                 break;
 
             case 'regenerate_api_key':
                 setUserApiKey($this->db, $this->userId);
-                $flash = 'API-Key neu erzeugt.';
+                $flash = t('settings.flash.api_key_regenerated');
                 break;
 
             case 'save_ai_preferences':
@@ -486,7 +488,7 @@ class SettingsController
                 $validation = validateGeminiApiKey($geminiApiKey, $geminiModel);
                 $aiKeyStatus = $validation['message'];
                 $aiKeyStatusType = $validation['type'];
-                $flash = $geminiApiKey === '' ? 'KI-Einstellungen gespeichert.' : 'KI-Einstellungen gespeichert. ' . $validation['message'];
+                $flash = $geminiApiKey === '' ? t('settings.flash.ai_prefs_saved') : t('settings.flash.ai_prefs_saved') . ' ' . $validation['message'];
                 if ($aiKeyStatusType === 'err') {
                     $flashType = 'err';
                 }
