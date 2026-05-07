@@ -464,6 +464,25 @@ class SettingsController
 
                 return ['flash' => t('settings.language_saved'), 'flashType' => 'ok', 'aiKeyStatus' => null, 'aiKeyStatusType' => 'ok'];
 
+            case 'rename_categories':
+                $renames = $postData['rename'] ?? [];
+                if (!is_array($renames)) {
+                    return ['flash' => t('error.invalid_params'), 'flashType' => 'err', 'aiKeyStatus' => null, 'aiKeyStatusType' => 'ok'];
+                }
+                $renameStmt = $this->db->prepare('UPDATE categories SET name = :name WHERE id = :id AND user_id = :uid');
+                $renameCount = 0;
+                foreach ($renames as $catId => $newName) {
+                    $renameStmt->execute([':name' => $newName, ':id' => (int) $catId, ':uid' => $this->userId]);
+                    $renameCount += $renameStmt->rowCount();
+                }
+                notifyWebSocket($this->userId);
+                return [
+                    'flash' => t('settings.categories_renamed', ['count' => (string) $renameCount]),
+                    'flashType' => 'ok',
+                    'aiKeyStatus' => null,
+                    'aiKeyStatusType' => 'ok',
+                ];
+
             case 'save_theme':
                 $flash = t('settings.flash.theme_saved');
                 break;

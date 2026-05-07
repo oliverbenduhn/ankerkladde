@@ -129,6 +129,54 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
         </div>
     <?php endif; ?>
 
+    <?php
+    $renameFrom = $_SESSION['i18n_rename_from'] ?? null;
+    $renameTo = $_SESSION['i18n_rename_to'] ?? null;
+    unset($_SESSION['i18n_rename_from'], $_SESSION['i18n_rename_to']);
+
+    if ($renameFrom !== null && $renameTo !== null):
+        $oldStrings = loadStrings($renameFrom);
+        $newStrings = loadStrings($renameTo);
+        $renameCategories = loadUserCategories($db, $userId);
+        $renameSuggestions = [];
+
+        $defaultKeys = array_filter(array_keys($oldStrings), fn($k) => str_starts_with($k, 'category.default.'));
+        foreach ($renameCategories as $cat) {
+            foreach ($defaultKeys as $key) {
+                if ($cat['name'] === $oldStrings[$key] && isset($newStrings[$key]) && $newStrings[$key] !== $oldStrings[$key]) {
+                    $renameSuggestions[] = [
+                        'id' => $cat['id'],
+                        'old_name' => $cat['name'],
+                        'new_name' => $newStrings[$key],
+                    ];
+                    break;
+                }
+            }
+        }
+
+        if (!empty($renameSuggestions)):
+    ?>
+    <div class="rename-dialog card" style="margin: 1rem 0; padding: 1rem;">
+        <h3><?= t('settings.rename_categories_title') ?></h3>
+        <form method="post" action="<?= htmlspecialchars(appPath('settings.php' . ($isEmbedded ? '?embed=1&tab=app' : '')), ENT_QUOTES, 'UTF-8') ?>">
+            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
+            <input type="hidden" name="action" value="rename_categories">
+            <?php foreach ($renameSuggestions as $suggestion): ?>
+            <label style="display: flex; align-items: center; gap: 0.5rem; margin: 0.5rem 0;">
+                <input type="checkbox" name="rename[<?= (int) $suggestion['id'] ?>]" value="<?= htmlspecialchars($suggestion['new_name'], ENT_QUOTES, 'UTF-8') ?>" checked>
+                <span><?= htmlspecialchars($suggestion['old_name'], ENT_QUOTES, 'UTF-8') ?></span>
+                <span>→</span>
+                <span><strong><?= htmlspecialchars($suggestion['new_name'], ENT_QUOTES, 'UTF-8') ?></strong></span>
+            </label>
+            <?php endforeach; ?>
+            <button type="submit" class="btn" style="margin-top: 0.5rem;"><?= t('settings.rename_categories_submit') ?></button>
+        </form>
+    </div>
+    <?php
+        endif;
+    endif;
+    ?>
+
     <details class="settings-section settings-accordion" data-settings-panel="language" open>
         <summary><?= t('settings.language') ?></summary>
         <div class="settings-block">
