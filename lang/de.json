@@ -342,5 +342,14 @@
     "scanner.camera_active_ios": "Kamera aktiv. Auf iPad/iPhone erkennt WebKit Barcodes nicht immer zuverlässig. Falls nichts passiert, Barcode unten manuell eingeben.",
     "scanner.camera_active_zxing": "Kamera aktiv (ZXing). Barcode in den Rahmen halten.",
     "scanner.camera_active_zxing_ios": "Kamera aktiv (ZXing). Auf dem iPad/iPhone bitte ruhig halten; alternativ Barcode unten manuell eingeben.",
-    "scanner.camera_active_native": "Kamera aktiv (nativ). Barcode in den Rahmen halten."
+    "scanner.camera_active_native": "Kamera aktiv (nativ). Barcode in den Rahmen halten.",
+
+    "category.default.shopping": "Einkauf",
+    "category.default.medication": "Medikamente",
+    "category.default.todo_private": "To-Do Privat",
+    "category.default.todo_work": "To-Do Arbeit",
+    "category.default.notes": "Notizen",
+    "category.default.images": "Bilder",
+    "category.default.files": "Dateien",
+    "category.default.links": "Links"
 }
