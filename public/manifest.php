@@ -51,6 +51,29 @@ $manifest = [
             ],
         ],
     ],
+    "screenshots" => [
+        [
+            "src"         => $manifestBase . "screenshot.php?name=mobile-02-einkauf",
+            "sizes"       => "720x1560",
+            "type"        => "image/png",
+            "form_factor" => "narrow",
+            "label"       => t("app.name"),
+        ],
+        [
+            "src"         => $manifestBase . "screenshot.php?name=mobile-04-privat-todos",
+            "sizes"       => "720x1560",
+            "type"        => "image/png",
+            "form_factor" => "narrow",
+            "label"       => t("app.name"),
+        ],
+        [
+            "src"         => $manifestBase . "screenshot.php?name=mobile-06-notizen",
+            "sizes"       => "720x1560",
+            "type"        => "image/png",
+            "form_factor" => "narrow",
+            "label"       => t("app.name"),
+        ],
+    ],
     'icons' => [
         ['src' => $manifestBase . 'icon.php?size=72',  'sizes' => '72x72',    'type' => 'image/png'],
         ['src' => $manifestBase . 'icon.php?size=96',  'sizes' => '96x96',    'type' => 'image/png'],
