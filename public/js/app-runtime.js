@@ -76,7 +76,7 @@ export function createAppRuntime(deps) {
     const renderCategoryTabs = () => tabsViewController.renderCategoryTabs();
     const closeScanner = () => scannerController.closeScanner();
     const handleScannedBarcode = async rawValue => { await scannerController.handleScannedBarcode(rawValue); };
-    const openScanner = async (action = state.mode === 'einkaufen' ? 'toggle' : 'add') => { await scannerController.openScanner(action); };
+    const openScanner = async (action = state.mode === 'view' ? 'toggle' : 'add') => { await scannerController.openScanner(action); };
     const setCategory = async categoryId => { await itemsController.setCategory(categoryId); };
     const loadItems = async (categoryId = state.categoryId, options = {}) => { await itemsController.loadItems(categoryId, options); };
     const prefetchAdjacentCategories = () => itemsController.prefetchAdjacentCategories();
@@ -85,7 +85,7 @@ export function createAppRuntime(deps) {
     const closeSearch = () => itemsController.closeSearch();
     const doSearch = async query => { await itemsController.doSearch(query); };
     const renderItems = () => {
-        if (state.desktopLayout === 'kanban' && getCurrentCategory()?.type === 'list_due_date') {
+        if (state.layout === 'kanban' && getCurrentCategory()?.type === 'list_due_date') {
             kanbanViewController.renderKanban();
         } else {
             kanbanViewController?.hideKanban();

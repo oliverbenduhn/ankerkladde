@@ -16,7 +16,7 @@ export function createHelpersController(deps) {
     }
 
     function syncSettingsFrameTheme(settingsFrameEl) {
-        if (!settingsFrameEl?.contentWindow || state.view !== 'settings') return;
+        if (!settingsFrameEl?.contentWindow || state.screen !== 'settings') return;
         const userPreferences = getUserPreferences();
         settingsFrameEl.contentWindow.postMessage({
             type: 'ankerkladde-theme-update',

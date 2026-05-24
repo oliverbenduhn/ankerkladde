@@ -74,7 +74,7 @@ export function registerToolsEvents(deps) {
         button.addEventListener('click', event => {
             event.preventDefault();
             const targetTab = button.dataset.settingsTab || 'app';
-            if (state.view === 'settings' && state.settingsTab === targetTab) {
+            if (state.screen === 'settings' && state.settingsTab === targetTab) {
                 router.closeSettings();
                 navigation.navigateBackOrReplace({ screen: 'list' });
                 void loadCategories().then(() => loadItems(undefined, { useCache: false })).catch(() => {});
@@ -93,7 +93,7 @@ export function registerToolsEvents(deps) {
                 return;
             }
             state.settingsTab = normalizeSettingsTab(frameUrl.searchParams.get('tab') || 'app');
-            if (state.view === 'settings') {
+            if (state.screen === 'settings') {
                 navigation.replaceCurrentHistoryState({ screen: 'settings', tab: state.settingsTab });
                 void loadCategories()
                     .then(() => {
@@ -131,7 +131,7 @@ export function registerToolsEvents(deps) {
     });
 
     searchBtn?.addEventListener('click', () => {
-        if (state.view === 'settings' || state.noteEditorId !== null) return;
+        if (state.screen === 'settings' || state.noteEditorId !== null) return;
         if (state.search.open) {
             navigation.navigateBackOrReplace({ screen: 'list' });
             return;
@@ -162,7 +162,7 @@ export function registerToolsEvents(deps) {
 
     magicBtns.forEach(btn => {
         btn.addEventListener('click', () => {
-            if (state.view === 'settings' || state.noteEditorId !== null) return;
+            if (state.screen === 'settings' || state.noteEditorId !== null) return;
             if (!magicBar.hidden) {
                 magicController.closeMagic();
                 return;

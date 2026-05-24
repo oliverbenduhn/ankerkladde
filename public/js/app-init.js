@@ -25,13 +25,14 @@ export async function initApp(deps) {
         setNetworkStatus();
         applyViewState();
         state.mode = userPreferences.mode;
-        state.desktopLayout = userPreferences.desktop_layout;
+        state.layout = userPreferences.layout;
         if (appEl) {
             appEl.dataset.mode = state.mode;
-            appEl.dataset.desktopLayout = state.desktopLayout;
+            appEl.dataset.layout = state.layout;
         }
         desktopLayoutBtns.forEach(btn => {
-            btn.setAttribute('aria-pressed', btn.dataset.layout === state.desktopLayout ? 'true' : 'false');
+            const btnLayout = btn.dataset.layout === 'liste' ? 'list' : btn.dataset.layout;
+            btn.setAttribute('aria-pressed', btnLayout === state.layout ? 'true' : 'false');
         });
         deps.applyTabsVisibility(userPreferences.tabs_hidden);
         reorderController.initItemDragReorder();

@@ -83,23 +83,24 @@ export function registerAppEventHandlers(deps) {
 
     const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)');
 
-    function applyDesktopLayout(layout) {
-        state.desktopLayout = layout;
-        if (appEl) appEl.dataset.desktopLayout = layout;
+    function applyLayout(layout) {
+        state.layout = layout;
+        if (appEl) appEl.dataset.layout = layout;
         deps.desktopLayoutBtns.forEach(btn => {
-            btn.setAttribute('aria-pressed', btn.dataset.layout === layout ? 'true' : 'false');
+            const btnLayout = btn.dataset.layout === 'liste' ? 'list' : btn.dataset.layout;
+            btn.setAttribute('aria-pressed', btnLayout === layout ? 'true' : 'false');
         });
-        saveLocalPrefs({ desktop_layout: layout });
+        saveLocalPrefs({ layout });
         renderItems();
     }
 
     function transitionDesktopLayout(layout) {
-        if (layout === state.desktopLayout) return;
+        if (layout === state.layout) return;
         const reduceMotion = Boolean(prefersReducedMotion?.matches);
         const canUseViewTransition = !reduceMotion && typeof document.startViewTransition === 'function';
 
         if (canUseViewTransition) {
-            document.startViewTransition(() => applyDesktopLayout(layout));
+            document.startViewTransition(() => applyLayout(layout));
             return;
         }
 
@@ -109,7 +110,7 @@ export function registerAppEventHandlers(deps) {
                 appEl?.classList.remove('is-layout-transitioning');
             }, 260);
         }
-        applyDesktopLayout(layout);
+        applyLayout(layout);
     }
 
     itemForm?.addEventListener('submit', event => {
@@ -211,7 +212,7 @@ export function registerAppEventHandlers(deps) {
             if (scannerState.open) {
                 closeScanner();
             }
-            state.mode = button.dataset.nav === 'einkaufen' ? 'einkaufen' : 'liste';
+            state.mode = state.mode === 'edit' ? 'view' : 'edit';
             appEl.dataset.mode = state.mode;
             void savePreferences({ mode: state.mode });
             renderItems();
@@ -220,9 +221,9 @@ export function registerAppEventHandlers(deps) {
 
     deps.desktopLayoutBtns.forEach(button => {
         button.addEventListener('click', () => {
-            let layout = button.dataset.layout || 'liste';
+            let layout = button.dataset.layout === 'liste' ? 'list' : (button.dataset.layout || 'list');
             if (layout === 'kanban' && getCurrentType() !== 'list_due_date') {
-                layout = 'liste';
+                layout = 'list';
             }
             transitionDesktopLayout(layout);
         });
@@ -232,7 +233,7 @@ export function registerAppEventHandlers(deps) {
         button.addEventListener('click', event => {
             event.preventDefault();
             const targetTab = button.dataset.settingsTab || 'app';
-            if (state.view === 'settings' && state.settingsTab === targetTab) {
+            if (state.screen === 'settings' && state.settingsTab === targetTab) {
                 router.closeSettings();
                 navigation.navigateBackOrReplace({ screen: 'list' });
                 void loadCategories().then(() => loadItems(undefined, { useCache: false })).catch(() => {});
@@ -251,7 +252,7 @@ export function registerAppEventHandlers(deps) {
                 return;
             }
             state.settingsTab = normalizeSettingsTab(frameUrl.searchParams.get('tab') || 'app');
-            if (state.view === 'settings') {
+            if (state.screen === 'settings') {
                 navigation.replaceCurrentHistoryState({ screen: 'settings', tab: state.settingsTab });
                 void loadCategories()
                     .then(() => {
@@ -340,7 +341,7 @@ export function registerAppEventHandlers(deps) {
     });
 
     searchBtn?.addEventListener('click', () => {
-        if (state.view === 'settings' || state.noteEditorId !== null) return;
+        if (state.screen === 'settings' || state.noteEditorId !== null) return;
         if (state.search.open) {
             navigation.navigateBackOrReplace({ screen: 'list' });
             return;
@@ -371,7 +372,7 @@ export function registerAppEventHandlers(deps) {
 
     magicBtns.forEach(btn => {
         btn.addEventListener('click', () => {
-            if (state.view === 'settings' || state.noteEditorId !== null) return;
+            if (state.screen === 'settings' || state.noteEditorId !== null) return;
             if (!magicBar.hidden) {
                 magicController.closeMagic();
                 return;
@@ -516,7 +517,7 @@ export function registerAppEventHandlers(deps) {
             navigation.navigateBackOrReplace({ screen: 'list' });
             return;
         }
-        if (event.key === 'Escape' && state.view === 'settings') {
+        if (event.key === 'Escape' && state.screen === 'settings') {
             navigation.navigateBackOrReplace({ screen: 'list' });
         }
         if (event.key === 'Escape' && !magicBar.hidden) {
@@ -559,12 +560,12 @@ export function registerAppEventHandlers(deps) {
             const visibleCategories = state.categories?.filter(c => Number(c.is_hidden) !== 1) || [];
             if (visibleCategories.length > 0) {
                 const firstCatId = visibleCategories[0].id;
-                if (state.categoryId === String(firstCatId) && state.view !== 'settings' && !state.search.open && !scannerState.open) return;
+                if (state.categoryId === String(firstCatId) && state.screen !== 'settings' && !state.search.open && !scannerState.open) return;
                 state.categoryId = String(firstCatId);
                 state.swipeTransitionActive = true;
                 void savePreferences({ last_category_id: firstCatId });
                 if (state.search.open) closeSearch();
-                if (state.view === 'settings') router.closeSettings();
+                if (state.screen === 'settings') router.closeSettings();
                 if (scannerState.open) closeScanner();
                 navigation.pushHistoryState({ screen: 'list', categoryId: firstCatId });
                 renderCategoryTabs();

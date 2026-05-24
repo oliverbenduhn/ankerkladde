@@ -47,7 +47,7 @@ export function registerSystemEvents(deps) {
             navigation.navigateBackOrReplace({ screen: 'list' });
             return;
         }
-        if (event.key === 'Escape' && state.view === 'settings') {
+        if (event.key === 'Escape' && state.screen === 'settings') {
             navigation.navigateBackOrReplace({ screen: 'list' });
         }
         if (event.key === 'Escape' && !magicBar.hidden) {

@@ -667,7 +667,7 @@ export function createItemsViewController(deps) {
             li.className = 'empty-state';
             li.textContent = isNotesCategory()
                 ? t('msg.no_notes_yet')
-                : state.mode === 'liste'
+                : state.mode === 'edit'
                     ? t('msg.list_empty')
                     : t('msg.no_entries');
             listEl.replaceChildren(li);

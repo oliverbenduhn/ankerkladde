@@ -183,7 +183,7 @@ export function createItemsController(deps) {
 
     function getVisibleItems() {
         return [...state.items].sort((a, b) => {
-            if (state.mode === 'einkaufen') {
+            if (state.mode === 'view') {
                 const doneDiff = a.done - b.done;
                 if (doneDiff !== 0) return doneDiff;
             }

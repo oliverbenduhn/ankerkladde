@@ -6,23 +6,24 @@ export function registerLayoutEvents(deps) {
     const { applyTabsVisibility, renderCategoryTabs, renderItems, savePreferences, navigation, closeSearch, closeScanner, updateHeaders, router } = deps;
     const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)');
 
-    function applyDesktopLayout(layout) {
-        state.desktopLayout = layout;
-        if (appEl) appEl.dataset.desktopLayout = layout;
+    function applyLayout(layout) {
+        state.layout = layout;
+        if (appEl) appEl.dataset.layout = layout;
         deps.desktopLayoutBtns.forEach(btn => {
-            btn.setAttribute('aria-pressed', btn.dataset.layout === layout ? 'true' : 'false');
+            const btnLayout = btn.dataset.layout === 'liste' ? 'list' : btn.dataset.layout;
+            btn.setAttribute('aria-pressed', btnLayout === layout ? 'true' : 'false');
         });
-        saveLocalPrefs({ desktop_layout: layout });
+        saveLocalPrefs({ layout });
         renderItems();
     }
 
     function transitionDesktopLayout(layout) {
-        if (layout === state.desktopLayout) return;
+        if (layout === state.layout) return;
         const reduceMotion = Boolean(prefersReducedMotion?.matches);
         const canUseViewTransition = !reduceMotion && typeof document.startViewTransition === 'function';
 
         if (canUseViewTransition) {
-            document.startViewTransition(() => applyDesktopLayout(layout));
+            document.startViewTransition(() => applyLayout(layout));
             return;
         }
 
@@ -32,7 +33,7 @@ export function registerLayoutEvents(deps) {
                 appEl?.classList.remove('is-layout-transitioning');
             }, 260);
         }
-        applyDesktopLayout(layout);
+        applyLayout(layout);
     }
 
     deps.modeToggleBtns.forEach(button => {
@@ -40,7 +41,7 @@ export function registerLayoutEvents(deps) {
             if (deps.scannerState?.open) {
                 closeScanner();
             }
-            state.mode = button.dataset.nav === 'einkaufen' ? 'einkaufen' : 'liste';
+            state.mode = state.mode === 'edit' ? 'view' : 'edit';
             appEl.dataset.mode = state.mode;
             void savePreferences({ mode: state.mode });
             renderItems();
@@ -49,9 +50,9 @@ export function registerLayoutEvents(deps) {
 
     deps.desktopLayoutBtns.forEach(button => {
         button.addEventListener('click', () => {
-            let layout = button.dataset.layout || 'liste';
+            let layout = button.dataset.layout === 'liste' ? 'list' : (button.dataset.layout || 'list');
             if (layout === 'kanban' && getCurrentType() !== 'list_due_date') {
-                layout = 'liste';
+                layout = 'list';
             }
             transitionDesktopLayout(layout);
         });
@@ -106,12 +107,12 @@ export function registerLayoutEvents(deps) {
             const visibleCategories = state.categories?.filter(c => Number(c.is_hidden) !== 1) || [];
             if (visibleCategories.length > 0) {
                 const firstCatId = visibleCategories[0].id;
-                if (state.categoryId === String(firstCatId) && state.view !== 'settings' && !state.search.open && !deps.scannerState?.open) return;
+                if (state.categoryId === String(firstCatId) && state.screen !== 'settings' && !state.search.open && !deps.scannerState?.open) return;
                 state.categoryId = String(firstCatId);
                 state.swipeTransitionActive = true;
                 void savePreferences({ last_category_id: firstCatId });
                 if (state.search.open) closeSearch();
-                if (state.view === 'settings') router.closeSettings();
+                if (state.screen === 'settings') router.closeSettings();
                 if (deps.scannerState?.open) closeScanner();
                 navigation.pushHistoryState({ screen: 'list', categoryId: firstCatId });
                 renderCategoryTabs();

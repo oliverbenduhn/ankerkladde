@@ -47,7 +47,7 @@ export function createReorderController(deps) {
         }, true);
 
         listEl.addEventListener('pointerdown', event => {
-            if (state.mode !== 'liste' || state.search.open) return;
+            if (state.mode !== 'edit' || state.search.open) return;
             if (event.button !== undefined && event.button !== 0) return;
 
             // Ignore clicks on interactive elements

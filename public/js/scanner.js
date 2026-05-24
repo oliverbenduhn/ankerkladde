@@ -333,7 +333,7 @@ export function createScannerController(deps) {
         scannerState.rafId = window.requestAnimationFrame(scanFrame);
     }
 
-    async function openScanner(action = state.mode === 'einkaufen' ? 'toggle' : 'add') {
+    async function openScanner(action = state.mode === 'view' ? 'toggle' : 'add') {
         if (scannerState.open) {
             return;
         }

@@ -16,7 +16,7 @@ export const TYPE_CONFIG = {
 };
 
 export const DEFAULT_PREFERENCES = {
-    mode: 'liste',
+    mode: 'edit',
     tabs_hidden: false,
     category_swipe_enabled: true,
     product_scanner_enabled: true,
@@ -27,7 +27,7 @@ export const DEFAULT_PREFERENCES = {
     theme_mode: 'auto',
     light_theme: 'hafenblau',
     dark_theme: 'nachtwache',
-    desktop_layout: 'liste',
+    layout: 'list',
 };
 
 // Preferences, die gerätespezifisch in localStorage gespeichert werden
@@ -41,7 +41,7 @@ export const LOCAL_PREF_KEYS = [
     'theme_mode',
     'light_theme',
     'dark_theme',
-    'desktop_layout',
+    'layout',
 ];
 const LOCAL_PREFS_STORAGE_KEY = 'ankerkladde_local_prefs';
 
@@ -83,11 +83,9 @@ export const state = {
     categoryId: null,
     items: [],
     itemsByCategoryId: new Map(),
-    view: 'list',
     settingsTab: 'app',
     screen: 'list',
-    mode: 'liste',
-    desktopLayout: 'liste',
+    mode: 'edit',
     layout: 'list',
     editingId: null,
     editDraft: { itemId: null, categoryId: null, name: '', barcode: '', quantity: '', due_date: '', content: '' },
@@ -142,7 +140,7 @@ export function normalizePreferences(preferences) {
     const rawLight = preferences?.light_theme === 'grauton' ? 'regenbogen' : preferences?.light_theme;
 
     return {
-        mode: preferences?.mode === 'einkaufen' ? 'einkaufen' : 'liste',
+        mode: (preferences?.mode === 'einkaufen' || preferences?.mode === 'view') ? 'view' : 'edit',
         tabs_hidden: Boolean(preferences?.tabs_hidden),
         category_swipe_enabled: !Object.prototype.hasOwnProperty.call(preferences || {}, 'category_swipe_enabled') || Boolean(preferences?.category_swipe_enabled),
         product_scanner_enabled: !Object.prototype.hasOwnProperty.call(preferences || {}, 'product_scanner_enabled') || Boolean(preferences?.product_scanner_enabled),
@@ -153,7 +151,11 @@ export function normalizePreferences(preferences) {
         theme_mode: THEME_MODE_ORDER.includes(preferences?.theme_mode) ? preferences.theme_mode : 'auto',
         light_theme: validThemes.light.includes(rawLight) ? rawLight : 'hafenblau',
         dark_theme: validThemes.dark.includes(preferences?.dark_theme) ? preferences.dark_theme : 'nachtwache',
-        desktop_layout: ['liste', 'grid', 'kanban'].includes(preferences?.desktop_layout) ? preferences.desktop_layout : 'liste',
+        layout: (() => {
+            const raw = preferences?.layout ?? preferences?.desktop_layout;
+            if (raw === 'liste') return 'list';
+            return ['list', 'grid', 'kanban'].includes(raw) ? raw : 'list';
+        })(),
     };
 }
 

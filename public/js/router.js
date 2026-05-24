@@ -3,7 +3,7 @@ import { isBarcodeCategory, state } from './state.js?v=4.3.4';
 import { appEl, searchInput, settingsBtns, settingsEmbedEl, settingsFrameEl } from './ui.js?v=4.3.4';
 
 export function applyViewState() {
-    const inSettings = state.view === 'settings';
+    const inSettings = state.screen === 'settings';
     appEl?.classList.toggle('settings-view', inSettings);
     settingsBtns.forEach(button => button.classList.toggle('is-active', inSettings));
     if (settingsEmbedEl) {
@@ -40,7 +40,7 @@ export function createRouter(deps) {
             closeMagic();
         }
 
-        state.view = 'settings';
+        state.screen = 'settings';
         state.settingsTab = normalizeSettingsTab(tab);
         applyViewState();
         updateHeaders();
@@ -52,14 +52,14 @@ export function createRouter(deps) {
     }
 
     function closeSettings() {
-        if (state.view !== 'settings') return;
-        state.view = 'list';
+        if (state.screen !== 'settings') return;
+        state.screen = 'list';
         applyViewState();
         updateHeaders();
     }
 
     function switchToListMode() {
-        state.mode = 'liste';
+        state.mode = 'edit';
         if (appEl) {
             appEl.dataset.mode = state.mode;
         }
@@ -96,7 +96,7 @@ export function createRouter(deps) {
                 categoryId: state.categoryId,
             };
         }
-        if (state.view === 'settings') {
+        if (state.screen === 'settings') {
             return {
                 screen: 'settings',
                 tab: state.settingsTab,
@@ -123,7 +123,7 @@ export function createRouter(deps) {
         if (state.search.open && target.screen !== 'search') {
             closeSearch();
         }
-        if (state.view === 'settings' && target.screen !== 'settings') {
+        if (state.screen === 'settings' && target.screen !== 'settings') {
             closeSettings();
         }
 

@@ -47,10 +47,14 @@ $brandMarkSrc = 'icon.php?size=96&theme=' . rawurlencode($effectiveTheme) . '&v=
 $productScannerEnabled = !array_key_exists('product_scanner_enabled', $userPreferences) || !empty($userPreferences['product_scanner_enabled']);
 $shoppingListScannerEnabled = !array_key_exists('shopping_list_scanner_enabled', $userPreferences) || !empty($userPreferences['shopping_list_scanner_enabled']);
 $magicButtonEnabled = !array_key_exists('magic_button_enabled', $userPreferences) || !empty($userPreferences['magic_button_enabled']);
-$initialMode = ($userPreferences['mode'] ?? 'liste') === 'einkaufen' ? 'einkaufen' : 'liste';
-$validDesktopLayouts = ['liste', 'grid', 'kanban'];
-$rawDesktopLayout = $userPreferences['desktop_layout'] ?? 'liste';
-$initialDesktopLayout = in_array($rawDesktopLayout, $validDesktopLayouts, true) ? $rawDesktopLayout : 'liste';
+$initialMode = ($userPreferences['mode'] ?? 'edit') === 'view' ? 'view' : 'edit';
+// Migration: handle old mode values
+if (($userPreferences['mode'] ?? '') === 'einkaufen') $initialMode = 'view';
+if (($userPreferences['mode'] ?? '') === 'liste') $initialMode = 'edit';
+$validLayouts = ['list', 'grid', 'kanban'];
+$rawLayout = $userPreferences['layout'] ?? $userPreferences['desktop_layout'] ?? 'list';
+if ($rawLayout === 'liste') $rawLayout = 'list';
+$initialLayout = in_array($rawLayout, $validLayouts, true) ? $rawLayout : 'list';
 $clientWebSocketUrl = getenv('ANKERKLADDE_WS_CLIENT_URL');
 $clientWebSocketUrl = is_string($clientWebSocketUrl) ? trim($clientWebSocketUrl) : '';
 ?>
@@ -81,7 +85,7 @@ $clientWebSocketUrl = is_string($clientWebSocketUrl) ? trim($clientWebSocketUrl)
     <title>Ankerkladde</title>
 </head>
 <body data-theme="<?= htmlspecialchars($effectiveTheme, ENT_QUOTES, 'UTF-8') ?>">
-<div class="app" id="app" data-mode="<?= htmlspecialchars($initialMode, ENT_QUOTES, 'UTF-8') ?>" data-desktop-layout="<?= htmlspecialchars($initialDesktopLayout, ENT_QUOTES, 'UTF-8') ?>">
+<div class="app" id="app" data-mode="<?= htmlspecialchars($initialMode, ENT_QUOTES, 'UTF-8') ?>" data-layout="<?= htmlspecialchars($initialLayout, ENT_QUOTES, 'UTF-8') ?>">
 
     <div class="install-banner" id="installBanner" hidden>
         <span class="install-text"><?= t('ui.install_prompt') ?></span>
@@ -112,9 +116,9 @@ $clientWebSocketUrl = is_string($clientWebSocketUrl) ? trim($clientWebSocketUrl)
             <button type="button" id="magicBtn" class="header-icon-btn btn-magic" aria-label="<?= t('ui.ai_assistant') ?>"<?= !$magicButtonEnabled ? ' hidden' : '' ?>><?= icon('sparkles') ?></button>
             <a href="<?= htmlspecialchars(appPath('index.php?view=settings'), ENT_QUOTES, 'UTF-8') ?>" class="header-icon-btn btn-settings" data-settings-tab="app" aria-label="<?= t('ui.settings') ?>"><?= icon('settings') ?></a>
             <div class="desktop-layout-switcher" id="desktopLayoutSwitcher" aria-label="<?= t('ui.desktop_view') ?>">
-                <button type="button" class="header-icon-btn btn-desktop-layout" data-layout="liste" aria-label="<?= t('ui.view_list') ?>" aria-pressed="<?= $initialDesktopLayout === 'liste' ? 'true' : 'false' ?>"><?= icon('menu') ?></button>
-                <button type="button" class="header-icon-btn btn-desktop-layout" data-layout="grid" aria-label="<?= t('ui.view_grid') ?>" aria-pressed="<?= $initialDesktopLayout === 'grid' ? 'true' : 'false' ?>"><?= icon('layout-grid') ?></button>
-                <button type="button" class="header-icon-btn btn-desktop-layout" data-layout="kanban" aria-label="<?= t('ui.view_kanban') ?>" aria-pressed="<?= $initialDesktopLayout === 'kanban' ? 'true' : 'false' ?>"><?= icon('layout-kanban') ?></button>
+                <button type="button" class="header-icon-btn btn-desktop-layout" data-layout="liste" aria-label="<?= t('ui.view_list') ?>" aria-pressed="<?= $initialLayout === 'list' ? 'true' : 'false' ?>"><?= icon('menu') ?></button>
+                <button type="button" class="header-icon-btn btn-desktop-layout" data-layout="grid" aria-label="<?= t('ui.view_grid') ?>" aria-pressed="<?= $initialLayout === 'grid' ? 'true' : 'false' ?>"><?= icon('layout-grid') ?></button>
+                <button type="button" class="header-icon-btn btn-desktop-layout" data-layout="kanban" aria-label="<?= t('ui.view_kanban') ?>" aria-pressed="<?= $initialLayout === 'kanban' ? 'true' : 'false' ?>"><?= icon('layout-kanban') ?></button>
             </div>
             <button type="button" class="header-icon-btn btn-mode-toggle" data-nav="einkaufen" aria-label="<?= t('ui.start_shopping') ?>"><?= icon('eye') ?></button>
         </div>

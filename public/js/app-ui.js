@@ -245,7 +245,7 @@ export function createAppUiController(deps = {}) {
     }
 
     function updateHeaders() {
-        if (state.view === 'settings') {
+        if (state.screen === 'settings') {
             const titleListe = document.getElementById('titleListe');
             const titleShopping = document.getElementById('titleShopping');
             if (titleListe) titleListe.textContent = 'Einstellungen';
