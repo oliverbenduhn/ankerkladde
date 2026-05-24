@@ -118,6 +118,8 @@ export function createAppRuntime(deps) {
     const setScannerStatus = (text, isError = false) => appUiController.setScannerStatus(text, isError);
     const setNetworkStatus = () => appUiController.setNetworkStatus();
     const applyTabsVisibility = hidden => appUiController.applyTabsVisibility(hidden);
+    const updateModeChip = () => appUiController.updateModeChip();
+    const updateLayoutSwitcher = () => appUiController.updateLayoutSwitcher();
     const formatBytes = sizeBytes => appUiController.formatBytes(sizeBytes);
 
     const flushOfflineQueue = async () => {
@@ -333,6 +335,8 @@ export function createAppRuntime(deps) {
         triggerUploadSelectedAttachment: async () => { await itemsActionsController.uploadSelectedAttachment(); },
         updateFilePickerLabel,
         updateHeaders,
+        updateLayoutSwitcher,
+        updateModeChip,
         updateUploadUi,
         getUploadMode,
         magicController,

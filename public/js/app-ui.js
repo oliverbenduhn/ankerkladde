@@ -1,7 +1,8 @@
 import { t } from './i18n.js';
-import { getCurrentCategory, getCurrentType, getTypeConfig, isAttachmentCategory, state } from './state.js?v=4.3.4';
+import { getAvailableLayouts, getCurrentCategory, getCurrentType, getTypeConfig, isAttachmentCategory, state } from './state.js?v=4.3.4';
 import {
     cameraBtn,
+    categoryTitleEl,
     diskFreeEl,
     dropZoneEl,
     fileInput,
@@ -12,8 +13,11 @@ import {
     inputHintEl,
     itemForm,
     itemInput,
+    layoutBtns,
     linkDescriptionInput,
     messageEl,
+    modeChip,
+    modeChipLabel,
     networkStatusEl,
     quantityInput,
     scanAddBtn,
@@ -244,12 +248,29 @@ export function createAppUiController(deps = {}) {
         updateUploadUi();
     }
 
+    function updateModeChip() {
+        if (!modeChip || !modeChipLabel) return;
+        const isEdit = state.mode === 'edit';
+        modeChipLabel.textContent = isEdit ? t('ui.mode_edit') : t('ui.mode_view');
+        modeChip.classList.toggle('mode-chip--view', !isEdit);
+    }
+
+    function updateLayoutSwitcher() {
+        const available = getAvailableLayouts();
+        layoutBtns.forEach(btn => {
+            const layout = btn.dataset.layout;
+            btn.hidden = !available.includes(layout);
+            btn.setAttribute('aria-pressed', layout === state.layout ? 'true' : 'false');
+        });
+    }
+
     function updateHeaders() {
         if (state.screen === 'settings') {
             const titleListe = document.getElementById('titleListe');
             const titleShopping = document.getElementById('titleShopping');
             if (titleListe) titleListe.textContent = 'Einstellungen';
             if (titleShopping) titleShopping.textContent = 'Einstellungen';
+            if (categoryTitleEl) categoryTitleEl.textContent = 'Einstellungen';
             document.title = 'Ankerkladde - Einstellungen';
             return;
         }
@@ -262,6 +283,7 @@ export function createAppUiController(deps = {}) {
         const titleShopping = document.getElementById('titleShopping');
         if (titleListe) titleListe.textContent = config.title(category.name);
         if (titleShopping) titleShopping.textContent = config.shoppingTitle(category.name);
+        if (categoryTitleEl) categoryTitleEl.textContent = category.name;
         document.title = `Ankerkladde - ${category.name}`;
 
         if (itemInput) {
@@ -294,6 +316,8 @@ export function createAppUiController(deps = {}) {
             searchInput.placeholder = 'In allen Kategorien suchen...';
         }
 
+        updateModeChip();
+        updateLayoutSwitcher();
         updateUploadUi();
     }
 
@@ -350,6 +374,8 @@ export function createAppUiController(deps = {}) {
         updateFeatureVisibility,
         updateFilePickerLabel,
         updateHeaders,
+        updateLayoutSwitcher,
+        updateModeChip,
         updateUploadUi,
         getUploadMode,
         setUploadMode,

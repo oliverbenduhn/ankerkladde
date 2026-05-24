@@ -1,5 +1,5 @@
 import { t } from './i18n.js';
-import { saveLocalPrefs, state, scannerState, themeMediaQuery, isAttachmentCategory, normalizePreferences, getCurrentType } from './state.js?v=4.3.4';
+import { saveLocalPrefs, state, scannerState, themeMediaQuery, isAttachmentCategory, normalizePreferences, getCurrentType, getAvailableLayouts, isLayoutAvailable } from './state.js?v=4.3.4';
 import { normalizeSettingsTab } from './api.js?v=4.3.4';
 import {
     appEl,
@@ -215,9 +215,24 @@ export function registerAppEventHandlers(deps) {
             state.mode = state.mode === 'edit' ? 'view' : 'edit';
             appEl.dataset.mode = state.mode;
             void savePreferences({ mode: state.mode });
+            deps.updateModeChip();
             renderItems();
         });
     });
+
+    if (deps.modeChip) {
+        deps.modeChip.addEventListener('click', () => {
+            if (scannerState.open) {
+                closeScanner();
+            }
+            state.mode = state.mode === 'edit' ? 'view' : 'edit';
+            if (appEl) appEl.dataset.mode = state.mode;
+            saveLocalPrefs({ mode: state.mode });
+            void savePreferences({ mode: state.mode });
+            deps.updateModeChip();
+            updateHeaders();
+        });
+    }
 
     deps.desktopLayoutBtns.forEach(button => {
         button.addEventListener('click', () => {
@@ -226,6 +241,19 @@ export function registerAppEventHandlers(deps) {
                 layout = 'list';
             }
             transitionDesktopLayout(layout);
+        });
+    });
+
+    deps.layoutBtns.forEach(button => {
+        button.addEventListener('click', () => {
+            const layout = button.dataset.layout;
+            if (layout === state.layout) return;
+            if (!isLayoutAvailable(layout)) return;
+            state.layout = layout;
+            if (appEl) appEl.dataset.layout = layout;
+            saveLocalPrefs({ layout });
+            deps.updateLayoutSwitcher();
+            renderItems();
         });
     });
 
