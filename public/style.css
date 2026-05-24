@@ -220,6 +220,45 @@ button, input { font: inherit; }
     order: 100;
 }
 
+.mode-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: 12px;
+    border: 1px solid var(--accent);
+    background: color-mix(in srgb, var(--accent) 20%, transparent);
+    color: var(--accent);
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.mode-chip--view {
+    border-color: var(--color-success, #2d6a4f);
+    background: color-mix(in srgb, var(--color-success, #2d6a4f) 20%, transparent);
+    color: var(--color-success, #2d6a4f);
+}
+
+.layout-switcher {
+    display: inline-flex;
+    gap: 2px;
+}
+
+.layout-switcher .btn-layout[aria-pressed="true"] {
+    opacity: 1;
+}
+
+.layout-switcher .btn-layout[aria-pressed="false"] {
+    opacity: 0.4;
+}
+
+.layout-switcher .btn-layout[hidden] {
+    display: none;
+}
+
 .progress {
     font-size: 0.82rem;
     color: var(--text-muted);
@@ -2481,8 +2520,8 @@ button, input { font: inherit; }
 /* ===========================================
    MODE VISIBILITY (CSS-driven)
    =========================================== */
-[data-mode="view"] .liste-only { display: none; }
-[data-mode="edit"]     .shopping-only { display: none; }
+[data-mode="view"] .edit-only { display: none; }
+[data-mode="edit"] .view-only { display: none; }
 
 /* ===========================================
    ANIMATIONS
