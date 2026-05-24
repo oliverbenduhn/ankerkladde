@@ -39,17 +39,17 @@ $manifest = [
         [
             'name' => t('ui.scan_barcode'),
             'short_name' => 'Scanner',
-            'url' => $manifestBase . '?view=scanner&scanner_action=add',
+            'url' => $manifestBase . '?screen=scanner&scanner_action=add',
         ],
         [
             'name' => t('ui.settings'),
             'short_name' => t('ui.settings'),
-            'url' => $manifestBase . '?view=settings&tab=app',
+            'url' => $manifestBase . '?screen=settings&tab=app',
         ],
         [
             'name' => t('ui.search'),
             'short_name' => t('ui.search'),
-            'url' => $manifestBase . '?view=search',
+            'url' => $manifestBase . '?screen=search',
         ],
     ],
     'share_target' => [
