@@ -100,31 +100,35 @@ $clientWebSocketUrl = is_string($clientWebSocketUrl) ? trim($clientWebSocketUrl)
         <button type="button" id="updateReloadBtn" class="btn-update-reload"><?= t('ui.reload') ?></button>
     </div>
 
-    <header class="app-header liste-only">
+    <header class="app-header" id="appHeader">
         <div class="app-title-group clickable-brand">
             <img src="<?= htmlspecialchars($brandMarkSrc, ENT_QUOTES, 'UTF-8') ?>" alt="" class="brand-mark brand-mark-app" aria-hidden="true">
             <div class="app-title-stack">
                 <h1 class="app-title">Ankerkladde</h1>
-                <div class="app-subtitle" id="titleListe"><?= t('ui.title_list') ?></div>
+                <div class="app-subtitle" id="categoryTitle"></div>
             </div>
+            <button type="button" id="modeChip" class="mode-chip" aria-label="<?= t('ui.toggle_mode') ?>">
+                <span class="mode-chip-label" id="modeChipLabel"></span>
+            </button>
         </div>
         <div class="header-actions">
             <button type="button" id="conflictAlertBtn" class="header-icon-btn btn-conflict-alert" aria-label="<?= t('ui.show_conflicts') ?>" hidden><?= icon('alert-triangle') ?></button>
+            <span class="progress view-only" id="progress" aria-live="polite">0 / 0</span>
+            <div class="layout-switcher" id="layoutSwitcher" aria-label="<?= t('ui.desktop_view') ?>">
+                <button type="button" class="header-icon-btn btn-layout" data-layout="list" aria-label="<?= t('ui.view_list') ?>"><?= icon('menu') ?></button>
+                <button type="button" class="header-icon-btn btn-layout" data-layout="grid" aria-label="<?= t('ui.view_grid') ?>"><?= icon('layout-grid') ?></button>
+                <button type="button" class="header-icon-btn btn-layout" data-layout="kanban" aria-label="<?= t('ui.view_kanban') ?>"><?= icon('layout-kanban') ?></button>
+            </div>
             <button type="button" id="tabsToggleBtn" class="header-icon-btn btn-tabs-toggle" aria-label="<?= t('ui.toggle_tabs') ?>"><?= icon('panel-bottom') ?></button>
-            <a href="<?= htmlspecialchars(appPath('barcode.php'), ENT_QUOTES, 'UTF-8') ?>" class="header-icon-btn" aria-label="<?= t('ui.scan_product') ?>"<?= !$productScannerEnabled ? ' hidden' : '' ?>><?= icon('scan-info') ?></a>
+            <a href="<?= htmlspecialchars(appPath('barcode.php'), ENT_QUOTES, 'UTF-8') ?>" class="header-icon-btn btn-product-scanner" aria-label="<?= t('ui.scan_product') ?>"<?= !$productScannerEnabled ? ' hidden' : '' ?>><?= icon('scan-info') ?></a>
+            <button type="button" id="scanShoppingBtn" class="header-icon-btn btn-scan" aria-label="<?= t('ui.scan_barcode') ?>"<?= !$shoppingListScannerEnabled ? ' hidden' : '' ?>><?= icon('scan') ?></button>
             <button type="button" id="searchBtn" class="header-icon-btn btn-search" aria-label="<?= t('ui.search') ?>"><?= icon('search') ?></button>
             <button type="button" id="magicBtn" class="header-icon-btn btn-magic" aria-label="<?= t('ui.ai_assistant') ?>"<?= !$magicButtonEnabled ? ' hidden' : '' ?>><?= icon('sparkles') ?></button>
             <a href="<?= htmlspecialchars(appPath('index.php?view=settings'), ENT_QUOTES, 'UTF-8') ?>" class="header-icon-btn btn-settings" data-settings-tab="app" aria-label="<?= t('ui.settings') ?>"><?= icon('settings') ?></a>
-            <div class="desktop-layout-switcher" id="desktopLayoutSwitcher" aria-label="<?= t('ui.desktop_view') ?>">
-                <button type="button" class="header-icon-btn btn-desktop-layout" data-layout="liste" aria-label="<?= t('ui.view_list') ?>" aria-pressed="<?= $initialLayout === 'list' ? 'true' : 'false' ?>"><?= icon('menu') ?></button>
-                <button type="button" class="header-icon-btn btn-desktop-layout" data-layout="grid" aria-label="<?= t('ui.view_grid') ?>" aria-pressed="<?= $initialLayout === 'grid' ? 'true' : 'false' ?>"><?= icon('layout-grid') ?></button>
-                <button type="button" class="header-icon-btn btn-desktop-layout" data-layout="kanban" aria-label="<?= t('ui.view_kanban') ?>" aria-pressed="<?= $initialLayout === 'kanban' ? 'true' : 'false' ?>"><?= icon('layout-kanban') ?></button>
-            </div>
-            <button type="button" class="header-icon-btn btn-mode-toggle" data-nav="einkaufen" aria-label="<?= t('ui.start_shopping') ?>"><?= icon('eye') ?></button>
         </div>
     </header>
 
-    <div class="search-bar liste-only" id="searchBar" hidden>
+    <div class="search-bar" id="searchBar" hidden>
         <input type="search" id="searchInput" class="search-input"
                placeholder="<?= t('ui.search_all') ?>" aria-label="<?= t('ui.search_all') ?>"
                autocomplete="off" enterkeyhint="search" maxlength="120">
@@ -141,27 +145,7 @@ $clientWebSocketUrl = is_string($clientWebSocketUrl) ? trim($clientWebSocketUrl)
         <button type="button" id="magicClose" class="btn-search-close" aria-label="<?= t('ui.close') ?>"><?= icon('x') ?></button>
     </div>
 
-    <header class="app-header shopping-only">
-        <div class="app-title-group clickable-brand">
-            <img src="<?= htmlspecialchars($brandMarkSrc, ENT_QUOTES, 'UTF-8') ?>" alt="" class="brand-mark brand-mark-app" aria-hidden="true">
-            <div class="app-title-stack">
-                <h1 class="app-title">Ankerkladde</h1>
-                <div class="app-subtitle" id="titleShopping"><?= t('ui.title_shopping') ?></div>
-            </div>
-        </div>
-        <div class="header-actions">
-            <button type="button" id="conflictAlertBtn" class="header-icon-btn btn-conflict-alert" aria-label="<?= t('ui.show_conflicts') ?>" hidden><?= icon('alert-triangle') ?></button>
-            <span class="progress" id="progress" aria-live="polite">0 / 0</span>
-            <button type="button" class="header-icon-btn btn-tabs-toggle" aria-label="<?= t('ui.toggle_tabs') ?>"><?= icon('panel-bottom') ?></button>
-            <a href="<?= htmlspecialchars(appPath('barcode.php'), ENT_QUOTES, 'UTF-8') ?>" class="header-icon-btn" aria-label="<?= t('ui.scan_product') ?>"<?= !$productScannerEnabled ? ' hidden' : '' ?>><?= icon('scan-info') ?></a>
-            <button type="button" id="scanShoppingBtn" class="header-icon-btn btn-scan shopping-only" aria-label="<?= t('ui.scan_barcode') ?>"<?= !$shoppingListScannerEnabled ? ' hidden' : '' ?>><?= icon('scan') ?></button>
-            <button type="button" class="header-icon-btn btn-magic" id="magicBtnShopping" aria-label="<?= t('ui.ai_assistant') ?>"<?= !$magicButtonEnabled ? ' hidden' : '' ?>><?= icon('sparkles') ?></button>
-            <a href="<?= htmlspecialchars(appPath('index.php?view=settings'), ENT_QUOTES, 'UTF-8') ?>" class="header-icon-btn btn-settings" data-settings-tab="app" aria-label="<?= t('ui.settings') ?>"><?= icon('settings') ?></a>
-            <button type="button" class="header-icon-btn btn-mode-toggle" data-nav="liste" aria-label="<?= t('ui.edit_list') ?>"><?= icon('pencil') ?></button>
-        </div>
-    </header>
-
-    <section class="input-area liste-only" id="inputArea">
+    <section class="input-area edit-only" id="inputArea">
         <form id="itemForm" novalidate>
             <textarea id="itemInput" name="name"
                       placeholder="<?= t('item.input_placeholder') ?>" aria-label="<?= t('item.input_placeholder') ?>" maxlength="120"
@@ -202,7 +186,7 @@ $clientWebSocketUrl = is_string($clientWebSocketUrl) ? trim($clientWebSocketUrl)
     <main class="list-area">
         <div class="list-swipe-stage" id="listSwipeStage">
             <ul id="list" aria-label="<?= t('item.list_label') ?>"></ul>
-            <button type="button" class="btn-clear liste-only"
+            <button type="button" class="btn-clear edit-only"
                     id="clearDoneBtn" disabled><?= t('item.clear_done') ?></button>
         </div>
         <div class="list-swipe-preview" id="listSwipePreview" aria-hidden="true" hidden>
