@@ -35,6 +35,23 @@ $manifest = [
     'display' => 'standalone',
     'background_color' => '#0f2a44',
     'theme_color' => '#0f2a44',
+    'shortcuts' => [
+        [
+            'name' => t('ui.scan_barcode'),
+            'short_name' => 'Scanner',
+            'url' => $manifestBase . '?view=scanner&scanner_action=add',
+        ],
+        [
+            'name' => t('ui.settings'),
+            'short_name' => t('ui.settings'),
+            'url' => $manifestBase . '?view=settings&tab=app',
+        ],
+        [
+            'name' => t('ui.search'),
+            'short_name' => t('ui.search'),
+            'url' => $manifestBase . '?view=search',
+        ],
+    ],
     'share_target' => [
         'action'  => $manifestBase,
         'method'  => 'POST',
