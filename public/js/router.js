@@ -1,5 +1,5 @@
 import { normalizeSettingsTab, settingsUrl } from './api.js?v=4.3.4';
-import { state } from './state.js?v=4.3.4';
+import { isBarcodeCategory, state } from './state.js?v=4.3.4';
 import { appEl, searchInput, settingsBtns, settingsEmbedEl, settingsFrameEl } from './ui.js?v=4.3.4';
 
 export function applyViewState() {
@@ -56,6 +56,22 @@ export function createRouter(deps) {
         state.view = 'list';
         applyViewState();
         updateHeaders();
+    }
+
+    async function switchToScannerCategory() {
+        if (isBarcodeCategory()) {
+            return true;
+        }
+
+        const category = state.categories.find(entry => Number(entry.is_hidden) === 0 && isBarcodeCategory(entry))
+            || state.categories.find(entry => isBarcodeCategory(entry))
+            || null;
+        if (!category) {
+            return false;
+        }
+
+        await setCategory(category.id);
+        return true;
     }
 
     function getCurrentRouteState() {
@@ -130,6 +146,7 @@ export function createRouter(deps) {
             if (target.categoryId !== null && Number(target.categoryId) !== Number(state.categoryId)) {
                 await setCategory(target.categoryId);
             }
+            await switchToScannerCategory();
             await openScanner(target.action);
         }
     }
