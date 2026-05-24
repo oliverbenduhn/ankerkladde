@@ -318,6 +318,9 @@
     "ui.cancel": "Abbrechen",
     "ui.copied": "Kopiert",
     "ui.copy_failed": "Nicht kopierbar",
+    "ui.toggle_mode": "Modus wechseln",
+    "ui.mode_edit": "Bearb.",
+    "ui.mode_view": "Ansehen",
 
     "error.select_image": "Bitte wähle ein Bild aus.",
     "error.select_file": "Bitte wähle eine Datei aus.",

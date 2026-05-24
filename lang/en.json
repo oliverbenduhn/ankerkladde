@@ -318,6 +318,9 @@
     "ui.cancel": "Cancel",
     "ui.copied": "Copied",
     "ui.copy_failed": "Cannot copy",
+    "ui.toggle_mode": "Toggle mode",
+    "ui.mode_edit": "Edit",
+    "ui.mode_view": "View",
 
     "error.select_image": "Please select an image.",
     "error.select_file": "Please select a file.",
