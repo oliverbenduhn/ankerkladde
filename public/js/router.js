@@ -82,37 +82,35 @@ export function createRouter(deps) {
     }
 
     function getCurrentRouteState() {
+        const base = { mode: state.mode, layout: state.layout };
+
         if (deps.scannerState.open) {
-            return {
-                screen: 'scanner',
-                action: deps.scannerState.action,
-                categoryId: state.categoryId,
-            };
+            return { ...base, screen: 'scanner', action: deps.scannerState.action, categoryId: state.categoryId };
         }
         if (state.noteEditorId !== null) {
-            return {
-                screen: 'note',
-                noteId: state.noteEditorId,
-                categoryId: state.categoryId,
-            };
+            return { ...base, screen: 'note', noteId: state.noteEditorId, categoryId: state.categoryId };
         }
         if (state.screen === 'settings') {
-            return {
-                screen: 'settings',
-                tab: state.settingsTab,
-            };
+            return { ...base, screen: 'settings', tab: state.settingsTab };
         }
         if (state.search.open) {
-            return {
-                screen: 'search',
-                query: state.search.query,
-            };
+            return { ...base, screen: 'search', query: state.search.query };
         }
-        return { screen: 'list' };
+        return { ...base, screen: 'list' };
     }
 
     async function applyRouteState(route, normalizeRouteState) {
         const target = normalizeRouteState(route);
+
+        // Apply mode and layout from route
+        if (target.mode && target.mode !== state.mode) {
+            state.mode = target.mode;
+            if (appEl) appEl.dataset.mode = state.mode;
+        }
+        if (target.layout && target.layout !== state.layout) {
+            state.layout = target.layout;
+            if (appEl) appEl.dataset.layout = state.layout;
+        }
 
         if (deps.scannerState.open && target.screen !== 'scanner') {
             closeScanner();
@@ -132,7 +130,6 @@ export function createRouter(deps) {
             return;
         }
         if (target.screen === 'search') {
-            switchToListMode();
             openSearch();
             if (searchInput) {
                 searchInput.value = target.query;

@@ -1,4 +1,5 @@
 import { normalizeSettingsTab } from './api.js?v=4.3.4';
+import { state } from './state.js?v=4.3.4';
 
 export function createNavigation({ applyRouteState, getCurrentRouteState }) {
     let appHistoryIndex = 0;
@@ -9,67 +10,68 @@ export function createNavigation({ applyRouteState, getCurrentRouteState }) {
             ? route.screen
             : 'list';
 
+        const base = {
+            mode: route?.mode === 'view' ? 'view' : 'edit',
+            layout: ['list', 'grid', 'kanban'].includes(route?.layout) ? route.layout : 'list',
+        };
+
         if (screen === 'settings') {
-            return {
-                screen,
-                tab: normalizeSettingsTab(route?.tab),
-            };
+            return { ...base, screen, tab: normalizeSettingsTab(route?.tab) };
         }
-
         if (screen === 'search') {
-            return {
-                screen,
-                query: typeof route?.query === 'string' ? route.query : '',
-            };
+            return { ...base, screen, query: typeof route?.query === 'string' ? route.query : '' };
         }
-
         if (screen === 'note') {
             const noteId = Number(route?.noteId);
             return {
-                screen,
+                ...base, screen,
                 noteId: Number.isInteger(noteId) && noteId > 0 ? noteId : null,
                 categoryId: Number.isInteger(Number(route?.categoryId)) ? Number(route.categoryId) : null,
             };
         }
-
         if (screen === 'scanner') {
             return {
-                screen,
+                ...base, screen,
                 action: route?.action === 'toggle' ? 'toggle' : 'add',
                 categoryId: Number.isInteger(Number(route?.categoryId)) ? Number(route.categoryId) : null,
             };
         }
-
-        return { screen: 'list' };
+        return { ...base, screen: 'list' };
     }
 
     function buildUrlForRoute(route) {
         const normalized = normalizeRouteState(route);
         const url = new URL(window.location.href);
 
-        url.searchParams.delete('view');
-        url.searchParams.delete('tab');
-        url.searchParams.delete('note');
-        url.searchParams.delete('scanner_action');
-        url.searchParams.delete('q');
-        url.searchParams.delete('category_id');
+        // Clear all route params (old and new)
+        for (const key of ['view', 'screen', 'mode', 'layout', 'tab', 'note', 'scanner_action', 'q', 'category_id']) {
+            url.searchParams.delete(key);
+        }
 
+        // Only write non-default values
+        if (normalized.screen !== 'list') {
+            url.searchParams.set('screen', normalized.screen);
+        }
+        if (normalized.mode !== 'edit') {
+            url.searchParams.set('mode', normalized.mode);
+        }
+        if (normalized.layout !== 'list') {
+            url.searchParams.set('layout', normalized.layout);
+        }
+
+        // Screen-specific params
         if (normalized.screen === 'settings') {
-            url.searchParams.set('view', 'settings');
             url.searchParams.set('tab', normalized.tab);
         } else if (normalized.screen === 'search') {
-            url.searchParams.set('view', 'search');
             if (normalized.query.trim() !== '') {
                 url.searchParams.set('q', normalized.query);
             }
         } else if (normalized.screen === 'note' && normalized.noteId) {
-            url.searchParams.set('view', 'note');
             url.searchParams.set('note', String(normalized.noteId));
             if (normalized.categoryId !== null) {
                 url.searchParams.set('category_id', String(normalized.categoryId));
             }
         } else if (normalized.screen === 'scanner') {
-            url.searchParams.set('view', 'scanner');
             url.searchParams.set('scanner_action', normalized.action);
             if (normalized.categoryId !== null) {
                 url.searchParams.set('category_id', String(normalized.categoryId));
@@ -129,34 +131,40 @@ export function createNavigation({ applyRouteState, getCurrentRouteState }) {
 
     function readInitialRouteFromUrl() {
         const params = new URLSearchParams(window.location.search);
-        const view = params.get('view');
         const categoryId = Number(params.get('category_id'));
 
-        if (view === 'settings') {
-            return normalizeRouteState({ screen: 'settings', tab: params.get('tab') });
-        }
+        // Read new params, fall back to old 'view' param
+        let screen = params.get('screen') || params.get('view');
 
-        if (view === 'search') {
-            return normalizeRouteState({ screen: 'search', query: params.get('q') || '' });
-        }
+        // Read mode and layout from URL
+        const urlMode = params.get('mode');
+        const urlLayout = params.get('layout');
+        const mode = urlMode === 'view' ? 'view' : undefined;
+        const layout = ['list', 'grid', 'kanban'].includes(urlLayout) ? urlLayout : undefined;
 
-        if (view === 'note') {
+        const base = { mode, layout };
+
+        if (screen === 'settings') {
+            return normalizeRouteState({ ...base, screen: 'settings', tab: params.get('tab') });
+        }
+        if (screen === 'search') {
+            return normalizeRouteState({ ...base, screen: 'search', query: params.get('q') || '' });
+        }
+        if (screen === 'note') {
             return normalizeRouteState({
-                screen: 'note',
+                ...base, screen: 'note',
                 noteId: Number(params.get('note')),
                 categoryId: Number.isInteger(categoryId) ? categoryId : null,
             });
         }
-
-        if (view === 'scanner') {
+        if (screen === 'scanner') {
             return normalizeRouteState({
-                screen: 'scanner',
+                ...base, screen: 'scanner',
                 action: params.get('scanner_action'),
                 categoryId: Number.isInteger(categoryId) ? categoryId : null,
             });
         }
-
-        return normalizeRouteState({ screen: 'list' });
+        return normalizeRouteState({ ...base, screen: 'list' });
     }
 
     async function handlePopState(event, setMessage) {
