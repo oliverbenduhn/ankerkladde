@@ -85,8 +85,10 @@ export const state = {
     itemsByCategoryId: new Map(),
     view: 'list',
     settingsTab: 'app',
+    screen: 'list',
     mode: 'liste',
     desktopLayout: 'liste',
+    layout: 'list',
     editingId: null,
     editDraft: { itemId: null, categoryId: null, name: '', barcode: '', quantity: '', due_date: '', content: '' },
     search: { open: false, query: '', results: [] },
@@ -196,4 +198,21 @@ export function isIosWebKit() {
     const platform = navigator.platform || '';
     const touchMac = platform === 'MacIntel' && navigator.maxTouchPoints > 1;
     return /iPad|iPhone|iPod/.test(userAgent) || touchMac;
+}
+
+const AVAILABLE_LAYOUTS = {
+    list_quantity: ['list', 'grid'],
+    list_due_date: ['list', 'grid', 'kanban'],
+    notes: ['list', 'grid'],
+    images: ['list', 'grid'],
+    files: ['list'],
+    links: ['list', 'grid'],
+};
+
+export function getAvailableLayouts(categoryType = getCurrentType()) {
+    return AVAILABLE_LAYOUTS[categoryType] || ['list'];
+}
+
+export function isLayoutAvailable(layout, categoryType = getCurrentType()) {
+    return getAvailableLayouts(categoryType).includes(layout);
 }
