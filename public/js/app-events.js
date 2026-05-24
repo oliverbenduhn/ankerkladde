@@ -1,5 +1,5 @@
 import { t } from './i18n.js';
-import { saveLocalPrefs, state, scannerState, themeMediaQuery, isAttachmentCategory, normalizePreferences, getCurrentType, getAvailableLayouts, isLayoutAvailable } from './state.js?v=4.3.4';
+import { saveLocalPrefs, state, scannerState, themeMediaQuery, isAttachmentCategory, normalizePreferences, isLayoutAvailable } from './state.js?v=4.3.4';
 import { normalizeSettingsTab } from './api.js?v=4.3.4';
 import {
     appEl,
@@ -80,38 +80,6 @@ export function registerAppEventHandlers(deps) {
         addItem,
         magicController,
     } = deps;
-
-    const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)');
-
-    function applyLayout(layout) {
-        state.layout = layout;
-        if (appEl) appEl.dataset.layout = layout;
-        deps.desktopLayoutBtns.forEach(btn => {
-            const btnLayout = btn.dataset.layout === 'liste' ? 'list' : btn.dataset.layout;
-            btn.setAttribute('aria-pressed', btnLayout === layout ? 'true' : 'false');
-        });
-        saveLocalPrefs({ layout });
-        renderItems();
-    }
-
-    function transitionDesktopLayout(layout) {
-        if (layout === state.layout) return;
-        const reduceMotion = Boolean(prefersReducedMotion?.matches);
-        const canUseViewTransition = !reduceMotion && typeof document.startViewTransition === 'function';
-
-        if (canUseViewTransition) {
-            document.startViewTransition(() => applyLayout(layout));
-            return;
-        }
-
-        if (!reduceMotion) {
-            appEl?.classList.add('is-layout-transitioning');
-            window.setTimeout(() => {
-                appEl?.classList.remove('is-layout-transitioning');
-            }, 260);
-        }
-        applyLayout(layout);
-    }
 
     itemForm?.addEventListener('submit', event => {
         void addItem(event).catch(error => {
@@ -233,16 +201,6 @@ export function registerAppEventHandlers(deps) {
             updateHeaders();
         });
     }
-
-    deps.desktopLayoutBtns.forEach(button => {
-        button.addEventListener('click', () => {
-            let layout = button.dataset.layout === 'liste' ? 'list' : (button.dataset.layout || 'list');
-            if (layout === 'kanban' && getCurrentType() !== 'list_due_date') {
-                layout = 'list';
-            }
-            transitionDesktopLayout(layout);
-        });
-    });
 
     deps.layoutBtns.forEach(button => {
         button.addEventListener('click', () => {
