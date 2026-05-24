@@ -58,6 +58,13 @@ export function createRouter(deps) {
         updateHeaders();
     }
 
+    function switchToListMode() {
+        state.mode = 'liste';
+        if (appEl) {
+            appEl.dataset.mode = state.mode;
+        }
+    }
+
     async function switchToScannerCategory() {
         if (isBarcodeCategory()) {
             return true;
@@ -125,6 +132,7 @@ export function createRouter(deps) {
             return;
         }
         if (target.screen === 'search') {
+            switchToListMode();
             openSearch();
             if (searchInput) {
                 searchInput.value = target.query;

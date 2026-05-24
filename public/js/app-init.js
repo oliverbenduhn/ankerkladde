@@ -1,5 +1,5 @@
 import { basePath, state } from './state.js?v=4.3.4';
-import { applyViewState } from './router.js?v=4.4.2';
+import { applyViewState } from './router.js?v=4.4.3';
 import { appEl, desktopLayoutBtns, updateBannerEl, updateViewportHeight } from './ui.js?v=4.3.4';
 
 export async function initApp(deps) {
