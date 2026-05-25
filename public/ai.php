@@ -258,7 +258,7 @@ if ($activeCategoryId > 0) {
 
 $activeCategoryHint = '';
 if ($activeCategory !== null) {
-    $activeCategoryHint = "\n\nDer Nutzer hat gerade die Kategorie \"{$activeCategory['name']}\" (Typ: {$activeCategory['type']}, Zweck: " . ($typeDescriptions[$activeCategory['type']] ?? '') . ") geöffnet. Ordne Einträge bevorzugt dieser Kategorie zu, es sei denn sie passen eindeutig in eine andere.";
+    $activeCategoryHint = "\n\nDer Nutzer hat gerade die Kategorie \"{$activeCategory['name']}\" (ID: {$activeCategory['id']}, Typ: {$activeCategory['type']}) geöffnet. Verwende für alle Einträge, die zu diesem Typ passen, IMMER die category_id {$activeCategory['id']}. Nur Einträge, die eindeutig einen anderen Typ brauchen (z.B. ein Link oder eine Notiz bei einer Einkaufsliste), dürfen in eine andere Kategorie.";
 }
 
 $existingItemsHint = '';
@@ -378,6 +378,9 @@ if (isset($parsedItems['clarification'])) {
 }
 
 // Validate and enrich items for preview (no DB writes)
+// If active category is set, redirect same-type items to it
+$activeType = $activeCategory !== null ? $activeCategory['type'] : null;
+
 $previewItems = [];
 foreach ($parsedItems as $item) {
     $name = trim((string) ($item['name'] ?? ''));
@@ -392,6 +395,12 @@ foreach ($parsedItems as $item) {
         }
     }
     if ($matchedCategory === null) continue;
+
+    // Force items of the same type into the active category
+    if ($activeCategory !== null && $matchedCategory['type'] === $activeType && $catId !== $activeCategoryId) {
+        $catId = $activeCategoryId;
+        $matchedCategory = $activeCategory;
+    }
 
     $previewItems[] = [
         'name' => mb_substr($name, 0, 120),
