@@ -594,6 +594,7 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
         </div>
     </details>
 </div>
+<script>window.__i18n = <?= json_encode(getAllStrings(), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) ?>;</script>
 <script id="settings-data" type="application/json">
 <?= json_encode([
     'allThemeColors' => (static function (): array {
