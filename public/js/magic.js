@@ -4,7 +4,7 @@ import { appEl, magicBtns, magicBar, magicInput, magicSubmit, magicClose, magicV
 import { state } from './state.js?v=4.3.4';
 
 export function createMagicController(deps) {
-    const { getUserPreferences, loadCategories, loadItems, setCategory, setMessage, updateHeaders } = deps;
+    const { getUserPreferences, invalidateCategoryCache, loadCategories, loadItems, setCategory, setMessage, updateHeaders } = deps;
     let recognition = null;
     let isSubmitting = false;
     let previewContainer = null;
@@ -158,6 +158,12 @@ export function createMagicController(deps) {
             }
 
             setMessage(result.toast_message || 'Erledigt!');
+
+            // Invalidate cache for all affected categories
+            const affectedCategoryIds = new Set(selectedItems.map(item => Number(item.category_id)));
+            for (const catId of affectedCategoryIds) {
+                invalidateCategoryCache(catId);
+            }
 
             const targetCategoryId = Number(result.target_category_id);
             if (Number.isInteger(targetCategoryId) && targetCategoryId > 0) {

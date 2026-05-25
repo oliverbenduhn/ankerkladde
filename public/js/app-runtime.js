@@ -290,6 +290,7 @@ export function createAppRuntime(deps) {
 
     magicController = createMagicController({
         getUserPreferences,
+        invalidateCategoryCache,
         loadCategories,
         loadItems,
         setCategory,
