@@ -53,7 +53,7 @@ function buildMagicToastMessage(array $createdItems): string
     )));
     $preview = implode(', ', $previewNames);
 
-    return $count . ' Objekte erstellt' . ($preview !== '' ? ': ' . $preview : '') . ($count > 3 ? ' ...' : '') . '.';
+    return $count . ' Einträge hinzugefügt' . ($preview !== '' ? ': ' . $preview : '') . ($count > 3 ? ' ...' : '') . '.';
 }
 
 function resolveMagicTargetCategory(array $createdItems): array
@@ -88,8 +88,9 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 $rawInput = file_get_contents('php://input');
 $data = json_decode($rawInput, true);
 $userInput = trim((string) ($data['input'] ?? ''));
+$mode = (string) ($data['mode'] ?? 'preview');
 
-if ($userInput === '') {
+if ($userInput === '' && $mode !== 'confirm') {
     http_response_code(422);
     echo json_encode(['error' => 'Keine Eingabe erhalten.']);
     exit;
@@ -104,7 +105,7 @@ if (!array_key_exists($geminiModel, $availableGeminiModels)) {
     $geminiModel = 'gemini-2.5-flash';
 }
 
-if ($geminiKey === '') {
+if ($geminiKey === '' && $mode !== 'confirm') {
     http_response_code(403);
     echo json_encode(['error' => 'Bitte hinterlege zuerst deinen Gemini API-Key in den Einstellungen.']);
     exit;
@@ -138,9 +139,8 @@ if (!empty($data['test_only'])) {
     exit;
 }
 
-// Fetch categories to give Gemini context
+// Fetch categories (needed for both preview and confirm)
 $categories = loadUserCategories($db, $userId, false);
-$catContext = [];
 $typeDescriptions = [
     'list_quantity' => 'Einkaufsliste mit Mengenangaben',
     'list_due_date' => 'Aufgaben/Termine mit Fälligkeitsdatum',
@@ -149,6 +149,84 @@ $typeDescriptions = [
     'files' => 'Dateien',
     'links' => 'Links/URLs',
 ];
+
+// ── CONFIRM MODE: save previously previewed items ──
+if ($mode === 'confirm') {
+    $itemsToSave = $data['items'] ?? [];
+    if (!is_array($itemsToSave) || $itemsToSave === []) {
+        http_response_code(422);
+        echo json_encode(['error' => 'Keine Artikel zum Speichern.']);
+        exit;
+    }
+
+    $addedCount = 0;
+    $createdItems = [];
+    $db->beginTransaction();
+    try {
+        foreach ($itemsToSave as $item) {
+            $name = trim((string) ($item['name'] ?? ''));
+            if ($name === '') continue;
+
+            $catId = (int) ($item['category_id'] ?? 0);
+            $validCat = false;
+            $matchedCategory = null;
+            foreach ($categories as $c) {
+                if ($c['id'] === $catId) {
+                    $validCat = true;
+                    $matchedCategory = $c;
+                    break;
+                }
+            }
+            if (!$validCat) continue;
+
+            $stmt = $db->prepare(
+                'INSERT INTO items (name, quantity, due_date, content, section, category_id, sort_order, user_id)
+                 VALUES (:name, :quantity, :due_date, \'\', \'\', :category_id, :sort_order, :user_id)'
+            );
+            $stmt->execute([
+                ':name' => mb_substr($name, 0, 120),
+                ':quantity' => mb_substr((string) ($item['quantity'] ?? ''), 0, 40),
+                ':due_date' => (string) ($item['due_date'] ?? ''),
+                ':category_id' => $catId,
+                ':sort_order' => prependItemSortOrder($db, $userId, $catId),
+                ':user_id' => $userId,
+            ]);
+            $addedCount++;
+            $createdItems[] = [
+                'name' => mb_substr($name, 0, 120),
+                'category_id' => $catId,
+                'category_name' => (string) ($matchedCategory['name'] ?? ''),
+                'category_type' => (string) ($matchedCategory['type'] ?? ''),
+                'object_label' => magicObjectLabel((string) ($matchedCategory['type'] ?? '')),
+                'quantity' => mb_substr((string) ($item['quantity'] ?? ''), 0, 40),
+                'due_date' => (string) ($item['due_date'] ?? ''),
+            ];
+        }
+        $db->commit();
+    } catch (Exception $e) {
+        $db->rollBack();
+        http_response_code(500);
+        echo json_encode(['error' => 'Fehler beim Speichern in der Datenbank: ' . $e->getMessage()]);
+        exit;
+    }
+
+    $targetCategory = resolveMagicTargetCategory($createdItems);
+
+    echo json_encode([
+        'success' => true,
+        'added_count' => $addedCount,
+        'created_items' => $createdItems,
+        'toast_message' => buildMagicToastMessage($createdItems),
+        'target_category_id' => $targetCategory['id'],
+        'target_category_name' => $targetCategory['name'],
+        'target_category_ambiguous' => $targetCategory['ambiguous'],
+    ]);
+    exit;
+}
+
+// ── PREVIEW MODE (default): ask Gemini, return suggestions without saving ──
+
+$catContext = [];
 foreach ($categories as $cat) {
     $catContext[] = [
         'id' => $cat['id'],
@@ -282,89 +360,51 @@ $aiText = trim((string) $aiText);
 if (preg_match('/^```(?:json)?\s*(.*?)\s*```$/s', $aiText, $matches)) {
     $aiText = trim((string) ($matches[1] ?? '[]'));
 }
-$itemsToAdd = json_decode($aiText, true);
+$parsedItems = json_decode($aiText, true);
 
-if (!is_array($itemsToAdd)) {
+if (!is_array($parsedItems)) {
     http_response_code(500);
     echo json_encode(['error' => 'Ungültige Antwort von der KI.']);
     exit;
 }
 
 // Handle clarification response from Gemini
-if (isset($itemsToAdd['clarification'])) {
+if (isset($parsedItems['clarification'])) {
     echo json_encode([
         'success' => true,
-        'clarification' => (string) $itemsToAdd['clarification'],
-        'added_count' => 0,
-        'created_items' => [],
-        'toast_message' => '',
+        'clarification' => (string) $parsedItems['clarification'],
     ]);
     exit;
 }
 
-$addedCount = 0;
-$createdItems = [];
-$db->beginTransaction();
-try {
-    foreach ($itemsToAdd as $item) {
-        $name = trim((string) ($item['name'] ?? ''));
-        if ($name === '') continue;
+// Validate and enrich items for preview (no DB writes)
+$previewItems = [];
+foreach ($parsedItems as $item) {
+    $name = trim((string) ($item['name'] ?? ''));
+    if ($name === '') continue;
 
-        $catId = (int) ($item['category_id'] ?? 0);
-        // Verify category belongs to user
-        $validCat = false;
-        $matchedCategory = null;
-        foreach ($categories as $c) {
-            if ($c['id'] === $catId) {
-                $validCat = true;
-                $matchedCategory = $c;
-                break;
-            }
+    $catId = (int) ($item['category_id'] ?? 0);
+    $matchedCategory = null;
+    foreach ($categories as $c) {
+        if ($c['id'] === $catId) {
+            $matchedCategory = $c;
+            break;
         }
-        if (!$validCat) continue;
-
-        $stmt = $db->prepare(
-            'INSERT INTO items (name, quantity, due_date, content, section, category_id, sort_order, user_id)
-             VALUES (:name, :quantity, :due_date, \'\', \'\', :category_id, :sort_order, :user_id)'
-        );
-        $stmt->execute([
-            ':name' => mb_substr($name, 0, 120),
-            ':quantity' => mb_substr((string) ($item['quantity'] ?? ''), 0, 40),
-            ':due_date' => (string) ($item['due_date'] ?? ''),
-            ':category_id' => $catId,
-            ':sort_order' => prependItemSortOrder($db, $userId, $catId),
-            ':user_id' => $userId,
-        ]);
-        $addedCount++;
-        $createdItems[] = [
-            'name' => mb_substr($name, 0, 120),
-            'category_id' => $catId,
-            'category_name' => (string) ($matchedCategory['name'] ?? ''),
-            'category_type' => (string) ($matchedCategory['type'] ?? ''),
-            'object_label' => magicObjectLabel((string) ($matchedCategory['type'] ?? '')),
-            'quantity' => mb_substr((string) ($item['quantity'] ?? ''), 0, 40),
-            'due_date' => (string) ($item['due_date'] ?? ''),
-        ];
     }
-    $db->commit();
-} catch (Exception $e) {
-    $db->rollBack();
-    http_response_code(500);
-    echo json_encode(['error' => 'Fehler beim Speichern in der Datenbank: ' . $e->getMessage()]);
-    exit;
-}
+    if ($matchedCategory === null) continue;
 
-$targetCategory = resolveMagicTargetCategory($createdItems);
+    $previewItems[] = [
+        'name' => mb_substr($name, 0, 120),
+        'quantity' => mb_substr((string) ($item['quantity'] ?? ''), 0, 40),
+        'due_date' => (string) ($item['due_date'] ?? ''),
+        'category_id' => $catId,
+        'category_name' => (string) ($matchedCategory['name'] ?? ''),
+        'category_type' => (string) ($matchedCategory['type'] ?? ''),
+    ];
+}
 
 echo json_encode([
     'success' => true,
-    'added_count' => $addedCount,
-    'created_items' => $createdItems,
-    'toast_message' => buildMagicToastMessage($createdItems),
-    'target_category_id' => $targetCategory['id'],
-    'target_category_name' => $targetCategory['name'],
-    'target_category_ambiguous' => $targetCategory['ambiguous'],
-    'message' => $addedCount > 0
-        ? $addedCount . ' Artikel erfolgreich hinzugefügt.'
-        : 'Keine passenden Artikel erkannt.'
+    'preview' => true,
+    'items' => $previewItems,
 ]);

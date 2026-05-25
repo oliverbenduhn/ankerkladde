@@ -7,6 +7,8 @@ export function createMagicController(deps) {
     const { getUserPreferences, loadCategories, loadItems, setCategory, setMessage, updateHeaders } = deps;
     let recognition = null;
     let isSubmitting = false;
+    let previewContainer = null;
+    let pendingItems = null;
 
     function setMagicLoading(loading) {
         isSubmitting = loading;
@@ -25,19 +27,27 @@ export function createMagicController(deps) {
             return;
         }
         if (!magicBar) return;
-        
-        // Close other bars if needed (handled by app-events usually, but good to be sure)
+
         document.dispatchEvent(new CustomEvent('ankerkladde-close-bars'));
-        
+
         magicBar.hidden = false;
         appEl.classList.add('is-magic-active');
         magicBtns.forEach(btn => btn.classList.add('is-active'));
         magicInput.focus();
     }
 
+    function closePreview() {
+        if (previewContainer) {
+            previewContainer.remove();
+            previewContainer = null;
+        }
+        pendingItems = null;
+    }
+
     function closeMagic(force = false) {
         if (isSubmitting && !force) return;
         if (!magicBar) return;
+        closePreview();
         magicBar.hidden = true;
         appEl.classList.remove('is-magic-active');
         magicBtns.forEach(btn => btn.classList.remove('is-active'));
@@ -45,6 +55,125 @@ export function createMagicController(deps) {
         magicInput.placeholder = t('ui.magic_placeholder');
         if (recognition) {
             recognition.stop();
+        }
+    }
+
+    function renderPreview(items) {
+        closePreview();
+        pendingItems = items;
+
+        previewContainer = document.createElement('div');
+        previewContainer.className = 'magic-preview';
+
+        const header = document.createElement('div');
+        header.className = 'magic-preview-header';
+        header.textContent = items.length + (items.length === 1 ? ' Eintrag' : ' Einträge') + ' erkannt:';
+        previewContainer.appendChild(header);
+
+        const list = document.createElement('ul');
+        list.className = 'magic-preview-list';
+        items.forEach((item, index) => {
+            const li = document.createElement('li');
+            li.className = 'magic-preview-item';
+            li.dataset.index = index;
+
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.checked = true;
+            checkbox.className = 'magic-preview-check';
+            checkbox.setAttribute('aria-label', 'Auswahl ' + item.name);
+            li.appendChild(checkbox);
+
+            const info = document.createElement('span');
+            info.className = 'magic-preview-info';
+            let label = item.name;
+            if (item.quantity) label += ' (' + item.quantity + ')';
+            info.textContent = label;
+            li.appendChild(info);
+
+            const cat = document.createElement('span');
+            cat.className = 'magic-preview-cat';
+            cat.textContent = item.category_name;
+            li.appendChild(cat);
+
+            list.appendChild(li);
+        });
+        previewContainer.appendChild(list);
+
+        const actions = document.createElement('div');
+        actions.className = 'magic-preview-actions';
+
+        const confirmBtn = document.createElement('button');
+        confirmBtn.type = 'button';
+        confirmBtn.className = 'magic-preview-confirm';
+        confirmBtn.textContent = t('ui.magic_confirm');
+        confirmBtn.addEventListener('click', () => confirmPreview());
+        actions.appendChild(confirmBtn);
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.type = 'button';
+        cancelBtn.className = 'magic-preview-cancel';
+        cancelBtn.textContent = t('ui.magic_cancel');
+        cancelBtn.addEventListener('click', () => {
+            closePreview();
+            magicInput.value = '';
+            magicInput.focus();
+        });
+        actions.appendChild(cancelBtn);
+
+        previewContainer.appendChild(actions);
+        magicBar.parentNode.insertBefore(previewContainer, magicBar.nextSibling);
+    }
+
+    async function confirmPreview() {
+        if (!pendingItems || isSubmitting) return;
+
+        // Collect only checked items
+        const checkboxes = previewContainer.querySelectorAll('.magic-preview-check');
+        const selectedItems = pendingItems.filter((_, i) => checkboxes[i]?.checked);
+
+        if (selectedItems.length === 0) {
+            setMessage(t('msg.magic_none_selected'), true);
+            return;
+        }
+
+        setMagicLoading(true);
+        try {
+            const response = await fetch(appUrl('ai.php'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ mode: 'confirm', items: selectedItems, input: '' })
+            });
+
+            const rawText = await response.text();
+            let result = {};
+            try {
+                result = rawText ? JSON.parse(rawText) : {};
+            } catch {
+                throw new Error(rawText || 'Speichern fehlgeschlagen');
+            }
+
+            if (!response.ok) {
+                throw new Error(result.error || 'Speichern fehlgeschlagen');
+            }
+
+            setMessage(result.toast_message || 'Erledigt!');
+
+            const targetCategoryId = Number(result.target_category_id);
+            if (Number.isInteger(targetCategoryId) && targetCategoryId > 0) {
+                await setCategory(targetCategoryId);
+            } else {
+                await loadCategories();
+                await loadItems();
+                updateHeaders();
+            }
+
+            closeMagic(true);
+        } catch (error) {
+            console.error('[Magic] Confirm error:', error);
+            setMessage(error.message, true);
+        } finally {
+            setMagicLoading(false);
         }
     }
 
@@ -76,9 +205,9 @@ export function createMagicController(deps) {
                 .map(result => result[0])
                 .map(result => result.transcript)
                 .join('');
-            
+
             magicInput.value = transcript;
-            
+
             if (event.results[0].isFinal) {
                 recognition.stop();
                 submitMagic();
@@ -88,7 +217,7 @@ export function createMagicController(deps) {
         recognition.onerror = (event) => {
             console.error('[Magic Voice] Error:', event.error);
             magicVoiceBtn.classList.remove('is-listening');
-            magicInput.placeholder = 'KI-Befehl...';
+            magicInput.placeholder = t('ui.magic_placeholder');
             if (event.error !== 'no-speech') {
                 setMessage('Sprachfehler: ' + event.error, true);
             }
@@ -97,7 +226,7 @@ export function createMagicController(deps) {
 
         recognition.onend = () => {
             magicVoiceBtn.classList.remove('is-listening');
-            magicInput.placeholder = 'KI-Befehl...';
+            magicInput.placeholder = t('ui.magic_placeholder');
             recognition = null;
         };
 
@@ -113,15 +242,16 @@ export function createMagicController(deps) {
         const input = magicInput.value.trim();
         if (!input) return;
 
+        closePreview();
         setMagicLoading(true);
-        setMessage('Magie wird gewirkt...');
+        setMessage(t('msg.magic_working'));
 
         try {
             const activeCategoryId = Number(state.categoryId) || 0;
             const response = await fetch(appUrl('ai.php'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ input, active_category_id: activeCategoryId })
+                body: JSON.stringify({ input, active_category_id: activeCategoryId, mode: 'preview' })
             });
 
             const rawText = await response.text();
@@ -142,21 +272,19 @@ export function createMagicController(deps) {
                 magicInput.value = '';
                 magicInput.placeholder = result.clarification;
                 magicInput.focus();
+                setMessage('');
                 return;
             }
 
-            setMessage(result.toast_message || result.message || 'Erledigt!');
-
-            const targetCategoryId = Number(result.target_category_id);
-            if (Number.isInteger(targetCategoryId) && targetCategoryId > 0) {
-                await setCategory(targetCategoryId);
-            } else {
-                await loadCategories();
-                await loadItems();
-                updateHeaders();
+            // Show preview
+            if (result.preview && result.items?.length > 0) {
+                setMagicLoading(false);
+                setMessage('');
+                renderPreview(result.items);
+                return;
             }
 
-            closeMagic(true);
+            setMessage(t('msg.magic_no_results'), true);
         } catch (error) {
             console.error('[Magic] Error:', error);
             setMessage(error.message, true);
