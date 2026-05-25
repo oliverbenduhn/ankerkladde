@@ -486,7 +486,6 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
         </form>
     </details>
 
-    <?php if (!empty($preferences['magic_button_enabled'])): ?>
     <details class="settings-section settings-accordion" data-settings-panel="ai" open>
         <summary><?= t('settings.section.ai') ?></summary>
         <form method="post" action="<?= htmlspecialchars($settingsAction, ENT_QUOTES, 'UTF-8') ?>" class="settings-form">
@@ -523,7 +522,6 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
             </div>
         </form>
     </details>
-    <?php endif; ?>
 
     <details class="settings-section settings-accordion" data-settings-panel="extension">
         <summary><?= t('settings.section.extension') ?></summary>
