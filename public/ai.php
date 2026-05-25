@@ -141,30 +141,95 @@ if (!empty($data['test_only'])) {
 // Fetch categories to give Gemini context
 $categories = loadUserCategories($db, $userId, false);
 $catContext = [];
+$typeDescriptions = [
+    'list_quantity' => 'Einkaufsliste mit Mengenangaben',
+    'list_due_date' => 'Aufgaben/Termine mit Fälligkeitsdatum',
+    'notes' => 'Notizen und Texte',
+    'images' => 'Bilder',
+    'files' => 'Dateien',
+    'links' => 'Links/URLs',
+];
 foreach ($categories as $cat) {
     $catContext[] = [
         'id' => $cat['id'],
         'name' => $cat['name'],
-        'type' => $cat['type']
+        'type' => $cat['type'],
+        'purpose' => $typeDescriptions[$cat['type']] ?? $cat['type'],
     ];
 }
 
-$systemPrompt = "Du bist ein Assistent für die App 'Ankerkladde'. 
-Analysiere die Benutzereingabe und extrahiere eine Liste von Aufgaben oder Einkaufsartikeln.
-Gib NUR valides JSON zurück, ein Array von Objekten.
-Jedes Objekt muss folgende Felder haben:
-- 'name': Name des Artikels/der Aufgabe
-- 'quantity': Menge (nur für Einkaufslisten-Typen), sonst leerer String
-- 'category_id': Die ID der am besten passenden Kategorie aus der Liste unten.
-- 'due_date': Datum im Format YYYY-MM-DD (nur wenn ein Datum erkennbar ist), sonst leerer String.
+// Active category context from frontend
+$activeCategoryId = (int) ($data['active_category_id'] ?? 0);
+$activeCategory = null;
+if ($activeCategoryId > 0) {
+    foreach ($categories as $c) {
+        if ($c['id'] === $activeCategoryId) {
+            $activeCategory = $c;
+            break;
+        }
+    }
+}
 
-Kategorien für diesen Nutzer:
+// Existing items for duplicate detection
+$existingItemNames = [];
+if ($activeCategoryId > 0) {
+    $stmt = $db->prepare('SELECT name FROM items WHERE user_id = :uid AND category_id = :cid AND done = 0 ORDER BY sort_order LIMIT 100');
+    $stmt->execute([':uid' => $userId, ':cid' => $activeCategoryId]);
+    $existingItemNames = $stmt->fetchAll(PDO::FETCH_COLUMN);
+}
+
+$activeCategoryHint = '';
+if ($activeCategory !== null) {
+    $activeCategoryHint = "\n\nDer Nutzer hat gerade die Kategorie \"{$activeCategory['name']}\" (Typ: {$activeCategory['type']}, Zweck: " . ($typeDescriptions[$activeCategory['type']] ?? '') . ") geöffnet. Ordne Einträge bevorzugt dieser Kategorie zu, es sei denn sie passen eindeutig in eine andere.";
+}
+
+$existingItemsHint = '';
+if ($existingItemNames !== []) {
+    $existingItemsHint = "\n\nBereits auf der aktuellen Liste (NICHT erneut hinzufügen): " . implode(', ', $existingItemNames);
+}
+
+$today = date('Y-m-d');
+$dayOfWeek = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'][(int) date('w')];
+
+$systemPrompt = "Du bist ein intelligenter Assistent für die App \"Ankerkladde\".
+Deine Aufgabe: Interpretiere die Benutzereingabe und erstelle daraus konkrete, einzelne Einträge.
+
+WICHTIG — Nutze dein Weltwissen! Beispiele:
+- \"Zutaten für Pizza\" → einzelne Zutaten: Pizzateig, Tomatensoße, Mozzarella, Basilikum, Olivenöl
+- \"Zutaten für Lasagne für 4 Personen\" → Lasagneplatten (250g), Hackfleisch (500g), Tomaten (400g Dose), Zwiebeln (2), Knoblauch (2 Zehen), Mozzarella (200g), Parmesan (50g), Béchamelsauce oder Milch+Butter+Mehl, Salz, Pfeffer, Olivenöl
+- \"Was brauche ich zum Campen?\" → Zelt, Schlafsack, Isomatte, Taschenlampe, Campingkocher, ...
+- \"Einkauf fürs Frühstück\" → Brötchen, Butter, Marmelade, Eier, Kaffee, Orangensaft
+- \"Todos für Umzug\" → Kartons besorgen, Umzugswagen mieten, Adresse ummelden, Nachsendeauftrag, ...
+
+Wenn der Nutzer ein Rezept, eine Aktivität oder ein Thema nennt, löse es IMMER in die einzelnen Bestandteile auf. Gib niemals die Eingabe einfach als einzelnen Eintrag zurück.
+
+Bei Einkaufsartikeln: Gib sinnvolle Mengenangaben im quantity-Feld an (z.B. \"500g\", \"1 Pkg\", \"2\", \"200ml\").
+Bei Aufgaben: Leite aus dem Kontext sinnvolle Fälligkeitsdaten ab wenn möglich.
+
+Heute ist {$dayOfWeek}, der {$today}.
+
+Gib NUR valides JSON zurück — entweder:
+
+A) Ein Array von Objekten (normale Antwort):
+[{\"name\": \"...\", \"quantity\": \"...\", \"category_id\": ..., \"due_date\": \"...\"}]
+
+B) Ein Rückfrage-Objekt, wenn die Eingabe zu unklar ist:
+{\"clarification\": \"Deine Rückfrage hier\"}
+
+Felder pro Objekt:
+- \"name\": Name des Artikels/der Aufgabe (kurz und präzise)
+- \"quantity\": Menge (bei list_quantity-Kategorien sinnvoll befüllen), sonst leerer String
+- \"category_id\": Die ID der passendsten Kategorie
+- \"due_date\": Datum im Format YYYY-MM-DD (wenn erkennbar), sonst leerer String
+
+Kategorien des Nutzers:
 " . json_encode($catContext, JSON_UNESCAPED_UNICODE) . "
 
 Regeln:
-1. Wenn mehrere Artikel genannt werden, erstelle für jeden ein Objekt.
-2. Wähle die Kategorie sorgfältig. Einkäufe -> list_quantity, Termine/Todos -> list_due_date, Notizen -> notes.
-3. Antworte AUSSCHLIESSLICH mit dem JSON-Array. Kein Text davor oder danach.";
+1. Löse Oberbegriffe, Rezepte und Themen IMMER in Einzeleinträge auf.
+2. Wähle die Kategorie sorgfältig anhand des Zwecks.
+3. Nutze Rückfragen (B) nur wenn die Eingabe wirklich nicht interpretierbar ist — im Zweifel lieber eine sinnvolle Annahme treffen.
+4. Antworte AUSSCHLIESSLICH mit JSON. Kein Text davor oder danach." . $activeCategoryHint . $existingItemsHint;
 
 $apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/' . rawurlencode($geminiModel) . ':generateContent';
 
@@ -222,6 +287,18 @@ $itemsToAdd = json_decode($aiText, true);
 if (!is_array($itemsToAdd)) {
     http_response_code(500);
     echo json_encode(['error' => 'Ungültige Antwort von der KI.']);
+    exit;
+}
+
+// Handle clarification response from Gemini
+if (isset($itemsToAdd['clarification'])) {
+    echo json_encode([
+        'success' => true,
+        'clarification' => (string) $itemsToAdd['clarification'],
+        'added_count' => 0,
+        'created_items' => [],
+        'toast_message' => '',
+    ]);
     exit;
 }
 

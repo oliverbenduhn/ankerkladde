@@ -1,6 +1,7 @@
 import { t } from './i18n.js';
 import { appUrl } from './api.js?v=4.3.4';
 import { appEl, magicBtns, magicBar, magicInput, magicSubmit, magicClose, magicVoiceBtn } from './ui.js?v=4.3.4';
+import { state } from './state.js?v=4.3.4';
 
 export function createMagicController(deps) {
     const { getUserPreferences, loadCategories, loadItems, setCategory, setMessage, updateHeaders } = deps;
@@ -41,6 +42,7 @@ export function createMagicController(deps) {
         appEl.classList.remove('is-magic-active');
         magicBtns.forEach(btn => btn.classList.remove('is-active'));
         magicInput.value = '';
+        magicInput.placeholder = t('ui.magic_placeholder');
         if (recognition) {
             recognition.stop();
         }
@@ -115,10 +117,11 @@ export function createMagicController(deps) {
         setMessage('Magie wird gewirkt...');
 
         try {
+            const activeCategoryId = Number(state.categoryId) || 0;
             const response = await fetch(appUrl('ai.php'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ input })
+                body: JSON.stringify({ input, active_category_id: activeCategoryId })
             });
 
             const rawText = await response.text();
@@ -133,6 +136,15 @@ export function createMagicController(deps) {
                 throw new Error(result.error || 'KI-Anfrage fehlgeschlagen');
             }
 
+            // Handle clarification from AI
+            if (result.clarification) {
+                setMagicLoading(false);
+                magicInput.value = '';
+                magicInput.placeholder = result.clarification;
+                magicInput.focus();
+                return;
+            }
+
             setMessage(result.toast_message || result.message || 'Erledigt!');
 
             const targetCategoryId = Number(result.target_category_id);
@@ -143,7 +155,7 @@ export function createMagicController(deps) {
                 await loadItems();
                 updateHeaders();
             }
-            
+
             closeMagic(true);
         } catch (error) {
             console.error('[Magic] Error:', error);
