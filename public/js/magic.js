@@ -84,11 +84,21 @@ export function createMagicController(deps) {
             checkbox.setAttribute('aria-label', 'Auswahl ' + item.name);
             li.appendChild(checkbox);
 
-            const info = document.createElement('span');
+            const info = document.createElement('div');
             info.className = 'magic-preview-info';
             let label = item.name;
             if (item.quantity) label += ' (' + item.quantity + ')';
             info.textContent = label;
+            if (item.content && item.category_type === 'notes') {
+                const snippet = document.createElement('div');
+                snippet.className = 'magic-preview-snippet';
+                // Strip HTML tags for preview text
+                const tmp = document.createElement('div');
+                tmp.innerHTML = item.content;
+                const plainText = tmp.textContent || '';
+                snippet.textContent = plainText.length > 120 ? plainText.slice(0, 120) + '...' : plainText;
+                info.appendChild(snippet);
+            }
             li.appendChild(info);
 
             const cat = document.createElement('span');

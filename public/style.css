@@ -3470,9 +3470,21 @@ button, input { font: inherit; }
     flex: 1;
     min-width: 0;
     overflow: hidden;
+    color: var(--text-primary);
+}
+
+.magic-preview-info:not(:has(.magic-preview-snippet)) {
     text-overflow: ellipsis;
     white-space: nowrap;
-    color: var(--text-primary);
+}
+
+.magic-preview-snippet {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-top: 2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .magic-preview-cat {

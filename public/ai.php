@@ -179,14 +179,19 @@ if ($mode === 'confirm') {
             }
             if (!$validCat) continue;
 
+            $content = ($matchedCategory['type'] === 'notes')
+                ? trim((string) ($item['content'] ?? ''))
+                : '';
+
             $stmt = $db->prepare(
                 'INSERT INTO items (name, quantity, due_date, content, section, category_id, sort_order, user_id)
-                 VALUES (:name, :quantity, :due_date, \'\', \'\', :category_id, :sort_order, :user_id)'
+                 VALUES (:name, :quantity, :due_date, :content, \'\', :category_id, :sort_order, :user_id)'
             );
             $stmt->execute([
                 ':name' => mb_substr($name, 0, 120),
                 ':quantity' => mb_substr((string) ($item['quantity'] ?? ''), 0, 40),
                 ':due_date' => (string) ($item['due_date'] ?? ''),
+                ':content' => $content,
                 ':category_id' => $catId,
                 ':sort_order' => prependItemSortOrder($db, $userId, $catId),
                 ':user_id' => $userId,
@@ -199,6 +204,7 @@ if ($mode === 'confirm') {
                 'category_type' => (string) ($matchedCategory['type'] ?? ''),
                 'object_label' => magicObjectLabel((string) ($matchedCategory['type'] ?? '')),
                 'quantity' => mb_substr((string) ($item['quantity'] ?? ''), 0, 40),
+                'content' => $content,
                 'due_date' => (string) ($item['due_date'] ?? ''),
             ];
         }
@@ -279,24 +285,26 @@ WICHTIG — Nutze dein Weltwissen! Beispiele:
 - \"Einkauf fürs Frühstück\" → Brötchen, Butter, Marmelade, Eier, Kaffee, Orangensaft
 - \"Todos für Umzug\" → Kartons besorgen, Umzugswagen mieten, Adresse ummelden, Nachsendeauftrag, ...
 
-Wenn der Nutzer ein Rezept, eine Aktivität oder ein Thema nennt, löse es IMMER in die einzelnen Bestandteile auf. Gib niemals die Eingabe einfach als einzelnen Eintrag zurück.
-
-Bei Einkaufsartikeln: Gib sinnvolle Mengenangaben im quantity-Feld an (z.B. \"500g\", \"1 Pkg\", \"2\", \"200ml\").
-Bei Aufgaben: Leite aus dem Kontext sinnvolle Fälligkeitsdaten ab wenn möglich.
+Verhalten je nach Kategorie-Typ:
+- list_quantity (Einkaufsliste): Löse Oberbegriffe/Rezepte/Themen in einzelne Artikel auf. Gib sinnvolle Mengen im quantity-Feld an (z.B. \"500g\", \"1 Pkg\", \"2\").
+- list_due_date (Aufgaben): Löse in einzelne Aufgaben auf. Leite Fälligkeitsdaten aus dem Kontext ab.
+- notes (Notizen): Erstelle EINEN Eintrag. Der \"name\" ist der Titel. Das \"content\"-Feld enthält den eigentlichen Notiztext als HTML (z.B. \"<p>Text</p>\"). Nutze dein Weltwissen, um eine informative Notiz zu schreiben.
+- links (Links): Erstelle einen Eintrag pro URL.
 
 Heute ist {$dayOfWeek}, der {$today}.
 
 Gib NUR valides JSON zurück — entweder:
 
 A) Ein Array von Objekten (normale Antwort):
-[{\"name\": \"...\", \"quantity\": \"...\", \"category_id\": ..., \"due_date\": \"...\"}]
+[{\"name\": \"...\", \"quantity\": \"...\", \"content\": \"...\", \"category_id\": ..., \"due_date\": \"...\"}]
 
 B) Ein Rückfrage-Objekt, wenn die Eingabe zu unklar ist:
 {\"clarification\": \"Deine Rückfrage hier\"}
 
 Felder pro Objekt:
-- \"name\": Name des Artikels/der Aufgabe (kurz und präzise)
-- \"quantity\": Menge (bei list_quantity-Kategorien sinnvoll befüllen), sonst leerer String
+- \"name\": Titel/Name (kurz und präzise, max 120 Zeichen)
+- \"quantity\": Menge (nur bei list_quantity), sonst leerer String
+- \"content\": Textinhalt als HTML (nur bei notes-Kategorien, z.B. \"<p>Bruce Willis ist ein ...</p>\"), sonst leerer String
 - \"category_id\": Die ID der passendsten Kategorie
 - \"due_date\": Datum im Format YYYY-MM-DD (wenn erkennbar), sonst leerer String
 
@@ -304,10 +312,11 @@ Kategorien des Nutzers:
 " . json_encode($catContext, JSON_UNESCAPED_UNICODE) . "
 
 Regeln:
-1. Löse Oberbegriffe, Rezepte und Themen IMMER in Einzeleinträge auf.
-2. Wähle die Kategorie sorgfältig anhand des Zwecks.
-3. Nutze Rückfragen (B) nur wenn die Eingabe wirklich nicht interpretierbar ist — im Zweifel lieber eine sinnvolle Annahme treffen.
-4. Antworte AUSSCHLIESSLICH mit JSON. Kein Text davor oder danach." . $activeCategoryHint . $existingItemsHint;
+1. Bei Einkäufen und Aufgaben: Löse Oberbegriffe in Einzeleinträge auf.
+2. Bei Notizen: Erstelle EINEN Eintrag mit ausführlichem content (HTML).
+3. Wähle die Kategorie sorgfältig anhand des Zwecks.
+4. Nutze Rückfragen (B) nur wenn die Eingabe wirklich nicht interpretierbar ist.
+5. Antworte AUSSCHLIESSLICH mit JSON." . $activeCategoryHint . $existingItemsHint;
 
 $apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/' . rawurlencode($geminiModel) . ':generateContent';
 
@@ -402,9 +411,14 @@ foreach ($parsedItems as $item) {
         $matchedCategory = $activeCategory;
     }
 
+    $content = ($matchedCategory['type'] === 'notes')
+        ? trim((string) ($item['content'] ?? ''))
+        : '';
+
     $previewItems[] = [
         'name' => mb_substr($name, 0, 120),
         'quantity' => mb_substr((string) ($item['quantity'] ?? ''), 0, 40),
+        'content' => $content,
         'due_date' => (string) ($item['due_date'] ?? ''),
         'category_id' => $catId,
         'category_name' => (string) ($matchedCategory['name'] ?? ''),
