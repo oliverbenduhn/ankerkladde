@@ -371,6 +371,38 @@ if (preg_match('/^```(?:json)?\s*(.*?)\s*```$/s', $aiText, $matches)) {
 }
 $parsedItems = json_decode($aiText, true);
 
+// Fix double-encoded UTF-8 from Gemini (e.g. "Ã¼" instead of "ü")
+function fixDoubleEncodedUtf8(string $text): string
+{
+    // Detect double-encoded UTF-8: valid UTF-8 that decodes to Latin-1 Gemini artifacts
+    $decoded = @mb_convert_encoding($text, 'UTF-8', 'Windows-1252');
+    if ($decoded !== false && mb_check_encoding($decoded, 'UTF-8') && $decoded !== $text) {
+        // Verify it actually fixed something (contains fewer multi-byte sequences)
+        if (strlen($decoded) < strlen($text)) {
+            return $decoded;
+        }
+    }
+    return $text;
+}
+
+function fixItemEncoding(array $item): array
+{
+    foreach (['name', 'content', 'quantity', 'clarification'] as $field) {
+        if (isset($item[$field]) && is_string($item[$field])) {
+            $item[$field] = fixDoubleEncodedUtf8($item[$field]);
+        }
+    }
+    return $item;
+}
+
+if (is_array($parsedItems)) {
+    if (isset($parsedItems['clarification'])) {
+        $parsedItems = fixItemEncoding($parsedItems);
+    } else {
+        $parsedItems = array_map('fixItemEncoding', $parsedItems);
+    }
+}
+
 if (!is_array($parsedItems)) {
     http_response_code(500);
     echo json_encode(['error' => 'Ungültige Antwort von der KI.']);
