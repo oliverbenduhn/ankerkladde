@@ -270,7 +270,7 @@ function parseHttpResponseHeaders(array $headers): array
 function isHtmlContentType(string $contentType): bool
 {
     if ($contentType === '') {
-        return true;
+        return false;
     }
 
     return str_contains($contentType, 'text/html') || str_contains($contentType, 'application/xhtml+xml');
