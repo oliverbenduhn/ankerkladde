@@ -2416,19 +2416,28 @@ try {
                 respond(422, ['error' => t('error.move_type_mismatch'), 'error_key' => 'error.move_type_mismatch']);
             }
 
-            $stmt = $db->prepare(
-                'UPDATE items
-                 SET category_id = :target_category_id,
-                     sort_order = :sort_order,
-                     updated_at = CURRENT_TIMESTAMP
-                 WHERE id = :id AND user_id = :user_id'
-            );
-            $stmt->execute([
-                ':target_category_id' => (int) $targetCategory['id'],
-                ':sort_order' => nextItemSortOrder($db, $userId, (int) $targetCategory['id']),
-                ':id' => $id,
-                ':user_id' => $userId,
-            ]);
+            $db->beginTransaction();
+            try {
+                $stmt = $db->prepare(
+                    'UPDATE items
+                     SET category_id = :target_category_id,
+                         sort_order = :sort_order,
+                         updated_at = CURRENT_TIMESTAMP
+                     WHERE id = :id AND user_id = :user_id'
+                );
+                $stmt->execute([
+                    ':target_category_id' => (int) $targetCategory['id'],
+                    ':sort_order' => nextItemSortOrder($db, $userId, (int) $targetCategory['id']),
+                    ':id' => $id,
+                    ':user_id' => $userId,
+                ]);
+                $db->commit();
+            } catch (Throwable $exception) {
+                if ($db->inTransaction()) {
+                    $db->rollBack();
+                }
+                throw $exception;
+            }
 
             respond(200, [
                 'message' => 'Artikel verschoben.',
