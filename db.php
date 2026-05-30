@@ -17,6 +17,8 @@ require_once __DIR__ . '/src/CategoryRepository.php';
 
 require_once __DIR__ . '/src/UserRepository.php';
 
+require_once __DIR__ . '/src/AiClient.php';
+
 
 
 function hasDatabaseMetaFlag(PDO $db, string $key): bool

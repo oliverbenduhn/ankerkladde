@@ -755,19 +755,14 @@ function shouldUseAiForProductNormalization(array $rawProduct, array $heuristicP
 function normalizeOpenFoodFactsProductWithAi(array $product, array $preferences): array
 {
     $normalized = heuristicNormalizeProductData($product);
-    $geminiKey = trim((string) ($preferences['gemini_api_key'] ?? ''));
-    if ($geminiKey === '') {
+
+    $aiConfig = getActiveAiConfig($preferences);
+    if ($aiConfig['key'] === '') {
         return $normalized;
     }
 
     if (!shouldUseAiForProductNormalization($product, $normalized)) {
         return $normalized;
-    }
-
-    $availableGeminiModels = getAvailableGeminiModels();
-    $geminiModel = (string) ($preferences['gemini_model'] ?? 'gemini-2.5-flash');
-    if (!array_key_exists($geminiModel, $availableGeminiModels)) {
-        $geminiModel = 'gemini-2.5-flash';
     }
 
     $systemPrompt = <<<PROMPT
@@ -890,49 +885,20 @@ Input: {"product_name":"Saucenbinder Hell","brands":"Edeka, Gut & Günstig, Gut 
 Output: {"product_name":"Saucenbinder Hell","brands":"Edeka, Gut & Günstig","quantity":"250 g"}
 PROMPT;
 
-    $apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/' . rawurlencode($geminiModel) . ':generateContent';
-    $postData = [
-        'contents' => [[
-            'parts' => [[
-                'text' => $systemPrompt . "\n\nInput: " . json_encode($product, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
-            ]],
-        ]],
-        'generationConfig' => [
-            'response_mime_type' => 'application/json',
-            'temperature' => 0.1,
-        ],
-    ];
+    $prompt = $systemPrompt . "\n\nInput: " . json_encode($product, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
-    $ch = curl_init($apiUrl);
-    if ($ch === false) {
-        return $normalized;
-    }
-
-    $encodedPostData = json_encode($postData, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-    curl_setopt_array($ch, [
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_POST => true,
-        CURLOPT_POSTFIELDS => $encodedPostData === false ? '{}' : $encodedPostData,
-        CURLOPT_TIMEOUT => 8,
-        CURLOPT_CONNECTTIMEOUT => 3,
-        CURLOPT_HTTPHEADER => [
-            'Content-Type: application/json',
-            'x-goog-api-key: ' . $geminiKey,
-        ],
+    $result = callAiProvider($aiConfig['key'], $aiConfig['provider'], $aiConfig['model'], $prompt, [
+        'timeout' => 8,
+        'connect_timeout' => 3,
+        'json_mode' => true,
+        'temperature' => 0.1,
     ]);
 
-    $response = curl_exec($ch);
-    $httpCode = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
-
-    if (!is_string($response) || $response === '' || $httpCode !== 200) {
+    if (!$result['ok'] || $result['text'] === '') {
         return $normalized;
     }
 
-    $result = json_decode($response, true);
-    $aiText = trim((string) ($result['candidates'][0]['content']['parts'][0]['text'] ?? ''));
-    if ($aiText === '') {
-        return $normalized;
-    }
+    $aiText = $result['text'];
 
     if (preg_match('/^```(?:json)?\s*(.*?)\s*```$/s', $aiText, $matches) === 1) {
         $aiText = trim((string) ($matches[1] ?? ''));

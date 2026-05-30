@@ -97,44 +97,44 @@ if ($userInput === '' && $mode !== 'confirm') {
 }
 
 $preferences = getUserPreferences($db, $userId);
-// Allow testing a key before saving
-$geminiKey = trim((string) ($data['gemini_api_key'] ?? $preferences['gemini_api_key'] ?? ''));
-$availableGeminiModels = getAvailableGeminiModels();
-$geminiModel = (string) ($data['gemini_model'] ?? $preferences['gemini_model'] ?? 'gemini-2.5-flash');
-if (!array_key_exists($geminiModel, $availableGeminiModels)) {
-    $geminiModel = 'gemini-2.5-flash';
+// Allow testing a key before saving — provider-aware
+$aiProvider = (string) ($data['ai_provider'] ?? $preferences['ai_provider'] ?? 'gemini');
+$validProviders = array_keys(getAvailableProviders());
+if (!in_array($aiProvider, $validProviders, true)) {
+    $aiProvider = 'gemini';
 }
 
-if ($geminiKey === '' && $mode !== 'confirm') {
+if ($aiProvider === 'openrouter') {
+    $aiKey = trim((string) ($data['openrouter_api_key'] ?? $preferences['openrouter_api_key'] ?? ''));
+    $availableModels = getAvailableAiModels('openrouter');
+    $aiModel = (string) ($data['openrouter_model'] ?? $preferences['openrouter_model'] ?? 'google/gemini-2.5-flash');
+} else {
+    $aiKey = trim((string) ($data['gemini_api_key'] ?? $preferences['gemini_api_key'] ?? ''));
+    $availableModels = getAvailableAiModels('gemini');
+    $aiModel = (string) ($data['gemini_model'] ?? $preferences['gemini_model'] ?? 'gemini-2.5-flash');
+}
+if (!array_key_exists($aiModel, $availableModels)) {
+    $aiModel = array_key_first($availableModels);
+}
+
+if ($aiKey === '' && $mode !== 'confirm') {
     http_response_code(403);
-    echo json_encode(['error' => 'Bitte hinterlege zuerst deinen Gemini API-Key in den Einstellungen.']);
+    echo json_encode(['error' => 'Bitte hinterlege zuerst einen API-Key in den Einstellungen.']);
     exit;
 }
 
 if (!empty($data['test_only'])) {
-    $apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/' . rawurlencode($geminiModel) . ':generateContent';
-    $postData = [
-        'contents' => [['parts' => [['text' => 'Hi']]]]
-    ];
-    $ch = curl_init($apiUrl);
-    $encodedPostData = json_encode($postData, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_POST, true);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, $encodedPostData === false ? '{}' : $encodedPostData);
-    curl_setopt($ch, CURLOPT_HTTPHEADER, [
-        'Content-Type: application/json',
-        'x-goog-api-key: ' . $geminiKey,
+    $result = callAiProvider($aiKey, $aiProvider, $aiModel, 'Hi', [
+        'timeout' => 8,
+        'connect_timeout' => 3,
     ]);
-    $response = curl_exec($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
 
-    if ($httpCode === 200) {
-        echo json_encode(['success' => true, 'message' => 'Key ist gültig für ' . $geminiModel . '.']);
+    if ($result['ok']) {
+        echo json_encode(['success' => true, 'message' => 'Key ist gültig für ' . $aiModel . '.']);
     } else {
-        $errorPayload = json_decode(is_string($response) ? $response : '', true);
-        $apiMessage = trim((string) ($errorPayload['error']['message'] ?? ''));
+        $providerName = getProviderDisplayName($aiProvider);
         http_response_code(403);
-        echo json_encode(['error' => 'Key oder Modell ungültig (HTTP ' . $httpCode . ')' . ($apiMessage !== '' ? ': ' . $apiMessage : '')]);
+        echo json_encode(['error' => 'Key oder Modell ungültig' . ($result['http_code'] > 0 ? ' (HTTP ' . $result['http_code'] . ')' : '') . ($result['error'] !== '' ? ': ' . $result['error'] : '')]);
     }
     exit;
 }
@@ -318,54 +318,24 @@ Regeln:
 4. Nutze Rückfragen (B) nur wenn die Eingabe wirklich nicht interpretierbar ist.
 5. Antworte AUSSCHLIESSLICH mit JSON." . $activeCategoryHint . $existingItemsHint;
 
-$apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/' . rawurlencode($geminiModel) . ':generateContent';
+$prompt = $systemPrompt . "\n\nBenutzereingabe: " . $userInput;
 
-$postData = [
-    'contents' => [
-        [
-            'parts' => [
-                ['text' => $systemPrompt . "\n\nBenutzereingabe: " . $userInput]
-            ]
-        ]
-    ],
-    'generationConfig' => [
-        'response_mime_type' => 'application/json'
-    ]
-];
-
-$ch = curl_init($apiUrl);
-$encodedPostData = json_encode($postData, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-curl_setopt($ch, CURLOPT_POST, true);
-curl_setopt($ch, CURLOPT_POSTFIELDS, $encodedPostData === false ? '{}' : $encodedPostData);
-curl_setopt($ch, CURLOPT_TIMEOUT, 20);
-curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
-curl_setopt($ch, CURLOPT_HTTPHEADER, [
-    'Content-Type: application/json',
-    'x-goog-api-key: ' . $geminiKey,
+$result = callAiProvider($aiKey, $aiProvider, $aiModel, $prompt, [
+    'timeout' => 20,
+    'connect_timeout' => 5,
+    'json_mode' => true,
 ]);
-$response = curl_exec($ch);
-$httpCode = curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
-if ($response === false) {
-    $error = curl_error($ch);
-    http_response_code(502);
-    echo json_encode(['error' => 'Gemini konnte nicht erreicht werden: ' . $error]);
-    exit;
-}
 
-if ($httpCode !== 200) {
-    $errorPayload = json_decode($response, true);
-    $apiMessage = trim((string) ($errorPayload['error']['message'] ?? ''));
-    http_response_code(500);
+if (!$result['ok']) {
+    $providerName = getProviderDisplayName($aiProvider);
+    http_response_code($result['http_code'] === 0 ? 502 : 500);
     echo json_encode([
-        'error' => 'Fehler bei der Kommunikation mit Gemini (HTTP ' . $httpCode . ')' . ($apiMessage !== '' ? ': ' . $apiMessage : ''),
+        'error' => $providerName . ' konnte nicht erreicht werden' . ($result['error'] !== '' ? ': ' . $result['error'] : ''),
     ]);
     exit;
 }
 
-$result = json_decode($response, true);
-$aiText = $result['candidates'][0]['content']['parts'][0]['text'] ?? '[]';
-$aiText = trim((string) $aiText);
+$aiText = trim($result['text']);
 if (preg_match('/^```(?:json)?\s*(.*?)\s*```$/s', $aiText, $matches)) {
     $aiText = trim((string) ($matches[1] ?? '[]'));
 }

@@ -181,16 +181,44 @@ export function initUIHandling() {
         });
     }
 
-    // Gemini test logic
+    // AI provider toggle
+    const providerSelect = document.getElementById('ai_provider_select');
+    const geminiFields = document.getElementById('gemini_fields');
+    const openrouterFields = document.getElementById('openrouter_fields');
+
+    function updateProviderFields() {
+        if (!providerSelect || !geminiFields || !openrouterFields) return;
+        const provider = providerSelect.value;
+        geminiFields.style.display = provider === 'gemini' ? '' : 'none';
+        openrouterFields.style.display = provider === 'openrouter' ? '' : 'none';
+    }
+
+    if (providerSelect) {
+        providerSelect.addEventListener('change', updateProviderFields);
+        updateProviderFields();
+    }
+
+    // AI test logic
     const testApiKeyBtn = document.getElementById('test-api-key');
     const geminiKeyInput = document.getElementById('gemini_api_key_input');
     const geminiModelSelect = document.getElementById('gemini_model_select');
+    const openrouterKeyInput = document.getElementById('openrouter_api_key_input');
+    const openrouterModelSelect = document.getElementById('openrouter_model_select');
     const apiTestStatus = document.getElementById('api-test-status');
 
-    if (testApiKeyBtn && geminiKeyInput && geminiModelSelect) {
+    if (testApiKeyBtn) {
         testApiKeyBtn.addEventListener('click', async () => {
-            const key = geminiKeyInput.value.trim();
-            const model = geminiModelSelect.value;
+            const provider = providerSelect ? providerSelect.value : 'gemini';
+            let key, model;
+
+            if (provider === 'openrouter') {
+                key = openrouterKeyInput ? openrouterKeyInput.value.trim() : '';
+                model = openrouterModelSelect ? openrouterModelSelect.value : '';
+            } else {
+                key = geminiKeyInput ? geminiKeyInput.value.trim() : '';
+                model = geminiModelSelect ? geminiModelSelect.value : '';
+            }
+
             if (!key) {
                 apiTestStatus.textContent = t('error.enter_key_first');
                 apiTestStatus.style.color = 'var(--error)';
@@ -204,10 +232,23 @@ export function initUIHandling() {
             apiTestStatus.style.display = 'block';
 
             try {
+                const body = {
+                    input: 'Hi',
+                    test_only: true,
+                    ai_provider: provider,
+                };
+                if (provider === 'openrouter') {
+                    body.openrouter_api_key = key;
+                    body.openrouter_model = model;
+                } else {
+                    body.gemini_api_key = key;
+                    body.gemini_model = model;
+                }
+
                 const response = await fetch('ai.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ input: 'Hi', test_only: true, gemini_api_key: key, gemini_model: model })
+                    body: JSON.stringify(body),
                 });
 
                 const result = await response.json();

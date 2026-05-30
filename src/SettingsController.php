@@ -30,79 +30,52 @@ function categoryIconAssetPath(string $icon): string
     return appPath('category-icon.php?icon=' . rawurlencode($icon));
 }
 
-function validateGeminiApiKey(string $apiKey, string $modelName): array
+function validateAiApiKey(string $provider, string $apiKey, string $modelName): array
 {
     if ($apiKey === '') {
         return [
             'type' => 'info',
-            'message' => t('settings.flash.gemini_no_key'),
+            'message' => t('settings.flash.ai_no_key'),
         ];
     }
 
-    $url = 'https://generativelanguage.googleapis.com/v1beta/models/' . rawurlencode($modelName) . ':generateContent';
-    $ch = curl_init($url);
-    $payload = json_encode([
-        'contents' => [[
-            'parts' => [[
-                'text' => 'Hi',
-            ]],
-        ]],
-    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-    curl_setopt_array($ch, [
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT => 8,
-        CURLOPT_CONNECTTIMEOUT => 3,
-        CURLOPT_POST => true,
-        CURLOPT_POSTFIELDS => $payload === false ? '{}' : $payload,
-        CURLOPT_HTTPHEADER => [
-            'Accept: application/json',
-            'Content-Type: application/json',
-            'x-goog-api-key: ' . $apiKey,
-        ],
+    $result = callAiProvider($apiKey, $provider, $modelName, 'Hi', [
+        'timeout' => 8,
+        'connect_timeout' => 3,
     ]);
 
-    $response = curl_exec($ch);
-    if ($response === false) {
-        $error = curl_error($ch);
-
-        return [
-            'type' => 'warn',
-            'message' => t('settings.flash.gemini_validation_unavailable', ['error' => $error]),
-        ];
-    }
-
-    $httpCode = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
-
-    if ($httpCode >= 200 && $httpCode < 300) {
+    if ($result['ok']) {
         return [
             'type' => 'ok',
-            'message' => t('settings.flash.gemini_valid', ['model' => $modelName]),
+            'message' => t('settings.flash.ai_key_valid', [
+                'provider' => getProviderDisplayName($provider),
+                'model' => $modelName,
+            ]),
         ];
     }
 
-    $decoded = json_decode($response, true);
-    if (!is_array($decoded) && $httpCode !== 200) {
+    if ($result['http_code'] === 0) {
         return [
-            'type' => 'err',
-            'message' => t('settings.flash.gemini_unexpected_response', ['code' => $httpCode]),
+            'type' => 'warn',
+            'message' => t('settings.flash.ai_validation_unavailable', ['error' => $result['error']]),
         ];
     }
-    
-    $apiMessage = '';
-    if (is_array($decoded)) {
-        $apiMessage = trim((string) ($decoded['error']['message'] ?? ''));
-    }
 
-    if ($httpCode === 400 || $httpCode === 401 || $httpCode === 403 || $httpCode === 404) {
+    if (in_array($result['http_code'], [400, 401, 403, 404], true)) {
         return [
             'type' => 'err',
-            'message' => t('settings.flash.gemini_invalid_key') . ($apiMessage !== '' ? ' ' . $apiMessage : ''),
+            'message' => t('settings.flash.ai_invalid_key', [
+                'provider' => getProviderDisplayName($provider),
+            ]) . ($result['error'] !== '' ? ' ' . $result['error'] : ''),
         ];
     }
 
     return [
         'type' => 'warn',
-        'message' => t('settings.flash.gemini_http_response', ['code' => $httpCode]) . ($apiMessage !== '' ? ' ' . $apiMessage : ''),
+        'message' => t('settings.flash.ai_http_response', [
+            'provider' => getProviderDisplayName($provider),
+            'code' => (string) $result['http_code'],
+        ]) . ($result['error'] !== '' ? ' ' . $result['error'] : ''),
     ];
 }
 
@@ -218,7 +191,7 @@ class SettingsController
         $this->userId = $userId;
     }
 
-    public function handlePostRequest(array $postData, bool &$passwordChangeRequired, array $geminiModels): array
+    public function handlePostRequest(array $postData, bool &$passwordChangeRequired, array $providers, array $aiModels): array
     {
         $flash = null;
         $flashType = 'ok';
@@ -511,19 +484,43 @@ class SettingsController
                 break;
 
             case 'save_ai_preferences':
+                $aiProvider = (string) ($postData['ai_provider'] ?? 'gemini');
+                if (!array_key_exists($aiProvider, $providers)) {
+                    $aiProvider = 'gemini';
+                }
+
                 $geminiApiKey = trim((string) ($postData['gemini_api_key'] ?? ''));
                 $geminiModel = (string) ($postData['gemini_model'] ?? 'gemini-2.5-flash');
+                $geminiModels = $aiModels['gemini'] ?? [];
                 if (!array_key_exists($geminiModel, $geminiModels)) {
                     $geminiModel = 'gemini-2.5-flash';
                 }
+
+                $openrouterApiKey = trim((string) ($postData['openrouter_api_key'] ?? ''));
+                $openrouterModel = (string) ($postData['openrouter_model'] ?? 'google/gemini-2.5-flash');
+                $openrouterModels = $aiModels['openrouter'] ?? [];
+                if (!array_key_exists($openrouterModel, $openrouterModels)) {
+                    $openrouterModel = 'google/gemini-2.5-flash';
+                }
+
                 updateExtendedUserPreferences($this->db, $this->userId, [
+                    'ai_provider' => $aiProvider,
                     'gemini_api_key' => $geminiApiKey,
                     'gemini_model' => $geminiModel,
+                    'openrouter_api_key' => $openrouterApiKey,
+                    'openrouter_model' => $openrouterModel,
                 ]);
-                $validation = validateGeminiApiKey($geminiApiKey, $geminiModel);
+
+                if ($aiProvider === 'openrouter') {
+                    $validation = validateAiApiKey('openrouter', $openrouterApiKey, $openrouterModel);
+                } else {
+                    $validation = validateAiApiKey('gemini', $geminiApiKey, $geminiModel);
+                }
+
                 $aiKeyStatus = $validation['message'];
                 $aiKeyStatusType = $validation['type'];
-                $flash = $geminiApiKey === '' ? t('settings.flash.ai_prefs_saved') : t('settings.flash.ai_prefs_saved') . ' ' . $validation['message'];
+                $activeKey = $aiProvider === 'openrouter' ? $openrouterApiKey : $geminiApiKey;
+                $flash = $activeKey === '' ? t('settings.flash.ai_prefs_saved') : t('settings.flash.ai_prefs_saved') . ' ' . $validation['message'];
                 if ($aiKeyStatusType === 'err') {
                     $flashType = 'err';
                 }

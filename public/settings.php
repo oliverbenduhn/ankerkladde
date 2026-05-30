@@ -22,12 +22,17 @@ if (isset($_SESSION['settings_flash'])) {
 
 $aiKeyStatus = null;
 $aiKeyStatusType = 'ok';
-$geminiModels = getAvailableGeminiModels();
+$providers = getAvailableProviders();
+$aiModels = [
+    'gemini' => getAvailableAiModels('gemini'),
+    'openrouter' => getAvailableAiModels('openrouter'),
+];
+$geminiModels = $aiModels['gemini'];
 $passwordChangeRequired = isPasswordChangeRequired();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $controller = new SettingsController($db, $userId);
-    $result = $controller->handlePostRequest($_POST, $passwordChangeRequired, $geminiModels);
+    $result = $controller->handlePostRequest($_POST, $passwordChangeRequired, $providers, $aiModels);
     
     $flash = $result['flash'];
     $flashType = $result['flashType'];
@@ -495,19 +500,47 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                 <p class="settings-copy"><?= t('settings.ai_hint') ?></p>
                 <div class="settings-password-fields">
                     <label class="settings-field">
-                        <span><?= t('settings.field.gemini_api_key') ?></span>
-                        <input type="password" id="gemini_api_key_input" name="gemini_api_key" value="<?= htmlspecialchars((string) ($preferences['gemini_api_key'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="AIzaSy...">
-                    </label>
-                    <label class="settings-field">
-                        <span><?= t('settings.field.gemini_model') ?></span>
-                        <select id="gemini_model_select" name="gemini_model">
-                            <?php foreach ($geminiModels as $modelValue => $modelLabel): ?>
-                                <option value="<?= htmlspecialchars($modelValue, ENT_QUOTES, 'UTF-8') ?>" <?= ($preferences['gemini_model'] ?? 'gemini-2.5-flash') === $modelValue ? 'selected' : '' ?>>
-                                    <?= htmlspecialchars($modelLabel, ENT_QUOTES, 'UTF-8') ?>
+                        <span><?= t('settings.field.ai_provider') ?></span>
+                        <select id="ai_provider_select" name="ai_provider">
+                            <?php foreach ($providers as $providerValue => $providerLabel): ?>
+                                <option value="<?= htmlspecialchars($providerValue, ENT_QUOTES, 'UTF-8') ?>" <?= ($preferences['ai_provider'] ?? 'gemini') === $providerValue ? 'selected' : '' ?>>
+                                    <?= htmlspecialchars($providerLabel, ENT_QUOTES, 'UTF-8') ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>
                     </label>
+                    <div id="gemini_fields" class="ai-provider-fields">
+                        <label class="settings-field">
+                            <span><?= t('settings.field.gemini_api_key') ?></span>
+                            <input type="password" id="gemini_api_key_input" name="gemini_api_key" value="<?= htmlspecialchars((string) ($preferences['gemini_api_key'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="AIzaSy...">
+                        </label>
+                        <label class="settings-field">
+                            <span><?= t('settings.field.gemini_model') ?></span>
+                            <select id="gemini_model_select" name="gemini_model">
+                                <?php foreach ($aiModels['gemini'] as $modelValue => $modelLabel): ?>
+                                    <option value="<?= htmlspecialchars($modelValue, ENT_QUOTES, 'UTF-8') ?>" <?= ($preferences['gemini_model'] ?? 'gemini-2.5-flash') === $modelValue ? 'selected' : '' ?>>
+                                        <?= htmlspecialchars($modelLabel, ENT_QUOTES, 'UTF-8') ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </label>
+                    </div>
+                    <div id="openrouter_fields" class="ai-provider-fields" style="display: none;">
+                        <label class="settings-field">
+                            <span><?= t('settings.field.openrouter_api_key') ?></span>
+                            <input type="password" id="openrouter_api_key_input" name="openrouter_api_key" value="<?= htmlspecialchars((string) ($preferences['openrouter_api_key'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="sk-or-...">
+                        </label>
+                        <label class="settings-field">
+                            <span><?= t('settings.field.openrouter_model') ?></span>
+                            <select id="openrouter_model_select" name="openrouter_model">
+                                <?php foreach ($aiModels['openrouter'] as $modelValue => $modelLabel): ?>
+                                    <option value="<?= htmlspecialchars($modelValue, ENT_QUOTES, 'UTF-8') ?>" <?= ($preferences['openrouter_model'] ?? 'google/gemini-2.5-flash') === $modelValue ? 'selected' : '' ?>>
+                                        <?= htmlspecialchars($modelLabel, ENT_QUOTES, 'UTF-8') ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </label>
+                    </div>
                     <button type="button" id="test-api-key" class="settings-link"><?= t('settings.action.test_connection') ?></button>
                 </div>
                 <div id="api-test-status" class="api-test-status" style="margin-top: 8px; font-size: 0.85rem; display: none;"></div>

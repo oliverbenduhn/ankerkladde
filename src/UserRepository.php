@@ -27,15 +27,15 @@ function getDefaultUserPreferences(): array
         'theme' => 'parchment',
         'gemini_api_key' => '',
         'gemini_model' => 'gemini-2.5-flash',
+        'ai_provider' => 'gemini',
+        'openrouter_api_key' => '',
+        'openrouter_model' => 'google/gemini-2.5-flash',
     ];
 }
 
 function getAvailableGeminiModels(): array
 {
-    return [
-        'gemini-2.5-flash' => 'Gemini 2.5 Flash',
-        'gemini-3-flash-preview' => 'Gemini 3 Flash Preview',
-    ];
+    return getAvailableAiModels('gemini');
 }
 
 function normalizeUserPreferences(array $preferences): array
@@ -88,6 +88,20 @@ function normalizeUserPreferences(array $preferences): array
     $validGeminiModels = array_keys(getAvailableGeminiModels());
     if (isset($preferences['gemini_model']) && in_array($preferences['gemini_model'], $validGeminiModels, true)) {
         $normalized['gemini_model'] = (string) $preferences['gemini_model'];
+    }
+
+    $validProviders = array_keys(getAvailableProviders());
+    if (isset($preferences['ai_provider']) && in_array($preferences['ai_provider'], $validProviders, true)) {
+        $normalized['ai_provider'] = (string) $preferences['ai_provider'];
+    }
+
+    if (isset($preferences['openrouter_api_key'])) {
+        $normalized['openrouter_api_key'] = trim((string) $preferences['openrouter_api_key']);
+    }
+
+    $validOpenRouterModels = array_keys(getAvailableAiModels('openrouter'));
+    if (isset($preferences['openrouter_model']) && in_array($preferences['openrouter_model'], $validOpenRouterModels, true)) {
+        $normalized['openrouter_model'] = (string) $preferences['openrouter_model'];
     }
 
     return $normalized;
