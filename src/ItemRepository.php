@@ -89,8 +89,11 @@ function hasInvalidSortOrder(PDO $db, string $whereClause = '', array $params = 
                 MIN(sort_order) AS min_sort_order
             FROM items';
 
-    if ($whereClause !== '') {
+    if ($whereClause !== '' && preg_match('/^[a-zA-Z0-9_ =!<>AND OR\(\)]+$/i', $whereClause)) {
         $sql .= ' WHERE ' . $whereClause;
+    } elseif ($whereClause !== '') {
+        // Invalid where clause - treat as no filter
+        $params = [];
     }
 
     $stmt = $db->prepare($sql);
