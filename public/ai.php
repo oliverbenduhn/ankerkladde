@@ -159,29 +159,66 @@ if ($mode === 'confirm') {
         exit;
     }
 
+    $validItems = [];
+    $countsByCategory = [];
+    foreach ($itemsToSave as $item) {
+        $name = trim((string) ($item['name'] ?? ''));
+        if ($name === '') continue;
+
+        $catId = (int) ($item['category_id'] ?? 0);
+        $validCat = false;
+        $matchedCategory = null;
+        foreach ($categories as $c) {
+            if ($c['id'] === $catId) {
+                $validCat = true;
+                $matchedCategory = $c;
+                break;
+            }
+        }
+        if (!$validCat) continue;
+
+        $validItems[] = [
+            'item' => $item,
+            'category' => $matchedCategory
+        ];
+
+        if (!isset($countsByCategory[$catId])) {
+            $countsByCategory[$catId] = 0;
+        }
+        $countsByCategory[$catId]++;
+    }
+
+    if ($validItems === []) {
+        http_response_code(422);
+        echo json_encode(['error' => 'Keine Artikel zum Speichern.']);
+        exit;
+    }
+
     $addedCount = 0;
     $createdItems = [];
     $db->beginTransaction();
     try {
-        foreach ($itemsToSave as $item) {
-            $name = trim((string) ($item['name'] ?? ''));
-            if ($name === '') continue;
+        // Step 1: Pre-shift all categories once
+        foreach ($countsByCategory as $catId => $count) {
+            prependItemSortOrder($db, $userId, $catId, $count);
+        }
 
-            $catId = (int) ($item['category_id'] ?? 0);
-            $validCat = false;
-            $matchedCategory = null;
-            foreach ($categories as $c) {
-                if ($c['id'] === $catId) {
-                    $validCat = true;
-                    $matchedCategory = $c;
-                    break;
-                }
-            }
-            if (!$validCat) continue;
+        // Step 2: Track remaining counts per category for assigning sort_order
+        $remainingCounts = $countsByCategory;
+
+        // Step 3: Insert items
+        foreach ($validItems as $entry) {
+            $item = $entry['item'];
+            $matchedCategory = $entry['category'];
+            $catId = $matchedCategory['id'];
+            $name = trim((string) ($item['name'] ?? ''));
 
             $content = ($matchedCategory['type'] === 'notes')
                 ? trim((string) ($item['content'] ?? ''))
                 : '';
+
+            // The sort order is assigned in descending order from $count down to 1
+            $sortOrder = $remainingCounts[$catId]--;
 
             $stmt = $db->prepare(
                 'INSERT INTO items (name, quantity, due_date, content, section, category_id, sort_order, user_id)
@@ -193,7 +230,7 @@ if ($mode === 'confirm') {
                 ':due_date' => (string) ($item['due_date'] ?? ''),
                 ':content' => $content,
                 ':category_id' => $catId,
-                ':sort_order' => prependItemSortOrder($db, $userId, $catId),
+                ':sort_order' => $sortOrder,
                 ':user_id' => $userId,
             ]);
             $addedCount++;

@@ -178,14 +178,14 @@ function nextItemSortOrder(PDO $db, int $userId, int $categoryId): int
     return (int) $maxStmt->fetchColumn() + 1;
 }
 
-function prependItemSortOrder(PDO $db, int $userId, int $categoryId): int
+function prependItemSortOrder(PDO $db, int $userId, int $categoryId, int $count = 1): int
 {
     $shiftStmt = $db->prepare(
         'UPDATE items
-         SET sort_order = sort_order + 1
+         SET sort_order = sort_order + :count
          WHERE category_id = :category_id AND user_id = :user_id'
     );
-    $shiftStmt->execute([':category_id' => $categoryId, ':user_id' => $userId]);
+    $shiftStmt->execute([':count' => $count, ':category_id' => $categoryId, ':user_id' => $userId]);
 
     return 1;
 }

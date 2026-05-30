@@ -1962,28 +1962,40 @@ try {
                 $barcode = '';
             }
 
-            $stmt = $db->prepare(
-                'INSERT INTO items (name, barcode, quantity, due_date, content, section, category_id, sort_order, user_id)
-                 VALUES (:name, :barcode, :quantity, :due_date, :content, :section, :category_id, :sort_order, :user_id)'
-            );
-            $stmt->execute([
-                ':name' => $name,
-                ':barcode' => $barcode,
-                ':quantity' => $quantity,
-                ':due_date' => $dueDate,
-                ':content' => $content,
-                ':section' => '',
-                ':category_id' => (int) $category['id'],
-                ':sort_order' => prependItemSortOrder($db, $userId, (int) $category['id']),
-                ':user_id' => $userId,
-            ]);
+            $db->beginTransaction();
+            try {
+                $sortOrder = prependItemSortOrder($db, $userId, (int) $category['id']);
 
-            if ($barcode !== '') {
-                $db->prepare(
-                    'UPDATE scanned_products
-                     SET scan_count = scan_count + 1, updated_at = CURRENT_TIMESTAMP
-                     WHERE barcode = :barcode'
-                )->execute([':barcode' => $barcode]);
+                $stmt = $db->prepare(
+                    'INSERT INTO items (name, barcode, quantity, due_date, content, section, category_id, sort_order, user_id)
+                     VALUES (:name, :barcode, :quantity, :due_date, :content, :section, :category_id, :sort_order, :user_id)'
+                );
+                $stmt->execute([
+                    ':name' => $name,
+                    ':barcode' => $barcode,
+                    ':quantity' => $quantity,
+                    ':due_date' => $dueDate,
+                    ':content' => $content,
+                    ':section' => '',
+                    ':category_id' => (int) $category['id'],
+                    ':sort_order' => $sortOrder,
+                    ':user_id' => $userId,
+                ]);
+
+                if ($barcode !== '') {
+                    $db->prepare(
+                        'UPDATE scanned_products
+                         SET scan_count = scan_count + 1, updated_at = CURRENT_TIMESTAMP
+                         WHERE barcode = :barcode'
+                    )->execute([':barcode' => $barcode]);
+                }
+
+                $db->commit();
+            } catch (Throwable $exception) {
+                if ($db->inTransaction()) {
+                    $db->rollBack();
+                }
+                throw $exception;
             }
 
             respond(201, [
@@ -2095,13 +2107,14 @@ try {
 
             $db->beginTransaction();
             try {
+                $sortOrder = prependItemSortOrder($db, $userId, (int) $category['id']);
                 $db->prepare(
                     'INSERT INTO items (name, quantity, due_date, content, section, category_id, sort_order, user_id)
                      VALUES (:name, \'\', \'\', \'\', \'\', :category_id, :sort_order, :user_id)'
                 )->execute([
                     ':name' => $name,
                     ':category_id' => (int) $category['id'],
-                    ':sort_order' => prependItemSortOrder($db, $userId, (int) $category['id']),
+                    ':sort_order' => $sortOrder,
                     ':user_id' => $userId,
                 ]);
                 $itemId = (int) $db->lastInsertId();
@@ -2186,13 +2199,14 @@ try {
 
             $db->beginTransaction();
             try {
+                $sortOrder = prependItemSortOrder($db, $userId, (int) $category['id']);
                 $db->prepare(
                     'INSERT INTO items (name, quantity, due_date, content, section, category_id, sort_order, user_id)
                      VALUES (:name, \'\', \'\', \'\', \'\', :category_id, :sort_order, :user_id)'
                 )->execute([
                     ':name' => $name,
                     ':category_id' => (int) $category['id'],
-                    ':sort_order' => prependItemSortOrder($db, $userId, (int) $category['id']),
+                    ':sort_order' => $sortOrder,
                     ':user_id' => $userId,
                 ]);
                 $itemId = (int) $db->lastInsertId();
