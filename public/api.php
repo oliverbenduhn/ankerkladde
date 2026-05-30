@@ -1826,14 +1826,21 @@ try {
             );
 
             $db->beginTransaction();
-            foreach ($ids as $index => $id) {
-                $stmt->execute([
-                    ':sort_order' => $index + 1,
-                    ':id' => $id,
-                    ':user_id' => $userId,
-                ]);
+            try {
+                foreach ($ids as $index => $id) {
+                    $stmt->execute([
+                        ':sort_order' => $index + 1,
+                        ':id' => $id,
+                        ':user_id' => $userId,
+                    ]);
+                }
+                $db->commit();
+            } catch (Throwable $exception) {
+                if ($db->inTransaction()) {
+                    $db->rollBack();
+                }
+                throw $exception;
             }
-            $db->commit();
 
             respond(200, ['message' => 'Kategorien neu sortiert.']);
 
