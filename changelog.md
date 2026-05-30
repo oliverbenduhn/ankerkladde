@@ -2,7 +2,24 @@
 
 Alle nennenswerten Änderungen an Ankerkladde werden hier zusammengefasst.
 
-Aktuelle Version: `4.2.27`
+Aktuelle Version: `5.1.4`
+
+## 5.1.4 - 2026-04-30
+
+### Sicherheit
+
+- SQL-Injection in `hasInvalidSortOrder` durch Parameterisierung geschützt.
+- CSRF-Validierung für `rename_categories`-Aktion hinzugefügt.
+
+### Stabilität
+
+- Transaktion für `move`-Operation hinzugefügt.
+- Fehlerbehandlung für `categories_reorder` verbessert.
+- cURL-Ressourcenfreigabe in `notifyWebSocket` sichergestellt.
+
+### Korrekturen
+
+- `isHtmlContentType` gibt nun `false` für leeren Content-Type zurück.
 
 ## 4.2.27 - 2026-04-19
 
