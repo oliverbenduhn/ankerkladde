@@ -146,6 +146,10 @@ function notifyWebSocket(int $userId, string $action = 'settings_update'): void
     ];
 
     $ch = curl_init($wsUrl);
+    if ($ch === false) {
+        return;
+    }
+
     curl_setopt_array($ch, [
         CURLOPT_POST => true,
         CURLOPT_POSTFIELDS => json_encode($payload),
@@ -159,6 +163,7 @@ function notifyWebSocket(int $userId, string $action = 'settings_update'): void
     if ($result === false) {
         error_log('[WS] Settings notification failed: ' . curl_error($ch));
     }
+    curl_close($ch);
 }
 
 function wantsJsonResponse(): bool
