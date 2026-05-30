@@ -25,6 +25,7 @@ function getExtensionArchiveEntries(bool $isFirefox = false): array
         ['source' => 'theme-tokens.js', 'target' => 'theme-tokens.js'],
         ['source' => 'popup.js', 'target' => 'popup.js'],
         ['source' => 'background.js', 'target' => 'background.js'],
+        ['source' => 'content.js', 'target' => 'content.js'],
         ['source' => 'icon.png', 'target' => 'icon.png'],
         ['source' => 'icons/icon16.png', 'target' => 'icons/icon16.png'],
         ['source' => 'icons/icon32.png', 'target' => 'icons/icon32.png'],
