@@ -46,6 +46,7 @@
         var(--bg);
       color: var(--text-primary);
       font: 14px/1.45 var(--font-family);
+      animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     }
     body.is-busy { cursor: progress; }
     body.is-busy .btn,
@@ -170,7 +171,11 @@
       gap: 12px;
     }
     .tab-content { display: none; }
-    .tab-content.active { display: grid; gap: 12px; }
+    .tab-content.active {
+      display: grid;
+      gap: 12px;
+      animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
     .status {
       display: none;
       padding: 12px 14px;
@@ -178,16 +183,19 @@
       border: 1px solid var(--border);
       backdrop-filter: blur(10px);
       box-shadow: var(--overlay-shadow);
+      animation: popIn 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
     }
     .status.ok {
       display: block;
       background: var(--toast-success-bg);
       color: var(--toast-success-text);
+      border-color: rgba(80, 120, 60, 0.2);
     }
     .status.err {
       display: block;
       background: var(--toast-error-bg);
       color: var(--toast-error-text);
+      border-color: rgba(180, 60, 40, 0.2);
     }
     .card {
       padding: 14px;
@@ -196,6 +204,10 @@
       background: linear-gradient(180deg, var(--surface-strong), var(--surface));
       box-shadow: var(--overlay-shadow);
       backdrop-filter: blur(14px);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .card:hover {
+      box-shadow: 0 20px 48px rgba(64, 45, 24, 0.22);
     }
     details.card { padding: 0; overflow: hidden; }
     details summary {
@@ -226,6 +238,7 @@
       padding: 0 14px 14px;
       display: grid;
       gap: 12px;
+      animation: fadeIn 0.2s ease;
     }
     .setup-screen { display: none; }
     .setup-screen.visible { display: block; }
@@ -315,6 +328,7 @@
       transition: transform 0.16s ease, opacity 0.16s ease, box-shadow 0.16s ease;
     }
     .btn:hover { transform: translateY(-1px); }
+    .btn:active { transform: translateY(1px); }
     .btn.secondary {
       background: var(--surface);
       color: var(--text-primary);
@@ -379,6 +393,7 @@
       text-align: center;
       padding: 18px;
       color: var(--text-secondary);
+      transition: border-color 0.2s ease, background-color 0.2s ease;
     }
     .dropzone.dragover {
       border-color: var(--accent);
@@ -398,6 +413,7 @@
       background: var(--surface);
       display: grid;
       gap: 8px;
+      animation: popIn 0.2s ease;
     }
     .history-item strong {
       display: block;
@@ -424,6 +440,42 @@
       color: var(--text-muted);
       font-size: 0.74rem;
     }
+    
+    /* Magic Preview Panel */
+    .magic-preview-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 0.82rem;
+      animation: popIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .magic-preview-tag {
+      background: var(--tab-icon-chip-active);
+      color: var(--text-primary);
+      padding: 2px 6px;
+      border-radius: 6px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      border: 1px solid var(--accent);
+    }
+
+    /* Keyframes */
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    @keyframes slideIn {
+      from { transform: translateX(8px); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    @keyframes popIn {
+      from { transform: scale(0.95); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
   </style>
 </head>
 <body>
@@ -436,6 +488,8 @@
     <symbol id="i-home" viewBox="0 0 24 24"><path d="m3 10.5 9-7 9 7"/><path d="M5 9.5V20h14V9.5"/></symbol>
     <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4"/><path d="m7 9 5-5 5 5"/><path d="M20 16.5v1.5A2 2 0 0 1 18 20H6a2 2 0 0 1-2-2v-1.5"/></symbol>
     <symbol id="i-repeat" viewBox="0 0 24 24"><path d="M17 2v4h-4"/><path d="M7 22v-4h4"/><path d="M20 11a8 8 0 0 0-13.7-5.3L3 9"/><path d="M4 13a8 8 0 0 0 13.7 5.3L21 15"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></symbol>
   </svg>
 
   <div class="shell">
@@ -460,6 +514,14 @@
     </header>
 
     <div id="status" class="status"></div>
+
+    <!-- Offline Queue Banner -->
+    <div id="offlineBanner" style="display: none; background: rgba(240, 173, 78, 0.14); color: #7e5a1b; border: 1px solid rgba(224, 200, 156, 0.4); padding: 12px 14px; border-radius: 18px; backdrop-filter: blur(10px); box-shadow: var(--overlay-shadow); animation: popIn 0.25s ease;">
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+        <span style="font-weight: 600; font-size: 0.84rem;" id="offlineBannerText">Einträge offline gesichert.</span>
+        <button class="btn small" id="syncOfflineBtn" type="button" style="width: auto; min-height: auto; padding: 6px 12px; font-size: 0.8rem; box-shadow: none;">Sync</button>
+      </div>
+    </div>
 
     <div id="setupScreen" class="setup-screen visible">
       <section class="card setup-card">
@@ -495,6 +557,33 @@
 
     <div class="content">
       <div id="tab-save" class="tab-content active">
+        <!-- AI Magic Bar Card -->
+        <section class="card">
+          <div class="row">
+            <label for="magicInput" style="display: flex; align-items: center; gap: 6px;">
+              <svg class="icon" style="color: var(--accent);"><use href="#i-wand"></use></svg>
+              <span>AI Magic Bar (KI-Schnelleingabe)</span>
+            </label>
+            <div class="row-with-btn">
+              <input type="text" id="magicInput" placeholder="Rezepte, Listen oder Einkäufe hineinschreiben...">
+              <button class="btn small" id="magicSubmitBtn" type="button" style="width: auto; padding: 10px 14px;" title="KI Analysieren">
+                <svg class="icon" style="width: 16px; height: 16px;"><use href="#i-wand"></use></svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- AI Magic Preview Panel -->
+          <div id="magicPreviewPanel" style="display: none; margin-top: 12px; padding: 12px; border-radius: 14px; background: var(--done-bg); border: 1px solid var(--border); display: none; flex-direction: column; gap: 10px;">
+            <strong style="font-size: 0.88rem; color: var(--text-primary); display: block;">Erkannte Einträge:</strong>
+            <div id="magicPreviewList" style="display: grid; gap: 6px; max-height: 180px; overflow-y: auto;"></div>
+            <div style="display: flex; gap: 8px; margin-top: 8px;">
+              <button class="btn small" id="magicConfirmBtn" type="button" style="flex: 1; box-shadow: none;">Bestätigen</button>
+              <button class="btn small secondary" id="magicCancelBtn" type="button" style="flex: 1; box-shadow: none;">Verwerfen</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- Save Form Card -->
         <section class="card">
           <div class="row">
             <label for="section">Kategorie</label>
@@ -536,7 +625,7 @@
             </div>
           </div>
 
-          <div class="hero-actions">
+          <div class="hero-actions" style="margin-top: 10px;">
             <button class="btn" id="saveManualBtn" type="button">
               <span class="btn-content">
                 <span class="btn-icon-wrap"><svg class="icon"><use href="#i-save"></use></svg></span>
@@ -553,6 +642,16 @@
                 <span class="btn-copy">
                   <span class="btn-title">Aktuelle Seite speichern</span>
                   <span class="btn-subtitle">Titel oder URL automatisch übernehmen</span>
+                </span>
+              </span>
+            </button>
+            
+            <button class="btn secondary" id="clipPageBtn" type="button">
+              <span class="btn-content">
+                <span class="btn-icon-wrap"><svg class="icon"><use href="#i-copy"></use></svg></span>
+                <span class="btn-copy">
+                  <span class="btn-title">Artikel sauber clippen</span>
+                  <span class="btn-subtitle">Werbefreien Haupttext als Notiz speichern</span>
                 </span>
               </span>
             </button>
@@ -665,6 +764,17 @@
               <select id="defaultFilesCategory">
                 <option value="">Automatisch</option>
               </select>
+            </div>
+          </div>
+        </details>
+        
+        <!-- Manual Offline Queue Management in Setup -->
+        <details class="card" id="offlineQueueDetails">
+          <summary>Hintergrund-Synchronisierung</summary>
+          <div class="card-body">
+            <p class="hint">Hier kannst du deine offline gespeicherten Einträge manuell verwalten.</p>
+            <div id="offlineQueueList" style="display: grid; gap: 8px;">
+              <p class="hint">Keine ausstehenden Offline-Einträge.</p>
             </div>
           </div>
         </details>

@@ -1,3 +1,5 @@
+// popup.js: UI Logic for Ankerkladde Browser Extension (v5.0)
+
 const DEFAULT_API_URL = 'https://ankerkladde.benduhn.de';
 
 const THEME_FALLBACK = {
@@ -39,6 +41,7 @@ const state = {
   defaults: {},
   recentSaves: [],
   theme: 'hafenblau',
+  magicPreviewItems: [],
 };
 
 const DEFAULT_CATEGORY_KEYS = {
@@ -358,6 +361,7 @@ async function loadSettings() {
   
   populateCategorySelect();
   renderRecentSaves();
+  updateOfflineBanner();
 }
 
 async function saveSettings() {
@@ -444,6 +448,9 @@ async function verifyKey() {
 
     setStatus('API-Key funktioniert!', 'ok');
     populateCategorySelect();
+    
+    // Notify Background Service Worker to update Context Menus
+    chrome.runtime.sendMessage({ action: 'update-context-menus', categories: state.categories });
   } catch (error) {
     setStatus('Server nicht erreichbar oder URL nicht erlaubt.', 'err');
   } finally {
@@ -476,6 +483,9 @@ async function loadCategories() {
     applyTheme(effectiveTheme);
 
     populateCategorySelect();
+    
+    // Re-build Context Menus dynamically
+    chrome.runtime.sendMessage({ action: 'update-context-menus', categories: state.categories });
   } catch (error) {
     console.error('Kategorien konnten nicht geladen werden:', error);
     setStatus(error.message || 'Kategorien konnten nicht geladen werden.', 'err');
@@ -484,7 +494,8 @@ async function loadCategories() {
 
 function clearManualFields() {
   ['name', 'content', 'quantity', 'dueDate', 'fileInput'].forEach(id => {
-    document.getElementById(id).value = '';
+    const el = document.getElementById(id);
+    if (el) el.value = '';
   });
 }
 
@@ -584,79 +595,54 @@ async function repeatRecentSave(entry) {
     return;
   }
 
+  const title = getTabTitle();
+  const url = getTabUrl();
+
+  if (entry.actionType === 'link') {
+    await addItem(category, { name: url, content: '', quantity: '', dueDate: '' });
+  } else if (entry.actionType === 'note') {
+    await addItem(category, { name: title, content: url, quantity: '', dueDate: '' });
+  } else {
+    await addItem(category, { name: title, content: '', quantity: '', dueDate: '' });
+  }
+}
+
+async function addItem(category, values) {
   setBusy(true);
   try {
-    const title = getTabTitle();
-    const url = getTabUrl();
+    const response = await new Promise(resolve => {
+      chrome.runtime.sendMessage({
+        action: 'save-item',
+        category: category,
+        values: values
+      }, resolve);
+    });
 
-    if (entry.actionType === 'link') {
-      await addItem(category, { name: url, content: '', quantity: '', dueDate: '' });
-      setStatus('Link erneut gespeichert.', 'ok');
-    } else if (entry.actionType === 'note') {
-      await addItem(category, { name: title, content: url, quantity: '', dueDate: '' });
-      setStatus('Notiz erneut gespeichert.', 'ok');
-    } else {
-      await addItem(category, { name: title, content: '', quantity: '', dueDate: '' });
-      setStatus('Eintrag erneut gespeichert.', 'ok');
+    if (!response || !response.success) {
+      throw new Error(response?.error || 'Verbindung zum Ankerkladde-Server fehlgeschlagen.');
     }
+
+    if (response.offline) {
+      setStatus('Offline gesichert — wird automatisch synchronisiert.', 'ok');
+    } else {
+      setStatus('Eintrag gespeichert.', 'ok');
+      await recordRecentSave({
+        kind: category.type === 'links' ? 'Link' : category.type === 'notes' ? 'Notiz' : 'Eintrag',
+        actionType: category.type === 'links' ? 'link' : category.type === 'notes' ? 'note' : 'item',
+        title: values.name,
+        categoryId: category.id,
+        categoryName: category.name,
+      });
+    }
+
+    clearManualFields();
+    applyCurrentTabDefaults();
+    updateOfflineBanner();
   } catch (error) {
     setStatus(error.message, 'err');
   } finally {
     setBusy(false);
   }
-}
-
-async function addItem(category, values) {
-  const normalizedName = category.type === 'links' ? normalizeUrl(values.name) : values.name;
-
-  if (category.type === 'links') {
-    const duplicate = await findDuplicateLink(normalizedName, category.id);
-    if (duplicate) {
-      throw new Error('Link ist in dieser Kategorie bereits vorhanden.');
-    }
-  }
-
-  const formData = new FormData();
-  formData.append('name', normalizedName);
-  formData.append('category_id', String(category.id));
-
-  if (values.content) {
-    formData.append('content', values.content);
-  }
-  if (values.quantity) {
-    formData.append('quantity', values.quantity);
-  }
-  if (values.dueDate) {
-    formData.append('due_date', values.dueDate);
-  }
-
-  await requestJson(`${state.apiUrl}/api.php?action=add`, {
-    method: 'POST',
-    body: formData,
-  });
-
-  await rememberLastCategory(category.id);
-  await recordRecentSave({
-    kind: category.type === 'links' ? 'Link' : category.type === 'notes' ? 'Notiz' : 'Eintrag',
-    actionType: category.type === 'links' ? 'link' : category.type === 'notes' ? 'note' : 'item',
-    title: normalizedName,
-    categoryId: category.id,
-    categoryName: category.name,
-  });
-}
-
-async function findDuplicateLink(url, categoryId) {
-  const normalizedUrl = String(url || '').trim();
-  if (normalizedUrl.length < 8) {
-    return null;
-  }
-
-  const payload = await requestJson(`${state.apiUrl}/api.php?action=search&q=${encodeURIComponent(normalizedUrl)}`);
-  const items = Array.isArray(payload.items) ? payload.items : [];
-  return items.find(item =>
-    Number(item.category_id) === Number(categoryId) &&
-    String(item.name || '').trim() === normalizedUrl
-  ) || null;
 }
 
 async function uploadFiles(category, files) {
@@ -715,6 +701,8 @@ async function saveManual() {
     if (isFileCategory) {
       await uploadFiles(category, files);
       setStatus(files.length === 1 ? 'Datei gespeichert.' : `${files.length} Dateien gespeichert.`, 'ok');
+      clearManualFields();
+      applyCurrentTabDefaults();
     } else {
       await addItem(category, {
         name: name || content.slice(0, 120),
@@ -722,11 +710,7 @@ async function saveManual() {
         quantity: isShoppingCategory ? quantity.slice(0, 40) : '',
         dueDate: isTodoCategory ? dueDate : '',
       });
-      setStatus('Eintrag gespeichert.', 'ok');
     }
-
-    clearManualFields();
-    applyCurrentTabDefaults();
   } catch (error) {
     setStatus(error.message, 'err');
   } finally {
@@ -746,25 +730,16 @@ async function saveCurrentPage() {
     return;
   }
 
-  setBusy(true);
-  try {
-    const title = getTabTitle();
-    const isLinksCategory = category.type === 'links';
-    const isNotesCategory = category.type === 'notes';
+  const title = getTabTitle();
+  const isLinksCategory = category.type === 'links';
+  const isNotesCategory = category.type === 'notes';
 
-    await addItem(category, {
-      name: isNotesCategory ? title : (isLinksCategory ? getTabUrl() : title),
-      content: isNotesCategory ? getTabUrl() : '',
-      quantity: '',
-      dueDate: '',
-    });
-
-    setStatus('Seite gespeichert.', 'ok');
-  } catch (error) {
-    setStatus(error.message, 'err');
-  } finally {
-    setBusy(false);
-  }
+  await addItem(category, {
+    name: isNotesCategory ? title : (isLinksCategory ? getTabUrl() : title),
+    content: isNotesCategory ? getTabUrl() : '',
+    quantity: '',
+    dueDate: '',
+  });
 }
 
 async function quickSaveToCategory(category) {
@@ -778,30 +753,257 @@ async function quickSaveToCategory(category) {
     return;
   }
 
-  setBusy(true);
-  try {
-    const title = getTabTitle();
-    const url = getTabUrl();
+  const title = getTabTitle();
+  const url = getTabUrl();
 
-    if (category.type === 'links') {
-      await addItem(category, { name: url, content: '', quantity: '', dueDate: '' });
-      setStatus('Link gespeichert.', 'ok');
-    } else if (category.type === 'notes') {
-      await addItem(category, { name: title, content: url, quantity: '', dueDate: '' });
-      setStatus('Notiz gespeichert.', 'ok');
-    } else {
-      await addItem(category, { name: title, content: '', quantity: '', dueDate: '' });
-      setStatus('Seite gespeichert.', 'ok');
+  if (category.type === 'links') {
+    await addItem(category, { name: url, content: '', quantity: '', dueDate: '' });
+  } else if (category.type === 'notes') {
+    await addItem(category, { name: title, content: url, quantity: '', dueDate: '' });
+  } else {
+    await addItem(category, { name: title, content: '', quantity: '', dueDate: '' });
+  }
+  
+  document.getElementById('section').value = String(category.id);
+  updateFieldVisibility();
+}
+
+// ── ARTICLE PAGE CLIPPER ──
+
+function clipPage() {
+  if (!state.currentTab || !state.currentTab.id) {
+    setStatus('Aktiver Tab steht nicht bereit.', 'err');
+    return;
+  }
+
+  setBusy(true);
+  chrome.tabs.sendMessage(state.currentTab.id, { action: 'clip-page' }, (response) => {
+    setBusy(false);
+    
+    if (chrome.runtime.lastError) {
+      setStatus('Clipping nicht möglich auf dieser Seite. Bitte Seite neu laden.', 'err');
+      return;
     }
 
-    document.getElementById('section').value = String(category.id);
-    updateFieldVisibility();
+    if (response && response.success) {
+      const notesCat = getVisibleCategoryByType('notes');
+      if (notesCat) {
+        document.getElementById('section').value = String(notesCat.id);
+        updateFieldVisibility();
+        document.getElementById('name').value = response.title;
+        document.getElementById('content').value = response.html;
+        setStatus('Hauptinhalt extrahiert und als Notiz eingefügt.', 'ok');
+      } else {
+        setStatus('Keine sichtbare Notiz-Kategorie zum Einfügen vorhanden.', 'err');
+      }
+    } else {
+      setStatus('Text-Extraktion fehlgeschlagen: ' + (response?.error || 'Unbekannter Fehler'), 'err');
+    }
+  });
+}
+
+// ── AI MAGIC BAR LOGIC ──
+
+async function submitMagicInput() {
+  const inputEl = document.getElementById('magicInput');
+  const userInput = inputEl.value.trim();
+  
+  if (!userInput) {
+    setStatus('Bitte Text in die AI Magic Bar eingeben.', 'err');
+    return;
+  }
+
+  setBusy(true);
+  try {
+    const payload = await requestJson(`${state.apiUrl}/public/ai.php`, {
+      method: 'POST',
+      body: JSON.stringify({
+        input: userInput,
+        mode: 'preview',
+        active_category_id: getSelectedCategory()?.id || 0
+      })
+    });
+
+    if (payload.success && Array.isArray(payload.items) && payload.items.length > 0) {
+      state.magicPreviewItems = payload.items;
+      renderMagicPreview(payload.items);
+      setStatus('KI-Vorschau geladen.', 'ok');
+    } else if (payload.success && payload.clarification) {
+      setStatus(`KI-Rückfrage: ${payload.clarification}`, 'err');
+    } else {
+      setStatus('Keine Einträge erkannt.', 'err');
+    }
   } catch (error) {
-    setStatus(error.message, 'err');
+    setStatus(error.message || 'KI-Anfrage fehlgeschlagen.', 'err');
   } finally {
     setBusy(false);
   }
 }
+
+function renderMagicPreview(items) {
+  const panel = document.getElementById('magicPreviewPanel');
+  const list = document.getElementById('magicPreviewList');
+  list.innerHTML = '';
+  
+  items.forEach(item => {
+    const div = document.createElement('div');
+    div.className = 'magic-preview-item';
+    
+    const nameSpan = document.createElement('span');
+    nameSpan.style.flex = '1';
+    nameSpan.style.fontWeight = '600';
+    nameSpan.textContent = item.name + (item.quantity ? ` (${item.quantity})` : '');
+    
+    const tag = document.createElement('span');
+    tag.className = 'magic-preview-tag';
+    tag.textContent = item.category_name || 'Eintrag';
+    
+    div.appendChild(nameSpan);
+    div.appendChild(tag);
+    list.appendChild(div);
+  });
+  
+  panel.style.display = 'flex';
+}
+
+async function confirmMagicInput() {
+  if (state.magicPreviewItems.length === 0) return;
+
+  setBusy(true);
+  try {
+    const payload = await requestJson(`${state.apiUrl}/public/ai.php`, {
+      method: 'POST',
+      body: JSON.stringify({
+        items: state.magicPreviewItems,
+        mode: 'confirm'
+      })
+    });
+
+    if (payload.success) {
+      setStatus(payload.toast_message || `${payload.added_count} Einträge hinzugefügt.`, 'ok');
+      document.getElementById('magicInput').value = '';
+      cancelMagicPreview();
+      
+      // Update recent history
+      for (const item of state.magicPreviewItems) {
+        await recordRecentSave({
+          kind: 'Magic Eintrag',
+          actionType: 'item',
+          title: item.name,
+          categoryId: item.category_id,
+          categoryName: item.category_name || 'Automatisch'
+        });
+      }
+    } else {
+      setStatus('Einträge konnten nicht bestätigt werden.', 'err');
+    }
+  } catch (error) {
+    setStatus(error.message || 'KI-Bestätigung fehlgeschlagen.', 'err');
+  } finally {
+    setBusy(false);
+  }
+}
+
+function cancelMagicPreview() {
+  state.magicPreviewItems = [];
+  document.getElementById('magicPreviewPanel').style.display = 'none';
+  document.getElementById('magicPreviewList').innerHTML = '';
+}
+
+// ── OFFLINE STATUS & CONTROL PANEL ──
+
+async function updateOfflineBanner() {
+  const result = await chrome.storage.local.get(['offlineQueue']);
+  const queue = Array.isArray(result.offlineQueue) ? result.offlineQueue : [];
+  const banner = document.getElementById('offlineBanner');
+  const bannerText = document.getElementById('offlineBannerText');
+
+  if (queue.length > 0) {
+    banner.style.display = 'block';
+    bannerText.textContent = `${queue.length} Aktionen offline gesichert.`;
+  } else {
+    banner.style.display = 'none';
+  }
+  
+  renderOfflineQueueDetails();
+}
+
+function renderOfflineQueueDetails() {
+  const list = document.getElementById('offlineQueueList');
+  if (!list) return;
+  
+  chrome.storage.local.get(['offlineQueue'], (result) => {
+    const queue = Array.isArray(result.offlineQueue) ? result.offlineQueue : [];
+    list.innerHTML = '';
+    
+    if (queue.length === 0) {
+      list.innerHTML = '<p class="hint">Keine ausstehenden Offline-Einträge.</p>';
+      return;
+    }
+    
+    queue.forEach(item => {
+      const div = document.createElement('div');
+      div.className = 'history-item';
+      div.style.gridTemplateColumns = '1fr auto';
+      div.style.display = 'grid';
+      div.style.alignItems = 'center';
+      
+      const textDiv = document.createElement('div');
+      const title = document.createElement('strong');
+      title.textContent = item.title;
+      const details = document.createElement('span');
+      details.className = 'hint';
+      details.textContent = `${item.kind} in ${item.categoryName}`;
+      textDiv.appendChild(title);
+      textDiv.appendChild(details);
+      
+      const deleteBtn = document.createElement('button');
+      deleteBtn.type = 'button';
+      deleteBtn.className = 'btn small secondary';
+      deleteBtn.style.padding = '6px';
+      deleteBtn.style.minHeight = 'auto';
+      deleteBtn.innerHTML = '<svg class="icon" style="width:16px; height:16px; margin:0;"><use href="#i-trash"></use></svg>';
+      deleteBtn.addEventListener('click', async () => {
+        await removeOfflineItem(item.id);
+      });
+      
+      div.appendChild(textDiv);
+      div.appendChild(deleteBtn);
+      list.appendChild(div);
+    });
+  });
+}
+
+async function removeOfflineItem(itemId) {
+  const result = await chrome.storage.local.get(['offlineQueue']);
+  const queue = Array.isArray(result.offlineQueue) ? result.offlineQueue : [];
+  const nextQueue = queue.filter(item => item.id !== itemId);
+  
+  await chrome.storage.local.set({ offlineQueue: nextQueue });
+  await updateOfflineBanner();
+  setStatus('Offline-Eintrag verworfen.', 'ok');
+}
+
+async function syncOfflineQueue() {
+  setBusy(true);
+  setStatus('Synchronisiere offline gespeicherte Einträge...', 'ok');
+  
+  chrome.runtime.sendMessage({ action: 'sync-offline-queue' }, async (response) => {
+    setBusy(false);
+    if (response && response.success) {
+      await updateOfflineBanner();
+      if (response.synced > 0) {
+        setStatus(`${response.synced} Einträge erfolgreich synchronisiert.`, 'ok');
+      } else {
+        setStatus('Keine Verbindung zum Server möglich.', 'err');
+      }
+    } else {
+      setStatus(response?.error || 'Synchronisierung fehlgeschlagen.', 'err');
+    }
+  });
+}
+
+// ── DROPZONE ENGNE ──
 
 async function uploadDroppedFile(file) {
   const targetType = file.type.startsWith('image/') ? 'images' : 'files';
@@ -850,6 +1052,8 @@ function setupDropzone() {
     }
   });
 }
+
+// ── APP EVENT BINDINGS ──
 
 document.getElementById('section').addEventListener('change', () => {
   updateFieldVisibility();
@@ -903,6 +1107,9 @@ document.getElementById('setupBtn')?.addEventListener('click', async () => {
       document.getElementById('tab-settings').classList.remove('active');
       populateCategorySelect();
       setStatus('Verbunden!', 'ok');
+      
+      // Notify Background script to setup Context Menus
+      chrome.runtime.sendMessage({ action: 'update-context-menus', categories: state.categories });
     } else {
       const payload = await response.json().catch(() => ({}));
       setStatus(payload.error || 'Verbindung fehlgeschlagen.', 'err');
@@ -938,6 +1145,23 @@ document.getElementById('savePageBtn').addEventListener('click', async () => {
   await saveSettings();
   await saveCurrentPage();
 });
+document.getElementById('clipPageBtn').addEventListener('click', () => {
+  clipPage();
+});
+
+// AI Magic Bar bindings
+document.getElementById('magicSubmitBtn').addEventListener('click', submitMagicInput);
+document.getElementById('magicInput').addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    void submitMagicInput();
+  }
+});
+document.getElementById('magicConfirmBtn').addEventListener('click', confirmMagicInput);
+document.getElementById('magicCancelBtn').addEventListener('click', cancelMagicPreview);
+
+// Offline sync bindings
+document.getElementById('syncOfflineBtn').addEventListener('click', syncOfflineQueue);
 
 ['apiUrlEdit', 'apiKeyEdit'].forEach(id => {
   const el = document.getElementById(id);
@@ -972,6 +1196,11 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.classList.add('active');
     const content = document.getElementById('tab-' + btn.dataset.tab);
     if (content) content.classList.add('active');
+    
+    // Rerender Offline details in Settings if clicked
+    if (btn.dataset.tab === 'settings') {
+      renderOfflineQueueDetails();
+    }
   });
 });
 

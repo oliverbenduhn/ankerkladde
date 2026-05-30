@@ -1,3 +1,5 @@
+// background.js: Background Service Worker for Ankerkladde Browser Extension (v5.0)
+
 const DEFAULT_API_URL = 'https://ankerkladde.benduhn.de';
 
 const MENU_IDS = {
@@ -13,6 +15,9 @@ const FILE_EXTENSIONS = /\.(pdf|zip|mp3|mp4|m4a|ogg|wav|flac|webm|avi|mov|mkv|do
 chrome.runtime.onInstalled.addListener(() => {
   chrome.runtime.setUninstallURL('https://ankerkladde.benduhn.de');
   createContextMenus();
+  
+  // Set up periodic sync alarm (every 3 minutes)
+  chrome.alarms.create('offline-sync-alarm', { periodInMinutes: 3 });
 });
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {
@@ -22,6 +27,26 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 chrome.commands.onCommand.addListener(command => {
   if (command === 'save-current-page') {
     void saveCurrentPageFromActiveTab();
+  }
+});
+
+chrome.alarms.onAlarm.addListener(alarm => {
+  if (alarm.name === 'offline-sync-alarm') {
+    void triggerOfflineSync();
+  }
+});
+
+// Communication from popup.js
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === 'update-context-menus') {
+    updateDynamicContextMenus(message.categories);
+    sendResponse({ success: true });
+  } else if (message.action === 'sync-offline-queue') {
+    triggerOfflineSync().then(result => sendResponse(result));
+    return true; // Keep message channel open for async response
+  } else if (message.action === 'save-item') {
+    handleSaveItemMessage(message.category, message.values).then(result => sendResponse(result));
+    return true;
   }
 });
 
@@ -52,6 +77,38 @@ function createContextMenus() {
       title: 'Datei zu Ankerkladde speichern',
       contexts: ['link'],
     });
+  });
+}
+
+function updateDynamicContextMenus(categories) {
+  chrome.contextMenus.removeAll(() => {
+    const parentId = 'ankerkladde-parent';
+    
+    // Parent context menu
+    chrome.contextMenus.create({
+      id: parentId,
+      title: 'Zu Ankerkladde speichern...',
+      contexts: ['all']
+    });
+
+    const visibleCategories = Array.isArray(categories)
+      ? categories.filter(category => Number(category.is_hidden) !== 1)
+      : [];
+
+    if (visibleCategories.length > 0) {
+      visibleCategories.forEach(cat => {
+        const icon = cat.icon ? `${cat.icon} ` : '';
+        chrome.contextMenus.create({
+          id: `ankerkladde-cat-${cat.id}`,
+          parentId: parentId,
+          title: `${icon}${cat.name}`,
+          contexts: ['all']
+        });
+      });
+    } else {
+      // Fallback
+      createContextMenus();
+    }
   });
 }
 
@@ -278,11 +335,130 @@ async function uploadRemoteFile(apiUrl, apiKey, categoryId, url, fallbackName) {
   });
 }
 
+// ── OFFLINE STORAGE SYNC ENGINE ──
+
+function isNetworkError(error) {
+  return error instanceof TypeError || (error.message && (
+    error.message.includes('fetch') ||
+    error.message.includes('Network') ||
+    error.message.includes('Failed') ||
+    error.message.includes('Failed to fetch') ||
+    error.message.includes('HTTP 502') ||
+    error.message.includes('HTTP 503') ||
+    error.message.includes('HTTP 504')
+  ));
+}
+
+async function enqueueOfflineItem(item) {
+  const result = await chrome.storage.local.get(['offlineQueue']);
+  const queue = Array.isArray(result.offlineQueue) ? result.offlineQueue : [];
+  
+  // Prevent duplicate additions in the queue
+  if (queue.some(q => q.type === item.type && q.categoryId === item.categoryId && q.title === item.title)) {
+    return;
+  }
+
+  queue.push({
+    ...item,
+    id: Math.random().toString(36).substring(2),
+    at: new Date().toISOString()
+  });
+  
+  await chrome.storage.local.set({ offlineQueue: queue });
+  notify('Offline gesichert', `"${item.title}" wird synchronisiert, sobald eine Verbindung besteht.`);
+}
+
+async function triggerOfflineSync() {
+  const result = await chrome.storage.local.get(['offlineQueue']);
+  const queue = Array.isArray(result.offlineQueue) ? result.offlineQueue : [];
+  if (queue.length === 0) return { success: true, synced: 0 };
+
+  const { apiUrl, apiKey, defaults, recentSaves } = await getSettings();
+  if (!apiKey || !apiUrl) return { success: false, error: 'Keine Verbindung konfiguriert.' };
+
+  const context = { apiUrl, apiKey, defaults, recentSaves };
+  const failed = [];
+  let syncedCount = 0;
+
+  for (const item of queue) {
+    try {
+      if (item.type === 'add') {
+        await addItem(apiUrl, apiKey, item.categoryId, item.values);
+      } else if (item.type === 'upload_remote') {
+        await uploadRemoteFile(apiUrl, apiKey, item.categoryId, item.url, item.filename);
+      }
+      syncedCount++;
+      
+      await recordRecentSave(context, {
+        kind: item.kind,
+        actionType: item.actionType,
+        title: item.title,
+        categoryId: item.categoryId,
+        categoryName: item.categoryName
+      });
+    } catch (error) {
+      if (isNetworkError(error)) {
+        failed.push(item);
+      } else {
+        // Validation / duplicate link errors: notify and drop
+        notify('Synchronisierungsfehler', `"${item.title}" verworfen: ${error.message}`);
+      }
+    }
+  }
+
+  await chrome.storage.local.set({ offlineQueue: failed });
+  
+  if (syncedCount > 0) {
+    notify('Synchronisierung abgeschlossen', `${syncedCount} Eintrag/Einträge erfolgreich synchronisiert.`);
+  }
+
+  return { success: true, synced: syncedCount, remaining: failed.length };
+}
+
+async function handleSaveItemMessage(category, values) {
+  const { apiUrl, apiKey, defaults, recentSaves } = await getSettings();
+  const context = { apiUrl, apiKey, defaults, recentSaves };
+  
+  try {
+    await addItem(apiUrl, apiKey, category.id, values);
+    return { success: true };
+  } catch (error) {
+    if (isNetworkError(error)) {
+      await enqueueOfflineItem({
+        type: 'add',
+        categoryId: category.id,
+        categoryName: category.name,
+        values: values,
+        title: values.name,
+        kind: category.type === 'links' ? 'Link' : category.type === 'notes' ? 'Notiz' : 'Eintrag',
+        actionType: category.type === 'links' ? 'link' : category.type === 'notes' ? 'note' : 'item'
+      });
+      return { success: true, offline: true };
+    }
+    return { success: false, error: error.message };
+  }
+}
+
+// ── DYNAMIC CONTEXT MENUS & CLICKS ──
+
 async function handleContextMenuClick(info, tab) {
   try {
     const context = await loadContext();
     context.preferences = { ...context.preferences, __defaults: context.defaults };
 
+    let category = null;
+
+    if (String(info.menuItemId).startsWith('ankerkladde-cat-')) {
+      const targetCategoryId = Number(info.menuItemId.replace('ankerkladde-cat-', ''));
+      category = context.categories.find(c => Number(c.id) === targetCategoryId);
+    }
+
+    if (category) {
+      await saveContentToSpecificCategory(context, category, info, tab);
+      return;
+    }
+
+    // Fallbacks for standard static context menus
     if (info.menuItemId === MENU_IDS.savePage) {
       await saveCurrentPage(context, tab);
       await recordRecentSave(context, {
@@ -297,33 +473,96 @@ async function handleContextMenuClick(info, tab) {
     }
 
     if (info.menuItemId === MENU_IDS.saveLink) {
-      const category = chooseCategory(context.visibleCategories, context.preferences, 'links');
-      if (!category || !info.linkUrl) {
-        throw new Error('Keine sichtbare Link-Kategorie vorhanden.');
-      }
+      const cat = chooseCategory(context.visibleCategories, context.preferences, 'links');
+      if (!cat || !info.linkUrl) throw new Error('Keine sichtbare Link-Kategorie vorhanden.');
 
-      await addItem(context.apiUrl, context.apiKey, category.id, {
-        name: normalizeUrl(info.linkUrl),
-        content: '',
-      });
-      await rememberLastCategory(context.apiUrl, context.apiKey, category.id);
+      await addItem(context.apiUrl, context.apiKey, cat.id, { name: normalizeUrl(info.linkUrl), content: '' });
+      await rememberLastCategory(context.apiUrl, context.apiKey, cat.id);
       await recordRecentSave(context, {
         kind: 'Link',
         actionType: 'link',
         title: normalizeUrl(info.linkUrl),
-        categoryId: category.id,
-        categoryName: category.name,
+        categoryId: cat.id,
+        categoryName: cat.name,
       });
       notify('Ankerkladde', 'Link gespeichert.');
       return;
     }
 
     if (info.menuItemId === MENU_IDS.saveImage) {
-      const category = chooseCategory(context.visibleCategories, context.preferences, 'images');
-      if (!category || !info.srcUrl) {
-        throw new Error('Keine sichtbare Bilder-Kategorie vorhanden.');
-      }
+      const cat = chooseCategory(context.visibleCategories, context.preferences, 'images');
+      if (!cat || !info.srcUrl) throw new Error('Keine sichtbare Bilder-Kategorie vorhanden.');
 
+      await uploadRemoteFile(context.apiUrl, context.apiKey, cat.id, info.srcUrl, 'bild');
+      await rememberLastCategory(context.apiUrl, context.apiKey, cat.id);
+      await recordRecentSave(context, {
+        kind: 'Bild',
+        actionType: 'image',
+        title: 'Bild aus Browser',
+        categoryId: cat.id,
+        categoryName: cat.name,
+      });
+      notify('Ankerkladde', 'Bild gespeichert.');
+      return;
+    }
+
+    if (info.menuItemId === MENU_IDS.saveSelection) {
+      const cat = chooseCategory(context.visibleCategories, context.preferences, 'notes');
+      if (!cat || !info.selectionText) throw new Error('Keine sichtbare Notiz-Kategorie vorhanden.');
+
+      const pageUrl = tab?.url || '';
+      const normalizedPageUrl = normalizeUrl(pageUrl);
+      const selectionText = fixEncoding(info.selectionText);
+      const content = normalizedPageUrl ? `${selectionText}\n\nQuelle: ${normalizedPageUrl}` : selectionText;
+      const noteTitle = (tab?.title || 'Markierter Text').slice(0, 120);
+      
+      await addItem(context.apiUrl, context.apiKey, cat.id, { name: noteTitle, content });
+      await rememberLastCategory(context.apiUrl, context.apiKey, cat.id);
+      await recordRecentSave(context, {
+        kind: 'Notiz',
+        actionType: 'note',
+        title: noteTitle,
+        categoryId: cat.id,
+        categoryName: cat.name,
+      });
+      notify('Ankerkladde', 'Notiz gespeichert.');
+      return;
+    }
+
+    if (info.menuItemId === MENU_IDS.saveFile) {
+      const cat = chooseCategory(context.visibleCategories, context.preferences, 'files');
+      if (!cat || !info.linkUrl) throw new Error('Keine sichtbare Datei-Kategorie vorhanden.');
+
+      let filename = 'datei';
+      try {
+        const parsed = new URL(info.linkUrl);
+        const last = parsed.pathname.split('/').pop();
+        if (last) filename = decodeURIComponent(last).slice(0, 120);
+      } catch {}
+
+      await uploadRemoteFile(context.apiUrl, context.apiKey, cat.id, info.linkUrl, filename);
+      await rememberLastCategory(context.apiUrl, context.apiKey, cat.id);
+      await recordRecentSave(context, {
+        kind: 'Datei',
+        actionType: 'file',
+        title: filename,
+        categoryId: cat.id,
+        categoryName: cat.name,
+      });
+      notify('Ankerkladde', 'Datei gespeichert.');
+    }
+  } catch (error) {
+    console.error('Kontextmenü-Aktion fehlgeschlagen:', error);
+    notify('Ankerkladde Fehler', error instanceof Error ? error.message : 'Speichern fehlgeschlagen.');
+  }
+}
+
+async function saveContentToSpecificCategory(context, category, info, tab) {
+  const title = fixEncoding(tab?.title || 'Eintrag aus Browser').slice(0, 120);
+  const url = normalizeUrl(tab?.url || '');
+
+  try {
+    if (category.type === 'images' && info.srcUrl) {
       await uploadRemoteFile(context.apiUrl, context.apiKey, category.id, info.srcUrl, 'bild');
       await rememberLastCategory(context.apiUrl, context.apiKey, category.id);
       await recordRecentSave(context, {
@@ -333,49 +572,17 @@ async function handleContextMenuClick(info, tab) {
         categoryId: category.id,
         categoryName: category.name,
       });
-      notify('Ankerkladde', 'Bild gespeichert.');
+      notify('Ankerkladde', `Bild in "${category.name}" gespeichert.`);
       return;
     }
 
-    if (info.menuItemId === MENU_IDS.saveSelection) {
-      const category = chooseCategory(context.visibleCategories, context.preferences, 'notes');
-      if (!category || !info.selectionText) {
-        throw new Error('Keine sichtbare Notiz-Kategorie vorhanden.');
-      }
-
-      const pageUrl = tab?.url || '';
-      const normalizedPageUrl = normalizeUrl(pageUrl);
-      const selectionText = fixEncoding(info.selectionText);
-      const content = normalizedPageUrl ? `${selectionText}\n\nQuelle: ${normalizedPageUrl}` : selectionText;
-      await addItem(context.apiUrl, context.apiKey, category.id, {
-        name: fixEncoding(tab?.title || 'Markierter Text').slice(0, 120),
-        content,
-      });
-      await rememberLastCategory(context.apiUrl, context.apiKey, category.id);
-      await recordRecentSave(context, {
-        kind: 'Notiz',
-        actionType: 'note',
-        title: (tab?.title || 'Markierter Text').slice(0, 120),
-        categoryId: category.id,
-        categoryName: category.name,
-      });
-      notify('Ankerkladde', 'Notiz gespeichert.');
-      return;
-    }
-
-    if (info.menuItemId === MENU_IDS.saveFile) {
-      const category = chooseCategory(context.visibleCategories, context.preferences, 'files');
-      if (!category || !info.linkUrl) {
-        throw new Error('Keine sichtbare Datei-Kategorie vorhanden.');
-      }
-
+    if (category.type === 'files' && info.linkUrl) {
       let filename = 'datei';
       try {
         const parsed = new URL(info.linkUrl);
         const last = parsed.pathname.split('/').pop();
         if (last) filename = decodeURIComponent(last).slice(0, 120);
       } catch {}
-
       await uploadRemoteFile(context.apiUrl, context.apiKey, category.id, info.linkUrl, filename);
       await rememberLastCategory(context.apiUrl, context.apiKey, category.id);
       await recordRecentSave(context, {
@@ -385,11 +592,87 @@ async function handleContextMenuClick(info, tab) {
         categoryId: category.id,
         categoryName: category.name,
       });
-      notify('Ankerkladde', 'Datei gespeichert.');
+      notify('Ankerkladde', `Datei in "${category.name}" gespeichert.`);
+      return;
     }
+
+    if (category.type === 'links') {
+      const targetUrl = info.linkUrl || info.pageUrl || url;
+      await addItem(context.apiUrl, context.apiKey, category.id, {
+        name: normalizeUrl(targetUrl),
+        content: '',
+      });
+      await rememberLastCategory(context.apiUrl, context.apiKey, category.id);
+      await recordRecentSave(context, {
+        kind: 'Link',
+        actionType: 'link',
+        title: normalizeUrl(targetUrl),
+        categoryId: category.id,
+        categoryName: category.name,
+      });
+      notify('Ankerkladde', `Link in "${category.name}" gespeichert.`);
+      return;
+    }
+
+    if (category.type === 'notes') {
+      const pageUrl = info.pageUrl || url;
+      const selectionText = info.selectionText ? fixEncoding(info.selectionText) : '';
+      const content = pageUrl ? (selectionText ? `${selectionText}\n\nQuelle: ${pageUrl}` : pageUrl) : selectionText;
+      const noteName = info.selectionText ? (fixEncoding(info.selectionText).slice(0, 30) + '...') : title;
+      
+      await addItem(context.apiUrl, context.apiKey, category.id, {
+        name: noteName,
+        content: content,
+      });
+      await rememberLastCategory(context.apiUrl, context.apiKey, category.id);
+      await recordRecentSave(context, {
+        kind: 'Notiz',
+        actionType: 'note',
+        title: noteName,
+        categoryId: category.id,
+        categoryName: category.name,
+      });
+      notify('Ankerkladde', `Notiz in "${category.name}" gespeichert.`);
+      return;
+    }
+
+    // Default lists (shopping, todo)
+    const itemName = info.selectionText ? fixEncoding(info.selectionText).slice(0, 120) : title;
+    await addItem(context.apiUrl, context.apiKey, category.id, {
+      name: itemName,
+      content: '',
+    });
+    await rememberLastCategory(context.apiUrl, context.apiKey, category.id);
+    await recordRecentSave(context, {
+      kind: 'Eintrag',
+      actionType: 'item',
+      title: itemName,
+      categoryId: category.id,
+      categoryName: category.name,
+    });
+    notify('Ankerkladde', `Eintrag in "${category.name}" gespeichert.`);
   } catch (error) {
-    console.error('Kontextmenü-Aktion fehlgeschlagen:', error);
-    notify('Ankerkladde', error instanceof Error ? error.message : 'Speichern fehlgeschlagen.');
+    if (isNetworkError(error)) {
+      const targetUrl = info.linkUrl || info.srcUrl || info.pageUrl || url;
+      const itemName = info.selectionText ? fixEncoding(info.selectionText).slice(0, 120) : title;
+      
+      await enqueueOfflineItem({
+        type: category.type === 'images' || category.type === 'files' ? 'upload_remote' : 'add',
+        categoryId: category.id,
+        categoryName: category.name,
+        url: targetUrl,
+        filename: 'bild_datei',
+        values: {
+          name: category.type === 'links' ? normalizeUrl(targetUrl) : itemName,
+          content: category.type === 'notes' ? (info.selectionText ? `${fixEncoding(info.selectionText)}\n\nQuelle: ${targetUrl}` : targetUrl) : ''
+        },
+        title: category.type === 'links' ? normalizeUrl(targetUrl) : itemName,
+        kind: category.type === 'links' ? 'Link' : category.type === 'notes' ? 'Notiz' : 'Eintrag',
+        actionType: category.type === 'links' ? 'link' : category.type === 'notes' ? 'note' : 'item'
+      });
+    } else {
+      throw error;
+    }
   }
 }
 
@@ -408,11 +691,30 @@ async function saveCurrentPage(context, tab) {
   const isNotesCategory = category.type === 'notes';
   const isLinksCategory = category.type === 'links';
 
-  await addItem(context.apiUrl, context.apiKey, category.id, {
-    name: isNotesCategory ? title : (isLinksCategory ? normalizeUrl(targetTab.url) : title),
-    content: isNotesCategory ? normalizeUrl(targetTab.url) : '',
-  });
-  await rememberLastCategory(context.apiUrl, context.apiKey, category.id);
+  try {
+    await addItem(context.apiUrl, context.apiKey, category.id, {
+      name: isNotesCategory ? title : (isLinksCategory ? normalizeUrl(targetTab.url) : title),
+      content: isNotesCategory ? normalizeUrl(targetTab.url) : '',
+    });
+    await rememberLastCategory(context.apiUrl, context.apiKey, category.id);
+  } catch (error) {
+    if (isNetworkError(error)) {
+      await enqueueOfflineItem({
+        type: 'add',
+        categoryId: category.id,
+        categoryName: category.name,
+        values: {
+          name: isNotesCategory ? title : (isLinksCategory ? normalizeUrl(targetTab.url) : title),
+          content: isNotesCategory ? normalizeUrl(targetTab.url) : '',
+        },
+        title: title,
+        kind: 'Seite',
+        actionType: 'page'
+      });
+    } else {
+      throw error;
+    }
+  }
 }
 
 async function saveCurrentPageFromActiveTab() {
@@ -420,17 +722,100 @@ async function saveCurrentPageFromActiveTab() {
     const context = await loadContext();
     context.preferences = { ...context.preferences, __defaults: context.defaults };
     const targetCategory = chooseCategory(context.visibleCategories, context.preferences, null);
+    
     await saveCurrentPage(context, null);
-    await recordRecentSave(context, {
-      kind: 'Seite',
-      actionType: 'page',
-      title: 'Aktuelle Seite',
-      categoryId: targetCategory?.id || null,
-      categoryName: targetCategory?.name || '',
-    });
-    notify('Ankerkladde', 'Seite gespeichert.');
+    
+    const result = await chrome.storage.local.get(['offlineQueue']);
+    const isOffline = Array.isArray(result.offlineQueue) && result.offlineQueue.some(q => q.title === 'Aktuelle Seite');
+    
+    if (!isOffline) {
+      await recordRecentSave(context, {
+        kind: 'Seite',
+        actionType: 'page',
+        title: 'Aktuelle Seite',
+        categoryId: targetCategory?.id || null,
+        categoryName: targetCategory?.name || '',
+      });
+      notify('Ankerkladde', 'Seite gespeichert.');
+    }
   } catch (error) {
     console.error('Shortcut-Speicherung fehlgeschlagen:', error);
-    notify('Ankerkladde', error instanceof Error ? error.message : 'Speichern fehlgeschlagen.');
+    notify('Ankerkladde Fehler', error instanceof Error ? error.message : 'Speichern fehlgeschlagen.');
   }
+}
+
+// ── OMNIBOX INTEGRATION ──
+
+chrome.omnibox.onInputChanged.addListener(async (text, suggest) => {
+  try {
+    const { apiUrl, apiKey, categories } = await getSettings();
+    if (!apiKey || !text.trim()) return;
+
+    // Call search API
+    const payload = await requestJson(apiUrl, apiKey, `search&q=${encodeURIComponent(text)}`);
+    const items = Array.isArray(payload.items) ? payload.items : [];
+
+    const suggestions = items.slice(0, 5).map(item => {
+      const category = categories.find(c => Number(c.id) === Number(item.category_id));
+      const catName = category ? `[${category.name}]` : '';
+      return {
+        content: `${apiUrl}/#item-${item.id}`,
+        description: `<dim>${catName}</dim> <match>${escapeXml(item.name)}</match>`
+      };
+    });
+
+    // Add a "quick add" fallback option
+    suggestions.push({
+      content: `add:${text}`,
+      description: `Eintrag <match>${escapeXml(text)}</match> schnell hinzufügen`
+    });
+
+    suggest(suggestions);
+  } catch (e) {
+    console.error('Omnibox search error:', e);
+  }
+});
+
+chrome.omnibox.onInputEntered.addListener(async (text) => {
+  try {
+    if (text.startsWith('http://') || text.startsWith('https://')) {
+      chrome.tabs.create({ url: text });
+      return;
+    }
+
+    let itemText = text;
+    if (text.startsWith('add:')) {
+      itemText = text.substring(4);
+    }
+
+    const context = await loadContext();
+    context.preferences = { ...context.preferences, __defaults: context.defaults };
+    const category = chooseCategory(context.visibleCategories, context.preferences, null);
+
+    if (!category) {
+      throw new Error('Keine sichtbare Kategorie gefunden.');
+    }
+
+    await addItem(context.apiUrl, context.apiKey, category.id, {
+      name: itemText,
+      content: ''
+    });
+
+    notify('Ankerkladde Quick-Add', `"${itemText}" in ${category.name} gespeichert.`);
+  } catch (error) {
+    notify('Ankerkladde Fehler', error.message);
+  }
+});
+
+function escapeXml(unsafe) {
+  return unsafe.replace(/[<>&'"]/g, c => {
+    switch (c) {
+      case '<': return '&lt;';
+      case '>': return '&gt;';
+      case '&': return '&amp;';
+      case '\'': return '&apos;';
+      case '"': return '&quot;';
+      default: return c;
+    }
+  });
 }
