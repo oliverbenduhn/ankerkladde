@@ -442,6 +442,11 @@ class SettingsController
                 if (!is_array($renames)) {
                     return ['flash' => t('error.invalid_params'), 'flashType' => 'err', 'aiKeyStatus' => null, 'aiKeyStatusType' => 'ok'];
                 }
+                // Validate CSRF token
+                $renameCsrfToken = $postData['csrf_token'] ?? null;
+                if (!hasValidCsrfToken(is_string($renameCsrfToken) ? $renameCsrfToken : null)) {
+                    return ['flash' => t('error.invalid_csrf'), 'flashType' => 'err', 'aiKeyStatus' => null, 'aiKeyStatusType' => 'ok'];
+                }
                 $renameStmt = $this->db->prepare('UPDATE categories SET name = :name WHERE id = :id AND user_id = :uid');
                 $renameCount = 0;
                 foreach ($renames as $catId => $newName) {
