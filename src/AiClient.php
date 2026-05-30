@@ -13,6 +13,7 @@ function getAvailableAiModels(string $provider): array
 {
     if ($provider === 'openrouter') {
         return [
+            'openrouter/auto' => 'Auto (OpenRouter)',
             'google/gemini-2.5-flash' => 'Gemini 2.5 Flash',
             'google/gemini-2.5-pro' => 'Gemini 2.5 Pro',
             'openai/gpt-4o-mini' => 'GPT-4o Mini',
