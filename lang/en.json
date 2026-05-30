@@ -12,6 +12,7 @@
     "ui.ai_assistant": "AI assistant",
     "ui.settings": "Settings",
     "ui.desktop_view": "Desktop view",
+    "ui.toggle_layout": "Switch layout",
     "ui.view_list": "List view",
     "ui.view_grid": "Grid view",
     "ui.view_kanban": "Kanban view",

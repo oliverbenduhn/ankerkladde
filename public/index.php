@@ -114,11 +114,7 @@ $clientWebSocketUrl = is_string($clientWebSocketUrl) ? trim($clientWebSocketUrl)
         <div class="header-actions">
             <button type="button" id="conflictAlertBtn" class="header-icon-btn btn-conflict-alert" aria-label="<?= t('ui.show_conflicts') ?>" hidden><?= icon('alert-triangle') ?></button>
             <span class="progress view-only" id="progress" aria-live="polite">0 / 0</span>
-            <div class="layout-switcher" id="layoutSwitcher" aria-label="<?= t('ui.desktop_view') ?>">
-                <button type="button" class="header-icon-btn btn-layout" data-layout="list" aria-label="<?= t('ui.view_list') ?>"><?= icon('menu') ?></button>
-                <button type="button" class="header-icon-btn btn-layout" data-layout="grid" aria-label="<?= t('ui.view_grid') ?>"><?= icon('layout-grid') ?></button>
-                <button type="button" class="header-icon-btn btn-layout" data-layout="kanban" aria-label="<?= t('ui.view_kanban') ?>"><?= icon('layout-kanban') ?></button>
-            </div>
+            <button type="button" id="layoutToggleBtn" class="header-icon-btn btn-layout-toggle" aria-label="<?= t('ui.toggle_layout') ?>"><?= icon('menu') ?></button>
             <button type="button" id="tabsToggleBtn" class="header-icon-btn btn-tabs-toggle" aria-label="<?= t('ui.toggle_tabs') ?>"><?= icon('panel-bottom') ?></button>
             <a href="<?= htmlspecialchars(appPath('barcode.php'), ENT_QUOTES, 'UTF-8') ?>" class="header-icon-btn btn-product-scanner" aria-label="<?= t('ui.scan_product') ?>"<?= !$productScannerEnabled ? ' hidden' : '' ?>><?= icon('scan-info') ?></a>
             <button type="button" id="scanShoppingBtn" class="header-icon-btn btn-scan" aria-label="<?= t('ui.scan_barcode') ?>"<?= !$shoppingListScannerEnabled ? ' hidden' : '' ?>><?= icon('scan') ?></button>

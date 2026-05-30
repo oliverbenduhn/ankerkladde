@@ -3,7 +3,7 @@ import { initApp, registerServiceWorker, initWebSocketServer } from './app-init.
 import { createAppRuntime } from './app-runtime.js?v=4.4.3';
 import { readInitialPreferences, state } from './state.js?v=4.3.4';
 import { applyThemePreferences } from './theme.js?v=4.3.4';
-import { modeToggleBtns, modeChip, layoutBtns } from './ui.js?v=4.3.4';
+import { modeToggleBtns, modeChip, layoutToggleBtn } from './ui.js?v=4.3.4';
 import { initConflictUI } from './offline-conflicts.js?v=4.3.11';
 
 export function startApp(version) {
@@ -93,7 +93,7 @@ export function startApp(version) {
         loadItems,
         modeToggleBtns,
         modeChip,
-        layoutBtns,
+        layoutToggleBtn,
         updateModeChip,
         updateLayoutSwitcher,
         navigation,

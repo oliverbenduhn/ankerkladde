@@ -12,6 +12,7 @@
     "ui.ai_assistant": "KI-Assistent",
     "ui.settings": "Einstellungen",
     "ui.desktop_view": "Desktop-Ansicht",
+    "ui.toggle_layout": "Ansicht wechseln",
     "ui.view_list": "Listenansicht",
     "ui.view_grid": "Kästchenansicht",
     "ui.view_kanban": "Kanban-Ansicht",

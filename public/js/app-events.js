@@ -1,5 +1,5 @@
 import { t } from './i18n.js';
-import { saveLocalPrefs, state, scannerState, themeMediaQuery, isAttachmentCategory, normalizePreferences, isLayoutAvailable } from './state.js?v=4.3.4';
+import { saveLocalPrefs, state, scannerState, themeMediaQuery, isAttachmentCategory, normalizePreferences, isLayoutAvailable, getAvailableLayouts } from './state.js?v=4.3.4';
 import { normalizeSettingsTab } from './api.js?v=4.3.4';
 import {
     appEl,
@@ -202,18 +202,20 @@ export function registerAppEventHandlers(deps) {
         });
     }
 
-    deps.layoutBtns.forEach(button => {
-        button.addEventListener('click', () => {
-            const layout = button.dataset.layout;
-            if (layout === state.layout) return;
-            if (!isLayoutAvailable(layout)) return;
-            state.layout = layout;
-            if (appEl) appEl.dataset.layout = layout;
-            saveLocalPrefs({ layout });
+    if (deps.layoutToggleBtn) {
+        deps.layoutToggleBtn.addEventListener('click', () => {
+            const available = getAvailableLayouts();
+            const currentIndex = available.indexOf(state.layout);
+            const nextIndex = (currentIndex + 1) % available.length;
+            const nextLayout = available[nextIndex];
+            if (nextLayout === state.layout) return;
+            state.layout = nextLayout;
+            if (appEl) appEl.dataset.layout = nextLayout;
+            saveLocalPrefs({ layout: nextLayout });
             deps.updateLayoutSwitcher();
             renderItems();
         });
-    });
+    }
 
     settingsBtns.forEach(button => {
         button.addEventListener('click', event => {

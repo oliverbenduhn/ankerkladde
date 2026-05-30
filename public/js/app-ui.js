@@ -13,7 +13,8 @@ import {
     inputHintEl,
     itemForm,
     itemInput,
-    layoutBtns,
+    layoutToggleBtn,
+    LAYOUT_ICONS,
     linkDescriptionInput,
     messageEl,
     modeChip,
@@ -256,12 +257,24 @@ export function createAppUiController(deps = {}) {
     }
 
     function updateLayoutSwitcher() {
+        if (!layoutToggleBtn) return;
         const available = getAvailableLayouts();
-        layoutBtns.forEach(btn => {
-            const layout = btn.dataset.layout;
-            btn.hidden = !available.includes(layout);
-            btn.setAttribute('aria-pressed', layout === state.layout ? 'true' : 'false');
-        });
+        const singleLayout = available.length <= 1;
+        layoutToggleBtn.hidden = singleLayout;
+
+        const iconName = LAYOUT_ICONS[state.layout] || 'menu';
+        const useEl = layoutToggleBtn.querySelector('use');
+        if (useEl) {
+            const currentHref = useEl.getAttribute('href') || '';
+            const base = currentHref.split('#')[0];
+            useEl.setAttribute('href', base + '#icon-' + iconName);
+            useEl.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', base + '#icon-' + iconName);
+        }
+
+        const currentIndex = available.indexOf(state.layout);
+        const nextIndex = (currentIndex + 1) % available.length;
+        const nextLayout = available[nextIndex];
+        layoutToggleBtn.setAttribute('aria-label', t('ui.view_' + nextLayout));
     }
 
     function updateHeaders() {

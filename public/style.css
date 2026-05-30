@@ -242,20 +242,7 @@ button, input { font: inherit; }
     color: var(--color-success, #2d6a4f);
 }
 
-.layout-switcher {
-    display: inline-flex;
-    gap: 2px;
-}
-
-.layout-switcher .btn-layout[aria-pressed="true"] {
-    opacity: 1;
-}
-
-.layout-switcher .btn-layout[aria-pressed="false"] {
-    opacity: 0.4;
-}
-
-.layout-switcher .btn-layout[hidden] {
+.btn-layout-toggle[hidden] {
     display: none;
 }
 
@@ -629,7 +616,7 @@ button, input { font: inherit; }
 .app.settings-view .btn-scan,
 .app.settings-view .header-actions [href$="barcode.php"],
 .app.settings-view .btn-mode-toggle,
-.app.settings-view .layout-switcher,
+.app.settings-view .btn-layout-toggle,
 .app.settings-view .desktop-layout-switcher {
     visibility: hidden;
     pointer-events: none;
