@@ -435,7 +435,14 @@ function sendHtmlPageSecurityHeaders(bool $allowEsmSh = false, bool $allowSameOr
     $connectSrc = "'self'";
     $clientWebSocketUrl = getenv('ANKERKLADDE_WS_CLIENT_URL');
     if (is_string($clientWebSocketUrl) && trim($clientWebSocketUrl) !== '') {
-        $connectSrc .= ' ' . trim($clientWebSocketUrl);
+        $wsUrl = trim($clientWebSocketUrl);
+        // Ensure trailing slash so CSP treats the path as a prefix match
+        // (without it, /ws won't match /ws/?uid=2)
+        $parsed = parse_url($wsUrl);
+        if (isset($parsed['path']) && $parsed['path'] !== '/' && !str_ends_with($parsed['path'], '/')) {
+            $wsUrl .= '/';
+        }
+        $connectSrc .= ' ' . $wsUrl;
     }
 
     if ($allowEsmSh) {
