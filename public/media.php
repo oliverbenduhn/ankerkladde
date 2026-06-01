@@ -5,7 +5,8 @@ require dirname(__DIR__) . '/db.php';
 require dirname(__DIR__) . '/security.php';
 
 enforceCanonicalRequest();
-$userId = requireAuth();
+$db = getDatabase();
+$userId = requireApiAuthWithKey($db);
 
 function mediaFail(int $status, string $message): never
 {
@@ -66,8 +67,6 @@ $itemId = filter_input(INPUT_GET, 'item_id', FILTER_VALIDATE_INT, [
 if (!is_int($itemId)) {
     mediaFail(422, 'Ungültige Item-ID.');
 }
-
-$db = getDatabase();
 
 try {
     $stmt = $db->prepare(

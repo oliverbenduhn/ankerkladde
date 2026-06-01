@@ -55,6 +55,29 @@ async function apiPost(action, body = {}) {
   return json;
 }
 
+async function apiGetImage(itemId, variant) {
+  const qs = new URLSearchParams({ item_id: String(itemId) });
+  if (variant === 'thumb') qs.set('variant', 'thumb');
+
+  const res = await fetch(`${BASE_URL}/media.php?${qs}`, {
+    headers: { 'X-Api-Key': API_KEY, Accept: 'image/*' },
+  });
+  if (!res.ok) throw new Error(`Bildabruf fehlgeschlagen: HTTP ${res.status}`);
+
+  const mimeType = (res.headers.get('content-type') ?? '').split(';', 1)[0].trim();
+  if (!mimeType.startsWith('image/')) {
+    throw new Error(`Eintrag #${itemId} ist kein Bild.`);
+  }
+
+  const buffer = Buffer.from(await res.arrayBuffer());
+  const maxBytes = variant === 'original' ? 20 * 1024 * 1024 : 2 * 1024 * 1024;
+  if (buffer.length > maxBytes) {
+    throw new Error(`Bild ist zu groß für MCP (${buffer.length} Bytes, Maximum ${maxBytes} Bytes).`);
+  }
+
+  return { data: buffer.toString('base64'), mimeType, sizeBytes: buffer.length };
+}
+
 function fmtItem(item) {
   const done = item.done    ? '✅' : '⬜';
   const qty  = item.quantity ? ` (${item.quantity})` : '';
@@ -331,6 +354,25 @@ function createMcpServer() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
       return { content: [{ type: 'text', text: json.id ? `✅ Hochgeladen als Eintrag #${json.id}: ${name}` : (json.message ?? 'Datei hochgeladen.') }] };
+    },
+  );
+
+  server.tool(
+    'get_image',
+    'Vorhandenes Bild als MCP-Bildinhalt abrufen. Standardmäßig wird das kompakte Vorschaubild geliefert.',
+    {
+      item_id: z.number().int().positive().describe('Item-ID eines Eintrags aus einer images-Kategorie'),
+      variant: z.enum(['thumb', 'original']).default('thumb')
+        .describe('thumb = Vorschaubild (Standard), original = Originaldatei bis maximal 20 MiB'),
+    },
+    async ({ item_id, variant }) => {
+      const image = await apiGetImage(item_id, variant);
+      return {
+        content: [
+          { type: 'text', text: `Bild #${item_id} (${variant}, ${image.sizeBytes} Bytes)` },
+          { type: 'image', data: image.data, mimeType: image.mimeType },
+        ],
+      };
     },
   );
 
