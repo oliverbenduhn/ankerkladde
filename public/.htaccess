@@ -1,7 +1,6 @@
 Options -Indexes
 
-# Apache strips Authorization header for multipart/form-data by default
-SetEnvIf Authorization "(.*)" HTTP_AUTHORIZATION=$1
+SetEnvIf Authorization "(.+)" HTTP_AUTHORIZATION=$1
 
 <IfModule mod_php.c>
     php_value upload_max_filesize 500M
