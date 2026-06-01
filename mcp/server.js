@@ -325,7 +325,7 @@ function createMcpServer() {
 
       const res = await fetch(`${BASE_URL}/api.php?action=upload`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${API_KEY}`, Accept: 'application/json' },
+        headers: { 'X-Api-Key': API_KEY, Accept: 'application/json' },
         body: formData,
       });
       const json = await res.json();
