@@ -15,3 +15,20 @@ jobs:
           git clone https://github.com/${{ github.repository }}.git .
           git checkout ${{ github.sha }}
       - run: echo "Deploying to production..."
+
+  deploy-mcp:
+    runs-on: ubuntu-latest
+    steps:
+      - name: MCP-Server auf VPS aktualisieren
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$VPS_SSH_KEY" > ~/.ssh/vps_key
+          chmod 600 ~/.ssh/vps_key
+          ssh -i ~/.ssh/vps_key -o StrictHostKeyChecking=no ansible@91.98.42.99 "
+            curl -sf 'https://raw.githubusercontent.com/oliverbenduhn/ankerkladde/\${{ github.sha }}/mcp/server.js' \
+              -o /opt/ankerkladde/mcp/server.js &&
+            docker restart ankerkladde_mcp
+          "
+          rm ~/.ssh/vps_key
