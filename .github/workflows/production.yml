@@ -26,8 +26,9 @@ jobs:
           mkdir -p ~/.ssh
           echo "$VPS_SSH_KEY" > ~/.ssh/vps_key
           chmod 600 ~/.ssh/vps_key
+          SHA="${{ github.sha }}"
           ssh -i ~/.ssh/vps_key -o StrictHostKeyChecking=no ansible@91.98.42.99 "
-            curl -sf 'https://raw.githubusercontent.com/oliverbenduhn/ankerkladde/\${{ github.sha }}/mcp/server.js' \
+            curl -sf 'https://raw.githubusercontent.com/oliverbenduhn/ankerkladde/${SHA}/mcp/server.js' \
               -o /opt/ankerkladde/mcp/server.js &&
             docker restart ankerkladde_mcp
           "
