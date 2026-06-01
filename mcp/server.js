@@ -33,7 +33,7 @@ if (!API_KEY) {
 async function apiGet(action, params = {}) {
   const qs = new URLSearchParams({ action, ...params });
   const res = await fetch(`${BASE_URL}/api.php?${qs}`, {
-    headers: { Authorization: `Bearer ${API_KEY}`, Accept: 'application/json' },
+    headers: { 'X-Api-Key': API_KEY, Accept: 'application/json' },
   });
   const json = await res.json();
   if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
@@ -44,7 +44,7 @@ async function apiPost(action, body = {}) {
   const res = await fetch(`${BASE_URL}/api.php?action=${encodeURIComponent(action)}`, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${API_KEY}`,
+      'X-Api-Key': API_KEY,
       'Content-Type': 'application/json',
       Accept: 'application/json',
     },
