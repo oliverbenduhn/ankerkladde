@@ -98,6 +98,11 @@ export function createEditorController(deps) {
         });
     }
 
+    function editorIsEmpty(editor) {
+        const html = editor.getHTML();
+        return html === '' || html === '<p></p>';
+    }
+
     async function openNoteEditor(item) {
         await closeNoteEditor();
 
@@ -134,12 +139,17 @@ export function createEditorController(deps) {
             onSelectionUpdate: updateNoteToolbar,
         });
 
-        // Initialize content if Yjs document is empty after sync
-        provider.on('synced', () => {
-            if (item.content && (editor.getHTML() === '<p></p>' || editor.getHTML() === '')) {
-                editor.commands.setContent(item.content, false);
-            }
-        });
+        let seededStoredContent = false;
+        const seedStoredContentIfEmpty = () => {
+            const activeEditor = getTiptapEditor();
+            if (state.noteEditorId !== item.id || (activeEditor && activeEditor !== editor)) return;
+            if (seededStoredContent || !item.content || !editorIsEmpty(editor)) return;
+            seededStoredContent = true;
+            editor.commands.setContent(item.content, false);
+        };
+
+        provider.on('synced', seedStoredContentIfEmpty);
+        window.setTimeout(seedStoredContentIfEmpty, 1200);
 
         setTiptapEditor(editor);
         updateNoteToolbar();

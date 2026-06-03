@@ -1,4 +1,4 @@
-import { registerAppEventHandlers } from './app-events.js?v=4.3.12';
+import { registerAppEventHandlers } from './app-events.js?v=4.3.13';
 import { initApp, registerServiceWorker, initWebSocketServer } from './app-init.js?v=4.4.3';
 import { createAppRuntime } from './app-runtime.js?v=4.4.3';
 import { readInitialPreferences, state } from './state.js?v=4.3.4';

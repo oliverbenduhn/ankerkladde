@@ -176,7 +176,8 @@ export function registerAppEventHandlers(deps) {
     });
 
     deps.modeToggleBtns.forEach(button => {
-        button.addEventListener('click', () => {
+        button.addEventListener('click', event => {
+            event.stopPropagation();
             if (scannerState.open) {
                 closeScanner();
             }
@@ -184,12 +185,14 @@ export function registerAppEventHandlers(deps) {
             appEl.dataset.mode = state.mode;
             void savePreferences({ mode: state.mode });
             deps.updateModeChip();
+            updateHeaders();
             renderItems();
         });
     });
 
     if (deps.modeChip) {
-        deps.modeChip.addEventListener('click', () => {
+        deps.modeChip.addEventListener('click', event => {
+            event.stopPropagation();
             if (scannerState.open) {
                 closeScanner();
             }
@@ -199,6 +202,7 @@ export function registerAppEventHandlers(deps) {
             void savePreferences({ mode: state.mode });
             deps.updateModeChip();
             updateHeaders();
+            renderItems();
         });
     }
 
