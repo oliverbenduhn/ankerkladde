@@ -15,6 +15,9 @@ jobs:
           git clone https://github.com/${{ github.repository }}.git .
           git checkout ${{ github.sha }}
 
+      - name: Run AiClient tests
+        run: php scripts/test-ai-client.php
+
       - name: Run smoke test
         run: bash scripts/smoke-test.sh
 
