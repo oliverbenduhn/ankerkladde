@@ -5,7 +5,7 @@ function getAvailableProviders(): array
 {
     return [
         'gemini' => 'Google Gemini',
-        'openrouter' => 'OpenRouter',
+        'openrouter' => 'OpenRouter (verschiedene Modelle)',
     ];
 }
 

@@ -502,5 +502,6 @@ grep -q '"scope":"/sub/"' "$SUBPATH_MANIFEST"
 grep -q '"src":"/sub/icon.php?size=192"' "$SUBPATH_MANIFEST"
 curl -fsS -b "$SUBPATH_COOKIE_JAR" -o /dev/null "http://127.0.0.1:$SUBPATH_PORT/sub/icon.php?size=144"
 curl -fsS -b "$SUBPATH_COOKIE_JAR" -o /dev/null "http://127.0.0.1:$SUBPATH_PORT/sub/category-icon.php?icon=einkauf"
+php scripts/test-ai-client.php
 
 echo "Smoke-Test erfolgreich."
