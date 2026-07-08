@@ -426,15 +426,6 @@ function absolutizeUrl(string $baseUrl, string $candidate): string
     return $scheme . '://' . $host . $directory . $candidate;
 }
 
-function requireCsrfToken(array $data): void
-{
-    $providedToken = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? ($data['csrf_token'] ?? null);
-
-    if (!hasValidCsrfToken(is_string($providedToken) ? $providedToken : null)) {
-        respond(403, ['error' => t('error.invalid_csrf'), 'error_key' => 'error.invalid_csrf']);
-    }
-}
-
 function normalizeName(?string $name): string
 {
     $name = trim((string) $name);
@@ -914,12 +905,6 @@ PROMPT;
         'brands' => normalizeProductBrandsValue($aiProduct['brands'] ?? $normalized['brands']),
         'quantity' => normalizeProductQuantityValue($aiProduct['quantity'] ?? $normalized['quantity']),
     ];
-}
-
-function normalizeDueDate(?string $date): string
-{
-    $date = trim((string) $date);
-    return preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) ? $date : '';
 }
 
 function normalizeIdList(mixed $ids): array
@@ -2872,7 +2857,9 @@ try {
 
         case 'preferences':
             if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-                respond(200, ['preferences' => getExtendedUserPreferences($db, $userId)]);
+                $prefs = getExtendedUserPreferences($db, $userId);
+                unset($prefs['gemini_api_key'], $prefs['openrouter_api_key']);
+                respond(200, ['preferences' => $prefs]);
             }
 
             requireMethod('POST');
@@ -2896,6 +2883,7 @@ try {
             }
 
             $preferences = updateExtendedUserPreferences($db, $userId, $patch);
+            unset($preferences['gemini_api_key'], $preferences['openrouter_api_key']);
             respond(200, ['preferences' => $preferences]);
 
         default:

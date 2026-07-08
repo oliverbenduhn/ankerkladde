@@ -87,6 +87,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 $rawInput = file_get_contents('php://input');
 $data = json_decode($rawInput, true);
+requireCsrfToken($data ?? []);
+
 $userInput = trim((string) ($data['input'] ?? ''));
 $mode = (string) ($data['mode'] ?? 'preview');
 
@@ -227,7 +229,7 @@ if ($mode === 'confirm') {
             $stmt->execute([
                 ':name' => mb_substr($name, 0, 120),
                 ':quantity' => mb_substr((string) ($item['quantity'] ?? ''), 0, 40),
-                ':due_date' => (string) ($item['due_date'] ?? ''),
+                ':due_date' => normalizeDueDate($item['due_date'] ?? null),
                 ':content' => $content,
                 ':category_id' => $catId,
                 ':sort_order' => $sortOrder,
@@ -242,14 +244,15 @@ if ($mode === 'confirm') {
                 'object_label' => magicObjectLabel((string) ($matchedCategory['type'] ?? '')),
                 'quantity' => mb_substr((string) ($item['quantity'] ?? ''), 0, 40),
                 'content' => $content,
-                'due_date' => (string) ($item['due_date'] ?? ''),
+                'due_date' => normalizeDueDate($item['due_date'] ?? null),
             ];
         }
         $db->commit();
     } catch (Exception $e) {
         $db->rollBack();
+        error_log('Fehler beim Speichern in der Datenbank (ai.php): ' . $e->getMessage());
         http_response_code(500);
-        echo json_encode(['error' => 'Fehler beim Speichern in der Datenbank: ' . $e->getMessage()]);
+        echo json_encode(['error' => 'Fehler beim Speichern in der Datenbank.']);
         exit;
     }
 
@@ -458,7 +461,7 @@ foreach ($parsedItems as $item) {
         'name' => mb_substr($name, 0, 120),
         'quantity' => mb_substr((string) ($item['quantity'] ?? ''), 0, 40),
         'content' => $content,
-        'due_date' => (string) ($item['due_date'] ?? ''),
+        'due_date' => normalizeDueDate($item['due_date'] ?? null),
         'category_id' => $catId,
         'category_name' => (string) ($matchedCategory['name'] ?? ''),
         'category_type' => (string) ($matchedCategory['type'] ?? ''),

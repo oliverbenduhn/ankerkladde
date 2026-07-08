@@ -415,6 +415,24 @@ function isApiKeyAuthRequest(): bool
     return (string) ($_SERVER['ANKERKLADDE_API_AUTH_KIND'] ?? '') === 'key';
 }
 
+function requireCsrfToken(array $data): void
+{
+    $providedToken = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? ($data['csrf_token'] ?? null);
+
+    if (!hasValidCsrfToken(is_string($providedToken) ? $providedToken : null)) {
+        http_response_code(403);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['error' => t('error.invalid_csrf'), 'error_key' => 'error.invalid_csrf'], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+}
+
+function normalizeDueDate(?string $date): string
+{
+    $date = trim((string) $date);
+    return preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) ? $date : '';
+}
+
 /**
  * Sends Content-Security-Policy and X-Frame-Options headers for HTML pages.
  *
@@ -430,6 +448,12 @@ function sendHtmlPageSecurityHeaders(bool $allowEsmSh = false, bool $allowSameOr
 {
     // Prevent cross-origin embedding while allowing explicit same-origin app embeds.
     header('X-Frame-Options: ' . ($allowSameOriginFraming ? 'SAMEORIGIN' : 'DENY'));
+    header('X-Content-Type-Options: nosniff');
+    header('Referrer-Policy: strict-origin-when-cross-origin');
+
+    if (isRequestHttps()) {
+        header('Strict-Transport-Security: max-age=31536000; includeSubDomains; preload');
+    }
 
     $scriptSrc = "'self' 'unsafe-inline'";
     $connectSrc = "'self'";

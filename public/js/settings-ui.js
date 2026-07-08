@@ -245,10 +245,14 @@ export function initUIHandling() {
                     body.gemini_model = model;
                 }
 
+                const csrfToken = document.querySelector('input[name="csrf_token"]')?.value || '';
                 const response = await fetch('ai.php', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(body),
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': csrfToken
+                    },
+                    body: JSON.stringify({ ...body, csrf_token: csrfToken }),
                 });
 
                 const result = await response.json();

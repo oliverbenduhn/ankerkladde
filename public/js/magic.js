@@ -1,7 +1,7 @@
 import { t } from './i18n.js';
 import { appUrl } from './api.js?v=4.3.4';
 import { appEl, magicBtns, magicBar, magicInput, magicSubmit, magicClose, magicVoiceBtn } from './ui.js?v=4.3.4';
-import { state } from './state.js?v=4.3.4';
+import { state, csrfToken } from './state.js?v=4.3.4';
 
 export function createMagicController(deps) {
     const { getUserPreferences, invalidateCategoryCache, loadCategories, loadItems, setCategory, setMessage, updateHeaders } = deps;
@@ -151,8 +151,11 @@ export function createMagicController(deps) {
         try {
             const response = await fetch(appUrl('ai.php'), {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ mode: 'confirm', items: selectedItems, input: '' })
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken
+                },
+                body: JSON.stringify({ mode: 'confirm', items: selectedItems, input: '', csrf_token: csrfToken })
             });
 
             const rawText = await response.text();
@@ -266,8 +269,11 @@ export function createMagicController(deps) {
             const activeCategoryId = Number(state.categoryId) || 0;
             const response = await fetch(appUrl('ai.php'), {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ input, active_category_id: activeCategoryId, mode: 'preview' })
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken
+                },
+                body: JSON.stringify({ input, active_category_id: activeCategoryId, mode: 'preview', csrf_token: csrfToken })
             });
 
             const rawText = await response.text();
