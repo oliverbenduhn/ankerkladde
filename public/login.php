@@ -191,5 +191,10 @@ $csrfToken = getCsrfToken();
     });
 }());
 </script>
+<nav class="legal-footer" aria-label="Rechtliche Hinweise">
+  <a href="<?= htmlspecialchars(appPath('legal/impressum.php'), ENT_QUOTES, 'UTF-8') ?>">Impressum</a>
+  <span aria-hidden="true">·</span>
+  <a href="<?= htmlspecialchars(appPath('legal/datenschutz.php'), ENT_QUOTES, 'UTF-8') ?>">Datenschutz</a>
+</nav>
 </body>
 </html>
