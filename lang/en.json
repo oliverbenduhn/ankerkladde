@@ -300,6 +300,11 @@
 
     "msg.attachment_unavailable": "Attachment not available",
     "msg.no_notes_yet": "No notes yet. Enter a title and press +.",
+    "msg.empty_list_quantity": "Enter an item – quantity is optional. Press + to save.",
+    "msg.empty_list_due_date": "Enter a task, check the date, and press + to save.",
+    "msg.empty_images": "Choose or take an image; a title is optional.",
+    "msg.empty_files": "Choose a file or import one from a URL.",
+    "msg.empty_links": "Add a link; the description is optional.",
     "msg.list_empty": "Nothing on the list yet. Add something above.",
     "msg.no_entries": "No entries.",
     "msg.delete_failed": "Delete failed.",

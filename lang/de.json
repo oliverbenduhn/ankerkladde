@@ -300,6 +300,11 @@
 
     "msg.attachment_unavailable": "Anhang nicht verfügbar",
     "msg.no_notes_yet": "Noch keine Notizen. Titel eingeben und + drücken.",
+    "msg.empty_list_quantity": "Artikel eingeben – Menge ist optional. Mit + speichern.",
+    "msg.empty_list_due_date": "Aufgabe eingeben, Datum prüfen und mit + speichern.",
+    "msg.empty_images": "Bild wählen oder aufnehmen; ein Titel ist optional.",
+    "msg.empty_files": "Datei wählen oder über eine URL importieren.",
+    "msg.empty_links": "Link einfügen; die Beschreibung ist optional.",
     "msg.list_empty": "Noch nichts auf der Liste. Füge oben etwas hinzu.",
     "msg.no_entries": "Keine Einträge vorhanden.",
     "msg.delete_failed": "Löschen fehlgeschlagen.",

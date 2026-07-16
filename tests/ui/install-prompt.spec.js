@@ -24,7 +24,7 @@ test('offers installation only after the first saved item', async ({ page }) => 
   await settingsFrame.getByRole('button', { name: 'Kategorie anlegen' }).click();
   await page.goto('/index.php');
   await page.getByRole('button', { name: categoryName, exact: true }).click();
-  await expect(page.locator('#list .empty-state')).toBeVisible();
+  await expect(page.locator('#list .empty-state')).toHaveText('Artikel eingeben – Menge ist optional. Mit + speichern.');
 
   const banner = page.locator('#installBanner');
   await dispatchInstallPrompt(page);

@@ -1,5 +1,5 @@
 import { t } from './i18n.js';
-import { isNotesCategory, state } from './state.js?v=4.3.4';
+import { getCurrentType, state } from './state.js?v=4.3.4';
 import { clearDoneBtn, listEl, progressEl, svgIcon } from './ui.js?v=4.3.4';
 import { normalizeBarcodeValue, sanitizeItemField, syncAutoHeight } from './utils.js?v=4.3.11';
 import { createLightboxController } from './lightbox.js?v=4.3.4';
@@ -665,11 +665,15 @@ export function createItemsViewController(deps) {
         if (items.length === 0) {
             const li = document.createElement('li');
             li.className = 'empty-state';
-            li.textContent = isNotesCategory()
-                ? t('msg.no_notes_yet')
-                : state.mode === 'edit'
-                    ? t('msg.list_empty')
-                    : t('msg.no_entries');
+            const emptyMessageKey = {
+                list_quantity: 'msg.empty_list_quantity',
+                list_due_date: 'msg.empty_list_due_date',
+                notes: 'msg.no_notes_yet',
+                images: 'msg.empty_images',
+                files: 'msg.empty_files',
+                links: 'msg.empty_links',
+            }[getCurrentType()] || 'msg.list_empty';
+            li.textContent = state.mode === 'edit' ? t(emptyMessageKey) : t('msg.no_entries');
             listEl.replaceChildren(li);
             return;
         }
