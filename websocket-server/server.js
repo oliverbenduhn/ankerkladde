@@ -154,10 +154,20 @@ wss.on('connection', (ws, req) => {
 
 const { setupWSConnection } = require('y-websocket/bin/utils');
 
+// Single shared Yjs WebSocket server instance — reused for all Yjs rooms
+// to avoid memory leaks from creating a new instance per connection.
+const yWss = new WebSocket.Server({ noServer: true });
+yWss.on('connection', (ws, req) => {
+    const reqUrl = new URL(req.url, `http://${req.headers.host}`);
+    const docName = reqUrl.pathname.split('/yjs/note/')[1] || 'unknown';
+    console.log(`[${new Date().toISOString()}] Yjs client connected to room: ${docName}`);
+    setupWSConnection(ws, req, { docName });
+});
+
 // Manually handle WebSocket upgrade based on URL path
 server.on('upgrade', (request, socket, head) => {
     const url = new URL(request.url, `http://${request.headers.host}`);
-    
+
     // Route for Yjs collaboration rooms: e.g. /yjs/note/123
     if (url.pathname.startsWith('/yjs/note/')) {
         const docName = url.pathname.split('/yjs/note/')[1];
@@ -165,13 +175,6 @@ server.on('upgrade', (request, socket, head) => {
             socket.destroy();
             return;
         }
-
-        // We can create an ephemeral websocket server just to pass the connection to y-websocket
-        const yWss = new WebSocket.Server({ noServer: true });
-        yWss.on('connection', (ws, req) => {
-            console.log(`[${new Date().toISOString()}] Yjs client connected to room: ${docName}`);
-            setupWSConnection(ws, req, { docName });
-        });
 
         yWss.handleUpgrade(request, socket, head, (ws) => {
             yWss.emit('connection', ws, request);

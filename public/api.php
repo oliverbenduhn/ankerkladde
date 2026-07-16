@@ -52,12 +52,19 @@ function respond(int $status, array $payload): never
 {
     if (in_array($_SERVER['REQUEST_METHOD'], ['POST', 'PUT', 'PATCH', 'DELETE']) && $status >= 200 && $status < 300) {
         $wsUrl = getenv('WS_NOTIFY_URL') ?: 'http://127.0.0.1:3000/notify';
+        // Include user_id so the WebSocket server only broadcasts to that user's connections.
+        $notifyUserId = $GLOBALS['current_user_id'] ?? null;
+        $notifyPayload = ['action' => 'update'];
+        if ($notifyUserId !== null) {
+            $notifyPayload['user_id'] = $notifyUserId;
+        }
+        $notifyJson = (string) json_encode($notifyPayload);
         if (function_exists('curl_init')) {
             $ch = curl_init($wsUrl);
             if ($ch !== false) {
                 curl_setopt_array($ch, [
                     CURLOPT_CUSTOMREQUEST => 'POST',
-                    CURLOPT_POSTFIELDS => json_encode(['action' => 'update']),
+                    CURLOPT_POSTFIELDS => $notifyJson,
                     CURLOPT_RETURNTRANSFER => true,
                     CURLOPT_TIMEOUT_MS => 150,
                     CURLOPT_NOSIGNAL => true,
@@ -70,7 +77,7 @@ function respond(int $status, array $payload): never
                 'http' => [
                     'method' => 'POST',
                     'header' => 'Content-Type: application/json',
-                    'content' => json_encode(['action' => 'update']),
+                    'content' => $notifyJson,
                     'timeout' => 0.15,
                     'ignore_errors' => true
                 ]
@@ -1221,14 +1228,17 @@ function activeUploadLimitBytes(string $key): int
 
 function formatBytesForMessage(int $bytes): string
 {
-    if ($bytes >= 1073741824 && $bytes % 1073741824 === 0) {
-        return (int) ($bytes / 1073741824) . ' GB';
+    if ($bytes >= 1073741824) {
+        $value = $bytes / 1073741824;
+        return (floor($value) == $value ? (int) $value : round($value, 1)) . ' GB';
     }
-    if ($bytes >= 1048576 && $bytes % 1048576 === 0) {
-        return (int) ($bytes / 1048576) . ' MB';
+    if ($bytes >= 1048576) {
+        $value = $bytes / 1048576;
+        return (floor($value) == $value ? (int) $value : round($value, 1)) . ' MB';
     }
-    if ($bytes >= 1024 && $bytes % 1024 === 0) {
-        return (int) ($bytes / 1024) . ' KB';
+    if ($bytes >= 1024) {
+        $value = $bytes / 1024;
+        return (floor($value) == $value ? (int) $value : round($value, 1)) . ' KB';
     }
 
     return $bytes . ' B';
@@ -1673,9 +1683,67 @@ function fetchItemForUser(PDO $db, int $userId, int $itemId): ?array
     return is_array($item) ? $item : null;
 }
 
+function isAdminUser(): bool
+{
+    return ($_SESSION['is_admin'] ?? false) === true;
+}
+
+/**
+ * Normalizes item fields based on category type.
+ *
+ * Each category type only supports a subset of item fields.
+ * This function clears fields that are not applicable for the given type,
+ * ensuring consistent data regardless of whether the caller is `add` or `update`.
+ *
+ * @param string $type     The category type (e.g. 'list', 'list_quantity', 'notes', ...)
+ * @param string $content  The raw (already normalized) content value
+ * @param string $barcode  The raw barcode value
+ * @param string $quantity The raw quantity value
+ * @param string $dueDate  The raw due_date value
+ * @param array  $data     The raw request data (for re-normalizing content in due_date context)
+ * @return array{content: string, barcode: string, quantity: string, due_date: string}
+ */
+function normalizeItemFieldsForType(
+    string $type,
+    string $content,
+    string $barcode,
+    string $quantity,
+    string $dueDate,
+    array $data
+): array {
+    return match ($type) {
+        'list_due_date' => [
+            'content'  => normalizePlainTextContent($data['content'] ?? null),
+            'barcode'  => '',
+            'quantity' => '',
+            'due_date' => $dueDate,
+        ],
+        'list_quantity' => [
+            'content'  => '',
+            'barcode'  => $barcode,
+            'quantity' => $quantity,
+            'due_date' => '',
+        ],
+        'notes', 'links' => [
+            'content'  => $content,
+            'barcode'  => '',
+            'quantity' => '',
+            'due_date' => '',
+        ],
+        default => [
+            'content'  => '',
+            'barcode'  => '',
+            'quantity' => '',
+            'due_date' => '',
+        ],
+    };
+}
+
 $action = $_GET['action'] ?? 'list';
 $db = getDatabase();
 $userId = requireApiAuthWithKey($db);
+// Make userId available to respond() for user-scoped WS notifications.
+$GLOBALS['current_user_id'] = $userId;
 
 try {
     switch ($action) {
@@ -1925,27 +1993,11 @@ try {
 
             $type = (string) $category['type'];
 
-            if ($type === 'list_due_date') {
-                $quantity = '';
-                $barcode = '';
-                $content = normalizePlainTextContent($data['content'] ?? null);
-            } elseif ($type === 'list_quantity') {
-                $dueDate = '';
-                $content = '';
-            } elseif ($type === 'notes') {
-                $quantity = '';
-                $dueDate = '';
-                $barcode = '';
-            } elseif ($type === 'links') {
-                $quantity = '';
-                $dueDate = '';
-                $barcode = '';
-            } else {
-                $quantity = '';
-                $dueDate = '';
-                $content = '';
-                $barcode = '';
-            }
+            $normalized = normalizeItemFieldsForType($type, $content, $barcode, $quantity, $dueDate, $data);
+            $content  = $normalized['content'];
+            $barcode  = $normalized['barcode'];
+            $quantity = $normalized['quantity'];
+            $dueDate  = $normalized['due_date'];
 
             $db->beginTransaction();
             try {
@@ -2279,20 +2331,11 @@ try {
                 respond(422, ['error' => t('error.item_name_required'), 'error_key' => 'error.item_name_required']);
             }
 
-            if ($type !== 'list_quantity') {
-                $quantity = '';
-                $barcode = '';
-            }
-            if ($type !== 'list_due_date') {
-                $dueDate = '';
-            }
-            if ($type === 'list_due_date') {
-                $content = normalizePlainTextContent($data['content'] ?? null);
-            } elseif ($type === 'notes' || $type === 'links') {
-                // content already normalized above via normalizeContent
-            } else {
-                $content = '';
-            }
+            $normalized = normalizeItemFieldsForType($type, $content, $barcode, $quantity, $dueDate, $data);
+            $content  = $normalized['content'];
+            $barcode  = $normalized['barcode'];
+            $quantity = $normalized['quantity'];
+            $dueDate  = $normalized['due_date'];
 
             $status = null;
             if ($type === 'list_due_date') {
@@ -2518,14 +2561,21 @@ try {
             );
 
             $db->beginTransaction();
-            foreach ($orderedIds as $index => $id) {
-                $stmt->execute([
-                    ':sort_order' => $index + 1,
-                    ':id' => $id,
-                    ':user_id' => $userId,
-                ]);
+            try {
+                foreach ($orderedIds as $index => $id) {
+                    $stmt->execute([
+                        ':sort_order' => $index + 1,
+                        ':id' => $id,
+                        ':user_id' => $userId,
+                    ]);
+                }
+                $db->commit();
+            } catch (Throwable $exception) {
+                if ($db->inTransaction()) {
+                    $db->rollBack();
+                }
+                throw $exception;
             }
-            $db->commit();
 
             respond(200, ['message' => 'Reihenfolge aktualisiert.']);
 
@@ -2693,6 +2743,10 @@ try {
 
         case 'product_normalize_debug':
             requireMethod('GET');
+            // Restricted to admin users only — exposes internal normalization details.
+            if (!isAdminUser()) {
+                respond(403, ['error' => t('error.unknown_action'), 'error_key' => 'error.unknown_action']);
+            }
             $barcode = preg_replace('/\D+/', '', (string) ($_GET['barcode'] ?? '')) ?? '';
             $barcode = truncateText($barcode, 64);
 

@@ -1,5 +1,5 @@
-import { appUrl, api, apiUpload } from './api.js?v=4.3.4';
-import { escapeRegExp, limitText, sanitizeItemField, sanitizeItemPayload } from './utils.js?v=4.3.11';
+import { appUrl, api, apiUpload, fetchLinkMetadata } from './api.js?v=5.1.5';
+import { escapeRegExp, limitText, sanitizeItemField, sanitizeItemPayload } from './utils.js?v=5.1.5';
 
 export function createShareActions(deps) {
     const {
@@ -22,16 +22,6 @@ export function createShareActions(deps) {
         files: 'Dateien',
         links: 'Links',
     };
-
-    async function fetchLinkMetadata(url) {
-        try {
-            const response = await fetch(appUrl(`api.php?action=fetch_metadata&url=${encodeURIComponent(url)}`));
-            if (!response.ok) return null;
-            return await response.json();
-        } catch {
-            return null;
-        }
-    }
 
     async function readCachedShareData() {
         if (!('caches' in window)) return null;

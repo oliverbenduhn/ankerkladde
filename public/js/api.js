@@ -1,4 +1,4 @@
-import { LOCAL_PREF_KEYS, basePath, csrfToken, normalizePreferences, readLocalPrefs, saveLocalPrefs } from './state.js?v=4.3.4';
+import { LOCAL_PREF_KEYS, basePath, csrfToken, normalizePreferences, readLocalPrefs, saveLocalPrefs } from './state.js?v=5.1.5';
 
 export const SETTINGS_TABS = ['app', 'appearance', 'features', 'categories', 'new-category', 'ai', 'extension', 'password', 'system'];
 
@@ -80,6 +80,12 @@ export function apiUpload(action, formData, onProgress) {
                 payload = JSON.parse(xhr.responseText);
             } catch {}
 
+            if (xhr.status === 401) {
+                window.location.href = appUrl('login.php');
+                reject(new Error('Sitzung abgelaufen. Bitte neu anmelden.'));
+                return;
+            }
+
             if (xhr.status >= 200 && xhr.status < 300) {
                 resolve(payload);
                 return;
@@ -111,6 +117,16 @@ export function normalizeItem(item) {
         attachmentOriginalUrl: item.attachment_original_url || '',
         attachmentDownloadUrl: item.attachment_download_url || '',
     };
+}
+
+export async function fetchLinkMetadata(url) {
+    try {
+        const response = await fetch(appUrl(`api.php?action=fetch_metadata&url=${encodeURIComponent(url)}`));
+        if (!response.ok) return null;
+        return await response.json();
+    } catch {
+        return null;
+    }
 }
 
 export async function persistPreferences(patch, setUserPreferences, applyThemePreferences, getUserPreferences = () => ({})) {

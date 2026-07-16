@@ -1,7 +1,7 @@
 import { t } from './i18n.js';
-import { api } from './api.js?v=4.3.4';
-import { getCurrentCategory, state } from './state.js?v=4.3.4';
-import { enqueueAction } from './offline-queue.js?v=4.3.11';
+import { api } from './api.js?v=5.1.5';
+import { getCurrentCategory, state } from './state.js?v=5.1.5';
+import { enqueueAction } from './offline-queue.js?v=5.1.5';
 
 export function createUpdateActions(deps) {
     const {
@@ -41,6 +41,8 @@ export function createUpdateActions(deps) {
     }
 
     async function handleDelete(id) {
+        // Snapshot for rollback in case of non-network (4xx) API errors.
+        const snapshot = [...state.items];
         try {
             removeItemById(id);
             if (state.noteEditorId === id) {
@@ -60,6 +62,12 @@ export function createUpdateActions(deps) {
                 if (shouldQueueOffline(error)) {
                     enqueueAction('delete', { id: String(id) });
                     setNetworkStatus();
+                } else {
+                    // 4xx or unexpected error: restore the item to the UI
+                    state.items = snapshot;
+                    cacheCurrentCategoryItems();
+                    renderItems();
+                    setMessage(error instanceof Error ? error.message : t('msg.delete_failed'), true);
                 }
             }
         } catch (error) {
@@ -69,28 +77,60 @@ export function createUpdateActions(deps) {
 
     async function handleStatus(id, currentStatus, targetStatus) {
         const next = targetStatus !== undefined ? targetStatus : (currentStatus === '' ? 'in_progress' : currentStatus === 'in_progress' ? 'waiting' : '');
-        await api('status', { method: 'POST', body: new URLSearchParams({ id: String(id), status: next }) });
-        const item = getItemById(id);
-        if (item) {
-            item.status = next;
-            cacheCurrentCategoryItems();
-            renderItems();
-        } else {
-            invalidateCategoryCache(state.categoryId);
-            await loadItems();
+        try {
+            await api('status', { method: 'POST', body: new URLSearchParams({ id: String(id), status: next }) });
+            const item = getItemById(id);
+            if (item) {
+                item.status = next;
+                cacheCurrentCategoryItems();
+                renderItems();
+            } else {
+                invalidateCategoryCache(state.categoryId);
+                await loadItems();
+            }
+        } catch (error) {
+            if (shouldQueueOffline(error)) {
+                enqueueAction('status', { id: String(id), status: next });
+                // Apply optimistically for offline
+                const item = getItemById(id);
+                if (item) {
+                    item.status = next;
+                    cacheCurrentCategoryItems();
+                    renderItems();
+                }
+                setNetworkStatus();
+            } else {
+                setMessage(error instanceof Error ? error.message : t('error.server_error'), true);
+            }
         }
     }
 
     async function handlePin(id, isPinned) {
-        await api('pin', { method: 'POST', body: new URLSearchParams({ id: String(id), is_pinned: String(isPinned) }) });
-        const item = getItemById(id);
-        if (item) {
-            item.is_pinned = isPinned;
-            cacheCurrentCategoryItems();
-            renderItems();
-        } else {
-            invalidateCategoryCache(state.categoryId);
-            await loadItems();
+        try {
+            await api('pin', { method: 'POST', body: new URLSearchParams({ id: String(id), is_pinned: String(isPinned) }) });
+            const item = getItemById(id);
+            if (item) {
+                item.is_pinned = isPinned;
+                cacheCurrentCategoryItems();
+                renderItems();
+            } else {
+                invalidateCategoryCache(state.categoryId);
+                await loadItems();
+            }
+        } catch (error) {
+            if (shouldQueueOffline(error)) {
+                enqueueAction('pin', { id: String(id), is_pinned: String(isPinned) });
+                // Apply optimistically for offline
+                const item = getItemById(id);
+                if (item) {
+                    item.is_pinned = isPinned;
+                    cacheCurrentCategoryItems();
+                    renderItems();
+                }
+                setNetworkStatus();
+            } else {
+                setMessage(error instanceof Error ? error.message : t('error.server_error'), true);
+            }
         }
     }
 
@@ -127,7 +167,7 @@ export function createUpdateActions(deps) {
         }
 
         const targetCategory = getVisibleCategories().find(category => Number(category.id) === targetId);
-        setMessage(targetCategory ? `Verschoben nach ${targetCategory.name}.` : 'Artikel verschoben.');
+        setMessage(targetCategory ? t('msg.item_moved', { name: targetCategory.name }) : t('msg.item_moved_generic'));
     }
 
     async function handleEditSave(id) {
@@ -154,7 +194,7 @@ export function createUpdateActions(deps) {
         state.editDraft = { itemId: null, categoryId: null, name: '', barcode: '', quantity: '', due_date: '', content: '' };
         invalidateCategoryCache(state.categoryId);
         await loadItems();
-        setMessage('Artikel gespeichert.');
+        setMessage(t('msg.item_saved'));
     }
 
     async function clearDone() {
@@ -166,6 +206,9 @@ export function createUpdateActions(deps) {
             .map(item => item.id);
 
         if (removedItemIds.length === 0) return;
+
+        // Snapshot for rollback on non-network errors.
+        const snapshot = [...state.items];
 
         state.items = state.items.filter(item => item.done !== 1);
         cacheCurrentCategoryItems();
@@ -179,7 +222,7 @@ export function createUpdateActions(deps) {
         }
 
         renderItems();
-        setMessage('Erledigte Artikel entfernt.');
+        setMessage(t('msg.done_cleared'));
 
         try {
             await api('clear', {
@@ -193,6 +236,12 @@ export function createUpdateActions(deps) {
             if (shouldQueueOffline(error)) {
                 enqueueAction('clear', { category_id: String(category.id) });
                 setNetworkStatus();
+            } else {
+                // 4xx or unexpected error: restore all items
+                state.items = snapshot;
+                cacheCurrentCategoryItems();
+                renderItems();
+                setMessage(error instanceof Error ? error.message : t('error.server_error'), true);
             }
         }
     }

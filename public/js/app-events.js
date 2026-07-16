@@ -1,6 +1,7 @@
 import { t } from './i18n.js';
-import { saveLocalPrefs, state, scannerState, themeMediaQuery, isAttachmentCategory, normalizePreferences, isLayoutAvailable, getAvailableLayouts } from './state.js?v=4.3.4';
-import { normalizeSettingsTab } from './api.js?v=4.3.4';
+import { saveLocalPrefs, state, scannerState, themeMediaQuery, isAttachmentCategory, normalizePreferences, isLayoutAvailable, getAvailableLayouts } from './state.js?v=5.1.5';
+import { normalizeSettingsTab } from './api.js?v=5.1.5';
+import { getPendingCount } from './offline-queue.js?v=5.1.5';
 import {
     appEl,
     cameraBtn,
@@ -39,9 +40,9 @@ import {
     uploadModeFileBtn,
     uploadModeUrlBtn,
     urlImportInput,
-} from './ui.js?v=4.3.4';
-import { applyThemePreferences } from './theme.js?v=4.3.4';
-import { normalizeBarcodeValue, syncAutoHeight } from './utils.js?v=4.3.4';
+} from './ui.js?v=5.1.5';
+import { applyThemePreferences } from './theme.js?v=5.1.5';
+import { normalizeBarcodeValue, syncAutoHeight } from './utils.js?v=5.1.5';
 
 export function registerAppEventHandlers(deps) {
     const {
@@ -490,11 +491,12 @@ export function registerAppEventHandlers(deps) {
     window.addEventListener('offline', setNetworkStatus);
 
     // Polling fallback: mobile browsers do not always fire online/offline reliably.
+    // Interval is 30s (instead of 3s) and only runs when there are pending queue items.
     setInterval(() => {
-        if (navigator.onLine) {
+        if (navigator.onLine && getPendingCount() > 0) {
             void runOnlineSync();
         }
-    }, 3000);
+    }, 30000);
 
     document.addEventListener('keydown', event => {
         if (event.key === 'Escape' && scannerState.open) {

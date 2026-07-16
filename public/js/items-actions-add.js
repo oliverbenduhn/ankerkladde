@@ -1,9 +1,9 @@
 import { t } from './i18n.js';
-import { appUrl, api } from './api.js?v=4.3.4';
-import { getCurrentCategory, isAttachmentCategory } from './state.js?v=4.3.4';
-import { itemInput, linkDescriptionInput, quantityInput } from './ui.js?v=4.3.4';
-import { sanitizeItemField } from './utils.js?v=4.3.11';
-import { enqueueAction } from './offline-queue.js?v=4.3.11';
+import { appUrl, api, fetchLinkMetadata } from './api.js?v=5.1.5';
+import { getCurrentCategory, isAttachmentCategory } from './state.js?v=5.1.5';
+import { itemInput, linkDescriptionInput, quantityInput } from './ui.js?v=5.1.5';
+import { sanitizeItemField } from './utils.js?v=5.1.5';
+import { enqueueAction } from './offline-queue.js?v=5.1.5';
 
 export function createAddActions(deps) {
     const {
@@ -21,16 +21,6 @@ export function createAddActions(deps) {
         importFileFromUrl,
         uploadSelectedAttachment,
     } = deps;
-
-    async function fetchLinkMetadata(url) {
-        try {
-            const response = await fetch(appUrl(`api.php?action=fetch_metadata&url=${encodeURIComponent(url)}`));
-            if (!response.ok) return null;
-            return await response.json();
-        } catch {
-            return null;
-        }
-    }
 
     async function addItem(event) {
         event.preventDefault();
@@ -104,7 +94,7 @@ export function createAddActions(deps) {
                 enqueueAction('add', Object.fromEntries(body.entries()));
                 resetItemForm();
                 setNetworkStatus();
-                setMessage('Offline gespeichert – wird synchronisiert wenn du wieder online bist.');
+                setMessage(t('msg.offline_saved'));
                 return;
             }
 
