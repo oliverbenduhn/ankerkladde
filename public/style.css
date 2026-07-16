@@ -4018,6 +4018,17 @@ details[open].settings-category-details > .settings-category-summary .settings-s
     font-size: 0.95rem;
 }
 
+.settings-icon-details > summary {
+    width: fit-content;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.settings-icon-details[open] > summary {
+    margin-bottom: 12px;
+}
+
 .category-icon-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));

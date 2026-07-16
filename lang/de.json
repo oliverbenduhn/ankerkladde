@@ -154,6 +154,7 @@
     "settings.new_category_hint": "Name frei wählen, Strukturtyp bleibt fest im Produkt definiert.",
     "settings.icon.auto_title": "Automatisch nach Typ",
     "settings.icon.auto_label": "Automatisch",
+    "settings.action.customize_symbol": "Symbol anpassen",
     "settings.field.type": "Typ",
     "settings.action.create_category": "Kategorie anlegen",
     "settings.section.ai": "KI-Assistent (Magic Bar)",

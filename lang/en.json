@@ -154,6 +154,7 @@
     "settings.new_category_hint": "Name is freely chosen, structure type is fixed by product definition.",
     "settings.icon.auto_title": "Automatic by type",
     "settings.icon.auto_label": "Automatic",
+    "settings.action.customize_symbol": "Customize symbol",
     "settings.field.type": "Type",
     "settings.action.create_category": "Create category",
     "settings.section.ai": "AI assistant (Magic Bar)",

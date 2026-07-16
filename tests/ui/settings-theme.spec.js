@@ -14,6 +14,7 @@ test.describe('Settings Theme Smoke Test', () => {
 
     const settingsFrame = page.frameLocator('#settingsFrame');
     await expect(settingsFrame.getByText('Erscheinungsbild')).toBeVisible();
+    await settingsFrame.locator('details[data-settings-panel="appearance"] > summary').click();
 
     await settingsFrame.getByText('Hell').click();
     await settingsFrame.locator('label').filter({
@@ -51,6 +52,7 @@ test.describe('Settings Theme Smoke Test', () => {
 
     const settingsFrame = page.frameLocator('#settingsFrame');
     await expect(settingsFrame.getByText('Erscheinungsbild')).toBeVisible();
+    await settingsFrame.locator('details[data-settings-panel="appearance"] > summary').click();
 
     let releaseAutosave;
     const autosaveBlocked = new Promise(resolve => {
@@ -92,19 +94,22 @@ test.describe('Settings Theme Smoke Test', () => {
     const categoriesPanel = settingsFrame.locator('details[data-settings-panel="categories"]');
     const newCategoryPanel = settingsFrame.locator('details[data-settings-panel="new-category"]');
 
-    await expect(appearancePanel).toHaveJSProperty('open', true);
-    await expect(categoriesPanel).toHaveJSProperty('open', true);
+    await expect(appearancePanel).toHaveJSProperty('open', false);
+    await expect(featuresPanel).toHaveJSProperty('open', false);
+    await expect(categoriesPanel).toHaveJSProperty('open', false);
+    await expect(newCategoryPanel).toHaveJSProperty('open', false);
 
+    await settingsFrame.locator('details[data-settings-panel="appearance"] > summary').click();
     await settingsFrame.locator('details[data-settings-panel="features"] > summary').click();
-    await settingsFrame.locator('details[data-settings-panel="categories"] > summary').click();
     await settingsFrame.locator('details[data-settings-panel="new-category"] > summary').click();
 
+    await expect(appearancePanel).toHaveJSProperty('open', true);
     await expect(featuresPanel).toHaveJSProperty('open', true);
     await expect(categoriesPanel).toHaveJSProperty('open', false);
     await expect(newCategoryPanel).toHaveJSProperty('open', true);
 
     await page.reload();
-    await expect(page).toHaveURL(/view=settings/);
+    await expect(page).toHaveURL(/(?:view|screen)=settings/);
     await expect(page.locator('#app')).toHaveClass(/settings-view/);
 
     const reloadedFrame = page.frameLocator('#settingsFrame');
@@ -152,6 +157,7 @@ test.describe('Settings Theme Smoke Test', () => {
 
     const settingsFrame = page.frameLocator('#settingsFrame');
     await expect(settingsFrame.locator('details[data-settings-panel="categories"] > summary')).toBeVisible();
+    await settingsFrame.locator('details[data-settings-panel="categories"] > summary').click();
 
     const firstCategory = settingsFrame.locator('form.settings-category-row').first();
     const firstCategoryDetails = firstCategory.locator('details.settings-category-details');
@@ -201,10 +207,14 @@ test.describe('Settings Theme Smoke Test', () => {
     const categoryName = `Neue Kategorie ${Date.now()}`;
 
     await settingsFrame.locator('details[data-settings-panel="new-category"] > summary').click();
+    const iconDetails = settingsFrame.locator('details.settings-icon-details');
+    await expect(iconDetails).toHaveJSProperty('open', false);
+    await expect(settingsFrame.getByRole('radio', { name: 'Automatisch', exact: true })).toBeHidden();
     await settingsFrame.locator('input[name="name"]').fill(categoryName);
     await settingsFrame.getByRole('button', { name: 'Kategorie anlegen' }).click();
 
     await expect(settingsFrame.locator('.settings-flash')).toContainText('Kategorie erstellt');
+    await settingsFrame.locator('details[data-settings-panel="categories"] > summary').click();
     await expect(settingsFrame.locator('form.settings-category-row', { hasText: categoryName })).toBeVisible();
     await expect(page.locator('.section-tab')).toContainText([categoryName]);
   });

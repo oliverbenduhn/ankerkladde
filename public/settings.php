@@ -181,7 +181,7 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
     endif;
     ?>
 
-    <details class="settings-section settings-accordion" data-settings-panel="language" open>
+    <details class="settings-section settings-accordion" data-settings-panel="language">
         <summary><?= t('settings.language') ?></summary>
         <div class="settings-block">
             <form method="post" action="<?= htmlspecialchars(appPath('settings.php' . ($isEmbedded ? '?embed=1&tab=app' : '')), ENT_QUOTES, 'UTF-8') ?>">
@@ -200,7 +200,7 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
         </div>
     </details>
 
-    <details class="settings-section settings-accordion" data-settings-panel="appearance" open>
+    <details class="settings-section settings-accordion" data-settings-panel="appearance">
         <summary><?= t('settings.section.appearance') ?></summary>
         <form method="post" action="<?= htmlspecialchars($settingsAction, ENT_QUOTES, 'UTF-8') ?>" class="settings-form" data-auto-submit="change" data-theme-form="1">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
@@ -346,7 +346,7 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
         </form>
     </details>
 
-    <details class="settings-section settings-accordion" data-settings-panel="categories" open>
+    <details class="settings-section settings-accordion" data-settings-panel="categories">
         <summary><?= t('settings.section.categories') ?></summary>
         <div class="settings-block">
             <p class="settings-copy"><?= t('settings.categories_hint') ?></p>
@@ -451,25 +451,6 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
             <div class="settings-block">
                 <p class="settings-copy"><?= t('settings.new_category_hint') ?></p>
                 <div class="settings-password-fields">
-                    <fieldset class="settings-field settings-icon-field">
-                        <legend><?= t('settings.field.symbol') ?></legend>
-                        <div class="category-icon-grid category-icon-grid-new">
-                            <label class="category-icon-choice category-icon-choice-auto" title="<?= t('settings.icon.auto_title') ?>">
-                                <input type="radio" name="icon" value="" checked>
-                                <span class="category-icon-choice-visual category-icon-choice-auto-visual" aria-hidden="true">A</span>
-                                <span class="category-icon-choice-label"><?= t('settings.icon.auto_label') ?></span>
-                            </label>
-                            <?php foreach ($iconOptions as $iconOption): ?>
-                                <label class="category-icon-choice" title="<?= htmlspecialchars(categoryIconLabel($iconOption), ENT_QUOTES, 'UTF-8') ?>">
-                                    <input type="radio" name="icon" value="<?= htmlspecialchars($iconOption, ENT_QUOTES, 'UTF-8') ?>">
-                                    <span class="category-icon-choice-visual" aria-hidden="true">
-                                        <img src="<?= htmlspecialchars(categoryIconAssetPath($iconOption), ENT_QUOTES, 'UTF-8') ?>" alt="" loading="lazy" decoding="async" class="category-icon-img">
-                                    </span>
-                                    <span class="category-icon-choice-label"><?= htmlspecialchars(categoryIconLabel($iconOption), ENT_QUOTES, 'UTF-8') ?></span>
-                                </label>
-                            <?php endforeach; ?>
-                        </div>
-                    </fieldset>
                     <label class="settings-field">
                         <span><?= t('settings.field.name') ?></span>
                         <input type="text" name="name" maxlength="120" required>
@@ -482,6 +463,28 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                             <?php endforeach; ?>
                         </select>
                     </label>
+                    <details class="settings-icon-details">
+                        <summary><?= t('settings.action.customize_symbol') ?></summary>
+                        <fieldset class="settings-field settings-icon-field">
+                            <legend><?= t('settings.field.symbol') ?></legend>
+                            <div class="category-icon-grid category-icon-grid-new">
+                                <label class="category-icon-choice category-icon-choice-auto" title="<?= t('settings.icon.auto_title') ?>">
+                                    <input type="radio" name="icon" value="" checked>
+                                    <span class="category-icon-choice-visual category-icon-choice-auto-visual" aria-hidden="true">A</span>
+                                    <span class="category-icon-choice-label"><?= t('settings.icon.auto_label') ?></span>
+                                </label>
+                                <?php foreach ($iconOptions as $iconOption): ?>
+                                    <label class="category-icon-choice" title="<?= htmlspecialchars(categoryIconLabel($iconOption), ENT_QUOTES, 'UTF-8') ?>">
+                                        <input type="radio" name="icon" value="<?= htmlspecialchars($iconOption, ENT_QUOTES, 'UTF-8') ?>">
+                                        <span class="category-icon-choice-visual" aria-hidden="true">
+                                            <img src="<?= htmlspecialchars(categoryIconAssetPath($iconOption), ENT_QUOTES, 'UTF-8') ?>" alt="" loading="lazy" decoding="async" class="category-icon-img">
+                                        </span>
+                                        <span class="category-icon-choice-label"><?= htmlspecialchars(categoryIconLabel($iconOption), ENT_QUOTES, 'UTF-8') ?></span>
+                                    </label>
+                                <?php endforeach; ?>
+                            </div>
+                        </fieldset>
+                    </details>
                 </div>
             </div>
 
@@ -491,7 +494,7 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
         </form>
     </details>
 
-    <details class="settings-section settings-accordion" data-settings-panel="ai" open>
+    <details class="settings-section settings-accordion" data-settings-panel="ai">
         <summary><?= t('settings.section.ai') ?></summary>
         <form method="post" action="<?= htmlspecialchars($settingsAction, ENT_QUOTES, 'UTF-8') ?>" class="settings-form">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
