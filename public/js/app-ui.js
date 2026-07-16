@@ -301,6 +301,7 @@ export function createAppUiController(deps = {}) {
 
         if (itemInput) {
             itemInput.placeholder = config.placeholder;
+            itemInput.setAttribute('aria-label', config.placeholder.replace(/\.{3}$/, ''));
             itemInput.required = !isAttachmentCategory(category.type);
         }
 

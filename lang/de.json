@@ -29,9 +29,9 @@
     "ui.select_category": "Bereich wählen",
     "item.input_placeholder": "Artikel...",
     "item.link_description": "Beschreibung optional",
-    "item.upload_file": "Datei wählen",
+    "item.upload_file": "Lokale Datei",
     "item.upload_url": "Von URL laden",
-    "item.choose_file": "Datei wählen",
+    "item.choose_file": "Datei hochladen",
     "item.take_photo": "Foto aufnehmen",
     "item.no_file_selected": "Keine Datei ausgewählt",
     "item.url_placeholder": "https://example.com/datei.pdf",
@@ -325,7 +325,7 @@
     "msg.connection_success": "✅ Verbindung erfolgreich mit {model}!",
     "msg.no_move_target": "Keine passende Zielkategorie",
 
-    "item.choose_image": "Bild wählen",
+    "item.choose_image": "Bild hochladen",
     "item.drop_file": "Datei hierher ziehen oder aus Zwischenablage einfügen",
 
     "ui.back": "Zurück",

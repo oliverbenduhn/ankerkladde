@@ -1,4 +1,4 @@
-import { createAppUiController } from './app-ui.js?v=4.3.10';
+import { createAppUiController } from './app-ui.js?v=4.3.11';
 import { createHelpersController } from './helpers.js?v=4.3.4';
 import { createItemsActionsController } from './items-actions.js?v=4.3.19';
 import { createItemsController } from './items.js?v=4.3.4';

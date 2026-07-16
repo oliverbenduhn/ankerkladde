@@ -29,9 +29,9 @@
     "ui.select_category": "Select category",
     "item.input_placeholder": "Item...",
     "item.link_description": "Description optional",
-    "item.upload_file": "Choose file",
+    "item.upload_file": "Local file",
     "item.upload_url": "Load from URL",
-    "item.choose_file": "Choose file",
+    "item.choose_file": "Upload file",
     "item.take_photo": "Take photo",
     "item.no_file_selected": "No file selected",
     "item.url_placeholder": "https://example.com/file.pdf",
@@ -325,7 +325,7 @@
     "msg.connection_success": "✅ Connection successful with {model}!",
     "msg.no_move_target": "No matching target category",
 
-    "item.choose_image": "Choose image",
+    "item.choose_image": "Upload image",
     "item.drop_file": "Drag file here or paste from clipboard",
 
     "ui.back": "Back",
