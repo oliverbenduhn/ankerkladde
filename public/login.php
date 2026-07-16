@@ -127,12 +127,6 @@ $csrfToken = getCsrfToken();
 </head>
 <body class="login-page" data-theme="<?= htmlspecialchars($effectiveTheme, ENT_QUOTES, 'UTF-8') ?>">
 
-<div class="install-banner" id="installBanner" hidden style="position:fixed;top:0;left:0;right:0;z-index:100">
-    <span class="install-text"><?= t('ui.install_prompt') ?></span>
-    <button type="button" id="installBtn" class="btn-install"><?= t('ui.install') ?></button>
-    <button type="button" id="installDismiss" class="btn-install-dismiss" aria-label="<?= t('ui.close') ?>">✕</button>
-</div>
-
 <div class="login-card">
     <div class="login-brand">
         <img src="<?= htmlspecialchars($brandMarkSrc, ENT_QUOTES, 'UTF-8') ?>" alt="Ankerkladde Logo" class="brand-mark brand-mark-login">
@@ -164,31 +158,10 @@ $csrfToken = getCsrfToken();
 (function () {
     'use strict';
     const basePath = <?= json_encode($basePath, JSON_UNESCAPED_SLASHES) ?>;
-    const bannerEl = document.getElementById('installBanner');
-    const installBtn = document.getElementById('installBtn');
-    const dismissBtn = document.getElementById('installDismiss');
-    let deferredPrompt = null;
 
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register(basePath + 'sw.js?v=<?= urlencode($assetVersion) ?>').catch(() => {});
     }
-
-    window.addEventListener('beforeinstallprompt', e => {
-        e.preventDefault();
-        deferredPrompt = e;
-        if (bannerEl) bannerEl.hidden = false;
-    });
-
-    installBtn?.addEventListener('click', async () => {
-        if (!deferredPrompt) return;
-        bannerEl.hidden = true;
-        await deferredPrompt.prompt();
-        deferredPrompt = null;
-    });
-
-    dismissBtn?.addEventListener('click', () => {
-        if (bannerEl) bannerEl.hidden = true;
-    });
 }());
 </script>
 <nav class="legal-footer" aria-label="Rechtliche Hinweise">

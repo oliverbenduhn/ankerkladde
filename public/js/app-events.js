@@ -82,7 +82,7 @@ export function registerAppEventHandlers(deps) {
     } = deps;
 
     itemForm?.addEventListener('submit', event => {
-        void addItem(event).catch(error => {
+        void addItem(event).then(maybeShowInstallBanner).catch(error => {
             setUploadProgress(0);
             setMessage(error instanceof Error ? error.message : 'Aktion fehlgeschlagen.', true);
         });
@@ -95,7 +95,7 @@ export function registerAppEventHandlers(deps) {
         if (deps.getUploadMode?.() === 'url') return;
         if (!fileInput.files?.[0]) return;
 
-        void triggerUploadSelectedAttachment().catch(error => {
+        void triggerUploadSelectedAttachment().then(maybeShowInstallBanner).catch(error => {
             setUploadProgress(0);
             setMessage(error instanceof Error ? error.message : 'Upload fehlgeschlagen.', true);
         });
@@ -125,7 +125,7 @@ export function registerAppEventHandlers(deps) {
 
         if (!isAttachmentCategory()) return;
 
-        void triggerUploadSelectedAttachment().catch(error => {
+        void triggerUploadSelectedAttachment().then(maybeShowInstallBanner).catch(error => {
             setUploadProgress(0);
             setMessage(error instanceof Error ? error.message : 'Upload fehlgeschlagen.', true);
         });
@@ -436,7 +436,7 @@ export function registerAppEventHandlers(deps) {
         fileInput.files = transfer.files;
         updateFilePickerLabel();
 
-        void triggerUploadSelectedAttachment().catch(error => {
+        void triggerUploadSelectedAttachment().then(maybeShowInstallBanner).catch(error => {
             setUploadProgress(0);
             setMessage(error instanceof Error ? error.message : 'Upload fehlgeschlagen.', true);
         });
@@ -454,7 +454,7 @@ export function registerAppEventHandlers(deps) {
         transfer.items.add(file);
         fileInput.files = transfer.files;
         updateFilePickerLabel();
-        void triggerUploadSelectedAttachment().catch(error => {
+        void triggerUploadSelectedAttachment().then(maybeShowInstallBanner).catch(error => {
             setUploadProgress(0);
             setMessage(error instanceof Error ? error.message : 'Upload fehlgeschlagen.', true);
         });
@@ -528,11 +528,16 @@ export function registerAppEventHandlers(deps) {
     const installBtn = document.getElementById('installBtn');
     const installDismiss = document.getElementById('installDismiss');
 
+    function maybeShowInstallBanner() {
+        if (!deferredInstallPrompt || state.items.length === 0 || !installBannerEl || !installBtn) return;
+        installBannerEl.hidden = false;
+    }
+
     window.addEventListener('beforeinstallprompt', event => {
         if (userPreferencesRef().install_banner_dismissed || !installBannerEl || !installBtn) return;
         deferredInstallPrompt = event;
         event.preventDefault();
-        installBannerEl.hidden = false;
+        maybeShowInstallBanner();
     });
 
     installBtn?.addEventListener('click', async () => {
