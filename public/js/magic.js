@@ -1,6 +1,6 @@
 import { t } from './i18n.js';
 import { appUrl } from './api.js?v=4.3.4';
-import { appEl, magicBtns, magicBar, magicInput, magicSubmit, magicClose, magicVoiceBtn } from './ui.js?v=4.3.4';
+import { appEl, magicBtns, magicBar, magicInput, magicSubmit, magicClose, magicVoiceBtn } from './ui.js?v=5.1.11';
 import { state, csrfToken } from './state.js?v=4.3.4';
 
 export function createMagicController(deps) {
@@ -21,7 +21,7 @@ export function createMagicController(deps) {
         if (magicClose) magicClose.disabled = loading;
     }
 
-    function openMagic() {
+    function openMagic(initialInput = '') {
         if (getUserPreferences().magic_button_enabled === false) {
             setMessage('Der Magic Button ist in den Einstellungen deaktiviert.', true);
             return;
@@ -33,6 +33,7 @@ export function createMagicController(deps) {
         magicBar.hidden = false;
         appEl.classList.add('is-magic-active');
         magicBtns.forEach(btn => btn.classList.add('is-active'));
+        magicInput.value = initialInput;
         magicInput.focus();
     }
 

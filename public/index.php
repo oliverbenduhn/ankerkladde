@@ -172,8 +172,12 @@ $clientWebSocketUrl = is_string($clientWebSocketUrl) ? trim($clientWebSocketUrl)
             <input type="text" id="quantityInput" name="quantity"
                    placeholder="<?= t('item.quantity') ?>" aria-label="<?= t('item.quantity') ?>" maxlength="40" autocomplete="off" enterkeyhint="done">
             <button type="button" class="btn-add btn-scan-input" id="scanAddBtn" aria-label="<?= t('ui.scan_barcode') ?>"<?= !$shoppingListScannerEnabled ? ' hidden' : '' ?>><?= icon('scan') ?></button>
-            <button type="submit" class="btn-add" aria-label="<?= t('item.add') ?>"><?= icon('plus') ?></button>
+            <button type="submit" class="btn-add" id="itemSubmitBtn" aria-label="<?= t('item.add') ?>"><?= icon('plus') ?></button>
         </form>
+        <div class="quick-add-feedback" id="quickAddFeedback" role="alert" hidden>
+            <span id="quickAddFeedbackText"></span>
+            <button type="button" id="quickAddAiBtn" hidden>Mit AI klären</button>
+        </div>
         <p class="input-hint" id="inputHint" hidden></p>
         <div class="drop-zone" id="dropZone" hidden aria-hidden="true">
             <span class="drop-zone-label"><?= t('item.drop_image') ?></span>

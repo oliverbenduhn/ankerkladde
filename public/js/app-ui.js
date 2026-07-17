@@ -13,6 +13,7 @@ import {
     inputHintEl,
     itemForm,
     itemInput,
+    itemSubmitBtn,
     layoutToggleBtn,
     LAYOUT_ICONS,
     linkDescriptionInput,
@@ -37,7 +38,8 @@ import {
     urlImportInput,
     magicBar,
     magicBtns,
-} from './ui.js?v=4.3.4';
+    quickAddFeedback,
+} from './ui.js?v=5.1.11';
 import { syncAutoHeight } from './utils.js?v=4.3.4';
 
 export function createAppUiController(deps = {}) {
@@ -190,7 +192,8 @@ export function createAppUiController(deps = {}) {
         }
 
         const submitBtn = itemForm?.querySelector('[type="submit"]');
-        if (submitBtn) submitBtn.hidden = uploadCategory && uploadMode === 'file';
+        const quickAddCategory = category?.type === 'list_quantity' || category?.type === 'list_due_date';
+        if (submitBtn) submitBtn.hidden = quickAddCategory || (uploadCategory && uploadMode === 'file');
         if (scanAddBtn) scanAddBtn.hidden = !shoppingListScannerEnabled || !barcodeCategory || uploadCategory;
         if (scanShoppingBtn) scanShoppingBtn.hidden = !shoppingListScannerEnabled || !barcodeCategory;
 
@@ -298,6 +301,7 @@ export function createAppUiController(deps = {}) {
         if (!category) return;
 
         const config = getTypeConfig(category.type);
+        const isQuickAddCategory = category.type === 'list_quantity' || category.type === 'list_due_date';
         const titleListe = document.getElementById('titleListe');
         const titleShopping = document.getElementById('titleShopping');
         if (titleListe) titleListe.textContent = config.title(category.name);
@@ -306,13 +310,23 @@ export function createAppUiController(deps = {}) {
         document.title = `Ankerkladde - ${category.name}`;
 
         if (itemInput) {
-            itemInput.placeholder = config.placeholder;
-            itemInput.setAttribute('aria-label', config.placeholder.replace(/\.{3}$/, ''));
+            const placeholder = isQuickAddCategory
+                ? 'Quick-Add: Name, morgen, 8:00, /Kategorie, !1–!3'
+                : config.placeholder;
+            itemInput.placeholder = placeholder;
+            itemInput.setAttribute('aria-label', isQuickAddCategory ? 'Quick-Add' : placeholder.replace(/\.{3}$/, ''));
             itemInput.required = !isAttachmentCategory(category.type);
         }
 
+        itemForm?.classList.toggle('is-quick-add', isQuickAddCategory);
+        if (itemSubmitBtn) itemSubmitBtn.hidden = isQuickAddCategory;
+        if (quickAddFeedback) quickAddFeedback.hidden = true;
+
         if (quantityInput) {
-            if (config.quantityMode === 'text') {
+            if (isQuickAddCategory) {
+                quantityInput.style.display = 'none';
+                quantityInput.value = '';
+            } else if (config.quantityMode === 'text') {
                 quantityInput.type = 'text';
                 quantityInput.placeholder = 'Menge';
                 quantityInput.style.display = '';

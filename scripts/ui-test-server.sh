@@ -11,7 +11,7 @@ if ! command -v php >/dev/null 2>&1; then
   exit 1
 fi
 
-if ! php -m | grep -qi '^pdo_sqlite$'; then
+if ! php -r 'exit(extension_loaded("pdo_sqlite") ? 0 : 1);'; then
   echo "Fehler: die lokale PHP-Installation hat kein pdo_sqlite-Modul." >&2
   echo "Bitte pdo_sqlite aktivieren oder die Tests in einer PHP-/Docker-Umgebung mit SQLite-Support starten." >&2
   exit 1

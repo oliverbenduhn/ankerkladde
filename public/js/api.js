@@ -54,6 +54,8 @@ export async function api(action, options = {}) {
     if (!response.ok) {
         const error = new Error(payload.error || 'Unbekannter Fehler');
         error.status = response.status;
+        error.payload = payload;
+        error.errorKey = payload.error_key || '';
         throw error;
     }
 

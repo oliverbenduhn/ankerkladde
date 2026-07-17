@@ -99,6 +99,9 @@ TODO_LIST_BODY="$TMP_DIR/todo-list.json"
 TODAY_BODY="$TMP_DIR/today.json"
 TODAY_ADD_BODY="$TMP_DIR/today-add.json"
 TODAY_DONE_ADD_BODY="$TMP_DIR/today-done-add.json"
+QUICK_ADD_UNKNOWN_BODY="$TMP_DIR/quick-add-unknown.json"
+QUICK_ADD_BEFORE_BODY="$TMP_DIR/quick-add-before.json"
+QUICK_ADD_AFTER_BODY="$TMP_DIR/quick-add-after.json"
 MOVE_CATEGORY_BODY="$TMP_DIR/move-category.json"
 MOVE_ADD_BODY="$TMP_DIR/move-add.json"
 MOVE_INVALID_BODY="$TMP_DIR/move-invalid.json"
@@ -173,6 +176,14 @@ if [[ -z "$NOTES_CATEGORY_ID" || "$NOTES_CATEGORY_ID" -le 0 ]]; then
     echo "Notizen-Kategorie konnte nicht aus categories_list gelesen werden." >&2
     exit 1
 fi
+
+[[ "$(status_code "$QUICK_ADD_BEFORE_BODY" -b "$COOKIE_JAR" "http://127.0.0.1:$PORT/api.php?action=list&category_id=$SHOPPING_CATEGORY_ID")" == "200" ]]
+QUICK_ADD_COUNT_BEFORE="$(php -r '$payload = json_decode(file_get_contents($argv[1]), true); echo count($payload["items"] ?? []);' "$QUICK_ADD_BEFORE_BODY")"
+[[ "$(status_code "$QUICK_ADD_UNKNOWN_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST --data-urlencode "active_category_id=$SHOPPING_CATEGORY_ID" --data-urlencode 'input=Milch /unbekannt' "http://127.0.0.1:$PORT/api.php?action=quick_add")" == "422" ]]
+php -r '$payload = json_decode(file_get_contents($argv[1]), true); if (($payload["error_key"] ?? "") !== "quick_add.unknown_category" || !array_key_exists("can_escalate_to_ai", $payload)) { fwrite(STDERR, "Quick-Add-Fehlerform ist ungültig.\n"); exit(1); }' "$QUICK_ADD_UNKNOWN_BODY"
+[[ "$(status_code "$QUICK_ADD_AFTER_BODY" -b "$COOKIE_JAR" "http://127.0.0.1:$PORT/api.php?action=list&category_id=$SHOPPING_CATEGORY_ID")" == "200" ]]
+QUICK_ADD_COUNT_AFTER="$(php -r '$payload = json_decode(file_get_contents($argv[1]), true); echo count($payload["items"] ?? []);' "$QUICK_ADD_AFTER_BODY")"
+[[ "$QUICK_ADD_COUNT_AFTER" == "$QUICK_ADD_COUNT_BEFORE" ]]
 
 [[ "$(curl -sS -o /dev/null -D "$REDIRECT_HEADERS" -w '%{http_code}' -H 'Host: beispiel.invalid' "http://127.0.0.1:$PORT/")" == "308" ]]
 grep -q '^Location: https://ankerkladde\.benduhn\.de/' "$REDIRECT_HEADERS"

@@ -5,6 +5,7 @@ ini_set('default_charset', 'UTF-8');
 
 require dirname(__DIR__) . '/db.php';
 require dirname(__DIR__) . '/security.php';
+require dirname(__DIR__) . '/src/QuickAddParser.php';
 require __DIR__ . '/theme.php';
 
 enforceCanonicalRequest();
@@ -1615,6 +1616,8 @@ function formatListItem(array $item): array
         'barcode' => (string) ($item['barcode'] ?? ''),
         'quantity' => (string) ($item['quantity'] ?? ''),
         'due_date' => (string) ($item['due_date'] ?? ''),
+        'due_time' => (string) ($item['due_time'] ?? ''),
+        'priority' => (string) ($item['priority'] ?? ''),
         'is_pinned' => (int) ($item['is_pinned'] ?? 0),
         'status' => (string) ($item['status'] ?? ''),
         'content' => (string) ($item['content'] ?? ''),
@@ -1647,6 +1650,8 @@ function fetchItemForUser(PDO $db, int $userId, int $itemId): ?array
             items.barcode,
             items.quantity,
             items.due_date,
+            items.due_time,
+            items.priority,
             items.is_pinned,
             items.status,
             items.content,
@@ -1922,6 +1927,8 @@ try {
                     items.barcode,
                     items.quantity,
                     items.due_date,
+                    items.due_time,
+                    items.priority,
                     items.is_pinned,
                     items.status,
                     items.content,
@@ -1956,6 +1963,94 @@ try {
             }
 
             respond(200, $response);
+
+        case 'quick_add':
+            requireMethod('POST');
+            $data = requestData();
+            if (!isApiKeyAuthRequest()) {
+                requireCsrfToken($data);
+            }
+
+            $activeCategoryId = filter_var($data['active_category_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+            if (!is_int($activeCategoryId)) {
+                respond(422, ['error' => t('error.invalid_category'), 'error_key' => 'error.invalid_category']);
+            }
+
+            $categories = loadUserCategories($db, $userId);
+            $activeCategory = array_values(array_filter(
+                $categories,
+                static fn(array $category): bool => (int) $category['id'] === $activeCategoryId
+            ))[0] ?? null;
+            if (!is_array($activeCategory)) {
+                respond(404, ['error' => t('error.category_not_found'), 'error_key' => 'error.category_not_found']);
+            }
+
+            $parsed = parseQuickAdd((string) ($data['input'] ?? ''), $activeCategoryId, $categories, date('Y-m-d'));
+            if (($parsed['ok'] ?? false) !== true) {
+                respond(422, $parsed);
+            }
+
+            $targetCategory = array_values(array_filter(
+                $categories,
+                static fn(array $category): bool => (int) $category['id'] === (int) $parsed['category_id']
+            ))[0] ?? null;
+            if (!is_array($targetCategory)) {
+                respond(404, ['error' => t('error.category_not_found'), 'error_key' => 'error.category_not_found']);
+            }
+            validateCategoryType(
+                $targetCategory,
+                ['list_quantity', 'list_due_date'],
+                'Quick-Add ist nur für Listen und Aufgaben verfügbar.',
+                'quick_add.invalid_category_type'
+            );
+
+            $name = normalizeName($parsed['name'] ?? null);
+            if ($name === '') {
+                respond(422, ['error' => t('error.item_name_required'), 'error_key' => 'error.item_name_required']);
+            }
+            $dueDate = (string) $parsed['due_date'];
+            $dueTime = (string) $parsed['due_time'];
+            if ((string) $targetCategory['type'] !== 'list_due_date') {
+                $dueDate = '';
+                $dueTime = '';
+            }
+
+            $db->beginTransaction();
+            try {
+                $sortOrder = prependItemSortOrder($db, $userId, (int) $targetCategory['id']);
+                $stmt = $db->prepare(
+                    'INSERT INTO items
+                        (name, quantity, due_date, due_time, priority, content, section, category_id, sort_order, user_id)
+                     VALUES
+                        (:name, :quantity, :due_date, :due_time, :priority, :content, :section, :category_id, :sort_order, :user_id)'
+                );
+                $stmt->execute([
+                    ':name' => $name,
+                    ':quantity' => '',
+                    ':due_date' => $dueDate,
+                    ':due_time' => $dueTime,
+                    ':priority' => (string) $parsed['priority'],
+                    ':content' => '',
+                    ':section' => '',
+                    ':category_id' => (int) $targetCategory['id'],
+                    ':sort_order' => $sortOrder,
+                    ':user_id' => $userId,
+                ]);
+                $itemId = (int) $db->lastInsertId();
+                $db->commit();
+            } catch (Throwable $exception) {
+                if ($db->inTransaction()) {
+                    $db->rollBack();
+                }
+                throw $exception;
+            }
+
+            respond(201, [
+                'message' => 'Eintrag hinzugefügt.',
+                'id' => $itemId,
+                'category_id' => (int) $targetCategory['id'],
+                'parsed' => $parsed,
+            ]);
 
         case 'add':
             requireMethod('POST');
@@ -2650,6 +2745,8 @@ try {
                     items.barcode,
                     items.quantity,
                     items.due_date,
+                    items.due_time,
+                    items.priority,
                     items.is_pinned,
                     items.status,
                     items.content,

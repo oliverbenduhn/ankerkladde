@@ -1,7 +1,14 @@
 import { t } from './i18n.js';
-import { appUrl, api } from './api.js?v=4.3.4';
+import { appUrl, api } from './api.js?v=5.1.11';
 import { getCurrentCategory, isAttachmentCategory } from './state.js?v=4.3.4';
-import { itemInput, linkDescriptionInput, quantityInput } from './ui.js?v=4.3.4';
+import {
+    itemInput,
+    linkDescriptionInput,
+    quantityInput,
+    quickAddAiBtn,
+    quickAddFeedback,
+    quickAddFeedbackText,
+} from './ui.js?v=5.1.11';
 import { sanitizeItemField } from './utils.js?v=4.3.11';
 import { enqueueAction } from './offline-queue.js?v=4.3.11';
 
@@ -10,10 +17,12 @@ export function createAddActions(deps) {
         getItemById,
         getUploadMode,
         loadItems,
+        openMagic,
         openNoteEditorWithNavigation,
         resetItemForm,
         setMessage,
         setNetworkStatus,
+        setCategory,
         invalidateCategoryCache,
         shouldQueueOffline,
         itemParams,
@@ -21,6 +30,58 @@ export function createAddActions(deps) {
         importFileFromUrl,
         uploadSelectedAttachment,
     } = deps;
+    let pendingQuickAddInput = '';
+
+    function hideQuickAddFeedback() {
+        if (quickAddFeedback) quickAddFeedback.hidden = true;
+        if (quickAddFeedbackText) quickAddFeedbackText.textContent = '';
+        if (quickAddAiBtn) quickAddAiBtn.hidden = true;
+        pendingQuickAddInput = '';
+    }
+
+    function showQuickAddFeedback(error, input) {
+        const payload = error?.payload || {};
+        if (!quickAddFeedback || !quickAddFeedbackText) return;
+        pendingQuickAddInput = input;
+        quickAddFeedbackText.textContent = payload.error || error.message || 'Quick-Add konnte nicht verarbeitet werden.';
+        quickAddFeedback.hidden = false;
+        if (quickAddAiBtn) quickAddAiBtn.hidden = payload.can_escalate_to_ai !== true;
+    }
+
+    quickAddAiBtn?.addEventListener('click', () => {
+        if (pendingQuickAddInput === '') return;
+        const input = pendingQuickAddInput;
+        hideQuickAddFeedback();
+        openMagic(input);
+    });
+    itemInput?.addEventListener('input', hideQuickAddFeedback);
+
+    async function quickAdd(input, activeCategoryId) {
+        const body = itemParams({
+            input,
+            active_category_id: String(activeCategoryId),
+        });
+        try {
+            const payload = await api('quick_add', { method: 'POST', body });
+            hideQuickAddFeedback();
+            resetItemForm();
+            invalidateCategoryCache(activeCategoryId);
+            invalidateCategoryCache(payload.category_id);
+            if (Number(payload.category_id) !== Number(activeCategoryId)) {
+                await setCategory(payload.category_id);
+            } else {
+                await loadItems();
+            }
+            setMessage(t('msg.item_added'));
+            return payload;
+        } catch (error) {
+            if (error?.status === 422 && error?.payload?.error_key?.startsWith('quick_add.')) {
+                showQuickAddFeedback(error, input);
+                return null;
+            }
+            throw error;
+        }
+    }
 
     async function fetchLinkMetadata(url) {
         try {
@@ -36,6 +97,11 @@ export function createAddActions(deps) {
         event.preventDefault();
         const category = getCurrentCategory();
         if (!category) return;
+
+        if (category.type === 'list_quantity' || category.type === 'list_due_date') {
+            await quickAdd(itemInput.value.trim(), Number(category.id));
+            return;
+        }
 
         if (category.type === 'notes') {
             const name = sanitizeItemField('name', itemInput.value.trim() || 'Neue Notiz');
@@ -112,5 +178,5 @@ export function createAddActions(deps) {
         }
     }
 
-    return { addItem };
+    return { addItem, quickAdd };
 }

@@ -1,6 +1,6 @@
-import { createAppUiController } from './app-ui.js?v=4.3.11';
+import { createAppUiController } from './app-ui.js?v=5.1.11';
 import { createHelpersController } from './helpers.js?v=4.3.4';
-import { createItemsActionsController } from './items-actions.js?v=4.3.19';
+import { createItemsActionsController } from './items-actions.js?v=5.1.11';
 import { createItemsController } from './items.js?v=4.3.4';
 import { createItemsViewController } from './items-view.js?v=4.3.12';
 import { createNavigation } from './navigation.js?v=4.3.4';
@@ -12,7 +12,7 @@ import { createScannerController } from './scanner.js?v=4.3.11';
 import { createSwipeController } from './swipe.js?v=4.3.4';
 import { createTabsViewController } from './tabs-view.js?v=4.3.4';
 import { createKanbanViewController } from './kanban-view.js?v=4.3.10';
-import { createMagicController } from './magic.js?v=4.3.10';
+import { createMagicController } from './magic.js?v=5.1.11';
 import { createTodayViewController } from './today-view.js?v=5.1.11';
 import { flushQueue, getConflictCount, getPendingCount } from './offline-queue.js?v=4.3.11';
 import { api } from './api.js?v=4.3.4';
@@ -175,6 +175,7 @@ export function createAppRuntime(deps) {
         loadItems,
         makeUploadProgressCallback,
         openNoteEditorWithNavigation,
+        openMagic: input => magicController?.openMagic(input),
         renderItems,
         resetItemForm,
         setCategory,
@@ -340,6 +341,7 @@ export function createAppRuntime(deps) {
         openScanner,
         openSearch,
         prefetchAdjacentCategories,
+        quickAdd: async (input, activeCategoryId) => { await itemsActionsController.quickAdd(input, activeCategoryId); },
         renderCategoryTabs,
         renderItems,
         reorderController,

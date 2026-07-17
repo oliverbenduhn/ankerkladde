@@ -472,6 +472,33 @@ button, input { font: inherit; }
 }
 .btn-add:active { transform: scale(0.94); }
 
+.quick-add-feedback {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 8px;
+    color: var(--danger, #b42318);
+    font-size: 0.9rem;
+}
+
+.quick-add-feedback[hidden],
+.quick-add-feedback button[hidden] {
+    display: none;
+}
+
+.quick-add-feedback button {
+    flex: 0 0 auto;
+    border: 1px solid currentColor;
+    border-radius: 999px;
+    padding: 6px 10px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+
 .btn-scan-input {
     background: var(--border);
     color: var(--text-secondary);
