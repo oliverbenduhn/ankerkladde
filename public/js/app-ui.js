@@ -296,6 +296,13 @@ export function createAppUiController(deps = {}) {
             document.title = 'Ankerkladde - Einstellungen';
             return;
         }
+        if (state.screen === 'journal') {
+            if (categoryTitleEl) categoryTitleEl.textContent = 'Journal';
+            document.title = 'Ankerkladde - Journal';
+            updateModeChip();
+            updateLayoutSwitcher();
+            return;
+        }
 
         const category = getCurrentCategory();
         if (!category) return;

@@ -21,6 +21,7 @@ export function createItemsViewController(deps) {
         handleToggle,
         isOverdueItem,
         openNoteEditorWithNavigation,
+        openJournalWithNavigation,
         openTodoEditor,
         setCategory,
         setMessage,
@@ -628,6 +629,10 @@ export function createItemsViewController(deps) {
             li.appendChild(content);
             makeListItemButton(li, `${item.name} in ${item.category_name} öffnen`, async () => {
                 closeSearch();
+                if (item.category_type === 'daily_notes') {
+                    await openJournalWithNavigation(item.due_date);
+                    return;
+                }
                 await setCategory(item.category_id);
                 if (item.category_type === 'notes') {
                     const current = getItemById(item.id);

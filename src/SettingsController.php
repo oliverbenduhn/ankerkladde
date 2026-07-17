@@ -306,6 +306,9 @@ class SettingsController
                     if ($category === null) {
                         $flash = t('error.category_not_found');
                         $flashType = 'err';
+                    } elseif ((string) $category['type'] === 'daily_notes') {
+                        $flash = 'Die Journal-Kategorie wird vom System verwaltet.';
+                        $flashType = 'err';
                     } else {
                         $name = normalizeSettingsName((string) ($postData['category_name'] ?? $category['name']));
                         $icon = normalizeCategoryIcon((string) ($postData['category_icon'] ?? $category['icon']), (string) $category['type']);
@@ -403,6 +406,9 @@ class SettingsController
                     $category = loadUserCategory($this->db, $this->userId, $deleteCategoryId);
                     if ($category === null) {
                         $flash = t('error.category_not_found');
+                        $flashType = 'err';
+                    } elseif ((string) $category['type'] === 'daily_notes') {
+                        $flash = 'Die Journal-Kategorie wird vom System verwaltet.';
                         $flashType = 'err';
                     } else {
                         $countStmt = $this->db->prepare('SELECT COUNT(*) FROM items WHERE user_id = :user_id AND category_id = :category_id');

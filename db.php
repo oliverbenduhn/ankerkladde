@@ -550,6 +550,7 @@ function getDatabase(): PDO
     migrateParchmentSchema($db);
     $db->exec('CREATE INDEX IF NOT EXISTS idx_categories_user_id ON categories(user_id)');
     $db->exec('CREATE INDEX IF NOT EXISTS idx_categories_user_sort ON categories(user_id, sort_order)');
+    $db->exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_categories_one_daily_notes_per_user ON categories(user_id) WHERE type = 'daily_notes'");
 
     $ensureDefaultCategoriesKey = 'default_categories_ensured_v1';
     if (!hasDatabaseMetaFlag($db, $ensureDefaultCategoriesKey)) {

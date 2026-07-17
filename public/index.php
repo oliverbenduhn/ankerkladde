@@ -194,6 +194,32 @@ $clientWebSocketUrl = is_string($clientWebSocketUrl) ? trim($clientWebSocketUrl)
             <div class="list-swipe-preview-header" id="listSwipePreviewHeader"></div>
             <ul class="list-swipe-preview-list" id="listSwipePreviewList"></ul>
         </div>
+        <section class="journal-view" id="journalView" aria-labelledby="journalDateHeading" hidden>
+            <div class="journal-navigation" aria-label="<?= t('journal.navigation') ?>">
+                <button type="button" id="journalPreviousBtn" class="journal-nav-btn"><?= t('journal.previous') ?></button>
+                <button type="button" id="journalTodayBtn" class="journal-nav-btn"><?= t('journal.today') ?></button>
+                <button type="button" id="journalNextBtn" class="journal-nav-btn"><?= t('journal.next') ?></button>
+                <label class="journal-date-picker-label" for="journalDatePicker"><?= t('journal.choose_date') ?></label>
+                <input type="date" id="journalDatePicker" class="journal-date-picker">
+            </div>
+            <button type="button" id="journalDateHeading" class="journal-date-heading" title="<?= t('journal.back_to_today') ?>"></button>
+            <div class="note-toolbar journal-toolbar" id="journalToolbar" role="toolbar" aria-label="<?= t('editor.formatting') ?>">
+                <button type="button" data-cmd="heading" data-level="1" title="<?= t('editor.toolbar.h1') ?>" aria-label="<?= t('editor.toolbar.h1') ?>">H1</button>
+                <button type="button" data-cmd="heading" data-level="2" title="<?= t('editor.toolbar.h2') ?>" aria-label="<?= t('editor.toolbar.h2') ?>">H2</button>
+                <button type="button" data-cmd="bold" title="<?= t('editor.toolbar.bold') ?>" aria-label="<?= t('editor.toolbar.bold') ?>"><b aria-hidden="true">B</b></button>
+                <button type="button" data-cmd="italic" title="<?= t('editor.toolbar.italic') ?>" aria-label="<?= t('editor.toolbar.italic') ?>"><i aria-hidden="true">I</i></button>
+                <button type="button" data-cmd="strike" title="<?= t('editor.toolbar.strike') ?>" aria-label="<?= t('editor.toolbar.strike') ?>"><s aria-hidden="true">S</s></button>
+                <button type="button" data-cmd="bulletList" title="<?= t('editor.toolbar.bullet_list') ?>" aria-label="<?= t('editor.toolbar.bullet_list') ?>">≡</button>
+                <button type="button" data-cmd="orderedList" title="<?= t('editor.toolbar.ordered_list') ?>" aria-label="<?= t('editor.toolbar.ordered_list') ?>">1.</button>
+                <button type="button" data-cmd="blockquote" title="<?= t('editor.toolbar.blockquote') ?>" aria-label="<?= t('editor.toolbar.blockquote') ?>">❝</button>
+                <button type="button" data-cmd="codeBlock" title="<?= t('editor.toolbar.code') ?>" aria-label="<?= t('editor.toolbar.code') ?>">&lt;/&gt;</button>
+                <button type="button" data-cmd="link" title="<?= t('editor.toolbar.link') ?>" aria-label="<?= t('editor.toolbar.link') ?>"><?= icon('link') ?></button>
+                <button type="button" data-cmd="undo" title="<?= t('editor.toolbar.undo') ?>" aria-label="<?= t('editor.toolbar.undo') ?>">↩</button>
+                <button type="button" data-cmd="redo" title="<?= t('editor.toolbar.redo') ?>" aria-label="<?= t('editor.toolbar.redo') ?>">↪</button>
+            </div>
+            <div class="journal-editor-body note-editor-body" id="journalEditorBody"></div>
+            <span class="note-save-status journal-save-status" id="journalSaveStatus" aria-live="polite"></span>
+        </section>
         <section class="settings-embed" id="settingsEmbed" hidden aria-label="<?= t('ui.settings') ?>">
             <iframe
                 id="settingsFrame"

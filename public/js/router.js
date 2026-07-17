@@ -1,17 +1,30 @@
 import { normalizeSettingsTab, settingsUrl } from './api.js?v=4.3.4';
 import { isBarcodeCategory, state } from './state.js?v=4.3.4';
-import { appEl, searchInput, settingsBtns, settingsEmbedEl, settingsFrameEl, todayNoteBtn } from './ui.js?v=4.3.4';
+import {
+    appEl,
+    journalViewEl,
+    listSwipeStageEl,
+    searchInput,
+    settingsBtns,
+    settingsEmbedEl,
+    settingsFrameEl,
+    todayNoteBtn,
+} from './ui.js?v=4.3.4';
 
 export function applyViewState() {
     const inSettings = state.screen === 'settings';
     const inToday = state.screen === 'today';
+    const inJournal = state.screen === 'journal';
     appEl?.classList.toggle('settings-view', inSettings);
     appEl?.classList.toggle('today-view', inToday);
+    appEl?.classList.toggle('journal-view', inJournal);
     settingsBtns.forEach(button => button.classList.toggle('is-active', inSettings));
     if (settingsEmbedEl) {
         settingsEmbedEl.hidden = !inSettings;
     }
     if (todayNoteBtn) todayNoteBtn.hidden = !inToday;
+    if (journalViewEl) journalViewEl.hidden = !inJournal;
+    if (listSwipeStageEl) listSwipeStageEl.hidden = inSettings || inJournal;
 }
 
 export function createRouter(deps) {
@@ -24,6 +37,8 @@ export function createRouter(deps) {
         getItemById,
         loadToday,
         openNoteEditor,
+        openJournalDay,
+        closeJournal,
         openScanner,
         openSearch,
         renderCategoryTabs,
@@ -61,6 +76,7 @@ export function createRouter(deps) {
         if (state.noteEditorId !== null) await closeNoteEditor();
         if (state.search.open) closeSearch();
         if (state.screen === 'settings') closeSettings();
+        if (state.screen === 'journal') await closeJournalScreen();
         if (typeof closeMagic === 'function') closeMagic();
 
         state.screen = 'today';
@@ -96,6 +112,26 @@ export function createRouter(deps) {
 
     function closeSettings() {
         if (state.screen !== 'settings') return;
+        state.screen = 'list';
+        applyViewState();
+        updateHeaders();
+    }
+
+    async function openJournal(date) {
+        if (deps.scannerState.open) closeScanner();
+        if (state.noteEditorId !== null) await closeNoteEditor();
+        if (state.search.open) closeSearch();
+        if (state.screen === 'settings') closeSettings();
+        if (state.screen === 'today') closeToday();
+        if (typeof closeMagic === 'function') closeMagic();
+        await openJournalDay(date);
+        applyViewState();
+        updateHeaders();
+    }
+
+    async function closeJournalScreen() {
+        if (state.screen !== 'journal') return;
+        await closeJournal();
         state.screen = 'list';
         applyViewState();
         updateHeaders();
@@ -142,6 +178,9 @@ export function createRouter(deps) {
         if (state.search.open) {
             return { ...base, screen: 'search', query: state.search.query };
         }
+        if (state.screen === 'journal') {
+            return { ...base, screen: 'journal', date: state.journalDate };
+        }
         return { ...base, screen: 'list' };
     }
 
@@ -173,6 +212,9 @@ export function createRouter(deps) {
         if (state.screen === 'today' && target.screen !== 'today') {
             closeToday();
         }
+        if (state.screen === 'journal' && target.screen !== 'journal') {
+            await closeJournalScreen();
+        }
 
         if (target.screen === 'settings') {
             await openSettings(target.tab);
@@ -188,6 +230,10 @@ export function createRouter(deps) {
                 searchInput.value = target.query;
             }
             await doSearch(target.query);
+            return;
+        }
+        if (target.screen === 'journal') {
+            await openJournal(target.date);
             return;
         }
         if (target.screen === 'note') {
@@ -218,7 +264,9 @@ export function createRouter(deps) {
         applyRouteState,
         closeSettings,
         closeToday,
+        closeJournalScreen,
         getCurrentRouteState,
+        openJournal,
         openSettings,
         openSourceItem,
         openToday,

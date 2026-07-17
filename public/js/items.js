@@ -27,6 +27,7 @@ export function createItemsController(deps) {
         applyTabsVisibility,
         applyThemePreferences,
         closeNoteEditor,
+        closeJournalScreen,
         closeScanner,
         closeSettings,
         getUserPreferences,
@@ -117,6 +118,9 @@ export function createItemsController(deps) {
     }
 
     async function setCategory(categoryId) {
+        if (state.screen === 'journal') {
+            await closeJournalScreen();
+        }
         if (scannerState.open) {
             closeScanner();
         }

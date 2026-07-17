@@ -24,6 +24,7 @@ const APP_SHELL_ASSET_URLS = [
     `js/items.js?v=${ASSET_VERSION}`,
     `js/scanner.js?v=${ASSET_VERSION}`,
     `js/editor.js?v=${ASSET_VERSION}`,
+    `js/journal.js?v=${ASSET_VERSION}`,
     `js/swipe.js?v=${ASSET_VERSION}`,
     `js/reorder.js?v=${ASSET_VERSION}`,
     `js/app-ui.js?v=${ASSET_VERSION}`,

@@ -3400,6 +3400,97 @@ body[data-theme*="dark"] .item-card.is-deep-link-highlight {
 .app.is-searching .btn-clear,
 .app.is-magic-active .btn-clear { display: none !important; }
 
+.app.journal-view .input-area,
+.app.journal-view .progress,
+.app.journal-view .mode-chip,
+.app.journal-view .btn-layout-toggle,
+.app.journal-view .btn-scan,
+.app.journal-view .btn-product-scanner {
+    display: none !important;
+}
+
+.journal-view {
+    width: min(100%, 880px);
+    margin: 0 auto;
+    padding: 0.75rem 1rem 5.5rem;
+}
+
+.journal-navigation {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.75rem;
+}
+
+.journal-nav-btn,
+.journal-date-picker {
+    min-height: 2.5rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    color: var(--text);
+    padding: 0.45rem 0.75rem;
+    font: inherit;
+}
+
+.journal-nav-btn:disabled {
+    opacity: 0.45;
+}
+
+.journal-date-picker-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+}
+
+.journal-date-heading {
+    display: block;
+    width: 100%;
+    border: 0;
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+    font-size: clamp(1.3rem, 4vw, 2rem);
+    font-weight: 700;
+    text-align: center;
+    padding: 0.5rem;
+    cursor: pointer;
+}
+
+.journal-toolbar {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    margin-top: 0.5rem;
+    border-radius: var(--radius) var(--radius) 0 0;
+}
+
+.journal-editor-body {
+    min-height: min(58vh, 620px);
+    padding: 1.25rem;
+    border: 1px solid var(--border);
+    border-top: 0;
+    border-radius: 0 0 var(--radius) var(--radius);
+    background: var(--surface);
+}
+
+.journal-editor-body .tiptap {
+    min-height: min(52vh, 560px);
+    outline: none;
+}
+
+.journal-save-status {
+    display: block;
+    min-height: 1.5rem;
+    padding: 0.4rem 0.25rem;
+    text-align: right;
+}
+
 /* ===========================================
    MAGIC BAR
    =========================================== */

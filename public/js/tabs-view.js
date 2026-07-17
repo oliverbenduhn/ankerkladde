@@ -59,7 +59,7 @@ export function createTabsViewController(deps) {
         button.append(icon, label, dot);
         button.addEventListener('click', () => {
             if (tabDragScrollJustFinished) return;
-            void onCategorySelect(category.id);
+            void onCategorySelect(category);
         });
         return button;
     }

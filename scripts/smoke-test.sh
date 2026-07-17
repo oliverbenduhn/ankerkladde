@@ -94,6 +94,10 @@ UNICODE_DELETE_BODY="$TMP_DIR/unicode-delete.json"
 UNICODE_LIST_BODY="$TMP_DIR/unicode-list.json"
 NOTE_UNICODE_ADD_BODY="$TMP_DIR/note-unicode-add.json"
 NOTE_UNICODE_LIST_BODY="$TMP_DIR/note-unicode-list.json"
+JOURNAL_EMPTY_BODY="$TMP_DIR/journal-empty.json"
+JOURNAL_CREATE_BODY="$TMP_DIR/journal-create.json"
+JOURNAL_UPDATE_BODY="$TMP_DIR/journal-update.json"
+JOURNAL_SEARCH_BODY="$TMP_DIR/journal-search.json"
 TODO_ADD_BODY="$TMP_DIR/todo-add.json"
 TODO_LIST_BODY="$TMP_DIR/todo-list.json"
 TODAY_BODY="$TMP_DIR/today.json"
@@ -161,6 +165,7 @@ grep -q '"items"' "$LIST_BODY"
 TODO_CATEGORY_ID="$(php -r '$payload = json_decode(file_get_contents($argv[1]), true); foreach (($payload["categories"] ?? []) as $category) { if (($category["type"] ?? "") === "list_due_date") { echo (int) ($category["id"] ?? 0); exit; } } exit(1);' "$TODO_CATEGORIES_BODY")"
 SHOPPING_CATEGORY_ID="$(php -r '$payload = json_decode(file_get_contents($argv[1]), true); foreach (($payload["categories"] ?? []) as $category) { if (($category["type"] ?? "") === "list_quantity") { echo (int) ($category["id"] ?? 0); exit; } } exit(1);' "$TODO_CATEGORIES_BODY")"
 NOTES_CATEGORY_ID="$(php -r '$payload = json_decode(file_get_contents($argv[1]), true); foreach (($payload["categories"] ?? []) as $category) { if (($category["type"] ?? "") === "notes") { echo (int) ($category["id"] ?? 0); exit; } } exit(1);' "$TODO_CATEGORIES_BODY")"
+JOURNAL_CATEGORY_ID="$(php -r '$payload = json_decode(file_get_contents($argv[1]), true); foreach (($payload["categories"] ?? []) as $category) { if (($category["type"] ?? "") === "daily_notes") { echo (int) ($category["id"] ?? 0); exit; } } exit(1);' "$TODO_CATEGORIES_BODY")"
 
 if [[ -z "$TODO_CATEGORY_ID" || "$TODO_CATEGORY_ID" -le 0 ]]; then
     echo "Todo-Kategorie konnte nicht aus categories_list gelesen werden." >&2
@@ -184,6 +189,33 @@ php -r '$payload = json_decode(file_get_contents($argv[1]), true); if (($payload
 [[ "$(status_code "$QUICK_ADD_AFTER_BODY" -b "$COOKIE_JAR" "http://127.0.0.1:$PORT/api.php?action=list&category_id=$SHOPPING_CATEGORY_ID")" == "200" ]]
 QUICK_ADD_COUNT_AFTER="$(php -r '$payload = json_decode(file_get_contents($argv[1]), true); echo count($payload["items"] ?? []);' "$QUICK_ADD_AFTER_BODY")"
 [[ "$QUICK_ADD_COUNT_AFTER" == "$QUICK_ADD_COUNT_BEFORE" ]]
+
+if [[ -z "$JOURNAL_CATEGORY_ID" || "$JOURNAL_CATEGORY_ID" -le 0 ]]; then
+    echo "Journal-Kategorie konnte nicht aus categories_list gelesen werden." >&2
+    exit 1
+fi
+
+JOURNAL_CATEGORY_COUNT="$(EINKAUF_DATA_DIR="$TEST_DATA_DIR" php -r '$db = new PDO("sqlite:" . getenv("EINKAUF_DATA_DIR") . "/einkaufsliste.db"); echo (int) $db->query("SELECT COUNT(*) FROM categories WHERE type = \"daily_notes\"")->fetchColumn();')"
+[[ "$JOURNAL_CATEGORY_COUNT" == "1" ]]
+
+[[ "$(status_code "$JOURNAL_EMPTY_BODY" -b "$COOKIE_JAR" "http://127.0.0.1:$PORT/api.php?action=journal&date=2026-07-17")" == "200" ]]
+php -r '$payload = json_decode(file_get_contents($argv[1]), true); if (($payload["date"] ?? "") !== "2026-07-17" || ($payload["item"] ?? null) !== null) { fwrite(STDERR, "Leerer Journaltag hat unerwartete Daten erzeugt.\n"); exit(1); }' "$JOURNAL_EMPTY_BODY"
+
+JOURNAL_ITEM_COUNT="$(EINKAUF_DATA_DIR="$TEST_DATA_DIR" php -r '$db = new PDO("sqlite:" . getenv("EINKAUF_DATA_DIR") . "/einkaufsliste.db"); echo (int) $db->query("SELECT COUNT(*) FROM items i INNER JOIN categories c ON c.id = i.category_id WHERE c.type = \"daily_notes\"")->fetchColumn();')"
+[[ "$JOURNAL_ITEM_COUNT" == "0" ]]
+
+[[ "$(status_code "$JOURNAL_CREATE_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST --data-urlencode 'date=2026-07-17' --data-urlencode 'content=<p>JournalFtsTreffer erster Stand</p>' "http://127.0.0.1:$PORT/api.php?action=journal_save")" == "201" ]]
+JOURNAL_ITEM_ID="$(php -r '$payload = json_decode(file_get_contents($argv[1]), true); echo (int) ($payload["item"]["id"] ?? 0);' "$JOURNAL_CREATE_BODY")"
+[[ "$JOURNAL_ITEM_ID" -gt 0 ]]
+
+[[ "$(status_code "$JOURNAL_UPDATE_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST --data-urlencode 'date=2026-07-17' --data-urlencode 'content=<p>JournalFtsTreffer aktualisiert</p>' "http://127.0.0.1:$PORT/api.php?action=journal_save")" == "200" ]]
+php -r '$payload = json_decode(file_get_contents($argv[1]), true); if ((int) ($payload["item"]["id"] ?? 0) !== (int) $argv[2] || !str_contains((string) ($payload["item"]["content"] ?? ""), "aktualisiert")) { fwrite(STDERR, "Journal-Upsert hat nicht dasselbe Item aktualisiert.\n"); exit(1); }' "$JOURNAL_UPDATE_BODY" "$JOURNAL_ITEM_ID"
+
+JOURNAL_ITEM_COUNT="$(EINKAUF_DATA_DIR="$TEST_DATA_DIR" php -r '$db = new PDO("sqlite:" . getenv("EINKAUF_DATA_DIR") . "/einkaufsliste.db"); echo (int) $db->query("SELECT COUNT(*) FROM items i INNER JOIN categories c ON c.id = i.category_id WHERE c.type = \"daily_notes\"")->fetchColumn();')"
+[[ "$JOURNAL_ITEM_COUNT" == "1" ]]
+
+[[ "$(status_code "$JOURNAL_SEARCH_BODY" -b "$COOKIE_JAR" "http://127.0.0.1:$PORT/api.php?action=search&q=JournalFtsTreffer")" == "200" ]]
+php -r '$payload = json_decode(file_get_contents($argv[1]), true); $id = (int) $argv[2]; foreach (($payload["items"] ?? []) as $item) { if ((int) ($item["id"] ?? 0) === $id && ($item["category_type"] ?? "") === "daily_notes") { exit(0); } } fwrite(STDERR, "Journal-Inhalt wurde nicht über FTS gefunden.\n"); exit(1);' "$JOURNAL_SEARCH_BODY" "$JOURNAL_ITEM_ID"
 
 [[ "$(curl -sS -o /dev/null -D "$REDIRECT_HEADERS" -w '%{http_code}' -H 'Host: beispiel.invalid' "http://127.0.0.1:$PORT/")" == "308" ]]
 grep -q '^Location: https://ankerkladde\.benduhn\.de/' "$REDIRECT_HEADERS"

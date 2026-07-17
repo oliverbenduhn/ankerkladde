@@ -14,6 +14,7 @@ function categoryTypeLabel(string $type): string
         'list_quantity' => 'Liste mit Menge',
         'list_due_date' => 'Liste mit Datum',
         'notes' => 'Notizen',
+        'daily_notes' => 'Journal',
         'images' => 'Bilder',
         'files' => 'Dateien',
         'links' => 'Links',
@@ -27,6 +28,7 @@ function defaultCategoryIcon(string $type): string
         'list_quantity' => 'einkauf',
         'list_due_date' => 'erledigt',
         'notes' => 'notizen',
+        'daily_notes' => 'notizen',
         'images' => 'bilder',
         'files' => 'dateien',
         'links' => 'links',
@@ -106,6 +108,37 @@ function loadUserCategories(PDO $db, int $userId, bool $includeHidden = true): a
         $row['is_hidden'] = (int) $row['is_hidden'];
         return $row;
     }, $rows);
+}
+
+function ensureDailyNotesCategory(PDO $db, int $userId): array
+{
+    $stmt = $db->prepare(
+        "INSERT OR IGNORE INTO categories (user_id, name, type, icon, sort_order, is_hidden)
+         VALUES (:user_id, 'Journal', 'daily_notes', 'notizen', :sort_order, 0)"
+    );
+    $stmt->execute([
+        ':user_id' => $userId,
+        ':sort_order' => nextCategorySortOrder($db, $userId),
+    ]);
+
+    $stmt = $db->prepare(
+        "SELECT id, user_id, name, type, icon, legacy_key, sort_order, is_hidden, created_at, updated_at
+         FROM categories
+         WHERE user_id = :user_id AND type = 'daily_notes'
+         LIMIT 1"
+    );
+    $stmt->execute([':user_id' => $userId]);
+    $category = $stmt->fetch();
+    if (!is_array($category)) {
+        throw new RuntimeException('Journal category could not be created.');
+    }
+
+    $category['id'] = (int) $category['id'];
+    $category['user_id'] = (int) $category['user_id'];
+    $category['sort_order'] = (int) $category['sort_order'];
+    $category['is_hidden'] = (int) $category['is_hidden'];
+
+    return $category;
 }
 
 function loadUserCategory(PDO $db, int $userId, int $categoryId): ?array

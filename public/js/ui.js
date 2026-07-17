@@ -81,6 +81,15 @@ export const userPreferencesScript = document.getElementById('userPreferences');
 export const brandMarkEls = document.querySelectorAll('.brand-mark');
 export const settingsEmbedEl = document.getElementById('settingsEmbed');
 export const settingsFrameEl = document.getElementById('settingsFrame');
+export const journalViewEl = document.getElementById('journalView');
+export const journalPreviousBtn = document.getElementById('journalPreviousBtn');
+export const journalTodayBtn = document.getElementById('journalTodayBtn');
+export const journalNextBtn = document.getElementById('journalNextBtn');
+export const journalDatePicker = document.getElementById('journalDatePicker');
+export const journalDateHeading = document.getElementById('journalDateHeading');
+export const journalToolbar = document.getElementById('journalToolbar');
+export const journalEditorBody = document.getElementById('journalEditorBody');
+export const journalSaveStatus = document.getElementById('journalSaveStatus');
 
 const NON_INTERACTIVE_ASSET_SELECTOR = '.category-icon-img, .brand-mark';
 

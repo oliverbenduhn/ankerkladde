@@ -10,6 +10,7 @@ export const TYPE_CONFIG = {
     list_quantity: { icon: 'einkauf', title: name => name, shoppingTitle: name => name, placeholder: 'Artikel...', quantityMode: 'text' },
     list_due_date: { icon: 'erledigt', title: name => name, shoppingTitle: name => name, placeholder: 'Aufgabe...', quantityMode: 'date' },
     notes: { icon: 'notizen', title: name => name, shoppingTitle: name => name, placeholder: 'Titel...', quantityMode: 'hidden' },
+    daily_notes: { icon: 'notizen', title: name => name, shoppingTitle: name => name, placeholder: '', quantityMode: 'hidden' },
     images: { icon: 'bilder', title: name => name, shoppingTitle: name => name, placeholder: 'Titel optional...', quantityMode: 'hidden' },
     files: { icon: 'dateien', title: name => name, shoppingTitle: name => name, placeholder: 'Titel optional...', quantityMode: 'hidden' },
     links: { icon: 'links', title: name => name, shoppingTitle: name => name, placeholder: 'https://...', quantityMode: 'hidden' },
@@ -92,6 +93,8 @@ export const state = {
     search: { open: false, query: '', results: [] },
     today: { date: '', items: [] },
     noteEditorId: null,
+    journalDate: null,
+    journalItemId: null,
     diskFreeBytes: null,
 };
 
@@ -207,6 +210,7 @@ const AVAILABLE_LAYOUTS = {
     list_quantity: ['list', 'grid'],
     list_due_date: ['list', 'grid', 'kanban'],
     notes: ['list', 'grid'],
+    daily_notes: ['list'],
     images: ['list', 'grid'],
     files: ['list'],
     links: ['list', 'grid'],

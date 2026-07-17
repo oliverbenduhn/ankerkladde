@@ -1638,6 +1638,54 @@ function formatListItem(array $item): array
     ];
 }
 
+function normalizeJournalDate(mixed $value): string
+{
+    $date = trim((string) $value);
+    $parsed = DateTimeImmutable::createFromFormat('!Y-m-d', $date, new DateTimeZone('Europe/Berlin'));
+    $errors = DateTimeImmutable::getLastErrors();
+    if ($parsed === false || ($errors !== false && ($errors['warning_count'] > 0 || $errors['error_count'] > 0)) || $parsed->format('Y-m-d') !== $date) {
+        respond(422, ['error' => 'Ungültiges Journal-Datum.', 'error_key' => 'error.invalid_journal_date']);
+    }
+
+    return $date;
+}
+
+function formatJournalItem(?array $item): ?array
+{
+    if ($item === null) {
+        return null;
+    }
+
+    return [
+        'id' => (int) $item['id'],
+        'category_id' => (int) $item['category_id'],
+        'name' => (string) $item['name'],
+        'content' => (string) $item['content'],
+        'due_date' => (string) $item['due_date'],
+        'created_at' => (string) $item['created_at'],
+        'updated_at' => (string) $item['updated_at'],
+    ];
+}
+
+function loadJournalItem(PDO $db, int $userId, int $categoryId, string $date): ?array
+{
+    $stmt = $db->prepare(
+        'SELECT id, category_id, name, content, due_date, created_at, updated_at
+         FROM items
+         WHERE user_id = :user_id AND category_id = :category_id AND due_date = :due_date
+         ORDER BY id ASC
+         LIMIT 1'
+    );
+    $stmt->execute([
+        ':user_id' => $userId,
+        ':category_id' => $categoryId,
+        ':due_date' => $date,
+    ]);
+    $item = $stmt->fetch();
+
+    return is_array($item) ? $item : null;
+}
+
 function fetchItemForUser(PDO $db, int $userId, int $itemId): ?array
 {
     $stmt = $db->prepare(
@@ -1686,6 +1734,7 @@ try {
     switch ($action) {
         case 'categories_list':
             requireMethod('GET');
+            ensureDailyNotesCategory($db, $userId);
             respond(200, [
                 'categories' => loadUserCategories($db, $userId),
                 'preferences' => getExtendedUserPreferences($db, $userId),
@@ -1707,6 +1756,9 @@ try {
 
             if (!in_array($type, CATEGORY_TYPES, true)) {
                 respond(422, ['error' => t('error.invalid_category_type'), 'error_key' => 'error.invalid_category_type']);
+            }
+            if ($type === 'daily_notes') {
+                respond(422, ['error' => 'Die Journal-Kategorie wird vom System verwaltet.', 'error_key' => 'error.system_category']);
             }
 
             $icon = normalizeCategoryIcon($data['icon'] ?? null, $type);
@@ -1746,6 +1798,9 @@ try {
             $category = loadUserCategory($db, $userId, $categoryId);
             if ($category === null) {
                 respond(404, ['error' => t('error.category_not_found'), 'error_key' => 'error.category_not_found']);
+            }
+            if ((string) $category['type'] === 'daily_notes') {
+                respond(422, ['error' => 'Die Journal-Kategorie wird vom System verwaltet.', 'error_key' => 'error.system_category']);
             }
 
             $patches = [];
@@ -1842,6 +1897,9 @@ try {
             }
 
             $category = requireCategory($data, $db, $userId);
+            if ((string) $category['type'] === 'daily_notes') {
+                respond(422, ['error' => 'Die Journal-Kategorie wird vom System verwaltet.', 'error_key' => 'error.system_category']);
+            }
 
             $countStmt = $db->prepare('SELECT COUNT(*) FROM items WHERE user_id = :user_id AND category_id = :category_id');
             $countStmt->execute([':user_id' => $userId, ':category_id' => (int) $category['id']]);
@@ -1912,6 +1970,80 @@ try {
 
             $items = array_map(static fn(array $item): array => formatListItem($item), $stmt->fetchAll());
             respond(200, ['today' => $today, 'items' => $items]);
+
+        case 'journal':
+            requireMethod('GET');
+            $date = normalizeJournalDate($_GET['date'] ?? date('Y-m-d'));
+            $category = ensureDailyNotesCategory($db, $userId);
+            $item = loadJournalItem($db, $userId, (int) $category['id'], $date);
+
+            respond(200, [
+                'date' => $date,
+                'category' => $category,
+                'item' => formatJournalItem($item),
+            ]);
+
+        case 'journal_save':
+            requireMethod('POST');
+            $data = requestData();
+            if (!isApiKeyAuthRequest()) {
+                requireCsrfToken($data);
+            }
+
+            $date = normalizeJournalDate($data['date'] ?? null);
+            $content = normalizeContent($data['content'] ?? null);
+            $title = (new DateTimeImmutable($date, new DateTimeZone('Europe/Berlin')))->format('d.m.Y');
+
+            $db->beginTransaction();
+            try {
+                // INSERT OR IGNORE is deliberately the first write: it serializes concurrent
+                // journal saves before the read/update decision below.
+                $category = ensureDailyNotesCategory($db, $userId);
+                $item = loadJournalItem($db, $userId, (int) $category['id'], $date);
+
+                if ($item === null) {
+                    $sortOrder = prependItemSortOrder($db, $userId, (int) $category['id']);
+                    $stmt = $db->prepare(
+                        "INSERT INTO items (name, quantity, due_date, content, section, category_id, sort_order, user_id)
+                         VALUES (:name, '', :due_date, :content, '', :category_id, :sort_order, :user_id)"
+                    );
+                    $stmt->execute([
+                        ':name' => $title,
+                        ':due_date' => $date,
+                        ':content' => $content,
+                        ':category_id' => (int) $category['id'],
+                        ':sort_order' => $sortOrder,
+                        ':user_id' => $userId,
+                    ]);
+                    $itemId = (int) $db->lastInsertId();
+                } else {
+                    $itemId = (int) $item['id'];
+                    $stmt = $db->prepare(
+                        'UPDATE items
+                         SET name = :name, content = :content, updated_at = CURRENT_TIMESTAMP
+                         WHERE id = :id AND user_id = :user_id'
+                    );
+                    $stmt->execute([
+                        ':name' => $title,
+                        ':content' => $content,
+                        ':id' => $itemId,
+                        ':user_id' => $userId,
+                    ]);
+                }
+
+                $db->commit();
+            } catch (Throwable $error) {
+                if ($db->inTransaction()) {
+                    $db->rollBack();
+                }
+                throw $error;
+            }
+
+            $saved = loadJournalItem($db, $userId, (int) $category['id'], $date);
+            respond($item === null ? 201 : 200, [
+                'message' => 'Journal gespeichert.',
+                'item' => formatJournalItem($saved),
+            ]);
 
         case 'list':
             requireMethod('GET');

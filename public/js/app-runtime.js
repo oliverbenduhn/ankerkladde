@@ -14,6 +14,7 @@ import { createTabsViewController } from './tabs-view.js?v=4.3.4';
 import { createKanbanViewController } from './kanban-view.js?v=4.3.10';
 import { createMagicController } from './magic.js?v=5.1.11';
 import { createTodayViewController } from './today-view.js?v=5.1.11';
+import { createJournalController } from './journal.js?v=4.4.0';
 import { flushQueue, getConflictCount, getPendingCount } from './offline-queue.js?v=4.3.11';
 import { api } from './api.js?v=4.3.4';
 import {
@@ -66,6 +67,7 @@ export function createAppRuntime(deps) {
     let kanbanViewController = null;
     let magicController = null;
     let todayViewController = null;
+    let journalController = null;
 
     const getItemById = id => itemsController.getItemById(id);
     const getVisibleCategories = () => itemsController.getVisibleCategories();
@@ -97,6 +99,8 @@ export function createAppRuntime(deps) {
     const openNoteEditor = async item => { await editorController.openNoteEditor(item); };
     const openNoteEditorWithNavigation = async item => { await editorController.openNoteEditorWithNavigation(item); };
     const closeNoteEditor = async () => { await editorController.closeNoteEditor(); };
+    const closeJournal = async () => { await journalController?.closeJournal(); };
+    const openJournalDay = async date => { await journalController.openDay(date || journalController.todayIso()); };
     const openTodoEditor = item => { todoEditorController.openTodoEditor(item); };
     const closeTodoEditor = async () => { await todoEditorController.closeTodoEditor(); };
     const scheduleNoteSave = () => editorController.scheduleNoteSave();
@@ -150,6 +154,8 @@ export function createAppRuntime(deps) {
         getItemById,
         loadToday,
         openNoteEditor,
+        openJournalDay,
+        closeJournal,
         openScanner,
         openSearch,
         scannerState,
@@ -162,6 +168,32 @@ export function createAppRuntime(deps) {
         applyRouteState: router.applyRouteState,
         getCurrentRouteState: router.getCurrentRouteState,
     });
+
+    journalController = createJournalController({
+        navigation,
+        renderCategoryTabs,
+        setMessage,
+        updateHeaders,
+    });
+
+    const openJournalWithNavigation = async date => {
+        const resolvedDate = date || journalController.todayIso();
+        await router.openJournal(resolvedDate);
+        navigation.pushHistoryState({ screen: 'journal', date: resolvedDate });
+    };
+    const selectCategory = async categoryId => {
+        const category = state.categories.find(entry => Number(entry.id) === Number(categoryId));
+        if (category?.type === 'daily_notes') {
+            await openJournalWithNavigation(journalController.todayIso());
+            return;
+        }
+        const fromToday = state.screen === 'today';
+        const fromJournal = state.screen === 'journal';
+        if (fromToday) router.closeToday();
+        if (fromJournal) await router.closeJournalScreen();
+        await setCategory(categoryId);
+        if (fromToday || fromJournal) navigation.pushHistoryState({ screen: 'list', categoryId });
+    };
 
     itemsActionsController = createItemsActionsController({
         cacheCurrentCategoryItems,
@@ -187,12 +219,7 @@ export function createAppRuntime(deps) {
     tabsViewController = createTabsViewController({
         getTypeConfig,
         getVisibleCategories,
-        onCategorySelect: async categoryId => {
-            const fromToday = state.screen === 'today';
-            if (fromToday) router.closeToday();
-            await setCategory(categoryId);
-            if (fromToday) navigation.pushHistoryState({ screen: 'list' });
-        },
+        onCategorySelect: category => selectCategory(category.id),
         onTodaySelect: async () => {
             if (state.screen === 'today') return;
             await router.openToday();
@@ -215,6 +242,7 @@ export function createAppRuntime(deps) {
         handleToggle: async (id, done) => { await itemsActionsController.handleToggle(id, done); },
         isOverdueItem,
         openNoteEditorWithNavigation,
+        openJournalWithNavigation,
         openTodoEditor,
         setCategory,
         setMessage,
@@ -244,6 +272,7 @@ export function createAppRuntime(deps) {
         applyTabsVisibility,
         applyThemePreferences,
         closeNoteEditor,
+        closeJournalScreen: () => router.closeJournalScreen(),
         closeScanner,
         closeSettings: () => router.closeSettings(),
         getUserPreferences,
@@ -308,7 +337,7 @@ export function createAppRuntime(deps) {
     swipeController = createSwipeController({
         getUserPreferences,
         getVisibleCategories,
-        setCategory,
+        setCategory: selectCategory,
     });
 
     magicController = createMagicController({
