@@ -89,9 +89,12 @@ grep -qi '^Content-Type: application/manifest+json' "$MANIFEST_HEADERS"
 php -r '
     $manifest = json_decode(file_get_contents($argv[1]), true, 512, JSON_THROW_ON_ERROR);
     $shortcuts = $manifest["shortcuts"] ?? null;
-    if (!is_array($shortcuts) || count($shortcuts) !== 2) exit(1);
-    if (($shortcuts[0]["name"] ?? "") !== "Heute" || ($shortcuts[0]["url"] ?? "") !== "/?screen=today") exit(1);
-    if (($shortcuts[1]["name"] ?? "") !== "Neue Notiz" || ($shortcuts[1]["url"] ?? "") !== "/?screen=journal&date=today&focus=editor") exit(1);
+    if (!is_array($shortcuts)) exit(1);
+    $names = array_map(static fn(array $shortcut): string => (string) ($shortcut["name"] ?? ""), $shortcuts);
+    $urls = array_map(static fn(array $shortcut): string => (string) ($shortcut["url"] ?? ""), $shortcuts);
+    if (!in_array("Heute", $names, true) || !in_array("/?screen=today", $urls, true)) exit(1);
+    if (!in_array("Neue Notiz", $names, true) || !in_array("/?screen=journal&date=today&focus=editor", $urls, true)) exit(1);
+    if (!in_array("Barcode scannen", $names, true)) exit(1);
 ' "$MANIFEST_BODY"
 curl -fsS -b "$COOKIE_JAR" -o /dev/null "http://127.0.0.1:$PORT/icon.php?size=144"
 curl -fsS -b "$COOKIE_JAR" -o /dev/null "http://127.0.0.1:$PORT/category-icon.php?icon=einkauf"

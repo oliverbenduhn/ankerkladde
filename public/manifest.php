@@ -46,6 +46,21 @@ $manifest = [
             'short_name' => t('manifest.new_note'),
             'url' => $manifestBase . '?screen=journal&date=today&focus=editor',
         ],
+        [
+            'name' => t('ui.scan_barcode'),
+            'short_name' => 'Scanner',
+            'url' => $manifestBase . '?screen=scanner&scanner_action=add',
+        ],
+        [
+            'name' => t('ui.settings'),
+            'short_name' => t('ui.settings'),
+            'url' => $manifestBase . '?screen=settings&tab=app',
+        ],
+        [
+            'name' => t('ui.search'),
+            'short_name' => t('ui.search'),
+            'url' => $manifestBase . '?screen=search',
+        ],
     ],
     'share_target' => [
         'action'  => $manifestBase,
