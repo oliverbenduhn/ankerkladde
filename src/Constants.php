@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-const CATEGORY_TYPES = ['list_quantity', 'list_due_date', 'notes', 'images', 'files', 'links'];
+const CATEGORY_TYPES = ['list_quantity', 'list_due_date', 'notes', 'daily_notes', 'images', 'files', 'links'];
 const ATTACHMENT_CATEGORY_TYPES = ['images', 'files'];
 const DEFAULT_UPLOAD_LIMITS_MB = [
     'image_upload_max_mb' => 20,

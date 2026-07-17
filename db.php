@@ -44,6 +44,101 @@ function setDatabaseMetaFlag(PDO $db, string $key): void
     ]);
 }
 
+function getSchemaVersion(PDO $db): int
+{
+    $stmt = $db->prepare('SELECT meta_value FROM database_meta WHERE meta_key = :meta_key LIMIT 1');
+    $stmt->execute([':meta_key' => 'schema_version']);
+    $version = $stmt->fetchColumn();
+
+    return $version === false ? 0 : max(0, (int) $version);
+}
+
+function migrateParchmentSchema(PDO $db): void
+{
+    $targetVersion = 1;
+    if (getSchemaVersion($db) >= $targetVersion) {
+        return;
+    }
+
+    // SQLite cannot extend the categories.type CHECK constraint in place.
+    // Disable FK enforcement only for this connection while the parent table is rebuilt,
+    // then verify the preserved relationships before committing the migration stage.
+    $db->exec('PRAGMA foreign_keys = OFF');
+
+    try {
+        $db->beginTransaction();
+
+        if (getSchemaVersion($db) >= $targetVersion) {
+            $db->commit();
+            return;
+        }
+
+        $itemColumns = $db->query('PRAGMA table_info(items)')->fetchAll();
+        $itemColumnNames = array_map(static fn(array $column): string => $column['name'], $itemColumns);
+
+        if (!in_array('due_time', $itemColumnNames, true)) {
+            $db->exec("ALTER TABLE items ADD COLUMN due_time TEXT NOT NULL DEFAULT ''");
+        }
+        if (!in_array('priority', $itemColumnNames, true)) {
+            $db->exec("ALTER TABLE items ADD COLUMN priority TEXT NOT NULL DEFAULT ''");
+        }
+
+        $categoriesSql = (string) $db->query(
+            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'categories'"
+        )->fetchColumn();
+        if (!str_contains($categoriesSql, "'daily_notes'")) {
+            $db->exec(
+                "CREATE TABLE categories_parchment_v1 (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    name TEXT NOT NULL,
+                    type TEXT NOT NULL CHECK(type IN ('list_quantity', 'list_due_date', 'notes', 'daily_notes', 'images', 'files', 'links')),
+                    icon TEXT NOT NULL DEFAULT '',
+                    legacy_key TEXT NOT NULL DEFAULT '',
+                    sort_order INTEGER NOT NULL DEFAULT 0,
+                    is_hidden INTEGER NOT NULL DEFAULT 0 CHECK(is_hidden IN (0, 1)),
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )"
+            );
+            $db->exec(
+                'INSERT INTO categories_parchment_v1
+                    (id, user_id, name, type, icon, legacy_key, sort_order, is_hidden, created_at, updated_at)
+                 SELECT id, user_id, name, type, icon, legacy_key, sort_order, is_hidden, created_at, updated_at
+                 FROM categories'
+            );
+            $db->exec('DROP TABLE categories');
+            $db->exec('ALTER TABLE categories_parchment_v1 RENAME TO categories');
+        }
+
+        $foreignKeyErrors = $db->query('PRAGMA foreign_key_check')->fetchAll();
+        if ($foreignKeyErrors !== []) {
+            throw new RuntimeException('Parchment schema migration would leave invalid foreign keys.');
+        }
+
+        $stmt = $db->prepare(
+            'INSERT INTO database_meta (meta_key, meta_value, updated_at)
+             VALUES (:meta_key, :meta_value, CURRENT_TIMESTAMP)
+             ON CONFLICT(meta_key) DO UPDATE SET
+                meta_value = excluded.meta_value,
+                updated_at = CURRENT_TIMESTAMP'
+        );
+        $stmt->execute([
+            ':meta_key' => 'schema_version',
+            ':meta_value' => (string) $targetVersion,
+        ]);
+
+        $db->commit();
+    } catch (Throwable $error) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
+        throw $error;
+    } finally {
+        $db->exec('PRAGMA foreign_keys = ON');
+    }
+}
+
 function normalizeUploadLimitSettings(array $settings): array
 {
     $normalized = DEFAULT_UPLOAD_LIMITS_MB;
@@ -369,7 +464,7 @@ function getDatabase(): PDO
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
             name TEXT NOT NULL,
-            type TEXT NOT NULL CHECK(type IN ('list_quantity', 'list_due_date', 'notes', 'images', 'files', 'links')),
+            type TEXT NOT NULL CHECK(type IN ('list_quantity', 'list_due_date', 'notes', 'daily_notes', 'images', 'files', 'links')),
             icon TEXT NOT NULL DEFAULT '',
             legacy_key TEXT NOT NULL DEFAULT '',
             sort_order INTEGER NOT NULL DEFAULT 0,
@@ -451,6 +546,10 @@ function getDatabase(): PDO
     if (!in_array('legacy_key', $categoryColumnNames, true)) {
         $db->exec("ALTER TABLE categories ADD COLUMN legacy_key TEXT NOT NULL DEFAULT ''");
     }
+
+    migrateParchmentSchema($db);
+    $db->exec('CREATE INDEX IF NOT EXISTS idx_categories_user_id ON categories(user_id)');
+    $db->exec('CREATE INDEX IF NOT EXISTS idx_categories_user_sort ON categories(user_id, sort_order)');
 
     $ensureDefaultCategoriesKey = 'default_categories_ensured_v1';
     if (!hasDatabaseMetaFlag($db, $ensureDefaultCategoriesKey)) {
