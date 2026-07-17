@@ -6,7 +6,7 @@ export function createNavigation({ applyRouteState, getCurrentRouteState }) {
     let suppressHistorySync = false;
 
     function normalizeRouteState(route = {}) {
-        const screen = ['list', 'settings', 'search', 'note', 'scanner'].includes(route?.screen)
+        const screen = ['list', 'today', 'settings', 'search', 'note', 'scanner'].includes(route?.screen)
             ? route.screen
             : 'list';
 
@@ -36,7 +36,17 @@ export function createNavigation({ applyRouteState, getCurrentRouteState }) {
                 categoryId: Number.isInteger(Number(route?.categoryId)) ? Number(route.categoryId) : null,
             };
         }
-        return { ...base, screen: 'list' };
+        if (screen === 'list') {
+            const categoryId = Number(route?.categoryId);
+            const itemId = Number(route?.itemId);
+            return {
+                ...base,
+                screen: 'list',
+                categoryId: Number.isInteger(categoryId) && categoryId > 0 ? categoryId : null,
+                itemId: Number.isInteger(itemId) && itemId > 0 ? itemId : null,
+            };
+        }
+        return { ...base, screen };
     }
 
     function buildUrlForRoute(route) {
@@ -44,7 +54,7 @@ export function createNavigation({ applyRouteState, getCurrentRouteState }) {
         const url = new URL(window.location.href);
 
         // Clear all route params (old and new)
-        for (const key of ['view', 'screen', 'mode', 'layout', 'tab', 'note', 'scanner_action', 'q', 'category_id']) {
+        for (const key of ['view', 'screen', 'mode', 'layout', 'tab', 'note', 'item', 'scanner_action', 'q', 'category_id']) {
             url.searchParams.delete(key);
         }
 
@@ -76,6 +86,9 @@ export function createNavigation({ applyRouteState, getCurrentRouteState }) {
             if (normalized.categoryId !== null) {
                 url.searchParams.set('category_id', String(normalized.categoryId));
             }
+        } else if (normalized.screen === 'list' && normalized.categoryId !== null) {
+            url.searchParams.set('category_id', String(normalized.categoryId));
+            if (normalized.itemId !== null) url.searchParams.set('item', String(normalized.itemId));
         }
 
         return `${url.pathname}${url.search}${url.hash}`;
@@ -147,6 +160,9 @@ export function createNavigation({ applyRouteState, getCurrentRouteState }) {
         if (screen === 'settings') {
             return normalizeRouteState({ ...base, screen: 'settings', tab: params.get('tab') });
         }
+        if (screen === 'today') {
+            return normalizeRouteState({ ...base, screen: 'today' });
+        }
         if (screen === 'search') {
             return normalizeRouteState({ ...base, screen: 'search', query: params.get('q') || '' });
         }
@@ -164,7 +180,12 @@ export function createNavigation({ applyRouteState, getCurrentRouteState }) {
                 categoryId: Number.isInteger(categoryId) ? categoryId : null,
             });
         }
-        return normalizeRouteState({ ...base, screen: 'list' });
+        return normalizeRouteState({
+            ...base,
+            screen: 'list',
+            categoryId: Number.isInteger(categoryId) ? categoryId : null,
+            itemId: Number(params.get('item')),
+        });
     }
 
     async function handlePopState(event, setMessage) {

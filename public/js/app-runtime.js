@@ -13,6 +13,7 @@ import { createSwipeController } from './swipe.js?v=4.3.4';
 import { createTabsViewController } from './tabs-view.js?v=4.3.4';
 import { createKanbanViewController } from './kanban-view.js?v=4.3.10';
 import { createMagicController } from './magic.js?v=4.3.10';
+import { createTodayViewController } from './today-view.js?v=5.1.11';
 import { flushQueue, getConflictCount, getPendingCount } from './offline-queue.js?v=4.3.11';
 import { api } from './api.js?v=4.3.4';
 import {
@@ -64,6 +65,7 @@ export function createAppRuntime(deps) {
     let tabsViewController = null;
     let kanbanViewController = null;
     let magicController = null;
+    let todayViewController = null;
 
     const getItemById = id => itemsController.getItemById(id);
     const getVisibleCategories = () => itemsController.getVisibleCategories();
@@ -121,6 +123,7 @@ export function createAppRuntime(deps) {
     const updateModeChip = () => appUiController.updateModeChip();
     const updateLayoutSwitcher = () => appUiController.updateLayoutSwitcher();
     const formatBytes = sizeBytes => appUiController.formatBytes(sizeBytes);
+    const loadToday = async () => { await todayViewController.loadToday(); };
 
     const flushOfflineQueue = async () => {
         const hadItems = await flushQueue(api);
@@ -131,6 +134,13 @@ export function createAppRuntime(deps) {
         return hadItems;
     };
 
+    todayViewController = createTodayViewController({
+        openSourceItem: async (categoryId, itemId) => {
+            await router.openSourceItem(categoryId, itemId);
+            navigation.pushHistoryState({ screen: 'list', categoryId, itemId });
+        },
+    });
+
     router = createRouter({
         closeNoteEditor,
         closeMagic: () => magicController?.closeMagic(),
@@ -138,10 +148,12 @@ export function createAppRuntime(deps) {
         closeSearch,
         doSearch,
         getItemById,
+        loadToday,
         openNoteEditor,
         openScanner,
         openSearch,
         scannerState,
+        renderCategoryTabs,
         setCategory,
         updateHeaders,
     });
@@ -174,7 +186,17 @@ export function createAppRuntime(deps) {
     tabsViewController = createTabsViewController({
         getTypeConfig,
         getVisibleCategories,
-        onCategorySelect: setCategory,
+        onCategorySelect: async categoryId => {
+            const fromToday = state.screen === 'today';
+            if (fromToday) router.closeToday();
+            await setCategory(categoryId);
+            if (fromToday) navigation.pushHistoryState({ screen: 'list' });
+        },
+        onTodaySelect: async () => {
+            if (state.screen === 'today') return;
+            await router.openToday();
+            navigation.pushHistoryState({ screen: 'today' });
+        },
     });
 
     itemsViewController = createItemsViewController({
@@ -313,6 +335,7 @@ export function createAppRuntime(deps) {
         invalidateCategoryCache,
         loadCategories,
         loadItems,
+        loadToday,
         navigation,
         openScanner,
         openSearch,

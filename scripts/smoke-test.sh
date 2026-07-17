@@ -96,6 +96,9 @@ NOTE_UNICODE_ADD_BODY="$TMP_DIR/note-unicode-add.json"
 NOTE_UNICODE_LIST_BODY="$TMP_DIR/note-unicode-list.json"
 TODO_ADD_BODY="$TMP_DIR/todo-add.json"
 TODO_LIST_BODY="$TMP_DIR/todo-list.json"
+TODAY_BODY="$TMP_DIR/today.json"
+TODAY_ADD_BODY="$TMP_DIR/today-add.json"
+TODAY_DONE_ADD_BODY="$TMP_DIR/today-done-add.json"
 MOVE_CATEGORY_BODY="$TMP_DIR/move-category.json"
 MOVE_ADD_BODY="$TMP_DIR/move-add.json"
 MOVE_INVALID_BODY="$TMP_DIR/move-invalid.json"
@@ -447,6 +450,31 @@ php -r '$payload = json_decode(file_get_contents($argv[1]), true); $id = (int) $
 [[ "$(status_code "$MOVE_TARGET_LIST_BODY" -b "$COOKIE_JAR" "http://127.0.0.1:$PORT/api.php?action=list&category_id=$MOVE_TARGET_CATEGORY_ID")" == "200" ]]
 php -r '$payload = json_decode(file_get_contents($argv[1]), true); $id = (int) $argv[2]; foreach (($payload["items"] ?? []) as $item) { if ((int) ($item["id"] ?? 0) === $id) { exit(0); } } fwrite(STDERR, "Verschobener Artikel ist nicht in der Zielkategorie sichtbar.\n"); exit(1);' "$MOVE_TARGET_LIST_BODY" "$MOVE_ITEM_ID"
 grep -q '"name":"Verschieben-Test"' "$MOVE_TARGET_LIST_BODY"
+
+TODAY_DATE="$(php -r 'date_default_timezone_set("Europe/Berlin"); echo date("Y-m-d");')"
+YESTERDAY_DATE="$(php -r 'date_default_timezone_set("Europe/Berlin"); echo date("Y-m-d", strtotime("-1 day"));')"
+TOMORROW_DATE="$(php -r 'date_default_timezone_set("Europe/Berlin"); echo date("Y-m-d", strtotime("+1 day"));')"
+
+[[ "$(status_code "$TODAY_ADD_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST --data-urlencode "category_id=$TODO_CATEGORY_ID" --data-urlencode 'name=Smoke gestern' --data-urlencode "due_date=$YESTERDAY_DATE" "http://127.0.0.1:$PORT/api.php?action=add")" == "201" ]]
+[[ "$(status_code "$ADD_SECOND_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST --data-urlencode "category_id=$TODO_CATEGORY_ID" --data-urlencode 'name=Smoke heute' --data-urlencode "due_date=$TODAY_DATE" "http://127.0.0.1:$PORT/api.php?action=add")" == "201" ]]
+[[ "$(status_code "$ADD_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST --data-urlencode "category_id=$TODO_CATEGORY_ID" --data-urlencode 'name=Smoke morgen' --data-urlencode "due_date=$TOMORROW_DATE" "http://127.0.0.1:$PORT/api.php?action=add")" == "201" ]]
+[[ "$(status_code "$TODAY_DONE_ADD_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST --data-urlencode "category_id=$TODO_CATEGORY_ID" --data-urlencode 'name=Smoke erledigt' --data-urlencode "due_date=$TODAY_DATE" "http://127.0.0.1:$PORT/api.php?action=add")" == "201" ]]
+TODAY_DONE_ID="$(sed -n 's/.*"id":\([0-9][0-9]*\).*/\1/p' "$TODAY_DONE_ADD_BODY" | head -n 1)"
+[[ "$(status_code "$TOGGLE_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST -d "id=$TODAY_DONE_ID&done=1" "http://127.0.0.1:$PORT/api.php?action=toggle")" == "200" ]]
+
+[[ "$(status_code "$TODAY_BODY" -b "$COOKIE_JAR" "http://127.0.0.1:$PORT/api.php?action=today")" == "200" ]]
+php -r '
+    $payload = json_decode(file_get_contents($argv[1]), true);
+    if (($payload["today"] ?? "") !== $argv[2] || !is_array($payload["items"] ?? null)) exit(1);
+    $names = array_column($payload["items"], "name");
+    $overdue = array_search("Smoke gestern", $names, true);
+    $today = array_search("Smoke heute", $names, true);
+    if ($overdue === false || $today === false || $overdue >= $today) exit(1);
+    if (in_array("Smoke morgen", $names, true) || in_array("Smoke erledigt", $names, true)) exit(1);
+    foreach (["id", "category_id", "category_name", "category_type", "name", "due_date", "done", "sort_order"] as $key) {
+        if (!array_key_exists($key, $payload["items"][0] ?? [])) exit(1);
+    }
+' "$TODAY_BODY" "$TODAY_DATE"
 
 DB_PROBE_STATUS="$(status_code "$NOT_FOUND_BODY" "http://127.0.0.1:$PORT/data/einkaufsliste.db")"
 [[ "$DB_PROBE_STATUS" == "404" || "$DB_PROBE_STATUS" == "200" ]]

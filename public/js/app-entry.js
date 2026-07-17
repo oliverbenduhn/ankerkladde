@@ -42,6 +42,7 @@ export function startApp(version) {
         getUploadMode,
         loadCategories,
         loadItems,
+        loadToday,
         navigation,
         openScanner,
         openSearch,
@@ -155,6 +156,10 @@ export function startApp(version) {
                 // Generic update: reload both categories and items
                 console.log('[WS] reloading items...');
                 await loadCategories();
+                if (state.screen === 'today') {
+                    await loadToday();
+                    return;
+                }
                 console.log('[WS] categories loaded, loading items...');
                 await loadItems(undefined, { useCache: false });
                 console.log('[WS] items loaded and rendered');

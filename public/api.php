@@ -1855,6 +1855,59 @@ try {
 
             respond(200, ['message' => 'Kategorie gelöscht.']);
 
+        case 'today':
+            requireMethod('GET');
+            $today = (new DateTimeImmutable('now', new DateTimeZone('Europe/Berlin')))->format('Y-m-d');
+
+            $stmt = $db->prepare(
+                'SELECT
+                    items.id,
+                    items.category_id,
+                    categories.name AS category_name,
+                    categories.type AS category_type,
+                    items.name,
+                    items.barcode,
+                    items.quantity,
+                    items.due_date,
+                    items.is_pinned,
+                    items.status,
+                    items.content,
+                    items.done,
+                    items.sort_order,
+                    items.created_at,
+                    items.updated_at,
+                    attachments.storage_section AS attachment_storage_section,
+                    attachments.stored_name AS attachment_stored_name,
+                    attachments.original_name AS attachment_original_name,
+                    attachments.media_type AS attachment_media_type,
+                    attachments.size_bytes AS attachment_size_bytes,
+                    attachments.updated_at AS attachment_updated_at,
+                    CASE WHEN attachments.id IS NULL THEN 0 ELSE 1 END AS has_attachment
+                 FROM items
+                 INNER JOIN categories ON categories.id = items.category_id
+                 LEFT JOIN attachments ON attachments.item_id = items.id
+                 WHERE items.user_id = :user_id
+                   AND categories.user_id = :user_id
+                   AND categories.type = :category_type
+                   AND items.done = 0
+                   AND items.due_date != \'\'
+                   AND items.due_date <= :today
+                 ORDER BY
+                    CASE WHEN items.due_date < :today THEN 0 ELSE 1 END ASC,
+                    CASE WHEN items.due_date < :today THEN items.due_date ELSE NULL END ASC,
+                    categories.sort_order ASC,
+                    items.sort_order ASC,
+                    items.id ASC'
+            );
+            $stmt->execute([
+                ':user_id' => $userId,
+                ':category_type' => 'list_due_date',
+                ':today' => $today,
+            ]);
+
+            $items = array_map(static fn(array $item): array => formatListItem($item), $stmt->fetchAll());
+            respond(200, ['today' => $today, 'items' => $items]);
+
         case 'list':
             requireMethod('GET');
             $category = requireCategory([], $db, $userId);

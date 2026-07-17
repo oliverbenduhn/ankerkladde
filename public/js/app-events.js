@@ -25,6 +25,7 @@ import {
     searchBtn,
     searchClose,
     searchInput,
+    todayNoteBtn,
     magicBtns,
     magicBar,
     magicInput,
@@ -80,6 +81,10 @@ export function registerAppEventHandlers(deps) {
         addItem,
         magicController,
     } = deps;
+
+    todayNoteBtn?.addEventListener('click', () => {
+        document.dispatchEvent(new CustomEvent('ankerkladde:open-journal', { detail: { date: 'today' } }));
+    });
 
     itemForm?.addEventListener('submit', event => {
         void addItem(event).then(maybeShowInstallBanner).catch(error => {

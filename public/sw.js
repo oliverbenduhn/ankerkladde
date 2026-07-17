@@ -1,7 +1,7 @@
 'use strict';
 
-const VERSION = 'v5.1.5';
-const ASSET_VERSION = '5.1.5';
+const VERSION = 'v5.1.11';
+const ASSET_VERSION = '5.1.11';
 const STATIC_CACHE = `ankerkladde-static-${VERSION}`;
 const RUNTIME_CACHE = `ankerkladde-runtime-${VERSION}`;
 const SHARE_CACHE = 'ankerkladde-share-target';
@@ -35,6 +35,7 @@ const APP_SHELL_ASSET_URLS = [
     `js/items-actions.js?v=${ASSET_VERSION}`,
     `js/item-menu.js?v=${ASSET_VERSION}`,
     `js/tabs-view.js?v=${ASSET_VERSION}`,
+    `js/today-view.js?v=${ASSET_VERSION}`,
     `js/helpers.js?v=${ASSET_VERSION}`,
     `js/lightbox.js?v=${ASSET_VERSION}`,
     `js/magic.js?v=${ASSET_VERSION}`,

@@ -1,14 +1,17 @@
 import { normalizeSettingsTab, settingsUrl } from './api.js?v=4.3.4';
 import { isBarcodeCategory, state } from './state.js?v=4.3.4';
-import { appEl, searchInput, settingsBtns, settingsEmbedEl, settingsFrameEl } from './ui.js?v=4.3.4';
+import { appEl, searchInput, settingsBtns, settingsEmbedEl, settingsFrameEl, todayNoteBtn } from './ui.js?v=4.3.4';
 
 export function applyViewState() {
     const inSettings = state.screen === 'settings';
+    const inToday = state.screen === 'today';
     appEl?.classList.toggle('settings-view', inSettings);
+    appEl?.classList.toggle('today-view', inToday);
     settingsBtns.forEach(button => button.classList.toggle('is-active', inSettings));
     if (settingsEmbedEl) {
         settingsEmbedEl.hidden = !inSettings;
     }
+    if (todayNoteBtn) todayNoteBtn.hidden = !inToday;
 }
 
 export function createRouter(deps) {
@@ -19,9 +22,11 @@ export function createRouter(deps) {
         closeSearch,
         doSearch,
         getItemById,
+        loadToday,
         openNoteEditor,
         openScanner,
         openSearch,
+        renderCategoryTabs,
         setCategory,
         updateHeaders,
     } = deps;
@@ -49,6 +54,44 @@ export function createRouter(deps) {
         if (settingsFrameEl && settingsFrameEl.getAttribute('src') !== nextSrc) {
             settingsFrameEl.setAttribute('src', nextSrc);
         }
+    }
+
+    async function openToday() {
+        if (deps.scannerState.open) closeScanner();
+        if (state.noteEditorId !== null) await closeNoteEditor();
+        if (state.search.open) closeSearch();
+        if (state.screen === 'settings') closeSettings();
+        if (typeof closeMagic === 'function') closeMagic();
+
+        state.screen = 'today';
+        applyViewState();
+        renderCategoryTabs();
+        updateHeaders();
+        await loadToday();
+    }
+
+    function closeToday() {
+        if (state.screen !== 'today') return;
+        state.screen = 'list';
+        applyViewState();
+        renderCategoryTabs();
+        updateHeaders();
+    }
+
+    function highlightItem(itemId) {
+        window.requestAnimationFrame(() => {
+            const item = document.querySelector(`.item-card[data-item-id="${Number(itemId)}"]`);
+            if (!item) return;
+            item.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            item.classList.add('is-deep-link-highlight');
+            window.setTimeout(() => item.classList.remove('is-deep-link-highlight'), 1500);
+        });
+    }
+
+    async function openSourceItem(categoryId, itemId) {
+        closeToday();
+        await setCategory(categoryId);
+        highlightItem(itemId);
     }
 
     function closeSettings() {
@@ -93,6 +136,9 @@ export function createRouter(deps) {
         if (state.screen === 'settings') {
             return { ...base, screen: 'settings', tab: state.settingsTab };
         }
+        if (state.screen === 'today') {
+            return { ...base, screen: 'today' };
+        }
         if (state.search.open) {
             return { ...base, screen: 'search', query: state.search.query };
         }
@@ -124,9 +170,16 @@ export function createRouter(deps) {
         if (state.screen === 'settings' && target.screen !== 'settings') {
             closeSettings();
         }
+        if (state.screen === 'today' && target.screen !== 'today') {
+            closeToday();
+        }
 
         if (target.screen === 'settings') {
             await openSettings(target.tab);
+            return;
+        }
+        if (target.screen === 'today') {
+            await openToday();
             return;
         }
         if (target.screen === 'search') {
@@ -153,13 +206,21 @@ export function createRouter(deps) {
             }
             await switchToScannerCategory();
             await openScanner(target.action);
+            return;
+        }
+        if (target.screen === 'list' && target.categoryId !== null) {
+            await setCategory(target.categoryId);
+            if (target.itemId !== null) highlightItem(target.itemId);
         }
     }
 
     return {
         applyRouteState,
         closeSettings,
+        closeToday,
         getCurrentRouteState,
         openSettings,
+        openSourceItem,
+        openToday,
     };
 }

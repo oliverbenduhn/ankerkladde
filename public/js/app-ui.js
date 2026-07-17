@@ -278,6 +278,12 @@ export function createAppUiController(deps = {}) {
     }
 
     function updateHeaders() {
+        if (state.screen === 'today') {
+            if (categoryTitleEl) categoryTitleEl.textContent = 'Heute';
+            document.title = 'Ankerkladde - Heute';
+            updateModeChip();
+            return;
+        }
         if (state.screen === 'settings') {
             const titleListe = document.getElementById('titleListe');
             const titleShopping = document.getElementById('titleShopping');

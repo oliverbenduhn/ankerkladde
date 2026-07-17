@@ -2650,6 +2650,99 @@ button, input { font: inherit; }
 
 .section-tabs.tabs-hidden { display: none; }
 
+.app.today-view .input-area,
+.app.today-view .progress,
+.app.today-view .btn-clear,
+.app.today-view .btn-layout-toggle,
+.app.today-view .btn-tabs-toggle,
+.app.today-view .btn-scan,
+.app.today-view .btn-product-scanner,
+.app.today-view .btn-magic,
+.app.today-view .mode-chip,
+.app.today-view .list-swipe-preview {
+    display: none !important;
+}
+
+.today-note-btn {
+    border: 0;
+    border-radius: 999px;
+    padding: 7px 11px;
+    background: color-mix(in srgb, var(--accent) 15%, transparent);
+    color: var(--text-primary);
+    font: inherit;
+    font-size: 0.82rem;
+    cursor: pointer;
+}
+
+.today-section-heading {
+    list-style: none;
+    padding: 14px 4px 6px;
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.today-item {
+    list-style: none;
+    margin-bottom: 8px;
+}
+
+.today-item-button {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    color: var(--text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.today-item-button:hover,
+.today-item-button:focus-visible {
+    border-color: var(--accent);
+}
+
+.today-item-name {
+    min-width: 0;
+    font-weight: 600;
+}
+
+.today-item-meta {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: flex-end;
+    flex-direction: column;
+    gap: 2px;
+    color: var(--text-secondary);
+    font-size: 0.76rem;
+}
+
+.today-category-label {
+    color: var(--accent);
+    font-weight: 600;
+}
+
+.today-overdue-label {
+    color: var(--danger, #a33);
+}
+
+.item-card.is-deep-link-highlight {
+    background: #fff1a8 !important;
+    transition: background-color 0.35s ease;
+}
+
+body[data-theme*="dark"] .item-card.is-deep-link-highlight {
+    color: #211b00;
+}
+
 /* ===========================================
    SECTION TABS (Bereichs-Navigation unten)
    =========================================== */

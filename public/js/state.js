@@ -90,6 +90,7 @@ export const state = {
     editingId: null,
     editDraft: { itemId: null, categoryId: null, name: '', barcode: '', quantity: '', due_date: '', content: '' },
     search: { open: false, query: '', results: [] },
+    today: { date: '', items: [] },
     noteEditorId: null,
     diskFreeBytes: null,
 };

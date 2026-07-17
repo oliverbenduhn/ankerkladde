@@ -1,5 +1,5 @@
 import { basePath, state } from './state.js?v=4.3.4';
-import { sectionTabsEl } from './ui.js?v=4.3.4';
+import { sectionTabsEl, svgIcon } from './ui.js?v=4.3.4';
 
 function normalizeIconKey(icon, fallbackIcon) {
     const value = String(icon || '').trim();
@@ -24,6 +24,7 @@ export function createTabsViewController(deps) {
         getTypeConfig,
         getVisibleCategories,
         onCategorySelect,
+        onTodaySelect,
     } = deps;
 
     let scrollListenerAttached = false;
@@ -39,7 +40,7 @@ export function createTabsViewController(deps) {
         button.dataset.categoryId = String(category.id);
         button.setAttribute('aria-label', category.name);
         button.title = category.name;
-        if (category.id === state.categoryId) {
+        if (state.screen === 'list' && category.id === state.categoryId) {
             button.setAttribute('aria-current', 'page');
         }
 
@@ -60,6 +61,25 @@ export function createTabsViewController(deps) {
             if (tabDragScrollJustFinished) return;
             void onCategorySelect(category.id);
         });
+        return button;
+    }
+
+    function makeTodayTab() {
+        const button = document.createElement('button');
+        button.className = 'section-tab today-tab';
+        button.type = 'button';
+        button.setAttribute('aria-label', 'Heute');
+        button.title = 'Heute';
+        if (state.screen === 'today') button.setAttribute('aria-current', 'page');
+
+        const icon = document.createElement('span');
+        icon.className = 'section-icon';
+        icon.appendChild(svgIcon('clock'));
+        const label = document.createElement('span');
+        label.className = 'section-label';
+        label.textContent = 'Heute';
+        button.append(icon, label);
+        button.addEventListener('click', () => void onTodaySelect());
         return button;
     }
 
@@ -194,6 +214,8 @@ export function createTabsViewController(deps) {
 
         const categories = getVisibleCategories();
         const fragment = document.createDocumentFragment();
+
+        fragment.appendChild(makeTodayTab());
 
         categories.forEach(category => {
             fragment.appendChild(makeCategoryTab(category));
