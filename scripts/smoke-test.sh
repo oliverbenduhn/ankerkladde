@@ -103,6 +103,8 @@ TODO_LIST_BODY="$TMP_DIR/todo-list.json"
 TODAY_BODY="$TMP_DIR/today.json"
 TODAY_ADD_BODY="$TMP_DIR/today-add.json"
 TODAY_DONE_ADD_BODY="$TMP_DIR/today-done-add.json"
+TODAY_TIMED_EARLY_BODY="$TMP_DIR/today-timed-early.json"
+TODAY_TIMED_LATE_BODY="$TMP_DIR/today-timed-late.json"
 QUICK_ADD_UNKNOWN_BODY="$TMP_DIR/quick-add-unknown.json"
 QUICK_ADD_BEFORE_BODY="$TMP_DIR/quick-add-before.json"
 QUICK_ADD_AFTER_BODY="$TMP_DIR/quick-add-after.json"
@@ -499,6 +501,8 @@ YESTERDAY_DATE="$(php -r 'date_default_timezone_set("Europe/Berlin"); echo date(
 TOMORROW_DATE="$(php -r 'date_default_timezone_set("Europe/Berlin"); echo date("Y-m-d", strtotime("+1 day"));')"
 
 [[ "$(status_code "$TODAY_ADD_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST --data-urlencode "category_id=$TODO_CATEGORY_ID" --data-urlencode 'name=Smoke gestern' --data-urlencode "due_date=$YESTERDAY_DATE" "http://127.0.0.1:$PORT/api.php?action=add")" == "201" ]]
+[[ "$(status_code "$TODAY_TIMED_LATE_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST --data-urlencode "active_category_id=$TODO_CATEGORY_ID" --data-urlencode 'input=Smoke terminiert spät heute 14:30' "http://127.0.0.1:$PORT/api.php?action=quick_add")" == "201" ]]
+[[ "$(status_code "$TODAY_TIMED_EARLY_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST --data-urlencode "active_category_id=$TODO_CATEGORY_ID" --data-urlencode 'input=Smoke terminiert früh heute 08:15' "http://127.0.0.1:$PORT/api.php?action=quick_add")" == "201" ]]
 [[ "$(status_code "$ADD_SECOND_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST --data-urlencode "category_id=$TODO_CATEGORY_ID" --data-urlencode 'name=Smoke heute' --data-urlencode "due_date=$TODAY_DATE" "http://127.0.0.1:$PORT/api.php?action=add")" == "201" ]]
 [[ "$(status_code "$ADD_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST --data-urlencode "category_id=$TODO_CATEGORY_ID" --data-urlencode 'name=Smoke morgen' --data-urlencode "due_date=$TOMORROW_DATE" "http://127.0.0.1:$PORT/api.php?action=add")" == "201" ]]
 [[ "$(status_code "$TODAY_DONE_ADD_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST --data-urlencode "category_id=$TODO_CATEGORY_ID" --data-urlencode 'name=Smoke erledigt' --data-urlencode "due_date=$TODAY_DATE" "http://127.0.0.1:$PORT/api.php?action=add")" == "201" ]]
@@ -511,10 +515,18 @@ php -r '
     if (($payload["today"] ?? "") !== $argv[2] || !is_array($payload["items"] ?? null)) exit(1);
     $names = array_column($payload["items"], "name");
     $overdue = array_search("Smoke gestern", $names, true);
+    $early = array_search("Smoke terminiert früh", $names, true);
+    $late = array_search("Smoke terminiert spät", $names, true);
     $today = array_search("Smoke heute", $names, true);
-    if ($overdue === false || $today === false || $overdue >= $today) exit(1);
+    if ($overdue === false || $early === false || $late === false || $today === false) exit(1);
+    if (!($overdue < $early && $early < $late && $late < $today)) exit(1);
     if (in_array("Smoke morgen", $names, true) || in_array("Smoke erledigt", $names, true)) exit(1);
-    foreach (["id", "category_id", "category_name", "category_type", "name", "due_date", "done", "sort_order"] as $key) {
+    $byName = array_column($payload["items"], null, "name");
+    if (($byName["Smoke gestern"]["agenda_group"] ?? "") !== "overdue") exit(1);
+    if (($byName["Smoke terminiert früh"]["agenda_group"] ?? "") !== "scheduled" || ($byName["Smoke terminiert früh"]["due_time"] ?? "") !== "08:15") exit(1);
+    if (($byName["Smoke terminiert spät"]["agenda_group"] ?? "") !== "scheduled" || ($byName["Smoke terminiert spät"]["due_time"] ?? "") !== "14:30") exit(1);
+    if (($byName["Smoke heute"]["agenda_group"] ?? "") !== "anytime_today" || ($byName["Smoke heute"]["due_time"] ?? null) !== "") exit(1);
+    foreach (["id", "category_id", "category_name", "category_type", "name", "due_date", "due_time", "agenda_group", "done", "sort_order"] as $key) {
         if (!array_key_exists($key, $payload["items"][0] ?? [])) exit(1);
     }
 ' "$TODAY_BODY" "$TODAY_DATE"

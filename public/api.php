@@ -1932,6 +1932,7 @@ try {
                     items.barcode,
                     items.quantity,
                     items.due_date,
+                    items.due_time,
                     items.is_pinned,
                     items.status,
                     items.content,
@@ -1956,8 +1957,14 @@ try {
                    AND items.due_date != \'\'
                    AND items.due_date <= :today
                  ORDER BY
-                    CASE WHEN items.due_date < :today THEN 0 ELSE 1 END ASC,
+                    CASE
+                        WHEN items.due_date < :today THEN 0
+                        WHEN items.due_time != \'\' THEN 1
+                        ELSE 2
+                    END ASC,
                     CASE WHEN items.due_date < :today THEN items.due_date ELSE NULL END ASC,
+                    CASE WHEN items.due_date = :today AND items.due_time != \'\' THEN items.due_time ELSE NULL END ASC,
+                    CASE WHEN items.due_date = :today AND items.due_time = \'\' THEN items.sort_order ELSE NULL END ASC,
                     categories.sort_order ASC,
                     items.sort_order ASC,
                     items.id ASC'
@@ -1968,7 +1975,13 @@ try {
                 ':today' => $today,
             ]);
 
-            $items = array_map(static fn(array $item): array => formatListItem($item), $stmt->fetchAll());
+            $items = array_map(static function (array $item) use ($today): array {
+                $formatted = formatListItem($item);
+                $formatted['agenda_group'] = $formatted['due_date'] < $today
+                    ? 'overdue'
+                    : ($formatted['due_time'] !== '' ? 'scheduled' : 'anytime_today');
+                return $formatted;
+            }, $stmt->fetchAll());
             respond(200, ['today' => $today, 'items' => $items]);
 
         case 'journal':

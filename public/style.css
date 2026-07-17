@@ -2761,6 +2761,10 @@ button, input { font: inherit; }
     color: var(--danger, #a33);
 }
 
+.today-time-label {
+    font-variant-numeric: tabular-nums;
+}
+
 .item-card.is-deep-link-highlight {
     background: #fff1a8 !important;
     transition: background-color 0.35s ease;

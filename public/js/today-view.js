@@ -24,10 +24,12 @@ export function createTodayViewController({ openSourceItem }) {
         return heading;
     }
 
-    function buildItem(item, overdue) {
+    function buildItem(item, group) {
+        const overdue = group === 'overdue';
         const entry = document.createElement('li');
         entry.className = `today-item${overdue ? ' is-overdue' : ''}`;
         entry.dataset.itemId = String(item.id);
+        entry.dataset.agendaGroup = group;
 
         const button = document.createElement('button');
         button.type = 'button';
@@ -46,7 +48,12 @@ export function createTodayViewController({ openSourceItem }) {
         category.textContent = item.category_name;
         meta.appendChild(category);
 
-        if (overdue) {
+        if (group === 'scheduled') {
+            const time = document.createElement('span');
+            time.className = 'today-time-label';
+            time.textContent = `${item.due_time} Uhr`;
+            meta.appendChild(time);
+        } else if (overdue) {
             const since = document.createElement('span');
             since.className = 'today-overdue-label';
             since.textContent = `seit ${formatDay(item.due_date)}`;
@@ -72,18 +79,19 @@ export function createTodayViewController({ openSourceItem }) {
             return;
         }
 
-        const overdue = state.today.items.filter(item => item.due_date < state.today.date);
-        const dueToday = state.today.items.filter(item => item.due_date === state.today.date);
+        const groups = [
+            ['overdue', 'Überfällig'],
+            ['scheduled', 'Terminiert'],
+            ['anytime_today', 'Irgendwann heute'],
+        ];
         const fragment = document.createDocumentFragment();
 
-        if (overdue.length > 0) {
-            fragment.appendChild(buildHeading('Überfällig'));
-            overdue.forEach(item => fragment.appendChild(buildItem(item, true)));
-        }
-        if (dueToday.length > 0) {
-            fragment.appendChild(buildHeading('Heute'));
-            dueToday.forEach(item => fragment.appendChild(buildItem(item, false)));
-        }
+        groups.forEach(([group, label]) => {
+            const items = state.today.items.filter(item => item.agenda_group === group);
+            if (items.length === 0) return;
+            fragment.appendChild(buildHeading(label));
+            items.forEach(item => fragment.appendChild(buildItem(item, group)));
+        });
 
         listEl.replaceChildren(fragment);
     }

@@ -28,7 +28,10 @@ test.describe('Heute', () => {
     const suffix = Date.now();
     const names = {
       overdue: `Agenda überfällig ${suffix}`,
-      due: `Agenda heute ${suffix}`,
+      scheduledEarly: `Agenda früh ${suffix}`,
+      scheduledLate: `Agenda spät ${suffix}`,
+      anytimeFirst: `Agenda irgendwann eins ${suffix}`,
+      anytimeSecond: `Agenda irgendwann zwei ${suffix}`,
       future: `Agenda morgen ${suffix}`,
       done: `Agenda erledigt ${suffix}`,
       undated: `Agenda ohne Datum ${suffix}`,
@@ -43,8 +46,20 @@ test.describe('Heute', () => {
       return response.json();
     }
 
+    async function quickAdd(categoryId, input) {
+      const response = await page.request.post('/api.php?action=quick_add', {
+        headers: { 'X-CSRF-Token': csrf },
+        form: { active_category_id: String(categoryId), input },
+      });
+      expect(response.status()).toBe(201);
+      return response.json();
+    }
+
     const overdue = await add(dueCategories[1].id, names.overdue, shiftDate(today, -1));
-    await add(dueCategories[0].id, names.due, today);
+    await quickAdd(dueCategories[0].id, `${names.scheduledLate} heute 14:30`);
+    await quickAdd(dueCategories[1].id, `${names.scheduledEarly} heute 08:15`);
+    await add(dueCategories[0].id, names.anytimeSecond, today);
+    await add(dueCategories[0].id, names.anytimeFirst, today);
     await add(dueCategories[0].id, names.future, shiftDate(today, 1));
     await add(dueCategories[0].id, names.undated);
     const completed = await add(dueCategories[0].id, names.done, today);
@@ -57,13 +72,25 @@ test.describe('Heute', () => {
     await page.getByRole('button', { name: 'Heute', exact: true }).click();
     await expect(page).toHaveURL(/screen=today/);
     await expect(page.locator('#categoryTitle')).toHaveText('Heute');
-    await expect(page.locator('.today-section-heading')).toHaveText(['Überfällig', 'Heute']);
+    await expect(page.locator('.today-section-heading')).toHaveText(['Überfällig', 'Terminiert', 'Irgendwann heute']);
 
     const overdueEntry = page.locator('.today-item').filter({ hasText: names.overdue });
-    const todayEntry = page.locator('.today-item').filter({ hasText: names.due });
+    const scheduledEarlyEntry = page.locator('.today-item').filter({ hasText: names.scheduledEarly });
+    const anytimeEntry = page.locator('.today-item').filter({ hasText: names.anytimeFirst });
     await expect(overdueEntry).toContainText(dueCategories[1].name);
-    await expect(todayEntry).toContainText(dueCategories[0].name);
+    await expect(scheduledEarlyEntry).toContainText(dueCategories[1].name);
+    await expect(scheduledEarlyEntry).toContainText('08:15 Uhr');
+    await expect(anytimeEntry).toContainText(dueCategories[0].name);
     await expect(overdueEntry).toContainText('seit ');
+
+    const renderedNames = await page.locator('.today-item-name').allTextContents();
+    expect(renderedNames.indexOf(names.overdue)).toBeLessThan(renderedNames.indexOf(names.scheduledEarly));
+    expect(renderedNames.indexOf(names.scheduledEarly)).toBeLessThan(renderedNames.indexOf(names.scheduledLate));
+    expect(renderedNames.indexOf(names.scheduledLate)).toBeLessThan(renderedNames.indexOf(names.anytimeFirst));
+    expect(renderedNames.indexOf(names.anytimeFirst)).toBeLessThan(renderedNames.indexOf(names.anytimeSecond));
+    await expect(overdueEntry).toHaveAttribute('data-agenda-group', 'overdue');
+    await expect(scheduledEarlyEntry).toHaveAttribute('data-agenda-group', 'scheduled');
+    await expect(anytimeEntry).toHaveAttribute('data-agenda-group', 'anytime_today');
     await expect(page.locator('#list .toggle')).toHaveCount(0);
     await expect(page.getByText(names.future)).toHaveCount(0);
     await expect(page.getByText(names.done)).toHaveCount(0);
