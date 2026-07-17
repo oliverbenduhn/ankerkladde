@@ -1,9 +1,9 @@
 import { t } from './i18n.js';
-import { getCurrentType, state } from './state.js?v=5.1.14';
-import { clearDoneBtn, listEl, progressEl, svgIcon } from './ui.js?v=5.1.14';
-import { normalizeBarcodeValue, sanitizeItemField, syncAutoHeight } from './utils.js?v=5.1.14';
-import { createLightboxController } from './lightbox.js?v=5.1.14';
-import { createItemMenuController } from './item-menu.js?v=5.1.14';
+import { getCurrentType, state } from './state.js?v=5.1.15';
+import { clearDoneBtn, listEl, progressEl, svgIcon } from './ui.js?v=5.1.15';
+import { normalizeBarcodeValue, sanitizeItemField, syncAutoHeight } from './utils.js?v=5.1.15';
+import { createLightboxController } from './lightbox.js?v=5.1.15';
+import { createItemMenuController } from './item-menu.js?v=5.1.15';
 
 export function createItemsViewController(deps) {
     const {

@@ -1,8 +1,8 @@
-import { initThemeHandling } from './settings-theme.js?v=5.1.14';
-import { initUIHandling } from './settings-ui.js?v=5.1.14';
-import { initFormHandling } from './settings-forms.js?v=5.1.14';
-import { initCategoryDragReorder } from './settings-dnd.js?v=5.1.14';
-import { getLocalThemePreferences } from './settings-theme.js?v=5.1.14';
+import { initThemeHandling } from './settings-theme.js?v=5.1.15';
+import { initUIHandling } from './settings-ui.js?v=5.1.15';
+import { initFormHandling } from './settings-forms.js?v=5.1.15';
+import { initCategoryDragReorder } from './settings-dnd.js?v=5.1.15';
+import { getLocalThemePreferences } from './settings-theme.js?v=5.1.15';
 
 // Initialize the settings page
 initThemeHandling();

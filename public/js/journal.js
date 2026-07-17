@@ -1,5 +1,5 @@
-import { api } from './api.js?v=5.1.14';
-import { NOTE_SAVE_DEBOUNCE_MS, state } from './state.js?v=5.1.14';
+import { api } from './api.js?v=5.1.15';
+import { NOTE_SAVE_DEBOUNCE_MS, state } from './state.js?v=5.1.15';
 import {
     journalDateHeading,
     journalDatePicker,
@@ -9,9 +9,9 @@ import {
     journalSaveStatus,
     journalTodayBtn,
     journalToolbar,
-} from './ui.js?v=5.1.14';
-import { sanitizeItemField } from './utils.js?v=5.1.14';
-import { t } from './i18n.js?v=5.1.14';
+} from './ui.js?v=5.1.15';
+import { sanitizeItemField } from './utils.js?v=5.1.15';
+import { t } from './i18n.js?v=5.1.15';
 
 function serverDateIso(isoDate) {
     if (typeof isoDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) {
