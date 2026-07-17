@@ -4,6 +4,7 @@
   "scripts": {
     "dev:demo": "bash scripts/demo-test-server.sh",
     "test:assets": "node scripts/check-ui-sprite.js",
+    "test:cache-versions": "php scripts/check-js-cache-versions.php",
     "test:ui": "playwright test",
     "test:ui:headed": "playwright test --headed",
     "test:ui:debug": "playwright test --debug",

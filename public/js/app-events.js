@@ -1,6 +1,6 @@
 import { t } from './i18n.js';
-import { saveLocalPrefs, state, scannerState, themeMediaQuery, isAttachmentCategory, normalizePreferences, isLayoutAvailable, getAvailableLayouts } from './state.js?v=4.3.4';
-import { normalizeSettingsTab } from './api.js?v=4.3.4';
+import { saveLocalPrefs, state, scannerState, themeMediaQuery, isAttachmentCategory, normalizePreferences, isLayoutAvailable, getAvailableLayouts } from './state.js?v=5.1.14';
+import { normalizeSettingsTab } from './api.js?v=5.1.14';
 import {
     appEl,
     cameraBtn,
@@ -40,9 +40,9 @@ import {
     uploadModeFileBtn,
     uploadModeUrlBtn,
     urlImportInput,
-} from './ui.js?v=4.3.4';
-import { applyThemePreferences } from './theme.js?v=4.3.4';
-import { normalizeBarcodeValue, syncAutoHeight } from './utils.js?v=4.3.4';
+} from './ui.js?v=5.1.14';
+import { applyThemePreferences } from './theme.js?v=5.1.14';
+import { normalizeBarcodeValue, syncAutoHeight } from './utils.js?v=5.1.14';
 
 export function registerAppEventHandlers(deps) {
     const {

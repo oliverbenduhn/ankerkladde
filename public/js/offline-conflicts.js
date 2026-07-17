@@ -1,5 +1,5 @@
-import { getConflicts, setConflicts, clearConflicts, getConflictCount } from './offline-queue.js?v=4.3.11';
-import { api } from './api.js?v=4.3.4';
+import { getConflicts, setConflicts, clearConflicts, getConflictCount } from './offline-queue.js?v=5.1.14';
+import { api } from './api.js?v=5.1.14';
 
 export function initConflictUI(deps) {
     const { loadItems, invalidateCategoryCache, setMessage } = deps;
