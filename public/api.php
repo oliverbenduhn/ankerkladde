@@ -1986,11 +1986,13 @@ try {
 
         case 'journal':
             requireMethod('GET');
-            $date = normalizeJournalDate($_GET['date'] ?? date('Y-m-d'));
+            $serverToday = (new DateTimeImmutable('now', new DateTimeZone('Europe/Berlin')))->format('Y-m-d');
+            $date = normalizeJournalDate($_GET['date'] ?? $serverToday);
             $category = ensureDailyNotesCategory($db, $userId);
             $item = loadJournalItem($db, $userId, (int) $category['id'], $date);
 
             respond(200, [
+                'today' => $serverToday,
                 'date' => $date,
                 'category' => $category,
                 'item' => formatJournalItem($item),

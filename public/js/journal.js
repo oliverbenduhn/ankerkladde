@@ -12,17 +12,20 @@ import {
 } from './ui.js?v=4.3.4';
 import { sanitizeItemField } from './utils.js?v=4.3.11';
 
-function localDateIso(date = new Date()) {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+function serverDateIso(isoDate) {
+    if (typeof isoDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) {
+        return state.serverToday || '';
+    }
+    return isoDate;
 }
 
 function shiftDate(isoDate, days) {
     const date = new Date(`${isoDate}T12:00:00`);
     date.setDate(date.getDate() + days);
-    return localDateIso(date);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
 }
 
 function formatDateHeading(isoDate) {
@@ -132,14 +135,24 @@ export function createJournalController(deps) {
     function updateDateUi(date) {
         if (journalDatePicker) journalDatePicker.value = date;
         if (journalDateHeading) journalDateHeading.textContent = formatDateHeading(date);
-        if (journalNextBtn) journalNextBtn.disabled = date >= localDateIso();
-        if (journalTodayBtn) journalTodayBtn.disabled = date === localDateIso();
+        const today = serverDateIso(state.serverToday);
+        if (journalNextBtn) journalNextBtn.disabled = today !== '' && date >= today;
+        if (journalTodayBtn) journalTodayBtn.disabled = today !== '' && date === today;
     }
 
-    async function openDay(date = localDateIso(), { focus = false } = {}) {
-        const resolvedDate = date === 'today' ? localDateIso() : date;
+    async function openDay(date = null, { focus = false } = {}) {
+        const requestedDate = date === null || date === 'today'
+            ? (state.serverToday || 'today')
+            : date;
+        const resolvedDate = requestedDate === 'today' ? null : requestedDate;
         await destroyEditor();
-        const payload = await api(`journal&date=${encodeURIComponent(resolvedDate)}`);
+        const url = resolvedDate
+            ? `journal&date=${encodeURIComponent(resolvedDate)}`
+            : 'journal';
+        const payload = await api(url);
+        if (typeof payload.today === 'string' && payload.today !== '') {
+            state.serverToday = payload.today;
+        }
         state.screen = 'journal';
         state.journalDate = payload.date;
         state.journalItemId = Number(payload.item?.id) || null;
@@ -210,12 +223,18 @@ export function createJournalController(deps) {
         updateToolbar();
     }
 
-    journalPreviousBtn?.addEventListener('click', () => void navigateTo(shiftDate(state.journalDate || localDateIso(), -1)).catch(error => setMessage(error.message, true)));
-    journalTodayBtn?.addEventListener('click', () => void navigateTo(localDateIso()).catch(error => setMessage(error.message, true)));
-    journalNextBtn?.addEventListener('click', () => void navigateTo(shiftDate(state.journalDate || localDateIso(), 1)).catch(error => setMessage(error.message, true)));
+    journalPreviousBtn?.addEventListener('click', () => {
+        const fallback = state.serverToday || state.journalDate || '';
+        return void navigateTo(shiftDate(state.journalDate || fallback, -1)).catch(error => setMessage(error.message, true));
+    });
+    journalTodayBtn?.addEventListener('click', () => void navigateTo(state.serverToday || 'today').catch(error => setMessage(error.message, true)));
+    journalNextBtn?.addEventListener('click', () => {
+        const fallback = state.serverToday || state.journalDate || '';
+        return void navigateTo(shiftDate(state.journalDate || fallback, 1)).catch(error => setMessage(error.message, true));
+    });
     journalDatePicker?.addEventListener('change', event => void navigateTo(event.target.value).catch(error => setMessage(error.message, true)));
-    journalDateHeading?.addEventListener('click', () => void navigateTo(localDateIso()).catch(error => setMessage(error.message, true)));
+    journalDateHeading?.addEventListener('click', () => void navigateTo(state.serverToday || 'today').catch(error => setMessage(error.message, true)));
     journalToolbar?.addEventListener('click', handleToolbarClick);
 
-    return { closeJournal, openDay, todayIso: localDateIso };
+    return { closeJournal, openDay };
 }

@@ -100,7 +100,7 @@ export function createAppRuntime(deps) {
     const openNoteEditorWithNavigation = async item => { await editorController.openNoteEditorWithNavigation(item); };
     const closeNoteEditor = async () => { await editorController.closeNoteEditor(); };
     const closeJournal = async () => { await journalController?.closeJournal(); };
-    const openJournalDay = async (date, options = {}) => { await journalController.openDay(date || journalController.todayIso(), options); };
+    const openJournalDay = async (date, options = {}) => { await journalController.openDay(date || state.serverToday || 'today', options); };
     const openTodoEditor = item => { todoEditorController.openTodoEditor(item); };
     const closeTodoEditor = async () => { await todoEditorController.closeTodoEditor(); };
     const scheduleNoteSave = () => editorController.scheduleNoteSave();
@@ -177,14 +177,14 @@ export function createAppRuntime(deps) {
     });
 
     const openJournalWithNavigation = async (date, focus = null) => {
-        const resolvedDate = date || journalController.todayIso();
+        const resolvedDate = date || state.serverToday || 'today';
         await router.openJournal(resolvedDate, focus);
         navigation.pushHistoryState({ screen: 'journal', date: resolvedDate, focus });
     };
     const selectCategory = async categoryId => {
         const category = state.categories.find(entry => Number(entry.id) === Number(categoryId));
         if (category?.type === 'daily_notes') {
-            await openJournalWithNavigation(journalController.todayIso());
+            await openJournalWithNavigation(state.serverToday || 'today');
             return;
         }
         const fromToday = state.screen === 'today';

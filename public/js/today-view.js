@@ -23,6 +23,7 @@ export function createTodayViewController({ openSourceItem }) {
             date: typeof payload.today === 'string' ? payload.today : '',
             items: Array.isArray(payload.items) ? payload.items.map(normalizeItem) : [],
         };
+        state.serverToday = state.today.date;
         await updateAppBadge(state.today.items.length);
         renderToday();
     }

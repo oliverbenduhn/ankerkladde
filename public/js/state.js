@@ -92,6 +92,7 @@ export const state = {
     editDraft: { itemId: null, categoryId: null, name: '', barcode: '', quantity: '', due_date: '', content: '' },
     search: { open: false, query: '', results: [] },
     today: { date: '', items: [] },
+    serverToday: '',
     noteEditorId: null,
     journalDate: null,
     journalItemId: null,
