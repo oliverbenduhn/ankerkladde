@@ -1,6 +1,6 @@
-import { createAppUiController } from './app-ui.js?v=5.1.11';
+import { createAppUiController } from './app-ui.js?v=5.1.13';
 import { createHelpersController } from './helpers.js?v=4.3.4';
-import { createItemsActionsController } from './items-actions.js?v=5.1.11';
+import { createItemsActionsController } from './items-actions.js?v=5.1.13';
 import { createItemsController } from './items.js?v=4.3.4';
 import { createItemsViewController } from './items-view.js?v=4.3.12';
 import { createNavigation } from './navigation.js?v=5.1.12';
@@ -176,10 +176,10 @@ export function createAppRuntime(deps) {
         updateHeaders,
     });
 
-    const openJournalWithNavigation = async date => {
+    const openJournalWithNavigation = async (date, focus = null) => {
         const resolvedDate = date || journalController.todayIso();
-        await router.openJournal(resolvedDate);
-        navigation.pushHistoryState({ screen: 'journal', date: resolvedDate });
+        await router.openJournal(resolvedDate, focus);
+        navigation.pushHistoryState({ screen: 'journal', date: resolvedDate, focus });
     };
     const selectCategory = async categoryId => {
         const category = state.categories.find(entry => Number(entry.id) === Number(categoryId));
@@ -205,6 +205,7 @@ export function createAppRuntime(deps) {
         invalidateCategoryCache,
         loadCategories,
         loadItems,
+        loadToday,
         makeUploadProgressCallback,
         openNoteEditorWithNavigation,
         openMagic: input => magicController?.openMagic(input),
@@ -369,6 +370,7 @@ export function createAppRuntime(deps) {
         navigation,
         openScanner,
         openSearch,
+        openJournalWithNavigation,
         prefetchAdjacentCategories,
         quickAdd: async (input, activeCategoryId) => { await itemsActionsController.quickAdd(input, activeCategoryId); },
         renderCategoryTabs,

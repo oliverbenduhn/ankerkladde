@@ -58,6 +58,7 @@ export function registerAppEventHandlers(deps) {
         navigation,
         openScanner,
         openSearch,
+        openJournalWithNavigation,
         renderCategoryTabs,
         renderItems,
         router,
@@ -83,7 +84,9 @@ export function registerAppEventHandlers(deps) {
     } = deps;
 
     todayNoteBtn?.addEventListener('click', () => {
-        document.dispatchEvent(new CustomEvent('ankerkladde:open-journal', { detail: { date: 'today' } }));
+        void openJournalWithNavigation('today', 'editor').catch(error => {
+            setMessage(error instanceof Error ? error.message : 'Journal konnte nicht geöffnet werden.', true);
+        });
     });
 
     itemForm?.addEventListener('submit', event => {

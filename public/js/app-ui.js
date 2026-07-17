@@ -192,9 +192,9 @@ export function createAppUiController(deps = {}) {
         }
 
         const submitBtn = itemForm?.querySelector('[type="submit"]');
-        const quickAddCategory = category?.type === 'list_quantity' || category?.type === 'list_due_date';
+        const quickAddCategory = state.screen === 'today' || category?.type === 'list_quantity' || category?.type === 'list_due_date';
         if (submitBtn) submitBtn.hidden = quickAddCategory || (uploadCategory && uploadMode === 'file');
-        if (scanAddBtn) scanAddBtn.hidden = !shoppingListScannerEnabled || !barcodeCategory || uploadCategory;
+        if (scanAddBtn) scanAddBtn.hidden = state.screen === 'today' || !shoppingListScannerEnabled || !barcodeCategory || uploadCategory;
         if (scanShoppingBtn) scanShoppingBtn.hidden = !shoppingListScannerEnabled || !barcodeCategory;
 
         if (filePickerButton) filePickerButton.textContent = imageCategory ? t('item.choose_image') : t('item.choose_file');
@@ -284,6 +284,19 @@ export function createAppUiController(deps = {}) {
         if (state.screen === 'today') {
             if (categoryTitleEl) categoryTitleEl.textContent = 'Heute';
             document.title = 'Ankerkladde - Heute';
+            if (itemInput) {
+                itemInput.placeholder = 'Quick-Add: Name, morgen, 8:00, /Kategorie, !1–!3';
+                itemInput.setAttribute('aria-label', 'Quick-Add');
+                itemInput.required = true;
+            }
+            itemForm?.classList.add('is-quick-add');
+            if (itemSubmitBtn) itemSubmitBtn.hidden = true;
+            if (scanAddBtn) scanAddBtn.hidden = true;
+            if (quantityInput) {
+                quantityInput.style.display = 'none';
+                quantityInput.value = '';
+            }
+            if (quickAddFeedback) quickAddFeedback.hidden = true;
             updateModeChip();
             return;
         }

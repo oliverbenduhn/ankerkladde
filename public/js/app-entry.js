@@ -1,6 +1,6 @@
-import { registerAppEventHandlers } from './app-events.js?v=4.3.14';
+import { registerAppEventHandlers } from './app-events.js?v=5.1.13';
 import { initApp, registerServiceWorker, initWebSocketServer } from './app-init.js?v=5.1.12';
-import { createAppRuntime } from './app-runtime.js?v=5.1.12';
+import { createAppRuntime } from './app-runtime.js?v=5.1.13';
 import { readInitialPreferences, state } from './state.js?v=4.3.4';
 import { applyThemePreferences } from './theme.js?v=4.3.4';
 import { modeToggleBtns, modeChip, layoutToggleBtn } from './ui.js?v=4.3.4';
@@ -46,6 +46,7 @@ export function startApp(version) {
         navigation,
         openScanner,
         openSearch,
+        openJournalWithNavigation,
         prefetchAdjacentCategories,
         renderCategoryTabs,
         renderItems,
@@ -100,6 +101,7 @@ export function startApp(version) {
         navigation,
         openScanner,
         openSearch,
+        openJournalWithNavigation,
         renderCategoryTabs,
         renderItems,
         router,

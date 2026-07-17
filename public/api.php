@@ -2007,10 +2007,11 @@ try {
             $content = normalizeContent($data['content'] ?? null);
             $title = (new DateTimeImmutable($date, new DateTimeZone('Europe/Berlin')))->format('d.m.Y');
 
-            $db->beginTransaction();
+            // Acquire the SQLite write lock before the read-or-insert decision so
+            // concurrent first saves for the same day cannot both observe no item.
+            $db->exec('BEGIN IMMEDIATE');
+            $journalTransactionActive = true;
             try {
-                // INSERT OR IGNORE is deliberately the first write: it serializes concurrent
-                // journal saves before the read/update decision below.
                 $category = ensureDailyNotesCategory($db, $userId);
                 $item = loadJournalItem($db, $userId, (int) $category['id'], $date);
 
@@ -2044,10 +2045,11 @@ try {
                     ]);
                 }
 
-                $db->commit();
+                $db->exec('COMMIT');
+                $journalTransactionActive = false;
             } catch (Throwable $error) {
-                if ($db->inTransaction()) {
-                    $db->rollBack();
+                if ($journalTransactionActive) {
+                    $db->exec('ROLLBACK');
                 }
                 throw $error;
             }

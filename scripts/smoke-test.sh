@@ -27,7 +27,7 @@ trap cleanup EXIT
 
 mkdir -p "$TEST_DATA_DIR"
 
-EINKAUF_DATA_DIR="$TEST_DATA_DIR" EINKAUF_TRUST_PROXY_HEADERS=0 php \
+PHP_CLI_SERVER_WORKERS=4 EINKAUF_DATA_DIR="$TEST_DATA_DIR" EINKAUF_TRUST_PROXY_HEADERS=0 php \
     -d upload_max_filesize=500M \
     -d post_max_size=520M \
     -S "127.0.0.1:$PORT" \
@@ -48,6 +48,15 @@ EINKAUF_ADMIN_PASS=adminpass123 \
 EINKAUF_REGULAR_USER=testuser \
 EINKAUF_REGULAR_PASS=userpass123 \
 php "$ROOT_DIR/scripts/create-admin.php"
+
+JOURNAL_CONCURRENCY_API_KEY="smoke-journal-concurrency-key"
+EINKAUF_DATA_DIR="$TEST_DATA_DIR" php -r '
+    require $argv[1] . "/security.php";
+    require $argv[1] . "/db.php";
+    $db = getDatabase();
+    $stmt = $db->prepare("UPDATE users SET api_key = :api_key, api_key_created_at = CURRENT_TIMESTAMP WHERE username = :username");
+    $stmt->execute([":api_key" => $argv[2], ":username" => "testuser"]);
+' "$ROOT_DIR" "$JOURNAL_CONCURRENCY_API_KEY"
 
 # Login as testuser to get a session
 LOGIN_HTML="$TMP_DIR/login.html"
@@ -106,6 +115,7 @@ JOURNAL_EMPTY_BODY="$TMP_DIR/journal-empty.json"
 JOURNAL_CREATE_BODY="$TMP_DIR/journal-create.json"
 JOURNAL_UPDATE_BODY="$TMP_DIR/journal-update.json"
 JOURNAL_SEARCH_BODY="$TMP_DIR/journal-search.json"
+JOURNAL_CONCURRENT_DATE="2026-07-18"
 TODO_ADD_BODY="$TMP_DIR/todo-add.json"
 TODO_LIST_BODY="$TMP_DIR/todo-list.json"
 TODAY_BODY="$TMP_DIR/today.json"
@@ -223,6 +233,26 @@ php -r '$payload = json_decode(file_get_contents($argv[1]), true); if ((int) ($p
 
 JOURNAL_ITEM_COUNT="$(EINKAUF_DATA_DIR="$TEST_DATA_DIR" php -r '$db = new PDO("sqlite:" . getenv("EINKAUF_DATA_DIR") . "/einkaufsliste.db"); echo (int) $db->query("SELECT COUNT(*) FROM items i INNER JOIN categories c ON c.id = i.category_id WHERE c.type = \"daily_notes\"")->fetchColumn();')"
 [[ "$JOURNAL_ITEM_COUNT" == "1" ]]
+
+JOURNAL_CONCURRENT_PIDS=()
+for request_number in 1 2 3 4; do
+    curl -sS -o "$TMP_DIR/journal-concurrent-$request_number.json" -w '%{http_code}' \
+        -H "Authorization: Bearer $JOURNAL_CONCURRENCY_API_KEY" \
+        -X POST \
+        --data-urlencode "date=$JOURNAL_CONCURRENT_DATE" \
+        --data-urlencode "content=<p>Parallel $request_number</p>" \
+        "http://127.0.0.1:$PORT/api.php?action=journal_save" \
+        >"$TMP_DIR/journal-concurrent-$request_number.status" &
+    JOURNAL_CONCURRENT_PIDS+=("$!")
+done
+for request_pid in "${JOURNAL_CONCURRENT_PIDS[@]}"; do
+    wait "$request_pid"
+done
+for request_number in 1 2 3 4; do
+    grep -Eq '^(200|201)$' "$TMP_DIR/journal-concurrent-$request_number.status"
+done
+JOURNAL_CONCURRENT_COUNT="$(EINKAUF_DATA_DIR="$TEST_DATA_DIR" php -r '$db = new PDO("sqlite:" . getenv("EINKAUF_DATA_DIR") . "/einkaufsliste.db"); $stmt = $db->prepare("SELECT COUNT(*) FROM items i INNER JOIN categories c ON c.id = i.category_id WHERE c.type = :type AND i.due_date = :due_date"); $stmt->execute([":type" => "daily_notes", ":due_date" => $argv[1]]); echo (int) $stmt->fetchColumn();' "$JOURNAL_CONCURRENT_DATE")"
+[[ "$JOURNAL_CONCURRENT_COUNT" == "1" ]]
 
 [[ "$(status_code "$JOURNAL_SEARCH_BODY" -b "$COOKIE_JAR" "http://127.0.0.1:$PORT/api.php?action=search&q=JournalFtsTreffer")" == "200" ]]
 php -r '$payload = json_decode(file_get_contents($argv[1]), true); $id = (int) $argv[2]; foreach (($payload["items"] ?? []) as $item) { if ((int) ($item["id"] ?? 0) === $id && ($item["category_type"] ?? "") === "daily_notes") { exit(0); } } fwrite(STDERR, "Journal-Inhalt wurde nicht über FTS gefunden.\n"); exit(1);' "$JOURNAL_SEARCH_BODY" "$JOURNAL_ITEM_ID"

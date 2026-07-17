@@ -15,6 +15,59 @@ function shiftDate(date, days) {
 }
 
 test.describe('Heute', () => {
+  test('opens today journal note and focuses the editor', async ({ page }) => {
+    await login(page);
+
+    await page.getByRole('button', { name: 'Heute', exact: true }).click();
+    await page.getByRole('button', { name: 'Notiz', exact: true }).click();
+
+    await expect(page).toHaveURL(/screen=journal.*date=today.*focus=editor/);
+    await expect(page.locator('#journalView')).toBeVisible();
+    await expect(page.locator('#journalEditorBody .tiptap')).toBeFocused();
+  });
+
+  test('quick-adds with a due-list default and stays on Today for an explicit target', async ({ page }) => {
+    await login(page);
+    const categories = await (await page.request.get('/api.php?action=categories_list')).json();
+    const dueCategories = categories.categories.filter(category => category.type === 'list_due_date');
+    expect(dueCategories.length).toBeGreaterThanOrEqual(2);
+    const csrf = await page.locator('meta[name="csrf-token"]').getAttribute('content');
+    const targetName = `HeuteZiel${Date.now()}`;
+    const createTarget = await page.request.post('/api.php?action=categories_create', {
+      headers: { 'X-CSRF-Token': csrf },
+      form: { name: targetName, type: 'list_due_date', icon: 'erledigt' },
+    });
+    expect(createTarget.status()).toBe(201);
+    const target = (await createTarget.json()).category;
+
+    await page.getByRole('button', { name: 'Einkauf', exact: true }).click();
+    await page.getByRole('button', { name: 'Heute', exact: true }).click();
+
+    const input = page.getByLabel('Quick-Add');
+    await expect(input).toBeVisible();
+    await expect(page.locator('#itemSubmitBtn')).toBeHidden();
+
+    const defaultName = `Agenda Quick Add Default ${Date.now()}`;
+    const defaultResponse = page.waitForResponse(response => response.url().includes('action=quick_add') && response.status() === 201);
+    await input.fill(`${defaultName} heute`);
+    await input.press('Enter');
+    const defaultPayload = await (await defaultResponse).json();
+    expect(defaultPayload.category_id).toBe(dueCategories[0].id);
+    await expect(page).toHaveURL(/screen=today/);
+    await expect(page.locator('#categoryTitle')).toHaveText('Heute');
+    await expect(page.locator('#list')).toContainText(defaultName);
+
+    const targetedName = `Agenda Quick Add Ziel ${Date.now()}`;
+    const targetedResponse = page.waitForResponse(response => response.url().includes('action=quick_add') && response.status() === 201);
+    await input.fill(`${targetedName} heute /${targetName.toLocaleLowerCase('de-DE')}`);
+    await input.press('Enter');
+    const targetedPayload = await (await targetedResponse).json();
+    expect(targetedPayload.category_id).toBe(target.id);
+    await expect(page).toHaveURL(/screen=today/);
+    await expect(page.locator('#categoryTitle')).toHaveText('Heute');
+    await expect(page.locator('#list')).toContainText(targetedName);
+  });
+
   test('renders the agenda read-only and deep-links to the source item', async ({ page }) => {
     await login(page);
 

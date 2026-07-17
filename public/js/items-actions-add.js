@@ -1,6 +1,6 @@
 import { t } from './i18n.js';
 import { appUrl, api } from './api.js?v=5.1.11';
-import { getCurrentCategory, isAttachmentCategory } from './state.js?v=4.3.4';
+import { getCurrentCategory, isAttachmentCategory, state } from './state.js?v=4.3.4';
 import {
     itemInput,
     linkDescriptionInput,
@@ -16,7 +16,9 @@ export function createAddActions(deps) {
     const {
         getItemById,
         getUploadMode,
+        getVisibleCategories,
         loadItems,
+        loadToday,
         openMagic,
         openNoteEditorWithNavigation,
         resetItemForm,
@@ -56,7 +58,7 @@ export function createAddActions(deps) {
     });
     itemInput?.addEventListener('input', hideQuickAddFeedback);
 
-    async function quickAdd(input, activeCategoryId) {
+    async function quickAdd(input, activeCategoryId, { stayOnToday = false } = {}) {
         const body = itemParams({
             input,
             active_category_id: String(activeCategoryId),
@@ -67,7 +69,9 @@ export function createAddActions(deps) {
             resetItemForm();
             invalidateCategoryCache(activeCategoryId);
             invalidateCategoryCache(payload.category_id);
-            if (Number(payload.category_id) !== Number(activeCategoryId)) {
+            if (stayOnToday) {
+                await loadToday();
+            } else if (Number(payload.category_id) !== Number(activeCategoryId)) {
                 await setCategory(payload.category_id);
             } else {
                 await loadItems();
@@ -96,6 +100,19 @@ export function createAddActions(deps) {
     async function addItem(event) {
         event.preventDefault();
         const category = getCurrentCategory();
+
+        if (state.screen === 'today') {
+            const dueCategories = getVisibleCategories().filter(entry => entry.type === 'list_due_date');
+            const activeDueCategory = dueCategories.find(entry => Number(entry.id) === Number(category?.id));
+            const targetCategory = activeDueCategory || dueCategories[0];
+            if (!targetCategory) {
+                setMessage('Für Quick-Add ist eine Aufgaben-Kategorie erforderlich.', true);
+                return;
+            }
+            await quickAdd(itemInput.value.trim(), Number(targetCategory.id), { stayOnToday: true });
+            return;
+        }
+
         if (!category) return;
 
         if (category.type === 'list_quantity' || category.type === 'list_due_date') {
