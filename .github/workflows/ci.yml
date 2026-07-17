@@ -18,6 +18,9 @@ jobs:
       - name: Run AiClient tests
         run: php scripts/test-ai-client.php
 
+      - name: Verify JavaScript cache versions
+        run: php scripts/check-js-cache-versions.php
+
       - name: Run smoke test
         run: bash scripts/smoke-test.sh
 
