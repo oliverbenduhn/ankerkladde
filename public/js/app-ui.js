@@ -282,11 +282,11 @@ export function createAppUiController(deps = {}) {
 
     function updateHeaders() {
         if (state.screen === 'today') {
-            if (categoryTitleEl) categoryTitleEl.textContent = 'Heute';
-            document.title = 'Ankerkladde - Heute';
+            if (categoryTitleEl) categoryTitleEl.textContent = t('today.title');
+            document.title = t('app.title', { section: t('today.title') });
             if (itemInput) {
-                itemInput.placeholder = 'Quick-Add: Name, morgen, 8:00, /Kategorie, !1–!3';
-                itemInput.setAttribute('aria-label', 'Quick-Add');
+                itemInput.placeholder = t('quick_add.placeholder');
+                itemInput.setAttribute('aria-label', t('quick_add.aria_label'));
                 itemInput.required = true;
             }
             itemForm?.classList.add('is-quick-add');
@@ -310,8 +310,8 @@ export function createAppUiController(deps = {}) {
             return;
         }
         if (state.screen === 'journal') {
-            if (categoryTitleEl) categoryTitleEl.textContent = 'Journal';
-            document.title = 'Ankerkladde - Journal';
+            if (categoryTitleEl) categoryTitleEl.textContent = t('journal.title');
+            document.title = t('app.title', { section: t('journal.title') });
             updateModeChip();
             updateLayoutSwitcher();
             return;
@@ -331,10 +331,10 @@ export function createAppUiController(deps = {}) {
 
         if (itemInput) {
             const placeholder = isQuickAddCategory
-                ? 'Quick-Add: Name, morgen, 8:00, /Kategorie, !1–!3'
+                ? t('quick_add.placeholder')
                 : config.placeholder;
             itemInput.placeholder = placeholder;
-            itemInput.setAttribute('aria-label', isQuickAddCategory ? 'Quick-Add' : placeholder.replace(/\.{3}$/, ''));
+            itemInput.setAttribute('aria-label', isQuickAddCategory ? t('quick_add.aria_label') : placeholder.replace(/\.{3}$/, ''));
             itemInput.required = !isAttachmentCategory(category.type);
         }
 

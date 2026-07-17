@@ -45,7 +45,7 @@ export function createAddActions(deps) {
         const payload = error?.payload || {};
         if (!quickAddFeedback || !quickAddFeedbackText) return;
         pendingQuickAddInput = input;
-        quickAddFeedbackText.textContent = payload.error || error.message || 'Quick-Add konnte nicht verarbeitet werden.';
+        quickAddFeedbackText.textContent = payload.error || error.message || t('quick_add.processing_error');
         quickAddFeedback.hidden = false;
         if (quickAddAiBtn) quickAddAiBtn.hidden = payload.can_escalate_to_ai !== true;
     }
@@ -106,7 +106,7 @@ export function createAddActions(deps) {
             const activeDueCategory = dueCategories.find(entry => Number(entry.id) === Number(category?.id));
             const targetCategory = activeDueCategory || dueCategories[0];
             if (!targetCategory) {
-                setMessage('Für Quick-Add ist eine Aufgaben-Kategorie erforderlich.', true);
+                setMessage(t('quick_add.no_due_category'), true);
                 return;
             }
             await quickAdd(itemInput.value.trim(), Number(targetCategory.id), { stayOnToday: true });

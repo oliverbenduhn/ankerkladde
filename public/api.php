@@ -1644,7 +1644,7 @@ function normalizeJournalDate(mixed $value): string
     $parsed = DateTimeImmutable::createFromFormat('!Y-m-d', $date, new DateTimeZone('Europe/Berlin'));
     $errors = DateTimeImmutable::getLastErrors();
     if ($parsed === false || ($errors !== false && ($errors['warning_count'] > 0 || $errors['error_count'] > 0)) || $parsed->format('Y-m-d') !== $date) {
-        respond(422, ['error' => 'Ungültiges Journal-Datum.', 'error_key' => 'error.invalid_journal_date']);
+        respond(422, ['error' => t('error.invalid_journal_date'), 'error_key' => 'error.invalid_journal_date']);
     }
 
     return $date;
@@ -1758,7 +1758,7 @@ try {
                 respond(422, ['error' => t('error.invalid_category_type'), 'error_key' => 'error.invalid_category_type']);
             }
             if ($type === 'daily_notes') {
-                respond(422, ['error' => 'Die Journal-Kategorie wird vom System verwaltet.', 'error_key' => 'error.system_category']);
+                respond(422, ['error' => t('error.system_category'), 'error_key' => 'error.system_category']);
             }
 
             $icon = normalizeCategoryIcon($data['icon'] ?? null, $type);
@@ -1800,7 +1800,7 @@ try {
                 respond(404, ['error' => t('error.category_not_found'), 'error_key' => 'error.category_not_found']);
             }
             if ((string) $category['type'] === 'daily_notes') {
-                respond(422, ['error' => 'Die Journal-Kategorie wird vom System verwaltet.', 'error_key' => 'error.system_category']);
+                respond(422, ['error' => t('error.system_category'), 'error_key' => 'error.system_category']);
             }
 
             $patches = [];
@@ -1898,7 +1898,7 @@ try {
 
             $category = requireCategory($data, $db, $userId);
             if ((string) $category['type'] === 'daily_notes') {
-                respond(422, ['error' => 'Die Journal-Kategorie wird vom System verwaltet.', 'error_key' => 'error.system_category']);
+                respond(422, ['error' => t('error.system_category'), 'error_key' => 'error.system_category']);
             }
 
             $countStmt = $db->prepare('SELECT COUNT(*) FROM items WHERE user_id = :user_id AND category_id = :category_id');
@@ -2149,7 +2149,7 @@ try {
             validateCategoryType(
                 $targetCategory,
                 ['list_quantity', 'list_due_date'],
-                'Quick-Add ist nur für Listen und Aufgaben verfügbar.',
+                t('quick_add.invalid_category_type'),
                 'quick_add.invalid_category_type'
             );
 

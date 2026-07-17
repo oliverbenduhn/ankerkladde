@@ -1,6 +1,7 @@
 import { api, normalizeItem } from './api.js?v=4.3.4';
 import { state } from './state.js?v=4.3.4';
 import { clearDoneBtn, listEl, progressEl } from './ui.js?v=4.3.4';
+import { t } from './i18n.js?v=4.3.4';
 
 function formatDay(value) {
     const parts = String(value).split('-');
@@ -62,12 +63,12 @@ export function createTodayViewController({ openSourceItem }) {
         if (group === 'scheduled') {
             const time = document.createElement('span');
             time.className = 'today-time-label';
-            time.textContent = `${item.due_time} Uhr`;
+            time.textContent = t('today.at_time', { time: item.due_time });
             meta.appendChild(time);
         } else if (overdue) {
             const since = document.createElement('span');
             since.className = 'today-overdue-label';
-            since.textContent = `seit ${formatDay(item.due_date)}`;
+            since.textContent = t('today.since', { date: formatDay(item.due_date) });
             meta.appendChild(since);
         }
 
@@ -85,15 +86,15 @@ export function createTodayViewController({ openSourceItem }) {
         if (state.today.items.length === 0) {
             const empty = document.createElement('li');
             empty.className = 'empty-state today-empty-state';
-            empty.textContent = 'Nichts heute';
+            empty.textContent = t('today.empty');
             listEl.replaceChildren(empty);
             return;
         }
 
         const groups = [
-            ['overdue', 'Überfällig'],
-            ['scheduled', 'Terminiert'],
-            ['anytime_today', 'Irgendwann heute'],
+            ['overdue', t('today.section.overdue')],
+            ['scheduled', t('today.section.scheduled')],
+            ['anytime_today', t('today.section.anytime_today')],
         ];
         const fragment = document.createDocumentFragment();
 

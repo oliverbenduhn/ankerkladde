@@ -11,6 +11,7 @@ import {
     journalToolbar,
 } from './ui.js?v=4.3.4';
 import { sanitizeItemField } from './utils.js?v=4.3.11';
+import { t } from './i18n.js?v=4.3.4';
 
 function serverDateIso(isoDate) {
     if (typeof isoDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) {
@@ -89,12 +90,12 @@ export function createJournalController(deps) {
                 if (state.journalDate === date) {
                     currentItem = payload.item || currentItem;
                     state.journalItemId = Number(payload.item?.id) || null;
-                    setSaveStatus('Gespeichert');
+                    setSaveStatus(t('journal.saved'));
                 }
             } catch (error) {
                 if (state.journalDate === date) {
                     dirty = true;
-                    setSaveStatus('❌ Fehler beim Speichern');
+                    setSaveStatus(t('journal.save_error'));
                 }
                 throw error;
             }
