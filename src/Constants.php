@@ -3,6 +3,10 @@ declare(strict_types=1);
 
 const CATEGORY_TYPES = ['list_quantity', 'list_due_date', 'notes', 'daily_notes', 'images', 'files', 'links'];
 const ATTACHMENT_CATEGORY_TYPES = ['images', 'files'];
+const AGENDA_GROUP_OVERDUE = 'overdue';
+const AGENDA_GROUP_SCHEDULED = 'scheduled';
+const AGENDA_GROUP_ANYTIME_TODAY = 'anytime_today';
+const AGENDA_GROUPS = [AGENDA_GROUP_OVERDUE, AGENDA_GROUP_SCHEDULED, AGENDA_GROUP_ANYTIME_TODAY];
 const DEFAULT_UPLOAD_LIMITS_MB = [
     'image_upload_max_mb' => 20,
     'file_upload_max_mb' => 500,

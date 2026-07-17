@@ -110,6 +110,24 @@ export function createRouter(deps) {
         highlightItem(itemId);
     }
 
+    async function selectCategory(categoryId) {
+        const category = state.categories.find(entry => Number(entry.id) === Number(categoryId));
+        if (category?.type === 'daily_notes') {
+            const date = state.serverToday || 'today';
+            await openJournal(date);
+            deps.pushHistoryState?.({ screen: 'journal', date, focus: null });
+            return;
+        }
+        const fromToday = state.screen === 'today';
+        const fromJournal = state.screen === 'journal';
+        if (fromToday) closeToday();
+        if (fromJournal) await closeJournalScreen();
+        await setCategory(categoryId);
+        if (fromToday || fromJournal) {
+            deps.pushHistoryState?.({ screen: 'list', categoryId });
+        }
+    }
+
     function closeSettings() {
         if (state.screen !== 'settings') return;
         state.screen = 'list';
@@ -270,5 +288,6 @@ export function createRouter(deps) {
         openSettings,
         openSourceItem,
         openToday,
+        selectCategory,
     };
 }

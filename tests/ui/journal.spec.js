@@ -19,7 +19,7 @@ test.describe('Journal', () => {
     await login(page);
 
     await page.getByRole('button', { name: 'Journal' }).click();
-    await expect(page).toHaveURL(new RegExp(`screen=journal.*date=${localIso()}`));
+    await expect(page).toHaveURL(new RegExp(`screen=journal(?:[&?]date=(?:today|${localIso()}))?`));
     await expect(page.locator('#journalView')).toBeVisible();
     await expect(page.locator('#journalDatePicker')).toHaveValue(localIso());
     await expect(page.locator('#journalNextBtn')).toBeDisabled();

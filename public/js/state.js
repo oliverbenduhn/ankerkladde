@@ -104,6 +104,14 @@ export const TAB_REORDER_LONG_PRESS_MS = 400;
 export const CATEGORY_SWIPE_THRESHOLD_PX = 72;
 export const SCANNER_COOLDOWN_MS = 1800;
 export const BARCODE_FORMATS = ['ean_13', 'ean_8', 'upc_a', 'upc_e'];
+export const AGENDA_GROUP_OVERDUE = 'overdue';
+export const AGENDA_GROUP_SCHEDULED = 'scheduled';
+export const AGENDA_GROUP_ANYTIME_TODAY = 'anytime_today';
+export const AGENDA_GROUPS = [
+    [AGENDA_GROUP_OVERDUE, 'today.section.overdue'],
+    [AGENDA_GROUP_SCHEDULED, 'today.section.scheduled'],
+    [AGENDA_GROUP_ANYTIME_TODAY, 'today.section.anytime_today'],
+];
 
 export const scannerState = {
     open: false,

@@ -1,5 +1,10 @@
 import { api, normalizeItem } from './api.js?v=4.3.4';
-import { state } from './state.js?v=4.3.4';
+import {
+    AGENDA_GROUPS,
+    AGENDA_GROUP_OVERDUE,
+    AGENDA_GROUP_SCHEDULED,
+    state,
+} from './state.js?v=4.3.4';
 import { clearDoneBtn, listEl, progressEl } from './ui.js?v=4.3.4';
 import { t } from './i18n.js?v=4.3.4';
 
@@ -37,7 +42,7 @@ export function createTodayViewController({ openSourceItem }) {
     }
 
     function buildItem(item, group) {
-        const overdue = group === 'overdue';
+        const overdue = group === AGENDA_GROUP_OVERDUE;
         const entry = document.createElement('li');
         entry.className = `today-item${overdue ? ' is-overdue' : ''}`;
         entry.dataset.itemId = String(item.id);
@@ -60,7 +65,7 @@ export function createTodayViewController({ openSourceItem }) {
         category.textContent = item.category_name;
         meta.appendChild(category);
 
-        if (group === 'scheduled') {
+        if (group === AGENDA_GROUP_SCHEDULED) {
             const time = document.createElement('span');
             time.className = 'today-time-label';
             time.textContent = t('today.at_time', { time: item.due_time });
@@ -91,11 +96,7 @@ export function createTodayViewController({ openSourceItem }) {
             return;
         }
 
-        const groups = [
-            ['overdue', t('today.section.overdue')],
-            ['scheduled', t('today.section.scheduled')],
-            ['anytime_today', t('today.section.anytime_today')],
-        ];
+        const groups = AGENDA_GROUPS.map(([group, labelKey]) => [group, t(labelKey)]);
         const fragment = document.createDocumentFragment();
 
         groups.forEach(([group, label]) => {

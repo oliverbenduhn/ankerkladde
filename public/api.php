@@ -1978,8 +1978,8 @@ try {
             $items = array_map(static function (array $item) use ($today): array {
                 $formatted = formatListItem($item);
                 $formatted['agenda_group'] = $formatted['due_date'] < $today
-                    ? 'overdue'
-                    : ($formatted['due_time'] !== '' ? 'scheduled' : 'anytime_today');
+                    ? AGENDA_GROUP_OVERDUE
+                    : ($formatted['due_time'] !== '' ? AGENDA_GROUP_SCHEDULED : AGENDA_GROUP_ANYTIME_TODAY);
                 return $formatted;
             }, $stmt->fetchAll());
             respond(200, ['today' => $today, 'items' => $items]);

@@ -153,6 +153,7 @@ export function createAppRuntime(deps) {
         doSearch,
         getItemById,
         loadToday,
+        pushHistoryState: (...args) => navigation?.pushHistoryState(...args),
         openNoteEditor,
         openJournalDay,
         closeJournal,
@@ -181,19 +182,6 @@ export function createAppRuntime(deps) {
         await router.openJournal(resolvedDate, focus);
         navigation.pushHistoryState({ screen: 'journal', date: resolvedDate, focus });
     };
-    const selectCategory = async categoryId => {
-        const category = state.categories.find(entry => Number(entry.id) === Number(categoryId));
-        if (category?.type === 'daily_notes') {
-            await openJournalWithNavigation(state.serverToday || 'today');
-            return;
-        }
-        const fromToday = state.screen === 'today';
-        const fromJournal = state.screen === 'journal';
-        if (fromToday) router.closeToday();
-        if (fromJournal) await router.closeJournalScreen();
-        await setCategory(categoryId);
-        if (fromToday || fromJournal) navigation.pushHistoryState({ screen: 'list', categoryId });
-    };
 
     itemsActionsController = createItemsActionsController({
         cacheCurrentCategoryItems,
@@ -220,7 +208,7 @@ export function createAppRuntime(deps) {
     tabsViewController = createTabsViewController({
         getTypeConfig,
         getVisibleCategories,
-        onCategorySelect: category => selectCategory(category.id),
+        onCategorySelect: category => router.selectCategory(category.id),
         onTodaySelect: async () => {
             if (state.screen === 'today') return;
             await router.openToday();
@@ -338,7 +326,7 @@ export function createAppRuntime(deps) {
     swipeController = createSwipeController({
         getUserPreferences,
         getVisibleCategories,
-        setCategory: selectCategory,
+        setCategory: async categoryId => router.selectCategory(categoryId),
     });
 
     magicController = createMagicController({
