@@ -9,6 +9,7 @@ INDEX_HTML="$TMP_DIR/index.html"
 SERVER_LOG="$TMP_DIR/server.log"
 TEST_DATA_DIR="$TMP_DIR/data"
 MANIFEST_HEADERS="$TMP_DIR/manifest-headers.txt"
+MANIFEST_BODY="$TMP_DIR/manifest.json"
 
 cleanup() {
     if [[ -n "${SERVER_PID:-}" ]]; then
@@ -74,8 +75,15 @@ if [[ -z "$CSRF_TOKEN" ]]; then
 fi
 
 grep -Eq '<link rel="manifest" href="manifest\.php(\?v=[^"]+)?"' "$INDEX_HTML"
-curl -fsS -b "$COOKIE_JAR" -D "$MANIFEST_HEADERS" -o /dev/null "http://127.0.0.1:$PORT/manifest.php"
+curl -fsS -b "$COOKIE_JAR" -D "$MANIFEST_HEADERS" -o "$MANIFEST_BODY" "http://127.0.0.1:$PORT/manifest.php"
 grep -qi '^Content-Type: application/manifest+json' "$MANIFEST_HEADERS"
+php -r '
+    $manifest = json_decode(file_get_contents($argv[1]), true, 512, JSON_THROW_ON_ERROR);
+    $shortcuts = $manifest["shortcuts"] ?? null;
+    if (!is_array($shortcuts) || count($shortcuts) !== 2) exit(1);
+    if (($shortcuts[0]["name"] ?? "") !== "Heute" || ($shortcuts[0]["url"] ?? "") !== "/?screen=today") exit(1);
+    if (($shortcuts[1]["name"] ?? "") !== "Neue Notiz" || ($shortcuts[1]["url"] ?? "") !== "/?screen=journal&date=today&focus=editor") exit(1);
+' "$MANIFEST_BODY"
 curl -fsS -b "$COOKIE_JAR" -o /dev/null "http://127.0.0.1:$PORT/icon.php?size=144"
 curl -fsS -b "$COOKIE_JAR" -o /dev/null "http://127.0.0.1:$PORT/category-icon.php?icon=einkauf"
 
@@ -583,6 +591,8 @@ grep -q '"id":"/sub/"' "$SUBPATH_MANIFEST"
 grep -q '"start_url":"/sub/"' "$SUBPATH_MANIFEST"
 grep -q '"scope":"/sub/"' "$SUBPATH_MANIFEST"
 grep -q '"src":"/sub/icon.php?size=192"' "$SUBPATH_MANIFEST"
+grep -q '"url":"/sub/?screen=today"' "$SUBPATH_MANIFEST"
+grep -q '"url":"/sub/?screen=journal&date=today&focus=editor"' "$SUBPATH_MANIFEST"
 curl -fsS -b "$SUBPATH_COOKIE_JAR" -o /dev/null "http://127.0.0.1:$SUBPATH_PORT/sub/icon.php?size=144"
 curl -fsS -b "$SUBPATH_COOKIE_JAR" -o /dev/null "http://127.0.0.1:$SUBPATH_PORT/sub/category-icon.php?icon=einkauf"
 php scripts/test-ai-client.php

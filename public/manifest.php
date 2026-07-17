@@ -37,19 +37,14 @@ $manifest = [
     'theme_color' => '#0f2a44',
     'shortcuts' => [
         [
-            'name' => t('ui.scan_barcode'),
-            'short_name' => 'Scanner',
-            'url' => $manifestBase . '?screen=scanner&scanner_action=add',
+            'name' => t('manifest.today'),
+            'short_name' => t('manifest.today'),
+            'url' => $manifestBase . '?screen=today',
         ],
         [
-            'name' => t('ui.settings'),
-            'short_name' => t('ui.settings'),
-            'url' => $manifestBase . '?screen=settings&tab=app',
-        ],
-        [
-            'name' => t('ui.search'),
-            'short_name' => t('ui.search'),
-            'url' => $manifestBase . '?screen=search',
+            'name' => t('manifest.new_note'),
+            'short_name' => t('manifest.new_note'),
+            'url' => $manifestBase . '?screen=journal&date=today&focus=editor',
         ],
     ],
     'share_target' => [

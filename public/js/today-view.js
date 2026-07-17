@@ -8,12 +8,22 @@ function formatDay(value) {
 }
 
 export function createTodayViewController({ openSourceItem }) {
+    async function updateAppBadge(count) {
+        if (typeof navigator.setAppBadge !== 'function') return;
+        try {
+            await navigator.setAppBadge(count);
+        } catch {
+            // Badging is optional and must never affect normal app startup.
+        }
+    }
+
     async function loadToday() {
         const payload = await api('today');
         state.today = {
             date: typeof payload.today === 'string' ? payload.today : '',
             items: Array.isArray(payload.items) ? payload.items.map(normalizeItem) : [],
         };
+        await updateAppBadge(state.today.items.length);
         renderToday();
     }
 

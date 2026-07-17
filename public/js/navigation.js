@@ -22,10 +22,11 @@ export function createNavigation({ applyRouteState, getCurrentRouteState }) {
             return { ...base, screen, query: typeof route?.query === 'string' ? route.query : '' };
         }
         if (screen === 'journal') {
-            const date = typeof route?.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(route.date)
+            const date = typeof route?.date === 'string' && (route.date === 'today' || /^\d{4}-\d{2}-\d{2}$/.test(route.date))
                 ? route.date
                 : null;
-            return { ...base, screen, date };
+            const focus = route?.focus === 'editor' ? 'editor' : null;
+            return { ...base, screen, date, focus };
         }
         if (screen === 'note') {
             const noteId = Number(route?.noteId);
@@ -60,7 +61,7 @@ export function createNavigation({ applyRouteState, getCurrentRouteState }) {
         const url = new URL(window.location.href);
 
         // Clear all route params (old and new)
-        for (const key of ['view', 'screen', 'mode', 'layout', 'tab', 'note', 'item', 'scanner_action', 'q', 'category_id', 'date']) {
+        for (const key of ['view', 'screen', 'mode', 'layout', 'tab', 'note', 'item', 'scanner_action', 'q', 'category_id', 'date', 'focus']) {
             url.searchParams.delete(key);
         }
 
@@ -84,6 +85,7 @@ export function createNavigation({ applyRouteState, getCurrentRouteState }) {
             }
         } else if (normalized.screen === 'journal') {
             if (normalized.date) url.searchParams.set('date', normalized.date);
+            if (normalized.focus) url.searchParams.set('focus', normalized.focus);
         } else if (normalized.screen === 'note' && normalized.noteId) {
             url.searchParams.set('note', String(normalized.noteId));
             if (normalized.categoryId !== null) {
@@ -175,7 +177,7 @@ export function createNavigation({ applyRouteState, getCurrentRouteState }) {
             return normalizeRouteState({ ...base, screen: 'search', query: params.get('q') || '' });
         }
         if (screen === 'journal') {
-            return normalizeRouteState({ ...base, screen: 'journal', date: params.get('date') });
+            return normalizeRouteState({ ...base, screen: 'journal', date: params.get('date'), focus: params.get('focus') });
         }
         if (screen === 'note') {
             return normalizeRouteState({

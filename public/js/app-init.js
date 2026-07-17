@@ -1,5 +1,5 @@
 import { basePath, state } from './state.js?v=4.3.4';
-import { applyViewState } from './router.js?v=4.4.3';
+import { applyViewState } from './router.js?v=5.1.12';
 import { appEl, updateBannerEl, updateViewportHeight } from './ui.js?v=4.3.4';
 
 export async function initApp(deps) {
@@ -9,6 +9,7 @@ export async function initApp(deps) {
         handleIncomingShare,
         loadCategories,
         loadItems,
+        loadToday,
         navigation,
         prefetchAdjacentCategories,
         renderInitialError,
@@ -36,6 +37,7 @@ export async function initApp(deps) {
         await loadCategories();
         deps.updateHeaders();
         await loadItems();
+        await loadToday();
         const initialRoute = navigation.readInitialRouteFromUrl();
         if (initialRoute.screen !== 'list') {
             await router.applyRouteState(initialRoute, route => route);

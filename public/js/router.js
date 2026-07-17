@@ -117,14 +117,14 @@ export function createRouter(deps) {
         updateHeaders();
     }
 
-    async function openJournal(date) {
+    async function openJournal(date, focus = null) {
         if (deps.scannerState.open) closeScanner();
         if (state.noteEditorId !== null) await closeNoteEditor();
         if (state.search.open) closeSearch();
         if (state.screen === 'settings') closeSettings();
         if (state.screen === 'today') closeToday();
         if (typeof closeMagic === 'function') closeMagic();
-        await openJournalDay(date);
+        await openJournalDay(date, { focus: focus === 'editor' });
         applyViewState();
         updateHeaders();
     }
@@ -233,7 +233,7 @@ export function createRouter(deps) {
             return;
         }
         if (target.screen === 'journal') {
-            await openJournal(target.date);
+            await openJournal(target.date, target.focus);
             return;
         }
         if (target.screen === 'note') {

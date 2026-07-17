@@ -136,9 +136,10 @@ export function createJournalController(deps) {
         if (journalTodayBtn) journalTodayBtn.disabled = date === localDateIso();
     }
 
-    async function openDay(date = localDateIso()) {
+    async function openDay(date = localDateIso(), { focus = false } = {}) {
+        const resolvedDate = date === 'today' ? localDateIso() : date;
         await destroyEditor();
-        const payload = await api(`journal&date=${encodeURIComponent(date)}`);
+        const payload = await api(`journal&date=${encodeURIComponent(resolvedDate)}`);
         state.screen = 'journal';
         state.journalDate = payload.date;
         state.journalItemId = Number(payload.item?.id) || null;
@@ -165,6 +166,7 @@ export function createJournalController(deps) {
         });
         updateToolbar();
         setSaveStatus('');
+        if (focus) editor.chain().focus().run();
     }
 
     async function navigateTo(date) {

@@ -1,5 +1,5 @@
 import { registerAppEventHandlers } from './app-events.js?v=4.3.14';
-import { initApp, registerServiceWorker, initWebSocketServer } from './app-init.js?v=4.4.3';
+import { initApp, registerServiceWorker, initWebSocketServer } from './app-init.js?v=5.1.12';
 import { createAppRuntime } from './app-runtime.js?v=5.1.12';
 import { readInitialPreferences, state } from './state.js?v=4.3.4';
 import { applyThemePreferences } from './theme.js?v=4.3.4';
@@ -129,6 +129,7 @@ export function startApp(version) {
             handleIncomingShare,
             loadCategories,
             loadItems,
+            loadToday,
             navigation,
             prefetchAdjacentCategories,
             renderInitialError: error => {

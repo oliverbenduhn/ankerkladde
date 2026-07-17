@@ -33,6 +33,8 @@
     "journal.next": "Tomorrow",
     "journal.choose_date": "Choose date",
     "journal.back_to_today": "Back to today",
+    "manifest.today": "Today",
+    "manifest.new_note": "New Note",
     "item.input_placeholder": "Item...",
     "item.link_description": "Description optional",
     "item.upload_file": "Local file",
