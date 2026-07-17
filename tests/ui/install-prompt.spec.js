@@ -30,7 +30,7 @@ test('offers installation only after the first saved item', async ({ page }) => 
   await dispatchInstallPrompt(page);
   await expect(banner).toBeHidden();
 
-  await page.getByLabel('Artikel...').fill('Erster Eintrag');
-  await page.getByRole('button', { name: 'Artikel hinzufügen' }).click();
+  await page.getByLabel('Quick-Add').fill('Erster Eintrag');
+  await page.getByLabel('Quick-Add').press('Enter');
   await expect(banner).toBeVisible();
 });

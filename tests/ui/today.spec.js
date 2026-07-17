@@ -134,7 +134,7 @@ test.describe('Heute', () => {
     await expect(scheduledEarlyEntry).toContainText(dueCategories[1].name);
     await expect(scheduledEarlyEntry).toContainText('08:15 Uhr');
     await expect(anytimeEntry).toContainText(dueCategories[0].name);
-    await expect(overdueEntry).toContainText('seit ');
+    await expect(overdueEntry.locator('.today-overdue-label')).toHaveText(new RegExp(`^seit \\d{2}\\.\\d{2}\\.`));
 
     const renderedNames = await page.locator('.today-item-name').allTextContents();
     expect(renderedNames.indexOf(names.overdue)).toBeLessThan(renderedNames.indexOf(names.scheduledEarly));

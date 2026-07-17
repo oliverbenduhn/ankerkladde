@@ -50,12 +50,16 @@ test.describe('PWA badge and shortcuts', () => {
     expect(response.ok()).toBeTruthy();
     const manifest = await response.json();
 
-    expect(manifest.shortcuts).toEqual([
+    expect(manifest.shortcuts).toEqual(expect.arrayContaining([
       { name: 'Heute', short_name: 'Heute', url: '/?screen=today' },
       { name: 'Neue Notiz', short_name: 'Neue Notiz', url: '/?screen=journal&date=today&focus=editor' },
-    ]);
+      { name: 'Barcode scannen', short_name: 'Scanner', url: '/?screen=scanner&scanner_action=add' },
+      { name: 'Einstellungen', short_name: 'Einstellungen', url: '/?screen=settings&tab=app' },
+      { name: 'Suchen', short_name: 'Suchen', url: '/?screen=search' },
+    ]));
 
-    await page.goto(manifest.shortcuts[0].url);
+    const todayShortcut = manifest.shortcuts.find(s => s.name === 'Heute');
+    await page.goto(todayShortcut.url);
     await expect(page).toHaveURL(/screen=today/);
     await expect(page.locator('#categoryTitle')).toHaveText('Heute');
 
