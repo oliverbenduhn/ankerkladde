@@ -23,11 +23,9 @@ jobs:
           GHCR_TOKEN="$1"
 
           cd /tmp
-          if [ -d deploy-temp ]; then
-            cd deploy-temp && git pull origin main
-          else
-            git clone https://github.com/oliverbenduhn/ankerkladde.git deploy-temp && cd deploy-temp
-          fi
+          rm -rf deploy-temp
+          git clone --depth 1 https://github.com/oliverbenduhn/ankerkladde.git deploy-temp
+          cd deploy-temp
 
           docker build -t ghcr.io/oliverbenduhn/ankerkladde:latest .
           docker build -t ghcr.io/oliverbenduhn/ankerkladde/websocket:latest ./websocket-server
@@ -45,42 +43,3 @@ jobs:
           DEPLOY
 
           rm ~/.ssh/vps_key
-
-  deploy-web:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Update ankerkladde on web server via VPS
-        env:
-          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
-          WEB_SSH_KEY: ${{ secrets.WEB_SSH_KEY }}
-        run: |
-          mkdir -p ~/.ssh
-          echo "$VPS_SSH_KEY" > ~/.ssh/vps_key
-          echo "$WEB_SSH_KEY" > ~/.ssh/web_key
-          chmod 600 ~/.ssh/vps_key
-          chmod 600 ~/.ssh/web_key
-
-          cat > ~/.ssh/config << 'SSHCONFIG'
-          Host vps-proxy
-            HostName 91.98.42.99
-            User ansible
-            IdentityFile ~/.ssh/vps_key
-            StrictHostKeyChecking no
-
-          Host web
-            HostName 192.168.50.10
-            User ansible
-            IdentityFile ~/.ssh/web_key
-            StrictHostKeyChecking no
-            ProxyCommand ssh -q -W %h:%p vps-proxy
-          SSHCONFIG
-
-          ssh web << 'DEPLOY'
-          cd /var/www/projects/ankerkladde
-          git pull origin main
-          sudo rc-service php-fpm83 reload || true
-          DEPLOY
-
-          ssh vps-proxy curl -s -X POST http://localhost:3000/notify -H "Content-Type: application/json" -d '{"action":"version_update"}' || true
-
-          rm ~/.ssh/vps_key ~/.ssh/web_key
