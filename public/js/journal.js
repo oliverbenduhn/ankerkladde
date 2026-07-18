@@ -1,6 +1,6 @@
-import { api, normalizeItem } from './api.js?v=5.1.18';
-import { buildAgendaItem, loadAgenda } from './today-view.js?v=5.1.18';
-import { NOTE_SAVE_DEBOUNCE_MS, state } from './state.js?v=5.1.18';
+import { api, normalizeItem } from './api.js?v=5.1.19';
+import { buildAgendaItem, loadAgenda } from './today-view.js?v=5.1.19';
+import { NOTE_SAVE_DEBOUNCE_MS, state } from './state.js?v=5.1.19';
 import {
     journalBackBtn,
     journalAnytimeList,
@@ -14,9 +14,9 @@ import {
     journalScheduledList,
     journalTodayBtn,
     journalToolbar,
-} from './ui.js?v=5.1.18';
-import { sanitizeItemField } from './utils.js?v=5.1.18';
-import { t } from './i18n.js?v=5.1.18';
+} from './ui.js?v=5.1.19';
+import { sanitizeItemField } from './utils.js?v=5.1.19';
+import { t } from './i18n.js?v=5.1.19';
 
 function serverDateIso(isoDate) {
     if (typeof isoDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) {

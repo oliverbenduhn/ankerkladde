@@ -7,9 +7,9 @@ import {
     postPreferencesUpdate,
     themePreferences,
     allThemeColors,
-} from './settings-state.js?v=5.1.18';
-import { applyThemePreferencePatch, applySettingsTheme } from './settings-theme.js?v=5.1.18';
-import { renderFlash } from './settings-ui.js?v=5.1.18';
+} from './settings-state.js?v=5.1.19';
+import { applyThemePreferencePatch, applySettingsTheme } from './settings-theme.js?v=5.1.19';
+import { renderFlash } from './settings-ui.js?v=5.1.19';
 
 export function getLocalFormPatch(form) {
     const patch = {};
