@@ -12,6 +12,9 @@ const DEFAULT_UPLOAD_LIMITS_MB = [
     'file_upload_max_mb' => 500,
     'remote_file_import_max_mb' => 10240,
 ];
+// IMPORTANT: CATEGORY_ICON_OPTIONS must always be an exact copy of the keys
+// from CATEGORY_ICON_LABELS. PHP `const` does not allow array_keys() here,
+// so when adding a new icon, update BOTH arrays to keep them in sync.
 const CATEGORY_ICON_OPTIONS = [
     'einkauf', 'arbeit', 'notizen', 'bilder', 'links', 'dateien',
     'auto', 'essen', 'gemuese', 'hygiene', 'geschenk', 'buecher',

@@ -1,5 +1,5 @@
 import { t } from './i18n.js';
-import { appUrl, api } from './api.js?v=5.1.15';
+import { appUrl, api, fetchLinkMetadata } from './api.js?v=5.1.15';
 import { getCurrentCategory, isAttachmentCategory, state } from './state.js?v=5.1.15';
 import {
     itemInput,
@@ -84,16 +84,6 @@ export function createAddActions(deps) {
                 return null;
             }
             throw error;
-        }
-    }
-
-    async function fetchLinkMetadata(url) {
-        try {
-            const response = await fetch(appUrl(`api.php?action=fetch_metadata&url=${encodeURIComponent(url)}`));
-            if (!response.ok) return null;
-            return await response.json();
-        } catch {
-            return null;
         }
     }
 
@@ -187,7 +177,7 @@ export function createAddActions(deps) {
                 enqueueAction('add', Object.fromEntries(body.entries()));
                 resetItemForm();
                 setNetworkStatus();
-                setMessage('Offline gespeichert – wird synchronisiert wenn du wieder online bist.');
+                setMessage(t('msg.offline_saved'));
                 return;
             }
 

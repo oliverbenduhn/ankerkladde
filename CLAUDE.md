@@ -163,6 +163,16 @@ Version is centralized in `public/version.php` (returns string like `'2.0.34'`).
 | `ANKERKLADDE_CANONICAL_HOST` | Production domain for redirect enforcement | `ankerkladde.benduhn.de` |
 | `EINKAUF_TRUST_PROXY_HEADERS` | Trust X-Forwarded-* headers | Auto (true if request from 127.0.0.1) |
 
+## Agent skills
+
+### Issue tracker
+
+Issues and PRDs are tracked in GitHub Issues for `oliverbenduhn/ankerkladde`. See `docs/agents/issue-tracker.md`.
+
+### Domain docs
+
+Single-context domain docs: root `CONTEXT.md` plus root `docs/adr/` for ADRs. See `docs/agents/domain.md`.
+
 ## Token Efficiency
 
 Small, focused changes keep context windows lean and save token cost. Here's how:

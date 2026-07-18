@@ -1,6 +1,7 @@
 import { t } from './i18n.js';
 import { saveLocalPrefs, state, scannerState, themeMediaQuery, isAttachmentCategory, normalizePreferences, isLayoutAvailable, getAvailableLayouts } from './state.js?v=5.1.15';
 import { normalizeSettingsTab } from './api.js?v=5.1.15';
+import { getPendingCount } from './offline-queue.js?v=5.1.15';
 import {
     appEl,
     cameraBtn,
@@ -498,11 +499,12 @@ export function registerAppEventHandlers(deps) {
     window.addEventListener('offline', setNetworkStatus);
 
     // Polling fallback: mobile browsers do not always fire online/offline reliably.
+    // Interval is 30s (instead of 3s) and only runs when there are pending queue items.
     setInterval(() => {
-        if (navigator.onLine) {
+        if (navigator.onLine && getPendingCount() > 0) {
             void runOnlineSync();
         }
-    }, 3000);
+    }, 30000);
 
     document.addEventListener('keydown', event => {
         if (event.key === 'Escape' && scannerState.open) {

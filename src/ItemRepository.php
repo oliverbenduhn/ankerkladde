@@ -81,23 +81,23 @@ function rebuildSortOrder(PDO $db): void
     }
 }
 
-function hasInvalidSortOrder(PDO $db, string $whereClause = '', array $params = []): bool
+/**
+ * Checks whether any items in the table have an invalid sort_order
+ * (duplicates, gaps, or values below 1).
+ *
+ * NOTE: This function intentionally does not accept a free-form WHERE clause.
+ * Use hasAnyInvalidSortOrderByGroup() for group-scoped checks — it uses
+ * hard-coded, safe SQL queries instead of dynamic string concatenation.
+ */
+function hasInvalidSortOrder(PDO $db): bool
 {
-    $sql = 'SELECT
-                COUNT(*) AS total,
-                COUNT(DISTINCT sort_order) AS distinct_count,
-                MIN(sort_order) AS min_sort_order
-            FROM items';
-
-    if ($whereClause !== '' && preg_match('/^[a-zA-Z0-9_ =!<>AND OR\(\)]+$/i', $whereClause)) {
-        $sql .= ' WHERE ' . $whereClause;
-    } elseif ($whereClause !== '') {
-        // Invalid where clause - treat as no filter
-        $params = [];
-    }
-
-    $stmt = $db->prepare($sql);
-    $stmt->execute($params);
+    $stmt = $db->query(
+        'SELECT
+            COUNT(*) AS total,
+            COUNT(DISTINCT sort_order) AS distinct_count,
+            MIN(sort_order) AS min_sort_order
+        FROM items'
+    );
     $stats = $stmt->fetch();
 
     $total = (int) ($stats['total'] ?? 0);

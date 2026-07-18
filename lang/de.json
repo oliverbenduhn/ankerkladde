@@ -350,6 +350,11 @@
     "msg.testing_connection": "Teste Verbindung...",
     "msg.connection_success": "✅ Verbindung erfolgreich mit {model}!",
     "msg.no_move_target": "Keine passende Zielkategorie",
+    "msg.item_saved": "Artikel gespeichert.",
+    "msg.done_cleared": "Erledigte Artikel entfernt.",
+    "msg.item_moved": "Verschoben nach {name}.",
+    "msg.item_moved_generic": "Artikel verschoben.",
+    "msg.offline_saved": "Offline gespeichert – wird synchronisiert wenn du wieder online bist.",
 
     "item.choose_image": "Bild hochladen",
     "item.drop_file": "Datei hierher ziehen oder aus Zwischenablage einfügen",

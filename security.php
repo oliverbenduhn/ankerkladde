@@ -93,6 +93,17 @@ function getRequestHeaderValue(string $serverKey): ?string
     return is_string($firstPart) && $firstPart !== '' ? $firstPart : null;
 }
 
+/**
+ * Returns true only for localhost addresses (127.0.0.1 and ::1).
+ *
+ * If your reverse proxy runs on a non-localhost private IP (e.g. 10.x.x.x,
+ * 172.16.x.x, 192.168.x.x) this function will return false and X-Forwarded-*
+ * headers will NOT be trusted automatically.
+ *
+ * In that case, set the environment variable:
+ *   EINKAUF_TRUST_PROXY_HEADERS=true
+ * to unconditionally trust proxy headers from any upstream IP.
+ */
 function isTrustedProxyPeer(?string $remoteAddress): bool
 {
     if (!is_string($remoteAddress) || trim($remoteAddress) === '') {
@@ -108,6 +119,10 @@ function isTrustedProxyPeer(?string $remoteAddress): bool
     return $remoteAddress === '127.0.0.1' || $remoteAddress === '::1';
 }
 
+/**
+ * Determines whether to trust X-Forwarded-* headers based on the current remote
+ * peer and the EINKAUF_TRUST_PROXY_HEADERS environment configuration.
+ */
 function shouldTrustProxyHeaders(): bool
 {
     $configured = getEnvBool('EINKAUF_TRUST_PROXY_HEADERS');

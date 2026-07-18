@@ -350,6 +350,11 @@
     "msg.testing_connection": "Testing connection...",
     "msg.connection_success": "✅ Connection successful with {model}!",
     "msg.no_move_target": "No matching target category",
+    "msg.item_saved": "Item saved.",
+    "msg.done_cleared": "Completed items removed.",
+    "msg.item_moved": "Moved to {name}.",
+    "msg.item_moved_generic": "Item moved.",
+    "msg.offline_saved": "Saved offline — will sync when you're back online.",
 
     "item.choose_image": "Upload image",
     "item.drop_file": "Drag file here or paste from clipboard",

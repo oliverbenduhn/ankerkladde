@@ -1,7 +1,8 @@
 'use strict';
 
 const VERSION = 'v5.1.15';
-const ASSET_VERSION = '5.1.15';
+// ASSET_VERSION is derived from VERSION to ensure they stay in sync.
+const ASSET_VERSION = VERSION.replace(/^v/, '');
 const STATIC_CACHE = `ankerkladde-static-${VERSION}`;
 const RUNTIME_CACHE = `ankerkladde-runtime-${VERSION}`;
 const SHARE_CACHE = 'ankerkladde-share-target';
@@ -139,6 +140,26 @@ self.addEventListener('activate', event => {
 self.addEventListener('message', event => {
     if (event.data && event.data.type === 'SKIP_WAITING') {
         self.skipWaiting();
+    }
+
+    // Invalidate cached list responses after a successful mutation (add/delete/update etc.)
+    if (event.data && event.data.type === 'INVALIDATE_LIST_CACHE') {
+        const categoryId = event.data.categoryId;
+        event.waitUntil((async () => {
+            const cache = await caches.open(RUNTIME_CACHE);
+            const keys = await cache.keys();
+            const toDelete = keys.filter(req => {
+                const url = new URL(req.url);
+                if (url.pathname !== API_URL.pathname) return false;
+                if (url.searchParams.get('action') !== 'list') return false;
+                // If categoryId is provided, only delete that category's cache entry.
+                if (categoryId !== undefined) {
+                    return url.searchParams.get('category_id') === String(categoryId);
+                }
+                return true;
+            });
+            await Promise.all(toDelete.map(req => cache.delete(req)));
+        })());
     }
 });
 

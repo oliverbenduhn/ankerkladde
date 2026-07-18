@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-date_default_timezone_set('Europe/Berlin');
+date_default_timezone_set((string) (getenv('ANKERKLADDE_TIMEZONE') ?: 'Europe/Berlin'));
 
 require_once __DIR__ . '/src/Constants.php';
 

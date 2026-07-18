@@ -129,10 +129,20 @@ export function createAppRuntime(deps) {
     const formatBytes = sizeBytes => appUiController.formatBytes(sizeBytes);
     const loadToday = async () => { await todayViewController.loadToday(); };
 
+    const invalidateSwListCache = (categoryId) => {
+        if (navigator.serviceWorker?.controller) {
+            navigator.serviceWorker.controller.postMessage({
+                type: 'INVALIDATE_LIST_CACHE',
+                categoryId,
+            });
+        }
+    };
+
     const flushOfflineQueue = async () => {
         const hadItems = await flushQueue(api);
         if (hadItems) {
             invalidateCategoryCache(state.categoryId);
+            invalidateSwListCache(state.categoryId);
             await loadItems();
         }
         return hadItems;
