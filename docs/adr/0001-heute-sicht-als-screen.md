@@ -1,6 +1,6 @@
 # Heute-Sicht als eigener Screen
 
-**Status**: accepted
+**Status**: superseded by ADR-0005
 
 Die Heute-Sicht (Parchment-Plan, Idee #1) wird ein eigener Top-Level-Screen im Navigationsbaum, gleichberechtigt mit `list`, `search`, `settings` und `scanner` — nicht ein Modus über der aktiven Kategorie, kein Default-Landing, kein Modal.
 

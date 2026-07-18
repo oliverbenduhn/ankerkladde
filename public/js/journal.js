@@ -1,17 +1,19 @@
-import { api } from './api.js?v=5.1.15';
-import { NOTE_SAVE_DEBOUNCE_MS, state } from './state.js?v=5.1.15';
+import { api } from './api.js?v=5.1.16';
+import { NOTE_SAVE_DEBOUNCE_MS, state } from './state.js?v=5.1.16';
 import {
+    journalBackBtn,
     journalDateHeading,
     journalDatePicker,
     journalEditorBody,
+    journalFormatBtn,
     journalNextBtn,
     journalPreviousBtn,
     journalSaveStatus,
     journalTodayBtn,
     journalToolbar,
-} from './ui.js?v=5.1.15';
-import { sanitizeItemField } from './utils.js?v=5.1.15';
-import { t } from './i18n.js?v=5.1.15';
+} from './ui.js?v=5.1.16';
+import { sanitizeItemField } from './utils.js?v=5.1.16';
+import { t } from './i18n.js?v=5.1.16';
 
 function serverDateIso(isoDate) {
     if (typeof isoDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) {
@@ -29,14 +31,17 @@ function shiftDate(isoDate, days) {
     return `${year}-${month}-${day}`;
 }
 
-function formatDateHeading(isoDate) {
+function formatDateHeading(isoDate, todayIso) {
     const locale = document.documentElement.lang === 'en' ? 'en-US' : 'de-DE';
-    return new Intl.DateTimeFormat(locale, {
+    const options = {
         weekday: 'long',
         day: '2-digit',
         month: 'long',
-        year: 'numeric',
-    }).format(new Date(`${isoDate}T12:00:00`));
+    };
+    if (isoDate.slice(0, 4) !== todayIso.slice(0, 4)) {
+        options.year = 'numeric';
+    }
+    return new Intl.DateTimeFormat(locale, options).format(new Date(`${isoDate}T12:00:00`));
 }
 
 export function createJournalController(deps) {
@@ -47,6 +52,7 @@ export function createJournalController(deps) {
     let currentItem = null;
     let pendingSave = Promise.resolve();
     let editorGeneration = 0;
+    let returnCategoryId = null;
 
     function waitForTipTap() {
         return new Promise(resolve => {
@@ -60,6 +66,11 @@ export function createJournalController(deps) {
 
     function setSaveStatus(text) {
         if (journalSaveStatus) journalSaveStatus.textContent = text;
+    }
+
+    function setToolbarOpen(open) {
+        if (journalToolbar) journalToolbar.hidden = !open;
+        if (journalFormatBtn) journalFormatBtn.setAttribute('aria-expanded', String(open));
     }
 
     function updateToolbar() {
@@ -116,13 +127,23 @@ export function createJournalController(deps) {
         }, NOTE_SAVE_DEBOUNCE_MS);
     }
 
-    async function destroyEditor({ flush = true } = {}) {
+    async function flushCurrentContent() {
         clearTimeout(saveTimer);
         saveTimer = null;
-        if (flush && dirty) {
+        if (dirty) {
             await saveCurrentContent();
         }
-        await pendingSave.catch(() => {});
+        await pendingSave;
+    }
+
+    async function destroyEditor({ flush = true } = {}) {
+        if (flush) {
+            await flushCurrentContent();
+        } else {
+            clearTimeout(saveTimer);
+            saveTimer = null;
+            await pendingSave.catch(() => {});
+        }
         if (editor) {
             editor.destroy();
             editor = null;
@@ -131,14 +152,20 @@ export function createJournalController(deps) {
         dirty = false;
         currentItem = null;
         state.journalItemId = null;
+        setToolbarOpen(false);
     }
 
     function updateDateUi(date) {
-        if (journalDatePicker) journalDatePicker.value = date;
-        if (journalDateHeading) journalDateHeading.textContent = formatDateHeading(date);
+        // ponytail: aria-pressed as a 3-button screen-segment map; revisit if more segments appear.
         const today = serverDateIso(state.serverToday);
-        if (journalNextBtn) journalNextBtn.disabled = today !== '' && date >= today;
-        if (journalTodayBtn) journalTodayBtn.disabled = today !== '' && date === today;
+        if (journalDatePicker) journalDatePicker.value = date;
+        if (journalDateHeading) journalDateHeading.textContent = formatDateHeading(date, today || date);
+        const targets = new Map([
+            [journalPreviousBtn, today ? shiftDate(today, -1) : ''],
+            [journalTodayBtn, today],
+            [journalNextBtn, today ? shiftDate(today, 1) : ''],
+        ]);
+        targets.forEach((target, button) => button?.setAttribute('aria-pressed', String(target !== '' && date === target)));
     }
 
     async function openDay(date = null, { focus = false } = {}) {
@@ -146,11 +173,22 @@ export function createJournalController(deps) {
             ? (state.serverToday || 'today')
             : date;
         const resolvedDate = requestedDate === 'today' ? null : requestedDate;
-        await destroyEditor();
+        if (state.screen !== 'journal') {
+            const currentCategory = state.categories.find(category => Number(category.id) === Number(state.categoryId));
+            if (currentCategory?.type !== 'daily_notes') {
+                returnCategoryId = Number(currentCategory?.id) || null;
+            }
+        }
+        if (resolvedDate !== null && resolvedDate === state.journalDate && editor) {
+            if (focus) editor.chain().focus().run();
+            return;
+        }
+        await flushCurrentContent();
         const url = resolvedDate
             ? `journal&date=${encodeURIComponent(resolvedDate)}`
             : 'journal';
         const payload = await api(url);
+        await destroyEditor({ flush: false });
         if (typeof payload.today === 'string' && payload.today !== '') {
             state.serverToday = payload.today;
         }
@@ -172,6 +210,7 @@ export function createJournalController(deps) {
             element: journalEditorBody,
             extensions: [StarterKit, Link.configure({ openOnClick: false })],
             content: currentItem?.content || '',
+            editorProps: { attributes: { 'aria-label': t('journal.note_title') } },
             onUpdate: () => {
                 updateToolbar();
                 scheduleSave();
@@ -186,13 +225,18 @@ export function createJournalController(deps) {
     async function navigateTo(date) {
         if (!date || date === state.journalDate) return;
         await openDay(date);
-        navigation.pushHistoryState({ screen: 'journal', date });
+        navigation.replaceCurrentHistoryState({ screen: 'journal', date });
     }
 
     async function closeJournal() {
+        const targetCategoryId = returnCategoryId;
         await destroyEditor();
         state.journalDate = null;
         state.journalItemId = null;
+        if (targetCategoryId !== null) {
+            state.categoryId = targetCategoryId;
+        }
+        returnCategoryId = null;
     }
 
     function handleToolbarClick(event) {
@@ -224,17 +268,12 @@ export function createJournalController(deps) {
         updateToolbar();
     }
 
-    journalPreviousBtn?.addEventListener('click', () => {
-        const fallback = state.serverToday || state.journalDate || '';
-        return void navigateTo(shiftDate(state.journalDate || fallback, -1)).catch(error => setMessage(error.message, true));
-    });
+    journalBackBtn?.addEventListener('click', () => navigation.navigateBackOrReplace({ screen: 'list', categoryId: returnCategoryId }));
+    journalPreviousBtn?.addEventListener('click', () => void navigateTo(shiftDate(state.serverToday || state.journalDate || '', -1)).catch(error => setMessage(error.message, true)));
     journalTodayBtn?.addEventListener('click', () => void navigateTo(state.serverToday || 'today').catch(error => setMessage(error.message, true)));
-    journalNextBtn?.addEventListener('click', () => {
-        const fallback = state.serverToday || state.journalDate || '';
-        return void navigateTo(shiftDate(state.journalDate || fallback, 1)).catch(error => setMessage(error.message, true));
-    });
+    journalNextBtn?.addEventListener('click', () => void navigateTo(shiftDate(state.serverToday || state.journalDate || '', 1)).catch(error => setMessage(error.message, true)));
     journalDatePicker?.addEventListener('change', event => void navigateTo(event.target.value).catch(error => setMessage(error.message, true)));
-    journalDateHeading?.addEventListener('click', () => void navigateTo(state.serverToday || 'today').catch(error => setMessage(error.message, true)));
+    journalFormatBtn?.addEventListener('click', () => setToolbarOpen(journalToolbar?.hidden !== false));
     journalToolbar?.addEventListener('click', handleToolbarClick);
 
     return { closeJournal, openDay };

@@ -12,8 +12,8 @@ Quick-Add (Parchment-Plan, Idee #4) versucht bei jedem Submit zuerst den lokalen
 
 ## Consequences
 
-- Quick-Add ersetzt die bestehende „+"-Schaltfläche in jeder Kategorie und in Heute.
+- Quick-Add ersetzt die bestehende „+"-Schaltfläche in jeder Kategorie und in der Tagesansicht.
 - Bei Mehrdeutigkeit zeigt das Eingabefeld einen Hinweis und einen Button „Mit AI klären", der an die bestehende Magic Bar weiterleitet (kein neuer AI-Pfad).
 - Magic Bar bleibt als eigener AI-only-Modus erhalten (Komplement, nicht Ersatz).
 - Unbekannte Kategorie über `/kategorie`: harter Fehler, kein Auto-Create — verhindert Tippo-Geister-Kategorien.
-- Aktive Kategorie wird Default, wenn `/kategorie` fehlt; priority, due_date und due_time defaulten auf leer, wenn die jeweilige Phrase fehlt.
+- Aktive Kategorie wird Default, wenn `/kategorie` fehlt. In Kategorien defaulten priority, due_date und due_time auf leer, wenn die jeweilige Phrase fehlt; in der Tagesansicht ist stattdessen das gewählte Datum der due_date-Default. Explizite relative Wörter bleiben auf das echte Heute in `Europe/Berlin` bezogen.

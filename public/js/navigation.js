@@ -1,5 +1,5 @@
-import { normalizeSettingsTab } from './api.js?v=5.1.15';
-import { state } from './state.js?v=5.1.15';
+import { normalizeSettingsTab } from './api.js?v=5.1.16';
+import { state } from './state.js?v=5.1.16';
 
 export function createNavigation({ applyRouteState, getCurrentRouteState }) {
     let appHistoryIndex = 0;
@@ -213,6 +213,7 @@ export function createNavigation({ applyRouteState, getCurrentRouteState }) {
                 replaceCurrentHistoryState(route);
             }
         } catch (error) {
+            replaceCurrentHistoryState(getCurrentRouteState());
             setMessage(error instanceof Error ? error.message : 'Navigation konnte nicht wiederhergestellt werden.', true);
         }
     }

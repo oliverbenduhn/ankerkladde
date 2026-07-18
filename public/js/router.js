@@ -1,5 +1,5 @@
-import { normalizeSettingsTab, settingsUrl } from './api.js?v=5.1.15';
-import { isBarcodeCategory, state } from './state.js?v=5.1.15';
+import { normalizeSettingsTab, settingsUrl } from './api.js?v=5.1.16';
+import { isBarcodeCategory, state } from './state.js?v=5.1.16';
 import {
     appEl,
     journalViewEl,
@@ -9,7 +9,7 @@ import {
     settingsEmbedEl,
     settingsFrameEl,
     todayNoteBtn,
-} from './ui.js?v=5.1.15';
+} from './ui.js?v=5.1.16';
 
 export function applyViewState() {
     const inSettings = state.screen === 'settings';
@@ -55,6 +55,9 @@ export function createRouter(deps) {
         }
         if (state.search.open) {
             closeSearch();
+        }
+        if (state.screen === 'journal') {
+            await closeJournalScreen();
         }
         if (typeof closeMagic === 'function') {
             closeMagic();
@@ -106,6 +109,7 @@ export function createRouter(deps) {
 
     async function openSourceItem(categoryId, itemId) {
         closeToday();
+        if (state.screen === 'journal') await closeJournalScreen();
         await setCategory(categoryId);
         highlightItem(itemId);
     }
