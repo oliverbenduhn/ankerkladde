@@ -2739,6 +2739,7 @@ button, input { font: inherit; }
 .today-item-name {
     min-width: 0;
     font-weight: 600;
+    overflow-wrap: anywhere;
 }
 
 .today-item-meta {
@@ -3485,6 +3486,49 @@ body[data-theme*="dark"] .item-card.is-deep-link-highlight {
     border-radius: var(--parchment-radius);
     background: var(--surface);
     overflow: hidden;
+}
+
+.journal-agenda-card {
+    margin-bottom: 0.75rem;
+}
+
+.journal-agenda-columns {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+    padding: 0.75rem;
+}
+
+.journal-agenda-column {
+    min-width: 0;
+}
+
+.journal-agenda-column h4 {
+    margin: 0 0 0.5rem;
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+}
+
+.journal-agenda-column ul {
+    margin: 0;
+    padding: 0;
+}
+
+.journal-agenda-column .today-item-button {
+    min-width: 0;
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding: 0.65rem;
+}
+
+.journal-agenda-column .today-item-meta {
+    min-width: 0;
+    align-items: flex-start;
+}
+
+.journal-agenda-column .today-category-label {
+    overflow-wrap: anywhere;
 }
 
 .journal-card-header {

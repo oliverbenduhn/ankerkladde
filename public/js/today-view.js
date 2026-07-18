@@ -1,12 +1,12 @@
-import { api, normalizeItem } from './api.js?v=5.1.16';
+import { api, normalizeItem } from './api.js?v=5.1.17';
 import {
     AGENDA_GROUPS,
     AGENDA_GROUP_OVERDUE,
     AGENDA_GROUP_SCHEDULED,
     state,
-} from './state.js?v=5.1.16';
-import { clearDoneBtn, listEl, progressEl } from './ui.js?v=5.1.16';
-import { t } from './i18n.js?v=5.1.16';
+} from './state.js?v=5.1.17';
+import { clearDoneBtn, listEl, progressEl } from './ui.js?v=5.1.17';
+import { t } from './i18n.js?v=5.1.17';
 
 function formatDay(value) {
     const parts = String(value).split('-');
@@ -41,47 +41,6 @@ export function createTodayViewController({ openSourceItem }) {
         return heading;
     }
 
-    function buildItem(item, group) {
-        const overdue = group === AGENDA_GROUP_OVERDUE;
-        const entry = document.createElement('li');
-        entry.className = `today-item${overdue ? ' is-overdue' : ''}`;
-        entry.dataset.itemId = String(item.id);
-        entry.dataset.agendaGroup = group;
-
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'today-item-button';
-        button.setAttribute('aria-label', `${item.name} in ${item.category_name} öffnen`);
-
-        const name = document.createElement('span');
-        name.className = 'today-item-name';
-        name.textContent = item.name;
-
-        const meta = document.createElement('span');
-        meta.className = 'today-item-meta';
-
-        const category = document.createElement('span');
-        category.className = 'today-category-label';
-        category.textContent = item.category_name;
-        meta.appendChild(category);
-
-        if (group === AGENDA_GROUP_SCHEDULED) {
-            const time = document.createElement('span');
-            time.className = 'today-time-label';
-            time.textContent = t('today.at_time', { time: item.due_time });
-            meta.appendChild(time);
-        } else if (overdue) {
-            const since = document.createElement('span');
-            since.className = 'today-overdue-label';
-            since.textContent = t('today.since', { date: formatDay(item.due_date) });
-            meta.appendChild(since);
-        }
-
-        button.append(name, meta);
-        button.addEventListener('click', () => void openSourceItem(item.category_id, item.id));
-        entry.appendChild(button);
-        return entry;
-    }
 
     function renderToday() {
         if (state.screen !== 'today') return;
@@ -103,11 +62,52 @@ export function createTodayViewController({ openSourceItem }) {
             const items = state.today.items.filter(item => item.agenda_group === group);
             if (items.length === 0) return;
             fragment.appendChild(buildHeading(label));
-            items.forEach(item => fragment.appendChild(buildItem(item, group)));
+            items.forEach(item => fragment.appendChild(buildAgendaItem(item, openSourceItem)));
         });
 
         listEl.replaceChildren(fragment);
     }
 
     return { loadToday, renderToday };
+}
+
+export function buildAgendaItem(item, openSourceItem) {
+    const overdue = item.agenda_group === AGENDA_GROUP_OVERDUE;
+    const entry = document.createElement('li');
+    entry.className = `today-item${overdue ? ' is-overdue' : ''}`;
+    entry.dataset.itemId = String(item.id);
+    entry.dataset.agendaGroup = item.agenda_group;
+
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'today-item-button';
+    button.setAttribute('aria-label', `${item.name} in ${item.category_name} öffnen`);
+
+    const name = document.createElement('span');
+    name.className = 'today-item-name';
+    name.textContent = item.name;
+
+    const meta = document.createElement('span');
+    meta.className = 'today-item-meta';
+    const category = document.createElement('span');
+    category.className = 'today-category-label';
+    category.textContent = item.category_name;
+    meta.appendChild(category);
+
+    if (item.agenda_group === AGENDA_GROUP_SCHEDULED) {
+        const time = document.createElement('span');
+        time.className = 'today-time-label';
+        time.textContent = t('today.at_time', { time: item.due_time });
+        meta.appendChild(time);
+    } else if (overdue) {
+        const since = document.createElement('span');
+        since.className = 'today-overdue-label';
+        since.textContent = t('today.since', { date: formatDay(item.due_date) });
+        meta.appendChild(since);
+    }
+
+    button.append(name, meta);
+    button.addEventListener('click', () => void openSourceItem(item.category_id, item.id));
+    entry.appendChild(button);
+    return entry;
 }

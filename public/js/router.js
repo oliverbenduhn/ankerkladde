@@ -1,5 +1,5 @@
-import { normalizeSettingsTab, settingsUrl } from './api.js?v=5.1.16';
-import { isBarcodeCategory, state } from './state.js?v=5.1.16';
+import { normalizeSettingsTab, settingsUrl } from './api.js?v=5.1.17';
+import { isBarcodeCategory, state } from './state.js?v=5.1.17';
 import {
     appEl,
     journalViewEl,
@@ -9,7 +9,7 @@ import {
     settingsEmbedEl,
     settingsFrameEl,
     todayNoteBtn,
-} from './ui.js?v=5.1.16';
+} from './ui.js?v=5.1.17';
 
 export function applyViewState() {
     const inSettings = state.screen === 'settings';

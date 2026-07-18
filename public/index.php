@@ -206,6 +206,21 @@ $clientWebSocketUrl = is_string($clientWebSocketUrl) ? trim($clientWebSocketUrl)
                 <input type="date" id="journalDatePicker" class="journal-date-picker" aria-label="<?= t('journal.choose_date') ?>">
             </div>
             <h2 id="journalDateHeading" class="journal-date-heading"></h2>
+            <section class="parchment-card journal-agenda-card" aria-labelledby="journalAgendaTitle">
+                <header class="journal-card-header">
+                    <h3 id="journalAgendaTitle" class="journal-card-title"><?= t('journal.agenda') ?></h3>
+                </header>
+                <div class="journal-agenda-columns">
+                    <section class="journal-agenda-column" aria-labelledby="journalAnytimeTitle">
+                        <h4 id="journalAnytimeTitle"><?= t('journal.without_time') ?></h4>
+                        <ul id="journalAnytimeList"></ul>
+                    </section>
+                    <section class="journal-agenda-column" aria-labelledby="journalScheduledTitle">
+                        <h4 id="journalScheduledTitle"><?= t('today.section.scheduled') ?></h4>
+                        <ul id="journalScheduledList"></ul>
+                    </section>
+                </div>
+            </section>
             <section class="parchment-card journal-note-card" aria-labelledby="journalNoteTitle">
                 <header class="journal-card-header">
                     <h3 id="journalNoteTitle" class="journal-card-title"><?= t('journal.note_title') ?></h3>

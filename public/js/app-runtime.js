@@ -1,22 +1,22 @@
-import { createAppUiController } from './app-ui.js?v=5.1.16';
-import { createHelpersController } from './helpers.js?v=5.1.16';
-import { createItemsActionsController } from './items-actions.js?v=5.1.16';
-import { createItemsController } from './items.js?v=5.1.16';
-import { createItemsViewController } from './items-view.js?v=5.1.16';
-import { createNavigation } from './navigation.js?v=5.1.16';
-import { createEditorController } from './editor.js?v=5.1.16';
-import { createTodoEditorController } from './todo-editor.js?v=5.1.16';
-import { createReorderController } from './reorder.js?v=5.1.16';
-import { createRouter } from './router.js?v=5.1.16';
-import { createScannerController } from './scanner.js?v=5.1.16';
-import { createSwipeController } from './swipe.js?v=5.1.16';
-import { createTabsViewController } from './tabs-view.js?v=5.1.16';
-import { createKanbanViewController } from './kanban-view.js?v=5.1.16';
-import { createMagicController } from './magic.js?v=5.1.16';
-import { createTodayViewController } from './today-view.js?v=5.1.16';
-import { createJournalController } from './journal.js?v=5.1.16';
-import { flushQueue, getConflictCount, getPendingCount } from './offline-queue.js?v=5.1.16';
-import { api } from './api.js?v=5.1.16';
+import { createAppUiController } from './app-ui.js?v=5.1.17';
+import { createHelpersController } from './helpers.js?v=5.1.17';
+import { createItemsActionsController } from './items-actions.js?v=5.1.17';
+import { createItemsController } from './items.js?v=5.1.17';
+import { createItemsViewController } from './items-view.js?v=5.1.17';
+import { createNavigation } from './navigation.js?v=5.1.17';
+import { createEditorController } from './editor.js?v=5.1.17';
+import { createTodoEditorController } from './todo-editor.js?v=5.1.17';
+import { createReorderController } from './reorder.js?v=5.1.17';
+import { createRouter } from './router.js?v=5.1.17';
+import { createScannerController } from './scanner.js?v=5.1.17';
+import { createSwipeController } from './swipe.js?v=5.1.17';
+import { createTabsViewController } from './tabs-view.js?v=5.1.17';
+import { createKanbanViewController } from './kanban-view.js?v=5.1.17';
+import { createMagicController } from './magic.js?v=5.1.17';
+import { createTodayViewController } from './today-view.js?v=5.1.17';
+import { createJournalController } from './journal.js?v=5.1.17';
+import { flushQueue, getConflictCount, getPendingCount } from './offline-queue.js?v=5.1.17';
+import { api } from './api.js?v=5.1.17';
 import {
     BARCODE_FORMATS,
     SCANNER_COOLDOWN_MS,
@@ -25,9 +25,9 @@ import {
     normalizePreferences,
     scannerState,
     state,
-} from './state.js?v=5.1.16';
-import { applyThemePreferences } from './theme.js?v=5.1.16';
-import { settingsFrameEl } from './ui.js?v=5.1.16';
+} from './state.js?v=5.1.17';
+import { applyThemePreferences } from './theme.js?v=5.1.17';
+import { settingsFrameEl } from './ui.js?v=5.1.17';
 
 export function createAppRuntime(deps) {
     const {
@@ -182,6 +182,10 @@ export function createAppRuntime(deps) {
 
     journalController = createJournalController({
         navigation,
+        openSourceItem: async (categoryId, itemId) => {
+            await router.openSourceItem(categoryId, itemId);
+            navigation.pushHistoryState({ screen: 'list', categoryId, itemId });
+        },
         renderCategoryTabs,
         setMessage,
         updateHeaders,

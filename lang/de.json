@@ -35,6 +35,8 @@
     "journal.choose_date": "Datum wählen",
     "journal.back_to_today": "Zurück zu heute",
     "journal.title": "Journal",
+    "journal.agenda": "Agenda",
+    "journal.without_time": "Ohne Uhrzeit",
     "journal.note_title": "Notiz",
     "journal.format": "Format",
     "journal.saved": "Gespeichert",

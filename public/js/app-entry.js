@@ -1,10 +1,10 @@
-import { registerAppEventHandlers } from './app-events.js?v=5.1.16';
-import { initApp, registerServiceWorker, initWebSocketServer } from './app-init.js?v=5.1.16';
-import { createAppRuntime } from './app-runtime.js?v=5.1.16';
-import { readInitialPreferences, state } from './state.js?v=5.1.16';
-import { applyThemePreferences } from './theme.js?v=5.1.16';
-import { modeToggleBtns, modeChip, layoutToggleBtn } from './ui.js?v=5.1.16';
-import { initConflictUI } from './offline-conflicts.js?v=5.1.16';
+import { registerAppEventHandlers } from './app-events.js?v=5.1.17';
+import { initApp, registerServiceWorker, initWebSocketServer } from './app-init.js?v=5.1.17';
+import { createAppRuntime } from './app-runtime.js?v=5.1.17';
+import { readInitialPreferences, state } from './state.js?v=5.1.17';
+import { applyThemePreferences } from './theme.js?v=5.1.17';
+import { modeToggleBtns, modeChip, layoutToggleBtn } from './ui.js?v=5.1.17';
+import { initConflictUI } from './offline-conflicts.js?v=5.1.17';
 
 export function startApp(version) {
     let userPreferences = readInitialPreferences();

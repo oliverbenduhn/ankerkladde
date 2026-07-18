@@ -1,7 +1,9 @@
-import { api } from './api.js?v=5.1.16';
-import { NOTE_SAVE_DEBOUNCE_MS, state } from './state.js?v=5.1.16';
+import { api, normalizeItem } from './api.js?v=5.1.17';
+import { buildAgendaItem } from './today-view.js?v=5.1.17';
+import { NOTE_SAVE_DEBOUNCE_MS, state } from './state.js?v=5.1.17';
 import {
     journalBackBtn,
+    journalAnytimeList,
     journalDateHeading,
     journalDatePicker,
     journalEditorBody,
@@ -9,11 +11,12 @@ import {
     journalNextBtn,
     journalPreviousBtn,
     journalSaveStatus,
+    journalScheduledList,
     journalTodayBtn,
     journalToolbar,
-} from './ui.js?v=5.1.16';
-import { sanitizeItemField } from './utils.js?v=5.1.16';
-import { t } from './i18n.js?v=5.1.16';
+} from './ui.js?v=5.1.17';
+import { sanitizeItemField } from './utils.js?v=5.1.17';
+import { t } from './i18n.js?v=5.1.17';
 
 function serverDateIso(isoDate) {
     if (typeof isoDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) {
@@ -45,7 +48,7 @@ function formatDateHeading(isoDate, todayIso) {
 }
 
 export function createJournalController(deps) {
-    const { navigation, renderCategoryTabs, setMessage, updateHeaders } = deps;
+    const { navigation, openSourceItem, renderCategoryTabs, setMessage, updateHeaders } = deps;
     let editor = null;
     let saveTimer = null;
     let dirty = false;
@@ -168,6 +171,17 @@ export function createJournalController(deps) {
         targets.forEach((target, button) => button?.setAttribute('aria-pressed', String(target !== '' && date === target)));
     }
 
+    function renderAgenda(items) {
+        const anytime = document.createDocumentFragment();
+        const scheduled = document.createDocumentFragment();
+        items.forEach(item => {
+            const target = item.agenda_group === 'scheduled' ? scheduled : anytime;
+            target.appendChild(buildAgendaItem(item, openSourceItem));
+        });
+        journalAnytimeList?.replaceChildren(anytime);
+        journalScheduledList?.replaceChildren(scheduled);
+    }
+
     async function openDay(date = null, { focus = false } = {}) {
         const requestedDate = date === null || date === 'today'
             ? (state.serverToday || 'today')
@@ -187,7 +201,10 @@ export function createJournalController(deps) {
         const url = resolvedDate
             ? `journal&date=${encodeURIComponent(resolvedDate)}`
             : 'journal';
-        const payload = await api(url);
+        const [payload, agendaPayload] = await Promise.all([
+            api(url),
+            api(`today${resolvedDate ? `&date=${encodeURIComponent(resolvedDate)}` : ''}`),
+        ]);
         await destroyEditor({ flush: false });
         if (typeof payload.today === 'string' && payload.today !== '') {
             state.serverToday = payload.today;
@@ -198,6 +215,7 @@ export function createJournalController(deps) {
         state.categoryId = Number(payload.category.id);
         currentItem = payload.item || null;
         updateDateUi(payload.date);
+        renderAgenda(Array.isArray(agendaPayload.items) ? agendaPayload.items.map(normalizeItem) : []);
         renderCategoryTabs();
         updateHeaders();
 

@@ -1989,6 +1989,8 @@ try {
         case 'today':
             requireMethod('GET');
             $today = (new DateTimeImmutable('now', new DateTimeZone('Europe/Berlin')))->format('Y-m-d');
+            $date = array_key_exists('date', $_GET) ? normalizeJournalDate($_GET['date']) : $today;
+            $dateCondition = $date === $today ? 'items.due_date <= :date' : 'items.due_date = :date';
 
             $stmt = $db->prepare(
                 'SELECT
@@ -2023,16 +2025,16 @@ try {
                    AND categories.type = :category_type
                    AND items.done = 0
                    AND items.due_date != \'\'
-                   AND items.due_date <= :today
+                   AND ' . $dateCondition . '
                  ORDER BY
                     CASE
-                        WHEN items.due_date < :today THEN 0
+                        WHEN items.due_date < :date THEN 0
                         WHEN items.due_time != \'\' THEN 1
                         ELSE 2
                     END ASC,
-                    CASE WHEN items.due_date < :today THEN items.due_date ELSE NULL END ASC,
-                    CASE WHEN items.due_date = :today AND items.due_time != \'\' THEN items.due_time ELSE NULL END ASC,
-                    CASE WHEN items.due_date = :today AND items.due_time = \'\' THEN items.sort_order ELSE NULL END ASC,
+                    CASE WHEN items.due_date < :date THEN items.due_date ELSE NULL END ASC,
+                    CASE WHEN items.due_date = :date AND items.due_time != \'\' THEN items.due_time ELSE NULL END ASC,
+                    CASE WHEN items.due_date = :date AND items.due_time = \'\' THEN items.sort_order ELSE NULL END ASC,
                     categories.sort_order ASC,
                     items.sort_order ASC,
                     items.id ASC'
@@ -2040,17 +2042,17 @@ try {
             $stmt->execute([
                 ':user_id' => $userId,
                 ':category_type' => 'list_due_date',
-                ':today' => $today,
+                ':date' => $date,
             ]);
 
-            $items = array_map(static function (array $item) use ($today): array {
+            $items = array_map(static function (array $item) use ($date): array {
                 $formatted = formatListItem($item);
-                $formatted['agenda_group'] = $formatted['due_date'] < $today
+                $formatted['agenda_group'] = $formatted['due_date'] < $date
                     ? AGENDA_GROUP_OVERDUE
                     : ($formatted['due_time'] !== '' ? AGENDA_GROUP_SCHEDULED : AGENDA_GROUP_ANYTIME_TODAY);
                 return $formatted;
             }, $stmt->fetchAll());
-            respond(200, ['today' => $today, 'items' => $items]);
+            respond(200, ['today' => $today, 'date' => $date, 'items' => $items]);
 
         case 'journal':
             requireMethod('GET');

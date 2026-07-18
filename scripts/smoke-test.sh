@@ -122,6 +122,9 @@ JOURNAL_CONCURRENT_DATE="2026-07-18"
 TODO_ADD_BODY="$TMP_DIR/todo-add.json"
 TODO_LIST_BODY="$TMP_DIR/todo-list.json"
 TODAY_BODY="$TMP_DIR/today.json"
+TODAY_EXPLICIT_BODY="$TMP_DIR/today-explicit.json"
+AGENDA_DATE_BODY="$TMP_DIR/agenda-date.json"
+AGENDA_INVALID_BODY="$TMP_DIR/agenda-invalid.json"
 TODAY_ADD_BODY="$TMP_DIR/today-add.json"
 TODAY_DONE_ADD_BODY="$TMP_DIR/today-done-add.json"
 TODAY_TIMED_EARLY_BODY="$TMP_DIR/today-timed-early.json"
@@ -551,6 +554,8 @@ TODAY_DONE_ID="$(sed -n 's/.*"id":\([0-9][0-9]*\).*/\1/p' "$TODAY_DONE_ADD_BODY"
 [[ "$(status_code "$TOGGLE_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST -d "id=$TODAY_DONE_ID&done=1" "http://127.0.0.1:$PORT/api.php?action=toggle")" == "200" ]]
 
 [[ "$(status_code "$TODAY_BODY" -b "$COOKIE_JAR" "http://127.0.0.1:$PORT/api.php?action=today")" == "200" ]]
+[[ "$(status_code "$TODAY_EXPLICIT_BODY" -b "$COOKIE_JAR" "http://127.0.0.1:$PORT/api.php?action=today&date=$TODAY_DATE")" == "200" ]]
+cmp "$TODAY_BODY" "$TODAY_EXPLICIT_BODY"
 php -r '
     $payload = json_decode(file_get_contents($argv[1]), true);
     if (($payload["today"] ?? "") !== $argv[2] || !is_array($payload["items"] ?? null)) exit(1);
@@ -571,6 +576,15 @@ php -r '
         if (!array_key_exists($key, $payload["items"][0] ?? [])) exit(1);
     }
 ' "$TODAY_BODY" "$TODAY_DATE"
+
+[[ "$(status_code "$AGENDA_DATE_BODY" -b "$COOKIE_JAR" "http://127.0.0.1:$PORT/api.php?action=today&date=$TOMORROW_DATE")" == "200" ]]
+php -r '
+    $payload = json_decode(file_get_contents($argv[1]), true);
+    if (($payload["date"] ?? "") !== $argv[2]) exit(1);
+    $names = array_column($payload["items"] ?? [], "name");
+    if ($names !== ["Smoke morgen"]) exit(1);
+' "$AGENDA_DATE_BODY" "$TOMORROW_DATE"
+[[ "$(status_code "$AGENDA_INVALID_BODY" -b "$COOKIE_JAR" "http://127.0.0.1:$PORT/api.php?action=today&date=2026-02-31")" == "422" ]]
 
 DB_PROBE_STATUS="$(status_code "$NOT_FOUND_BODY" "http://127.0.0.1:$PORT/data/einkaufsliste.db")"
 [[ "$DB_PROBE_STATUS" == "404" || "$DB_PROBE_STATUS" == "200" ]]
