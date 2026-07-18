@@ -92,7 +92,7 @@ php -r '
     if (!is_array($shortcuts)) exit(1);
     $names = array_map(static fn(array $shortcut): string => (string) ($shortcut["name"] ?? ""), $shortcuts);
     $urls = array_map(static fn(array $shortcut): string => (string) ($shortcut["url"] ?? ""), $shortcuts);
-    if (!in_array("Heute", $names, true) || !in_array("/?screen=today", $urls, true)) exit(1);
+    if (!in_array("Heute", $names, true) || !in_array("/?screen=journal&date=today", $urls, true)) exit(1);
     if (!in_array("Neue Notiz", $names, true) || !in_array("/?screen=journal&date=today&focus=editor", $urls, true)) exit(1);
     if (!in_array("Barcode scannen", $names, true)) exit(1);
 ' "$MANIFEST_BODY"
@@ -638,7 +638,7 @@ grep -q '"id":"/sub/"' "$SUBPATH_MANIFEST"
 grep -q '"start_url":"/sub/"' "$SUBPATH_MANIFEST"
 grep -q '"scope":"/sub/"' "$SUBPATH_MANIFEST"
 grep -q '"src":"/sub/icon.php?size=192"' "$SUBPATH_MANIFEST"
-grep -q '"url":"/sub/?screen=today"' "$SUBPATH_MANIFEST"
+grep -q '"url":"/sub/?screen=journal&date=today"' "$SUBPATH_MANIFEST"
 grep -q '"url":"/sub/?screen=journal&date=today&focus=editor"' "$SUBPATH_MANIFEST"
 curl -fsS -b "$SUBPATH_COOKIE_JAR" -o /dev/null "http://127.0.0.1:$SUBPATH_PORT/sub/icon.php?size=144"
 curl -fsS -b "$SUBPATH_COOKIE_JAR" -o /dev/null "http://127.0.0.1:$SUBPATH_PORT/sub/category-icon.php?icon=einkauf"

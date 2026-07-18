@@ -2700,7 +2700,7 @@ button, input { font: inherit; }
     cursor: pointer;
 }
 
-.today-section-heading {
+.agenda-section-heading {
     list-style: none;
     padding: 14px 4px 6px;
     color: var(--text-secondary);
@@ -2710,13 +2710,67 @@ button, input { font: inherit; }
     text-transform: uppercase;
 }
 
-.today-item {
+.agenda-item {
     list-style: none;
     margin-bottom: 8px;
+    display: flex;
+    align-items: stretch;
+    gap: 10px;
 }
 
-.today-item-button {
-    width: 100%;
+.agenda-item-checkbox {
+    flex: 0 0 auto;
+    width: 44px;
+    height: 44px;
+    align-self: center;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    background: var(--surface);
+    color: var(--accent);
+    cursor: pointer;
+    padding: 0;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.agenda-item-checkbox svg {
+    width: 22px;
+    height: 22px;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+
+.agenda-item-checkbox:hover,
+.agenda-item-checkbox:focus-visible {
+    border-color: var(--accent);
+}
+
+.agenda-item-checkbox:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.agenda-item.is-done .agenda-item-checkbox {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: var(--surface);
+}
+
+.agenda-item.is-done .agenda-item-checkbox svg {
+    opacity: 1;
+}
+
+.agenda-item.is-done .agenda-item-name,
+.agenda-item.is-done .agenda-item-meta {
+    opacity: 0.55;
+    text-decoration: line-through;
+}
+
+.agenda-item-body {
+    flex: 1 1 auto;
+    min-width: 0;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -2731,18 +2785,18 @@ button, input { font: inherit; }
     cursor: pointer;
 }
 
-.today-item-button:hover,
-.today-item-button:focus-visible {
+.agenda-item-body:hover,
+.agenda-item-body:focus-visible {
     border-color: var(--accent);
 }
 
-.today-item-name {
+.agenda-item-name {
     min-width: 0;
     font-weight: 600;
     overflow-wrap: anywhere;
 }
 
-.today-item-meta {
+.agenda-item-meta {
     display: flex;
     flex: 0 0 auto;
     align-items: flex-end;
@@ -2752,16 +2806,20 @@ button, input { font: inherit; }
     font-size: 0.76rem;
 }
 
-.today-category-label {
+.agenda-item.is-overdue .agenda-item-body {
+    border-left: 3px solid var(--danger, #a33);
+}
+
+.agenda-category-label {
     color: var(--accent);
     font-weight: 600;
 }
 
-.today-overdue-label {
+.agenda-overdue-label {
     color: var(--danger, #a33);
 }
 
-.today-time-label {
+.agenda-time-label {
     font-variant-numeric: tabular-nums;
 }
 
@@ -3514,7 +3572,7 @@ body[data-theme*="dark"] .item-card.is-deep-link-highlight {
     padding: 0;
 }
 
-.journal-agenda-column .today-item-button {
+.journal-agenda-column .agenda-item-button {
     min-width: 0;
     align-items: flex-start;
     flex-direction: column;
@@ -3522,12 +3580,12 @@ body[data-theme*="dark"] .item-card.is-deep-link-highlight {
     padding: 0.65rem;
 }
 
-.journal-agenda-column .today-item-meta {
+.journal-agenda-column .agenda-item-meta {
     min-width: 0;
     align-items: flex-start;
 }
 
-.journal-agenda-column .today-category-label {
+.journal-agenda-column .agenda-category-label {
     overflow-wrap: anywhere;
 }
 

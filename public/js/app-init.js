@@ -1,6 +1,7 @@
-import { basePath, state } from './state.js?v=5.1.17';
-import { applyViewState } from './router.js?v=5.1.17';
-import { appEl, updateBannerEl, updateViewportHeight } from './ui.js?v=5.1.17';
+import { basePath, state } from './state.js?v=5.1.18';
+import { applyViewState } from './router.js?v=5.1.18';
+import { appEl, updateBannerEl, updateViewportHeight } from './ui.js?v=5.1.18';
+import { loadAgenda, updateAppBadge } from './today-view.js?v=5.1.18';
 
 export async function initApp(deps) {
     const {
@@ -9,7 +10,6 @@ export async function initApp(deps) {
         handleIncomingShare,
         loadCategories,
         loadItems,
-        loadToday,
         navigation,
         prefetchAdjacentCategories,
         renderInitialError,
@@ -37,7 +37,15 @@ export async function initApp(deps) {
         await loadCategories();
         deps.updateHeaders();
         await loadItems();
-        await loadToday();
+        // Pre-load today agenda so the app-badge stays current and the
+        // journal view never blocks on its first request after navigation.
+        try {
+            const agenda = await loadAgenda();
+            await updateAppBadge(agenda.items.length);
+        } catch {
+            // Badging is optional; failing silently here matches the journal
+            // agenda fetch behaviour (which also swallows network errors).
+        }
         const initialRoute = navigation.readInitialRouteFromUrl();
         if (initialRoute.screen !== 'list') {
             await router.applyRouteState(initialRoute, route => route);

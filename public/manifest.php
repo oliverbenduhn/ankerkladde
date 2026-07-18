@@ -39,7 +39,7 @@ $manifest = [
         [
             'name' => t('manifest.today'),
             'short_name' => t('manifest.today'),
-            'url' => $manifestBase . '?screen=today',
+            'url' => $manifestBase . '?screen=journal&date=today',
         ],
         [
             'name' => t('manifest.new_note'),

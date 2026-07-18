@@ -37,7 +37,7 @@ export const progressEl = document.getElementById('progress');
 export const searchBtn = document.getElementById('searchBtn');
 export const searchBar = document.getElementById('searchBar');
 export const searchInput = document.getElementById('searchInput');
-export const todayNoteBtn = document.getElementById('todayNoteBtn');
+export const journalBtn = document.getElementById('journalBtn');
 export const searchClose = document.getElementById('searchClose');
 export const magicBtns = document.querySelectorAll('.btn-magic');
 export const productScannerLinks = document.querySelectorAll('[href$="barcode.php"]');

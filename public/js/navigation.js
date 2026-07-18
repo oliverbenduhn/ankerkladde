@@ -1,12 +1,12 @@
-import { normalizeSettingsTab } from './api.js?v=5.1.17';
-import { state } from './state.js?v=5.1.17';
+import { normalizeSettingsTab } from './api.js?v=5.1.18';
+import { state } from './state.js?v=5.1.18';
 
 export function createNavigation({ applyRouteState, getCurrentRouteState }) {
     let appHistoryIndex = 0;
     let suppressHistorySync = false;
 
     function normalizeRouteState(route = {}) {
-        const screen = ['list', 'today', 'settings', 'search', 'note', 'scanner', 'journal'].includes(route?.screen)
+        const screen = ['list', 'settings', 'search', 'note', 'scanner', 'journal'].includes(route?.screen)
             ? route.screen
             : 'list';
 
@@ -167,11 +167,13 @@ export function createNavigation({ applyRouteState, getCurrentRouteState }) {
 
         const base = { mode, layout };
 
+        // Legacy alias: old today URLs land in the journal today view.
+        if (screen === 'today') {
+            screen = 'journal';
+        }
+
         if (screen === 'settings') {
             return normalizeRouteState({ ...base, screen: 'settings', tab: params.get('tab') });
-        }
-        if (screen === 'today') {
-            return normalizeRouteState({ ...base, screen: 'today' });
         }
         if (screen === 'search') {
             return normalizeRouteState({ ...base, screen: 'search', query: params.get('q') || '' });

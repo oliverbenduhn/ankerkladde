@@ -1,22 +1,21 @@
-import { createAppUiController } from './app-ui.js?v=5.1.17';
-import { createHelpersController } from './helpers.js?v=5.1.17';
-import { createItemsActionsController } from './items-actions.js?v=5.1.17';
-import { createItemsController } from './items.js?v=5.1.17';
-import { createItemsViewController } from './items-view.js?v=5.1.17';
-import { createNavigation } from './navigation.js?v=5.1.17';
-import { createEditorController } from './editor.js?v=5.1.17';
-import { createTodoEditorController } from './todo-editor.js?v=5.1.17';
-import { createReorderController } from './reorder.js?v=5.1.17';
-import { createRouter } from './router.js?v=5.1.17';
-import { createScannerController } from './scanner.js?v=5.1.17';
-import { createSwipeController } from './swipe.js?v=5.1.17';
-import { createTabsViewController } from './tabs-view.js?v=5.1.17';
-import { createKanbanViewController } from './kanban-view.js?v=5.1.17';
-import { createMagicController } from './magic.js?v=5.1.17';
-import { createTodayViewController } from './today-view.js?v=5.1.17';
-import { createJournalController } from './journal.js?v=5.1.17';
-import { flushQueue, getConflictCount, getPendingCount } from './offline-queue.js?v=5.1.17';
-import { api } from './api.js?v=5.1.17';
+import { createAppUiController } from './app-ui.js?v=5.1.18';
+import { createHelpersController } from './helpers.js?v=5.1.18';
+import { createItemsActionsController } from './items-actions.js?v=5.1.18';
+import { createItemsController } from './items.js?v=5.1.18';
+import { createItemsViewController } from './items-view.js?v=5.1.18';
+import { createNavigation } from './navigation.js?v=5.1.18';
+import { createEditorController } from './editor.js?v=5.1.18';
+import { createTodoEditorController } from './todo-editor.js?v=5.1.18';
+import { createReorderController } from './reorder.js?v=5.1.18';
+import { createRouter } from './router.js?v=5.1.18';
+import { createScannerController } from './scanner.js?v=5.1.18';
+import { createSwipeController } from './swipe.js?v=5.1.18';
+import { createTabsViewController } from './tabs-view.js?v=5.1.18';
+import { createKanbanViewController } from './kanban-view.js?v=5.1.18';
+import { createMagicController } from './magic.js?v=5.1.18';
+import { createJournalController } from './journal.js?v=5.1.18';
+import { flushQueue, getConflictCount, getPendingCount } from './offline-queue.js?v=5.1.18';
+import { api } from './api.js?v=5.1.18';
 import {
     BARCODE_FORMATS,
     SCANNER_COOLDOWN_MS,
@@ -25,9 +24,9 @@ import {
     normalizePreferences,
     scannerState,
     state,
-} from './state.js?v=5.1.17';
-import { applyThemePreferences } from './theme.js?v=5.1.17';
-import { settingsFrameEl } from './ui.js?v=5.1.17';
+} from './state.js?v=5.1.18';
+import { applyThemePreferences } from './theme.js?v=5.1.18';
+import { settingsFrameEl } from './ui.js?v=5.1.18';
 
 export function createAppRuntime(deps) {
     const {
@@ -66,8 +65,10 @@ export function createAppRuntime(deps) {
     let tabsViewController = null;
     let kanbanViewController = null;
     let magicController = null;
-    let todayViewController = null;
     let journalController = null;
+    // Forward-reference so itemsActionsController can call back into the journal controller
+    // before the latter is constructed (depends on cycle between the two).
+    const afterJournalQuickAdd = () => journalController?.reloadAgenda?.();
 
     const getItemById = id => itemsController.getItemById(id);
     const getVisibleCategories = () => itemsController.getVisibleCategories();
@@ -127,7 +128,6 @@ export function createAppRuntime(deps) {
     const updateModeChip = () => appUiController.updateModeChip();
     const updateLayoutSwitcher = () => appUiController.updateLayoutSwitcher();
     const formatBytes = sizeBytes => appUiController.formatBytes(sizeBytes);
-    const loadToday = async () => { await todayViewController.loadToday(); };
 
     const invalidateSwListCache = (categoryId) => {
         if (navigator.serviceWorker?.controller) {
@@ -148,13 +148,6 @@ export function createAppRuntime(deps) {
         return hadItems;
     };
 
-    todayViewController = createTodayViewController({
-        openSourceItem: async (categoryId, itemId) => {
-            await router.openSourceItem(categoryId, itemId);
-            navigation.pushHistoryState({ screen: 'list', categoryId, itemId });
-        },
-    });
-
     router = createRouter({
         closeNoteEditor,
         closeMagic: () => magicController?.closeMagic(),
@@ -162,7 +155,6 @@ export function createAppRuntime(deps) {
         closeSearch,
         doSearch,
         getItemById,
-        loadToday,
         pushHistoryState: (...args) => navigation?.pushHistoryState(...args),
         openNoteEditor,
         openJournalDay,
@@ -190,6 +182,7 @@ export function createAppRuntime(deps) {
         setMessage,
         updateHeaders,
     });
+    // The toggle handler needs itemsActionsController — wire it after both exist.
 
     const openJournalWithNavigation = async (date, focus = null) => {
         const resolvedDate = date || state.serverToday || 'today';
@@ -207,7 +200,6 @@ export function createAppRuntime(deps) {
         invalidateCategoryCache,
         loadCategories,
         loadItems,
-        loadToday,
         makeUploadProgressCallback,
         openNoteEditorWithNavigation,
         openMagic: input => magicController?.openMagic(input),
@@ -217,17 +209,13 @@ export function createAppRuntime(deps) {
         setMessage,
         setNetworkStatus,
         setRemoteImportLoading,
+        afterJournalQuickAdd,
     });
 
     tabsViewController = createTabsViewController({
         getTypeConfig,
         getVisibleCategories,
         onCategorySelect: category => router.selectCategory(category.id),
-        onTodaySelect: async () => {
-            if (state.screen === 'today') return;
-            await router.openToday();
-            navigation.pushHistoryState({ screen: 'today' });
-        },
     });
 
     itemsViewController = createItemsViewController({
@@ -353,6 +341,10 @@ export function createAppRuntime(deps) {
         updateHeaders,
     });
 
+    journalController.setToggleHandler(async (id, done) => {
+        await itemsActionsController.handleToggle(id, done);
+    });
+
     return {
         addItem: async event => { await itemsActionsController.addItem(event); },
         applyTabsVisibility,
@@ -368,7 +360,6 @@ export function createAppRuntime(deps) {
         invalidateCategoryCache,
         loadCategories,
         loadItems,
-        loadToday,
         navigation,
         openScanner,
         openSearch,

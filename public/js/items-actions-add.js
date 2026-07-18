@@ -1,6 +1,6 @@
 import { t } from './i18n.js';
-import { appUrl, api, fetchLinkMetadata } from './api.js?v=5.1.17';
-import { getCurrentCategory, isAttachmentCategory, state } from './state.js?v=5.1.17';
+import { appUrl, api, fetchLinkMetadata } from './api.js?v=5.1.18';
+import { getCurrentCategory, isAttachmentCategory, state } from './state.js?v=5.1.18';
 import {
     itemInput,
     linkDescriptionInput,
@@ -8,9 +8,9 @@ import {
     quickAddAiBtn,
     quickAddFeedback,
     quickAddFeedbackText,
-} from './ui.js?v=5.1.17';
-import { sanitizeItemField } from './utils.js?v=5.1.17';
-import { enqueueAction } from './offline-queue.js?v=5.1.17';
+} from './ui.js?v=5.1.18';
+import { sanitizeItemField } from './utils.js?v=5.1.18';
+import { enqueueAction } from './offline-queue.js?v=5.1.18';
 
 export function createAddActions(deps) {
     const {
@@ -18,7 +18,6 @@ export function createAddActions(deps) {
         getUploadMode,
         getVisibleCategories,
         loadItems,
-        loadToday,
         openMagic,
         openNoteEditorWithNavigation,
         resetItemForm,
@@ -58,7 +57,7 @@ export function createAddActions(deps) {
     });
     itemInput?.addEventListener('input', hideQuickAddFeedback);
 
-    async function quickAdd(input, activeCategoryId, { stayOnToday = false } = {}) {
+    async function quickAdd(input, activeCategoryId, { stayOnScreen = false } = {}) {
         const body = itemParams({
             input,
             active_category_id: String(activeCategoryId),
@@ -69,8 +68,8 @@ export function createAddActions(deps) {
             resetItemForm();
             invalidateCategoryCache(activeCategoryId);
             invalidateCategoryCache(payload.category_id);
-            if (stayOnToday) {
-                await loadToday();
+            if (stayOnScreen) {
+                // ponytail: caller (e.g. journal quick-add) is responsible for refreshing its view.
             } else if (Number(payload.category_id) !== Number(activeCategoryId)) {
                 await setCategory(payload.category_id);
             } else {
@@ -87,19 +86,52 @@ export function createAddActions(deps) {
         }
     }
 
+    // Journal-specific quick-add: pass the chosen date as a default and pick the most
+    // appropriate due-date category, then signal the caller that nothing else needs
+    // to switch.
+    async function quickAddForJournal(input, date) {
+        const dueCategories = getVisibleCategories().filter(entry => entry.type === 'list_due_date');
+        if (dueCategories.length === 0) {
+            setMessage(t('quick_add.no_due_category'), true);
+            return null;
+        }
+        const activeDueCategory = dueCategories.find(entry => Number(entry.id) === Number(state.categoryId));
+        const targetCategory = activeDueCategory || dueCategories[0];
+        if (!targetCategory) {
+            setMessage(t('quick_add.no_due_category'), true);
+            return null;
+        }
+        // Explicit ISO or relative date phrase in the input wins over the journal default.
+        const hasExplicitDate = /\b\d{4}-\d{2}-\d{2}\b|\b(heute|morgen|übermorgen|gestern)\b/i.test(input);
+        const body = itemParams({
+            input: !hasExplicitDate && date ? `${input} ${date}` : input,
+            active_category_id: String(targetCategory.id),
+        });
+        try {
+            const payload = await api('quick_add', { method: 'POST', body });
+            hideQuickAddFeedback();
+            resetItemForm();
+            invalidateCategoryCache(Number(targetCategory.id));
+            if (typeof deps.afterJournalQuickAdd === 'function') {
+                await deps.afterJournalQuickAdd(payload);
+            }
+            setMessage(t('msg.item_added'));
+            return payload;
+        } catch (error) {
+            if (error?.status === 422 && error?.payload?.error_key?.startsWith('quick_add.')) {
+                showQuickAddFeedback(error, input);
+                return null;
+            }
+            throw error;
+        }
+    }
+
     async function addItem(event) {
         event.preventDefault();
         const category = getCurrentCategory();
 
-        if (state.screen === 'today') {
-            const dueCategories = getVisibleCategories().filter(entry => entry.type === 'list_due_date');
-            const activeDueCategory = dueCategories.find(entry => Number(entry.id) === Number(category?.id));
-            const targetCategory = activeDueCategory || dueCategories[0];
-            if (!targetCategory) {
-                setMessage(t('quick_add.no_due_category'), true);
-                return;
-            }
-            await quickAdd(itemInput.value.trim(), Number(targetCategory.id), { stayOnToday: true });
+        if (state.screen === 'journal') {
+            await quickAddForJournal(itemInput.value.trim(), state.journalDate || state.serverToday);
             return;
         }
 
@@ -185,5 +217,5 @@ export function createAddActions(deps) {
         }
     }
 
-    return { addItem, quickAdd };
+    return { addItem, quickAdd, quickAddForJournal };
 }

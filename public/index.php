@@ -119,7 +119,7 @@ $clientWebSocketUrl = is_string($clientWebSocketUrl) ? trim($clientWebSocketUrl)
             <a href="<?= htmlspecialchars(appPath('barcode.php'), ENT_QUOTES, 'UTF-8') ?>" class="header-icon-btn btn-product-scanner" aria-label="<?= t('ui.scan_product') ?>"<?= !$productScannerEnabled ? ' hidden' : '' ?>><?= icon('scan-info') ?></a>
             <button type="button" id="scanShoppingBtn" class="header-icon-btn btn-scan" aria-label="<?= t('ui.scan_barcode') ?>"<?= !$shoppingListScannerEnabled ? ' hidden' : '' ?>><?= icon('scan') ?></button>
             <button type="button" id="searchBtn" class="header-icon-btn btn-search" aria-label="<?= t('ui.search') ?>"><?= icon('search') ?></button>
-            <button type="button" id="todayNoteBtn" class="today-note-btn" hidden>Notiz</button>
+            <button type="button" id="journalBtn" class="header-icon-btn btn-journal" aria-label="<?= t('ui.open_journal') ?>"><?= icon('calendar') ?></button>
             <button type="button" id="magicBtn" class="header-icon-btn btn-magic" aria-label="<?= t('ui.ai_assistant') ?>"<?= !$magicButtonEnabled ? ' hidden' : '' ?>><?= icon('sparkles') ?></button>
             <a href="<?= htmlspecialchars(appPath('index.php?view=settings'), ENT_QUOTES, 'UTF-8') ?>" class="header-icon-btn btn-settings" data-settings-tab="app" aria-label="<?= t('ui.settings') ?>"><?= icon('settings') ?></a>
         </div>

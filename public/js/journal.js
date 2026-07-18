@@ -1,6 +1,6 @@
-import { api, normalizeItem } from './api.js?v=5.1.17';
-import { buildAgendaItem } from './today-view.js?v=5.1.17';
-import { NOTE_SAVE_DEBOUNCE_MS, state } from './state.js?v=5.1.17';
+import { api, normalizeItem } from './api.js?v=5.1.18';
+import { buildAgendaItem, loadAgenda } from './today-view.js?v=5.1.18';
+import { NOTE_SAVE_DEBOUNCE_MS, state } from './state.js?v=5.1.18';
 import {
     journalBackBtn,
     journalAnytimeList,
@@ -14,9 +14,9 @@ import {
     journalScheduledList,
     journalTodayBtn,
     journalToolbar,
-} from './ui.js?v=5.1.17';
-import { sanitizeItemField } from './utils.js?v=5.1.17';
-import { t } from './i18n.js?v=5.1.17';
+} from './ui.js?v=5.1.18';
+import { sanitizeItemField } from './utils.js?v=5.1.18';
+import { t } from './i18n.js?v=5.1.18';
 
 function serverDateIso(isoDate) {
     if (typeof isoDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) {
@@ -48,7 +48,17 @@ function formatDateHeading(isoDate, todayIso) {
 }
 
 export function createJournalController(deps) {
-    const { navigation, openSourceItem, renderCategoryTabs, setMessage, updateHeaders } = deps;
+    const {
+        navigation,
+        openSourceItem,
+        renderCategoryTabs,
+        setMessage,
+        updateHeaders,
+    } = deps;
+    let toggleHandler = async () => { throw new Error('journal toggle handler not yet wired'); };
+    function setToggleHandler(handler) {
+        toggleHandler = handler;
+    }
     let editor = null;
     let saveTimer = null;
     let dirty = false;
@@ -174,9 +184,39 @@ export function createJournalController(deps) {
     function renderAgenda(items) {
         const anytime = document.createDocumentFragment();
         const scheduled = document.createDocumentFragment();
+        const buildWithHandlers = (sourceItem, handlerToggle, handlerOpen) => {
+            const node = buildAgendaItem(sourceItem, handlerOpen);
+            const checkbox = node.querySelector('.agenda-item-checkbox');
+            const body = node.querySelector('.agenda-item-body');
+            if (checkbox) {
+                checkbox.addEventListener('click', event => {
+                    event.stopPropagation();
+                    void handlerToggle(sourceItem);
+                });
+            }
+            if (body) {
+                body.addEventListener('click', () => handlerOpen(sourceItem));
+            }
+            return node;
+        };
+        const onToggle = (item, entry) => {
+            void toggleHandler(item.id, true).then(() => {
+                entry.classList.add('is-done');
+            }).catch(error => {
+                setMessage(error instanceof Error ? error.message : t('agenda.toggle_failed'), true);
+            });
+        };
+        const onOpen = item => {
+            void flushCurrentContent()
+                .then(() => openSourceItem(item.category_id, item.id))
+                .catch(error => {
+                    setMessage(error instanceof Error ? error.message : t('agenda.open_failed'), true);
+                });
+        };
         items.forEach(item => {
+            const node = buildWithHandlers(item, () => onToggle(item, node), () => onOpen(item));
             const target = item.agenda_group === 'scheduled' ? scheduled : anytime;
-            target.appendChild(buildAgendaItem(item, openSourceItem));
+            target.appendChild(node);
         });
         journalAnytimeList?.replaceChildren(anytime);
         journalScheduledList?.replaceChildren(scheduled);
@@ -203,7 +243,7 @@ export function createJournalController(deps) {
             : 'journal';
         const [payload, agendaPayload] = await Promise.all([
             api(url),
-            api(`today${resolvedDate ? `&date=${encodeURIComponent(resolvedDate)}` : ''}`),
+            loadAgenda(resolvedDate || undefined),
         ]);
         await destroyEditor({ flush: false });
         if (typeof payload.today === 'string' && payload.today !== '') {
@@ -215,7 +255,7 @@ export function createJournalController(deps) {
         state.categoryId = Number(payload.category.id);
         currentItem = payload.item || null;
         updateDateUi(payload.date);
-        renderAgenda(Array.isArray(agendaPayload.items) ? agendaPayload.items.map(normalizeItem) : []);
+        renderAgenda(Array.isArray(agendaPayload.items) ? agendaPayload.items : []);
         renderCategoryTabs();
         updateHeaders();
 
@@ -238,6 +278,17 @@ export function createJournalController(deps) {
         updateToolbar();
         setSaveStatus('');
         if (focus) editor.chain().focus().run();
+    }
+
+    async function reloadAgenda() {
+        if (state.screen !== 'journal' || !state.journalDate) return;
+        try {
+            const agenda = await loadAgenda(state.journalDate);
+            renderAgenda(Array.isArray(agenda.items) ? agenda.items : []);
+        } catch (error) {
+            // Keep current agenda visible on transient failures.
+            console.warn('[Journal] Agenda refresh failed:', error);
+        }
     }
 
     async function navigateTo(date) {
@@ -294,5 +345,5 @@ export function createJournalController(deps) {
     journalFormatBtn?.addEventListener('click', () => setToolbarOpen(journalToolbar?.hidden !== false));
     journalToolbar?.addEventListener('click', handleToolbarClick);
 
-    return { closeJournal, openDay };
+    return { closeJournal, openDay, reloadAgenda, setToggleHandler };
 }

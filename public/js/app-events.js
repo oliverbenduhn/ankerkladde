@@ -1,7 +1,7 @@
 import { t } from './i18n.js';
-import { saveLocalPrefs, state, scannerState, themeMediaQuery, isAttachmentCategory, normalizePreferences, isLayoutAvailable, getAvailableLayouts } from './state.js?v=5.1.17';
-import { normalizeSettingsTab } from './api.js?v=5.1.17';
-import { getPendingCount } from './offline-queue.js?v=5.1.17';
+import { saveLocalPrefs, state, scannerState, themeMediaQuery, isAttachmentCategory, normalizePreferences, isLayoutAvailable, getAvailableLayouts } from './state.js?v=5.1.18';
+import { normalizeSettingsTab } from './api.js?v=5.1.18';
+import { getPendingCount } from './offline-queue.js?v=5.1.18';
 import {
     appEl,
     cameraBtn,
@@ -11,6 +11,7 @@ import {
     fileInput,
     itemForm,
     itemInput,
+    journalBtn,
     linkDescriptionInput,
     noteEditorBack,
     noteTitleInput,
@@ -26,7 +27,6 @@ import {
     searchBtn,
     searchClose,
     searchInput,
-    todayNoteBtn,
     magicBtns,
     magicBar,
     magicInput,
@@ -41,9 +41,9 @@ import {
     uploadModeFileBtn,
     uploadModeUrlBtn,
     urlImportInput,
-} from './ui.js?v=5.1.17';
-import { applyThemePreferences } from './theme.js?v=5.1.17';
-import { normalizeBarcodeValue, syncAutoHeight } from './utils.js?v=5.1.17';
+} from './ui.js?v=5.1.18';
+import { applyThemePreferences } from './theme.js?v=5.1.18';
+import { normalizeBarcodeValue, syncAutoHeight } from './utils.js?v=5.1.18';
 
 export function registerAppEventHandlers(deps) {
     const {
@@ -84,7 +84,8 @@ export function registerAppEventHandlers(deps) {
         magicController,
     } = deps;
 
-    todayNoteBtn?.addEventListener('click', () => {
+    journalBtn?.addEventListener('click', () => {
+        if (state.screen === 'journal') return;
         void openJournalWithNavigation('today', 'editor').catch(error => {
             setMessage(error instanceof Error ? error.message : 'Journal konnte nicht geöffnet werden.', true);
         });

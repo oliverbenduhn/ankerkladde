@@ -1,5 +1,5 @@
-import { normalizeSettingsTab, settingsUrl } from './api.js?v=5.1.17';
-import { isBarcodeCategory, state } from './state.js?v=5.1.17';
+import { normalizeSettingsTab, settingsUrl } from './api.js?v=5.1.18';
+import { isBarcodeCategory, state } from './state.js?v=5.1.18';
 import {
     appEl,
     journalViewEl,
@@ -8,21 +8,17 @@ import {
     settingsBtns,
     settingsEmbedEl,
     settingsFrameEl,
-    todayNoteBtn,
-} from './ui.js?v=5.1.17';
+} from './ui.js?v=5.1.18';
 
 export function applyViewState() {
     const inSettings = state.screen === 'settings';
-    const inToday = state.screen === 'today';
     const inJournal = state.screen === 'journal';
     appEl?.classList.toggle('settings-view', inSettings);
-    appEl?.classList.toggle('today-view', inToday);
     appEl?.classList.toggle('journal-view', inJournal);
     settingsBtns.forEach(button => button.classList.toggle('is-active', inSettings));
     if (settingsEmbedEl) {
         settingsEmbedEl.hidden = !inSettings;
     }
-    if (todayNoteBtn) todayNoteBtn.hidden = !inToday;
     if (journalViewEl) journalViewEl.hidden = !inJournal;
     if (listSwipeStageEl) listSwipeStageEl.hidden = inSettings || inJournal;
 }
@@ -35,7 +31,6 @@ export function createRouter(deps) {
         closeSearch,
         doSearch,
         getItemById,
-        loadToday,
         openNoteEditor,
         openJournalDay,
         closeJournal,
@@ -74,29 +69,6 @@ export function createRouter(deps) {
         }
     }
 
-    async function openToday() {
-        if (deps.scannerState.open) closeScanner();
-        if (state.noteEditorId !== null) await closeNoteEditor();
-        if (state.search.open) closeSearch();
-        if (state.screen === 'settings') closeSettings();
-        if (state.screen === 'journal') await closeJournalScreen();
-        if (typeof closeMagic === 'function') closeMagic();
-
-        state.screen = 'today';
-        applyViewState();
-        renderCategoryTabs();
-        updateHeaders();
-        await loadToday();
-    }
-
-    function closeToday() {
-        if (state.screen !== 'today') return;
-        state.screen = 'list';
-        applyViewState();
-        renderCategoryTabs();
-        updateHeaders();
-    }
-
     function highlightItem(itemId) {
         window.requestAnimationFrame(() => {
             const item = document.querySelector(`.item-card[data-item-id="${Number(itemId)}"]`);
@@ -108,7 +80,6 @@ export function createRouter(deps) {
     }
 
     async function openSourceItem(categoryId, itemId) {
-        closeToday();
         if (state.screen === 'journal') await closeJournalScreen();
         await setCategory(categoryId);
         highlightItem(itemId);
@@ -122,12 +93,10 @@ export function createRouter(deps) {
             deps.pushHistoryState?.({ screen: 'journal', date, focus: null });
             return;
         }
-        const fromToday = state.screen === 'today';
         const fromJournal = state.screen === 'journal';
-        if (fromToday) closeToday();
         if (fromJournal) await closeJournalScreen();
         await setCategory(categoryId);
-        if (fromToday || fromJournal) {
+        if (fromJournal) {
             deps.pushHistoryState?.({ screen: 'list', categoryId });
         }
     }
@@ -144,7 +113,6 @@ export function createRouter(deps) {
         if (state.noteEditorId !== null) await closeNoteEditor();
         if (state.search.open) closeSearch();
         if (state.screen === 'settings') closeSettings();
-        if (state.screen === 'today') closeToday();
         if (typeof closeMagic === 'function') closeMagic();
         await openJournalDay(date, { focus: focus === 'editor' });
         applyViewState();
@@ -194,9 +162,6 @@ export function createRouter(deps) {
         if (state.screen === 'settings') {
             return { ...base, screen: 'settings', tab: state.settingsTab };
         }
-        if (state.screen === 'today') {
-            return { ...base, screen: 'today' };
-        }
         if (state.search.open) {
             return { ...base, screen: 'search', query: state.search.query };
         }
@@ -231,19 +196,12 @@ export function createRouter(deps) {
         if (state.screen === 'settings' && target.screen !== 'settings') {
             closeSettings();
         }
-        if (state.screen === 'today' && target.screen !== 'today') {
-            closeToday();
-        }
         if (state.screen === 'journal' && target.screen !== 'journal') {
             await closeJournalScreen();
         }
 
         if (target.screen === 'settings') {
             await openSettings(target.tab);
-            return;
-        }
-        if (target.screen === 'today') {
-            await openToday();
             return;
         }
         if (target.screen === 'search') {
@@ -285,13 +243,11 @@ export function createRouter(deps) {
     return {
         applyRouteState,
         closeSettings,
-        closeToday,
         closeJournalScreen,
         getCurrentRouteState,
         openJournal,
         openSettings,
         openSourceItem,
-        openToday,
         selectCategory,
     };
 }

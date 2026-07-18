@@ -1,6 +1,6 @@
-import { api, persistPreferences } from './api.js?v=5.1.17';
-import { THEME_COLORS, THEME_MODE_ORDER, themeMediaQuery } from './state.js?v=5.1.17';
-import { brandMarkEls, svgIcon } from './ui.js?v=5.1.17';
+import { api, persistPreferences } from './api.js?v=5.1.18';
+import { THEME_COLORS, THEME_MODE_ORDER, themeMediaQuery } from './state.js?v=5.1.18';
+import { brandMarkEls, svgIcon } from './ui.js?v=5.1.18';
 
 function getValidThemes() {
     const globalData = window.__ANKERKLADDE_THEME_DATA__;

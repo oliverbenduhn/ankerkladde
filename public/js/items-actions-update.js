@@ -1,7 +1,7 @@
 import { t } from './i18n.js';
-import { api } from './api.js?v=5.1.17';
-import { getCurrentCategory, state } from './state.js?v=5.1.17';
-import { enqueueAction } from './offline-queue.js?v=5.1.17';
+import { api } from './api.js?v=5.1.18';
+import { getCurrentCategory, state } from './state.js?v=5.1.18';
+import { enqueueAction } from './offline-queue.js?v=5.1.18';
 
 export function createUpdateActions(deps) {
     const {
@@ -22,6 +22,7 @@ export function createUpdateActions(deps) {
 
     async function handleToggle(id, done) {
         const item = getItemById(id);
+        const previousDone = item?.done;
         if (item) {
             item.done = done;
             cacheCurrentCategoryItems();
@@ -36,7 +37,15 @@ export function createUpdateActions(deps) {
             if (shouldQueueOffline(error)) {
                 enqueueAction('toggle', { id: String(id), done: String(done) });
                 setNetworkStatus();
+                return;
             }
+            // 4xx or unexpected error: revert the optimistic state so UI and server agree.
+            if (item) {
+                item.done = previousDone;
+                cacheCurrentCategoryItems();
+                renderItems();
+            }
+            throw error;
         }
     }
 

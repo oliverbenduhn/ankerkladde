@@ -1,5 +1,5 @@
 import { t } from './i18n.js';
-import { getAvailableLayouts, getCurrentCategory, getCurrentType, getTypeConfig, isAttachmentCategory, state } from './state.js?v=5.1.17';
+import { getAvailableLayouts, getCurrentCategory, getCurrentType, getTypeConfig, isAttachmentCategory, state } from './state.js?v=5.1.18';
 import {
     cameraBtn,
     categoryTitleEl,
@@ -39,8 +39,8 @@ import {
     magicBar,
     magicBtns,
     quickAddFeedback,
-} from './ui.js?v=5.1.17';
-import { syncAutoHeight } from './utils.js?v=5.1.17';
+} from './ui.js?v=5.1.18';
+import { syncAutoHeight } from './utils.js?v=5.1.18';
 
 export function createAppUiController(deps = {}) {
     const {
@@ -192,9 +192,9 @@ export function createAppUiController(deps = {}) {
         }
 
         const submitBtn = itemForm?.querySelector('[type="submit"]');
-        const quickAddCategory = state.screen === 'today' || category?.type === 'list_quantity' || category?.type === 'list_due_date';
+        const quickAddCategory = category?.type === 'list_quantity' || category?.type === 'list_due_date';
         if (submitBtn) submitBtn.hidden = quickAddCategory || (uploadCategory && uploadMode === 'file');
-        if (scanAddBtn) scanAddBtn.hidden = state.screen === 'today' || !shoppingListScannerEnabled || !barcodeCategory || uploadCategory;
+        if (scanAddBtn) scanAddBtn.hidden = !shoppingListScannerEnabled || !barcodeCategory || uploadCategory;
         if (scanShoppingBtn) scanShoppingBtn.hidden = !shoppingListScannerEnabled || !barcodeCategory;
 
         if (filePickerButton) filePickerButton.textContent = imageCategory ? t('item.choose_image') : t('item.choose_file');
@@ -281,25 +281,6 @@ export function createAppUiController(deps = {}) {
     }
 
     function updateHeaders() {
-        if (state.screen === 'today') {
-            if (categoryTitleEl) categoryTitleEl.textContent = t('today.title');
-            document.title = t('app.title', { section: t('today.title') });
-            if (itemInput) {
-                itemInput.placeholder = t('quick_add.placeholder');
-                itemInput.setAttribute('aria-label', t('quick_add.aria_label'));
-                itemInput.required = true;
-            }
-            itemForm?.classList.add('is-quick-add');
-            if (itemSubmitBtn) itemSubmitBtn.hidden = true;
-            if (scanAddBtn) scanAddBtn.hidden = true;
-            if (quantityInput) {
-                quantityInput.style.display = 'none';
-                quantityInput.value = '';
-            }
-            if (quickAddFeedback) quickAddFeedback.hidden = true;
-            updateModeChip();
-            return;
-        }
         if (state.screen === 'settings') {
             const titleListe = document.getElementById('titleListe');
             const titleShopping = document.getElementById('titleShopping');

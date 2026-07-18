@@ -1,10 +1,10 @@
-import { registerAppEventHandlers } from './app-events.js?v=5.1.17';
-import { initApp, registerServiceWorker, initWebSocketServer } from './app-init.js?v=5.1.17';
-import { createAppRuntime } from './app-runtime.js?v=5.1.17';
-import { readInitialPreferences, state } from './state.js?v=5.1.17';
-import { applyThemePreferences } from './theme.js?v=5.1.17';
-import { modeToggleBtns, modeChip, layoutToggleBtn } from './ui.js?v=5.1.17';
-import { initConflictUI } from './offline-conflicts.js?v=5.1.17';
+import { registerAppEventHandlers } from './app-events.js?v=5.1.18';
+import { initApp, registerServiceWorker, initWebSocketServer } from './app-init.js?v=5.1.18';
+import { createAppRuntime } from './app-runtime.js?v=5.1.18';
+import { readInitialPreferences, state } from './state.js?v=5.1.18';
+import { applyThemePreferences } from './theme.js?v=5.1.18';
+import { modeToggleBtns, modeChip, layoutToggleBtn } from './ui.js?v=5.1.18';
+import { initConflictUI } from './offline-conflicts.js?v=5.1.18';
 
 export function startApp(version) {
     let userPreferences = readInitialPreferences();
@@ -42,7 +42,6 @@ export function startApp(version) {
         getUploadMode,
         loadCategories,
         loadItems,
-        loadToday,
         navigation,
         openScanner,
         openSearch,
@@ -131,7 +130,6 @@ export function startApp(version) {
             handleIncomingShare,
             loadCategories,
             loadItems,
-            loadToday,
             navigation,
             prefetchAdjacentCategories,
             renderInitialError: error => {
@@ -156,11 +154,12 @@ export function startApp(version) {
                     return;
                 }
 
-                // Generic update: reload both categories and items
+                // Generic update: reload both categories and items.
+                // In the journal view, only the agenda is refreshed — the editor text must not be overwritten.
                 console.log('[WS] reloading items...');
                 await loadCategories();
-                if (state.screen === 'today') {
-                    await loadToday();
+                if (state.screen === 'journal') {
+                    await router.openJournal(state.journalDate || state.serverToday || 'today');
                     return;
                 }
                 console.log('[WS] categories loaded, loading items...');
