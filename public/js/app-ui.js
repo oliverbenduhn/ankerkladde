@@ -1,5 +1,5 @@
 import { t } from './i18n.js';
-import { getAvailableLayouts, getCurrentCategory, getCurrentType, getTypeConfig, isAttachmentCategory, state } from './state.js?v=5.1.24';
+import { getAvailableLayouts, getCurrentCategory, getCurrentType, getTypeConfig, isAttachmentCategory, state } from './state.js?v=5.1.25';
 import {
     cameraBtn,
     categoryTitleEl,
@@ -39,8 +39,8 @@ import {
     magicBar,
     magicBtns,
     quickAddFeedback,
-} from './ui.js?v=5.1.24';
-import { syncAutoHeight } from './utils.js?v=5.1.24';
+} from './ui.js?v=5.1.25';
+import { syncAutoHeight } from './utils.js?v=5.1.25';
 
 export function createAppUiController(deps = {}) {
     const {
@@ -293,6 +293,10 @@ export function createAppUiController(deps = {}) {
         if (state.screen === 'journal') {
             if (categoryTitleEl) categoryTitleEl.textContent = t('journal.title');
             document.title = t('app.title', { section: t('journal.title') });
+            if (itemInput) {
+                itemInput.placeholder = t('quick_add.placeholder');
+                itemInput.setAttribute('aria-label', t('quick_add.aria_label'));
+            }
             updateModeChip();
             updateLayoutSwitcher();
             return;
@@ -311,11 +315,13 @@ export function createAppUiController(deps = {}) {
         document.title = `Ankerkladde - ${category.name}`;
 
         if (itemInput) {
-            const placeholder = isQuickAddCategory
-                ? t('quick_add.placeholder')
-                : config.placeholder;
+            const placeholder = category.type === 'list_quantity'
+                ? t('quick_add.shopping_placeholder')
+                : (category.type === 'list_due_date' ? t('quick_add.placeholder') : config.placeholder);
             itemInput.placeholder = placeholder;
-            itemInput.setAttribute('aria-label', isQuickAddCategory ? t('quick_add.aria_label') : placeholder.replace(/\.{3}$/, ''));
+            itemInput.setAttribute('aria-label', isQuickAddCategory
+                ? t('quick_add.aria_label')
+                : placeholder.replace(/\.{3}$/, ''));
             itemInput.required = !isAttachmentCategory(category.type);
         }
 

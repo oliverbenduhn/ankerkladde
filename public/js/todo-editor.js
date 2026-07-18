@@ -1,6 +1,6 @@
-import { api } from './api.js?v=5.1.24';
-import { state } from './state.js?v=5.1.24';
-import { appEl, todoEditorEl, todoTitleInput, todoDateInput, todoNoteInput } from './ui.js?v=5.1.24';
+import { api } from './api.js?v=5.1.25';
+import { state } from './state.js?v=5.1.25';
+import { appEl, todoEditorEl, todoTitleInput, todoDateInput, todoTimeInput, todoPriorityInput, todoNoteInput } from './ui.js?v=5.1.25';
 
 export function createTodoEditorController(deps) {
     const { invalidateCategoryCache, loadItems, handleToggle } = deps;
@@ -20,6 +20,8 @@ export function createTodoEditorController(deps) {
 
         const name = todoTitleInput?.value.trim() || currentItem.name;
         const dueDate = todoDateInput?.value || '';
+        const dueTime = dueDate ? (todoTimeInput?.value || '') : '';
+        const priority = todoPriorityInput?.value || '';
         const content = todoNoteInput?.value || '';
 
         const body = new URLSearchParams({
@@ -28,6 +30,8 @@ export function createTodoEditorController(deps) {
             barcode: '',
             quantity: '',
             due_date: dueDate,
+            due_time: dueTime,
+            priority,
             content,
             status: currentStatus,
         });
@@ -37,6 +41,8 @@ export function createTodoEditorController(deps) {
             ...currentItem,
             name,
             due_date: dueDate,
+            due_time: dueTime,
+            priority,
             content,
             status: currentStatus,
         };
@@ -75,6 +81,8 @@ export function createTodoEditorController(deps) {
 
         if (todoTitleInput) todoTitleInput.value = item.name || '';
         if (todoDateInput) todoDateInput.value = item.due_date || '';
+        if (todoTimeInput) todoTimeInput.value = item.due_time || '';
+        if (todoPriorityInput) todoPriorityInput.value = item.priority || '';
         if (todoNoteInput) todoNoteInput.value = item.content || '';
 
         setStatus(currentStatus);

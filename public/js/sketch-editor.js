@@ -4,8 +4,8 @@
 // Editor-Fehler bleiben auf das Overlay begrenzt; App-Navigation bleibt
 // unabhängig lauffähig (AC #4).
 
-import { api } from './api.js?v=5.1.24';
-import { t } from './i18n.js?v=5.1.24';
+import { api } from './api.js?v=5.1.25';
+import { t } from './i18n.js?v=5.1.25';
 
 const EXCALIDRAW_MODULE = 'https://esm.sh/@excalidraw/excalidraw@0.17.3?deps=react@18.2.0,react-dom@18.2.0';
 const REACT_MODULE = 'https://esm.sh/react@18.2.0';

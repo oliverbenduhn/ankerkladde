@@ -14,7 +14,8 @@ test.describe('Quick-Add', () => {
     await page.getByRole('button', { name: 'Einkauf' }).click();
 
     const input = page.locator('#itemInput');
-    await expect(input).toHaveAttribute('placeholder', /Quick-Add/);
+    await expect(input).toHaveAttribute('placeholder', /Schnelleingabe/);
+    await expect(input).not.toHaveAttribute('placeholder', /morgen|8:00/);
     await expect(page.locator('#itemSubmitBtn')).toBeHidden();
 
     const createdName = `Zahnarzt anrufen ${Date.now()}`;

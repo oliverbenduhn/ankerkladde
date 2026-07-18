@@ -2799,6 +2799,22 @@ button, input { font: inherit; }
     color: var(--danger, #a33);
 }
 
+.priority-badge {
+    display: inline-flex;
+    align-items: center;
+    min-height: 1.65rem;
+    padding: 0.15rem 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--surface);
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.priority-badge--1 { border-color: var(--danger, #a33); color: var(--danger, #a33); }
+.priority-badge--2 { border-color: var(--accent); color: var(--accent); }
+
 .agenda-time-label {
     font-variant-numeric: tabular-nums;
 }
@@ -3080,6 +3096,23 @@ body[data-theme*="dark"] .item-card.is-deep-link-highlight {
     color: var(--text-secondary);
     text-transform: uppercase;
     letter-spacing: 0.05em;
+}
+
+.todo-due-fields {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(8rem, 0.55fr);
+    gap: 12px;
+}
+
+.todo-due-field {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 8px;
+}
+
+@media (max-width: 420px) {
+    .todo-due-fields { grid-template-columns: 1fr; }
 }
 
 .todo-editor-date-input {

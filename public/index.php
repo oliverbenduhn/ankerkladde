@@ -353,8 +353,16 @@ $clientWebSocketUrl = is_string($clientWebSocketUrl) ? trim($clientWebSocketUrl)
         </div>
         <div class="todo-editor-body" id="todoEditorBody">
             <div class="todo-editor-section">
-                <label class="todo-editor-label" for="todoDateInput"><?= t('todo.due_date') ?></label>
-                <input type="date" id="todoDateInput" class="todo-editor-date-input">
+                <div class="todo-due-fields">
+                    <label class="todo-due-field" for="todoDateInput">
+                        <span class="todo-editor-label"><?= t('todo.due_date') ?></span>
+                        <input type="date" id="todoDateInput" class="todo-editor-date-input">
+                    </label>
+                    <label class="todo-due-field" for="todoTimeInput">
+                        <span class="todo-editor-label"><?= t('todo.due_time') ?></span>
+                        <input type="time" id="todoTimeInput" class="todo-editor-date-input" step="60">
+                    </label>
+                </div>
             </div>
             <div class="todo-editor-section">
                 <span class="todo-editor-label"><?= t('todo.status') ?></span>
@@ -364,6 +372,15 @@ $clientWebSocketUrl = is_string($clientWebSocketUrl) ? trim($clientWebSocketUrl)
                     <button type="button" class="todo-status-btn" data-status="waiting"><?= t('todo.status_waiting') ?></button>
                     <button type="button" class="todo-status-btn" id="todoDoneBtn"><?= t('todo.status_done') ?></button>
                 </div>
+            </div>
+            <div class="todo-editor-section">
+                <label class="todo-editor-label" for="todoPriorityInput"><?= t('todo.priority') ?></label>
+                <select id="todoPriorityInput" class="todo-editor-date-input">
+                    <option value=""><?= t('todo.priority_none') ?></option>
+                    <option value="1">!1 – <?= t('todo.priority_high') ?></option>
+                    <option value="2">!2 – <?= t('todo.priority_medium') ?></option>
+                    <option value="3">!3 – <?= t('todo.priority_low') ?></option>
+                </select>
             </div>
             <div class="todo-editor-section todo-editor-section--note">
                 <label class="todo-editor-label" for="todoNoteInput"><?= t('todo.notes_placeholder') ?></label>

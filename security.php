@@ -448,6 +448,18 @@ function normalizeDueDate(?string $date): string
     return preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) ? $date : '';
 }
 
+function normalizeDueTime(?string $time): string
+{
+    $time = trim((string) $time);
+    return preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/', $time) ? $time : '';
+}
+
+function normalizePriority(?string $priority): string
+{
+    $priority = trim((string) $priority);
+    return in_array($priority, ['1', '2', '3'], true) ? $priority : '';
+}
+
 /**
  * Sends Content-Security-Policy and X-Frame-Options headers for HTML pages.
  *

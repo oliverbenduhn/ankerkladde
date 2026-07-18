@@ -1,7 +1,7 @@
 import { t } from './i18n.js';
-import { api } from './api.js?v=5.1.24';
-import { getCurrentCategory, state } from './state.js?v=5.1.24';
-import { enqueueAction } from './offline-queue.js?v=5.1.24';
+import { api } from './api.js?v=5.1.25';
+import { getCurrentCategory, state } from './state.js?v=5.1.25';
+import { enqueueAction } from './offline-queue.js?v=5.1.25';
 
 export function createUpdateActions(deps) {
     const {
@@ -183,7 +183,7 @@ export function createUpdateActions(deps) {
         const draft = state.editDraft || {};
         if (state.editingId !== id || Number(draft.itemId) !== Number(id)) {
             state.editingId = null;
-            state.editDraft = { itemId: null, categoryId: null, name: '', barcode: '', quantity: '', due_date: '', content: '' };
+            state.editDraft = { itemId: null, categoryId: null, name: '', barcode: '', quantity: '', due_date: '', due_time: '', priority: '', content: '' };
             renderItems();
             setMessage(t('msg.edit_draft_stale'), true);
             return;
@@ -195,12 +195,14 @@ export function createUpdateActions(deps) {
             barcode: (draft.barcode || '').trim(),
             quantity: (draft.quantity || '').trim(),
             due_date: (draft.due_date || '').trim(),
+            due_time: (draft.due_time || '').trim(),
+            priority: (draft.priority || '').trim(),
             content: (draft.content || '').trim(),
         });
 
         await api('update', { method: 'POST', body });
         state.editingId = null;
-        state.editDraft = { itemId: null, categoryId: null, name: '', barcode: '', quantity: '', due_date: '', content: '' };
+        state.editDraft = { itemId: null, categoryId: null, name: '', barcode: '', quantity: '', due_date: '', due_time: '', priority: '', content: '' };
         invalidateCategoryCache(state.categoryId);
         await loadItems();
         setMessage(t('msg.item_saved'));
