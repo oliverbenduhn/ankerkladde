@@ -1,7 +1,7 @@
 import { t } from './i18n.js';
-import { appUrl } from './api.js?v=5.1.21';
-import { appEl, magicBtns, magicBar, magicInput, magicSubmit, magicClose, magicVoiceBtn } from './ui.js?v=5.1.21';
-import { state, csrfToken } from './state.js?v=5.1.21';
+import { appUrl } from './api.js?v=5.1.22';
+import { appEl, magicBtns, magicBar, magicInput, magicSubmit, magicClose, magicVoiceBtn } from './ui.js?v=5.1.22';
+import { state, csrfToken } from './state.js?v=5.1.22';
 
 export function createMagicController(deps) {
     const { getUserPreferences, invalidateCategoryCache, loadCategories, loadItems, setCategory, setMessage, updateHeaders } = deps;

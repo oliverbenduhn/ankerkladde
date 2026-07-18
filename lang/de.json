@@ -387,6 +387,8 @@
     "ui.move": "Verschieben",
     "sketch.open": "Skizze öffnen",
     "sketch.close": "Schließen",
+    "sketch.retry_save": "Speichern wiederholen",
+    "sketch.discard_changes": "Änderungen verwerfen",
     "ui.cancel": "Abbrechen",
     "ui.copied": "Kopiert",
     "ui.copy_failed": "Nicht kopierbar",

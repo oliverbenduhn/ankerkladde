@@ -1,14 +1,14 @@
 import { t } from './i18n.js';
-import { getCurrentType, state } from './state.js?v=5.1.21';
-import { clearDoneBtn, listEl, progressEl, svgIcon } from './ui.js?v=5.1.21';
-import { normalizeBarcodeValue, sanitizeItemField, syncAutoHeight } from './utils.js?v=5.1.21';
-import { createLightboxController } from './lightbox.js?v=5.1.21';
-import { createItemMenuController } from './item-menu.js?v=5.1.21';
+import { getCurrentType, state } from './state.js?v=5.1.22';
+import { clearDoneBtn, listEl, progressEl, svgIcon } from './ui.js?v=5.1.22';
+import { normalizeBarcodeValue, sanitizeItemField, syncAutoHeight } from './utils.js?v=5.1.22';
+import { createLightboxController } from './lightbox.js?v=5.1.22';
+import { createItemMenuController } from './item-menu.js?v=5.1.22';
 
 let sketchEditorModulePromise = null;
 async function loadSketchEditor() {
     if (!sketchEditorModulePromise) {
-        sketchEditorModulePromise = import('./sketch-editor.js?v=5.1.21');
+        sketchEditorModulePromise = import('./sketch-editor.js?v=5.1.22');
     }
     return sketchEditorModulePromise;
 }

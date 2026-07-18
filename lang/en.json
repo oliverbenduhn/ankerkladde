@@ -387,6 +387,8 @@
     "ui.move": "Move",
     "sketch.open": "Open sketch",
     "sketch.close": "Close",
+    "sketch.retry_save": "Retry save",
+    "sketch.discard_changes": "Discard changes",
     "ui.cancel": "Cancel",
     "ui.copied": "Copied",
     "ui.copy_failed": "Cannot copy",

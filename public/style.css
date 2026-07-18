@@ -5513,3 +5513,43 @@ details[open].settings-category-details > .settings-category-summary .settings-s
     text-align: center;
     color: var(--error);
 }
+
+.sketch-editor-footer {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    justify-content: center;
+    padding: 1rem;
+    border-top: 1px solid var(--border);
+    background: var(--surface-alt);
+    flex-shrink: 0;
+}
+
+.sketch-editor-footer[hidden] {
+    display: none;
+}
+
+.sketch-editor-btn {
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-primary);
+    border-radius: var(--radius, 8px);
+    padding: 0.55rem 1rem;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.sketch-editor-btn:hover {
+    border-color: var(--accent);
+    background: rgba(200, 184, 154, 0.10);
+}
+
+.sketch-editor-btn-retry {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.sketch-editor-btn-discard {
+    color: var(--text-secondary);
+}

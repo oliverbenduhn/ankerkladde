@@ -1,5 +1,5 @@
-import { normalizeSettingsTab } from './api.js?v=5.1.21';
-import { state } from './state.js?v=5.1.21';
+import { normalizeSettingsTab } from './api.js?v=5.1.22';
+import { state } from './state.js?v=5.1.22';
 
 export function createNavigation({ applyRouteState, getCurrentRouteState }) {
     let appHistoryIndex = 0;

@@ -1,16 +1,17 @@
-// Sketch-Editor: lazy Excalidraw-Loader für Zeichnungen (Issue #41).
+// Sketch-Editor: lazy Excalidraw-Loader für Zeichnungen (Issue #41, #42).
 // Wird erst geöffnet, wenn der Nutzer aktiv eine Skizze öffnet.
 // Beim App-Start oder Tagesansicht-Öffnen wird Excalidraw NICHT geladen.
+// Editor-Fehler bleiben auf das Overlay begrenzt; App-Navigation bleibt
+// unabhängig lauffähig (AC #4).
 
-import { api } from './api.js?v=5.1.21';
-import { t } from './i18n.js?v=5.1.21';
+import { api } from './api.js?v=5.1.22';
+import { t } from './i18n.js?v=5.1.22';
 
 const EXCALIDRAW_MODULE = 'https://esm.sh/@excalidraw/excalidraw@0.17.3?deps=react@18.2.0,react-dom@18.2.0';
 const REACT_MODULE = 'https://esm.sh/react@18.2.0';
 const REACT_DOM_MODULE = 'https://esm.sh/react-dom@18.2.0/client';
 
 let excalidrawPromise = null;
-let activeOverlay = null;
 
 async function ensureExcalidraw() {
     if (excalidrawPromise) return excalidrawPromise;
@@ -23,13 +24,6 @@ async function ensureExcalidraw() {
         return { React, ReactDOM, Excalidraw: ExcalidrawModule.Excalidraw };
     })();
     return excalidrawPromise;
-}
-
-function showEditorError(overlay, message) {
-    const note = document.createElement('p');
-    note.className = 'sketch-editor-error';
-    note.textContent = message;
-    overlay.appendChild(note);
 }
 
 function buildOverlay() {
@@ -60,10 +54,48 @@ function buildOverlay() {
     const host = document.createElement('div');
     host.className = 'sketch-editor-host';
 
-    shell.append(header, host);
+    const footer = document.createElement('div');
+    footer.className = 'sketch-editor-footer';
+    footer.hidden = true;
+
+    shell.append(header, host, footer);
     overlay.appendChild(shell);
     document.body.appendChild(overlay);
-    return { overlay, shell, header, status, closeBtn, host };
+    return { overlay, shell, header, status, closeBtn, host, footer };
+}
+
+function showFatal(footer, message, retryHandler, discardHandler) {
+    footer.replaceChildren();
+    footer.hidden = false;
+
+    const note = document.createElement('p');
+    note.className = 'sketch-editor-error';
+    note.textContent = message;
+    footer.appendChild(note);
+
+    if (typeof retryHandler === 'function') {
+        const retryBtn = document.createElement('button');
+        retryBtn.type = 'button';
+        retryBtn.className = 'sketch-editor-btn sketch-editor-btn-retry';
+        retryBtn.textContent = t('sketch.retry_save');
+        retryBtn.addEventListener('click', () => {
+            footer.hidden = true;
+            retryHandler();
+        });
+        footer.appendChild(retryBtn);
+    }
+
+    if (typeof discardHandler === 'function') {
+        const discardBtn = document.createElement('button');
+        discardBtn.type = 'button';
+        discardBtn.className = 'sketch-editor-btn sketch-editor-btn-discard';
+        discardBtn.textContent = t('sketch.discard_changes');
+        discardBtn.addEventListener('click', () => {
+            footer.hidden = true;
+            discardHandler();
+        });
+        footer.appendChild(discardBtn);
+    }
 }
 
 async function saveScene(itemId, scene, onStatus) {
@@ -80,31 +112,127 @@ async function loadScene(itemId) {
     return { elements: [], appState: {} };
 }
 
-let saveTimer = null;
-let pendingScene = null;
-let lastError = null;
-
+// Each openSketchEditor call gets its own state via closure (Issue #42:
+// prevent cross-item race when opening the editor twice in quick succession).
 export async function openSketchEditor(item) {
-    if (activeOverlay) {
-        activeOverlay.remove();
-        activeOverlay = null;
-    }
     const itemId = Number(item?.id);
     if (!Number.isInteger(itemId) || itemId <= 0) {
         return;
     }
 
     const refs = buildOverlay();
-    activeOverlay = refs.overlay;
     refs.status.textContent = t('editor.loading');
 
+    // Closure-scoped editor state.
+    let root = null;
+    let pendingScene = null;
+    let saveTimer = null;
+    let saveInFlight = null;
+    let unmounted = false;
+    let blockingError = false; // true while Retry/Discard footer is shown for a save failure
+
+    const isOpen = () => !unmounted && document.body.contains(refs.overlay);
+
+    const safeUnmount = () => {
+        if (unmounted) return;
+        unmounted = true;
+        if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+        try { root?.unmount(); } catch (_e) { /* root might not exist yet */ }
+        refs.overlay.remove();
+    };
+
+    const reportFatal = (message, retryHandler, discardHandler) => {
+        if (!isOpen()) return;
+        refs.status.textContent = '';
+        showFatal(refs.footer, message, retryHandler, discardHandler);
+    };
+
+    // Show retry/discard for a failed save. `retrySave` flushes again, `discard`
+    // throws away the unsaved scene and closes the editor.
+    const onSaveError = () => {
+        if (!isOpen()) return;
+        blockingError = true;
+        refs.status.textContent = t('editor.save_error');
+        showFatal(
+            refs.footer,
+            t('editor.save_error'),
+            () => { blockingError = false; void flushSave(); },
+            () => { pendingScene = null; safeUnmount(); }
+        );
+    };
+
+    const flushSave = async () => {
+        if (!pendingScene) return;
+        const scene = pendingScene;
+        pendingScene = null;
+        if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+        saveInFlight = (async () => {
+            try {
+                await saveScene(itemId, scene, text => {
+                    if (isOpen()) refs.status.textContent = text;
+                });
+                blockingError = false;
+                if (isOpen()) refs.footer.hidden = true;
+            } catch (_error) {
+                // Surface in UI, then rethrow so handleClose knows to block.
+                pendingScene = scene;
+                onSaveError();
+                throw _error;
+            } finally {
+                saveInFlight = null;
+            }
+        })();
+        return saveInFlight;
+    };
+
+    const queueSave = scene => {
+        pendingScene = scene;
+        if (saveTimer) clearTimeout(saveTimer);
+        saveTimer = setTimeout(() => {
+            flushSave().catch(() => { /* error already surfaced via onSaveError */ });
+        }, 800);
+    };
+
+    const onChange = (elements, appState) => {
+        queueSave({ elements: elements ?? [], appState: appState ?? {} });
+    };
+
+    const handleClose = async () => {
+        if (blockingError) {
+            // Save failed: require Retry/Discard to leave the editor (AC #3).
+            return;
+        }
+        if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+        if (saveInFlight) {
+            try { await saveInFlight; } catch (_e) { /* surfaced below */ }
+        }
+        try {
+            await flushSave();
+        } catch (_error) {
+            // flushSave already rendered Retry/Discard buttons. Keep overlay.
+            return;
+        }
+        if (saveInFlight) {
+            // Edge case: a new save started between flushSave and this check.
+            // Wait for it so the server reflects the final state.
+            try { await saveInFlight; } catch (_e) {
+                onSaveError();
+                return;
+            }
+        }
+        safeUnmount();
+    };
+
+    // ---- Async setup ----
     let bundle;
     try {
         bundle = await ensureExcalidraw();
-    } catch (error) {
-        refs.status.textContent = '';
-        showEditorError(refs.overlay, t('sketch.editor_load_failed'));
-        lastError = error;
+    } catch (_error) {
+        reportFatal(
+            t('sketch.editor_load_failed'),
+            async () => { safeUnmount(); await openSketchEditor(item); },
+            () => { safeUnmount(); }
+        );
         return;
     }
 
@@ -112,74 +240,33 @@ export async function openSketchEditor(item) {
     try {
         initialScene = await loadScene(itemId);
     } catch (error) {
-        refs.status.textContent = '';
-        showEditorError(refs.overlay, error?.message || 'Sketch konnte nicht geladen werden.');
-        lastError = error;
+        reportFatal(
+            error?.message || t('sketch.editor_load_failed'),
+            () => { safeUnmount(); },
+            () => { safeUnmount(); }
+        );
         return;
     }
 
     const { React, ReactDOM, Excalidraw } = bundle;
-    const root = ReactDOM.createRoot(refs.host);
-
-    const flushSave = async () => {
-        if (!pendingScene) return;
-        const scene = pendingScene;
-        pendingScene = null;
-        saveTimer = null;
-        try {
-            await saveScene(itemId, scene, text => {
-                refs.status.textContent = text;
-            });
-        } catch (error) {
-            lastError = error;
-            refs.status.textContent = t('editor.save_error');
-            // Restore pending scene so the next change retries.
-            pendingScene = scene;
-        }
-    };
-
-    const queueSave = scene => {
-        pendingScene = scene;
-        if (saveTimer) clearTimeout(saveTimer);
-        saveTimer = setTimeout(() => {
-            flushSave().catch(err => {
-                lastError = err;
-                refs.status.textContent = t('editor.save_error');
-            });
-        }, 800);
-    };
-
-    const onChange = (elements, appState) => {
-        const scene = { elements: elements ?? [], appState: appState ?? {} };
-        queueSave(scene);
-    };
-
-    const handleClose = async () => {
-        if (saveTimer) {
-            clearTimeout(saveTimer);
-            saveTimer = null;
-        }
-        try {
-            await flushSave();
-        } catch (error) {
-            // block close if save failed (Spec: block close on sketch-save failure)
-            refs.status.textContent = t('editor.save_error');
-            return;
-        }
-        root.unmount();
-        refs.overlay.remove();
-        if (activeOverlay === refs.overlay) activeOverlay = null;
-    };
+    try {
+        root = ReactDOM.createRoot(refs.host);
+        root.render(
+            React.createElement(Excalidraw, {
+                initialData: initialScene,
+                onChange,
+                UIOptions: { canvasActions: { loadScene: false, saveToActiveFile: false } },
+            })
+        );
+    } catch (_error) {
+        reportFatal(
+            t('sketch.editor_load_failed'),
+            () => { safeUnmount(); },
+            () => { safeUnmount(); }
+        );
+        return;
+    }
 
     refs.closeBtn.addEventListener('click', handleClose);
-
-    root.render(
-        React.createElement(Excalidraw, {
-            initialData: initialScene,
-            onChange,
-            UIOptions: { canvasActions: { loadScene: false, saveToActiveFile: false } },
-        })
-    );
-
     refs.status.textContent = '';
 }

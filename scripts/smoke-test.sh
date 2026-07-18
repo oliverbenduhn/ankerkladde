@@ -684,7 +684,35 @@ echo "$SKETCH_EMPTY_BODY" | grep -q '"has_sketch":0' || { echo "Leere Szene lief
 DRAWINGS_LIST_BODY="$(curl -fsS -b "$COOKIE_JAR" \
     "http://127.0.0.1:$PORT/api.php?action=list&category_id=$DRAWINGS_CATEGORY_ID")"
 echo "$DRAWINGS_LIST_BODY" | grep -q '"has_sketch":0' || { echo "Liste enthält has_sketch=1 nach leerer Szene."; exit 1; }
+echo "$DRAWINGS_LIST_BODY" | grep -q "\"id\":$DRAWING_ITEM_ID" || { echo "Item wurde durch leere Szene gelöscht: $DRAWINGS_LIST_BODY"; exit 1; }
 echo "$DRAWINGS_LIST_BODY" | grep -q '"elements"' && { echo "Liste enthält Scene-JSON: $DRAWINGS_LIST_BODY"; exit 1; } || true
+
+# Sketch-Editor-Lifecycle (Issue #42):
+# Nachfolge-Save auf dasselbe Item muss funktionieren (kein hängender State).
+POST_EMPTY_RECOVER="$(curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+    --data-urlencode "item_id=$DRAWING_ITEM_ID" \
+    --data-urlencode "scene=$VALID_SCENE" \
+    "http://127.0.0.1:$PORT/api.php?action=sketch_save")"
+echo "$POST_EMPTY_RECOVER" | grep -q '"has_sketch":1' || { echo "Save nach leerer Szene lieferte has_sketch != 1: $POST_EMPTY_RECOVER"; exit 1; }
+
+# Race-Condition-Schutz: zwei sequenzielle Saves auf dasselbe Item müssen
+# beide durchgehen (kein hängender Editor-State nach Server-Fehler).
+RACE_SCENE_A='{"elements":[{"type":"rectangle","id":"a"}]}'
+RACE_SCENE_B='{"elements":[{"type":"ellipse","id":"b"}]}'
+RACE_FIRST="$(curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+    --data-urlencode "item_id=$DRAWING_ITEM_ID" \
+    --data-urlencode "scene=$RACE_SCENE_A" \
+    "http://127.0.0.1:$PORT/api.php?action=sketch_save")"
+echo "$RACE_FIRST" | grep -q '"has_sketch":1' || { echo "Race-Test: erster Save fehlgeschlagen: $RACE_FIRST"; exit 1; }
+RACE_SECOND="$(curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+    --data-urlencode "item_id=$DRAWING_ITEM_ID" \
+    --data-urlencode "scene=$RACE_SCENE_B" \
+    "http://127.0.0.1:$PORT/api.php?action=sketch_save")"
+echo "$RACE_SECOND" | grep -q '"has_sketch":1' || { echo "Race-Test: zweiter Save fehlgeschlagen: $RACE_SECOND"; exit 1; }
+RACE_LOAD="$(curl -fsS -b "$COOKIE_JAR" \
+    "http://127.0.0.1:$PORT/api.php?action=sketch_load&item_id=$DRAWING_ITEM_ID")"
+echo "$RACE_LOAD" | grep -q '"has_sketch":1' || { echo "Race-Test: Item verlor has_sketch: $RACE_LOAD"; exit 1; }
+echo "$RACE_LOAD" | grep -q '"type":"ellipse"' || { echo "Race-Test: letzter Save wurde nicht persistiert: $RACE_LOAD"; exit 1; }
 
 # Ungültiges JSON: 422
 SKETCH_BAD_JSON_STATUS="$(curl -s -o /dev/null -w '%{http_code}' -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
