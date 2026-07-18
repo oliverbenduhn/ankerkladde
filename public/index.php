@@ -196,6 +196,7 @@ $clientWebSocketUrl = is_string($clientWebSocketUrl) ? trim($clientWebSocketUrl)
         </div>
         <section class="journal-view parchment-view" id="journalView" aria-labelledby="journalDateHeading" hidden>
             <div class="journal-navigation">
+                <button type="button" id="journalBackBtn" class="journal-nav-icon-btn" aria-label="<?= t('journal.back') ?>"><?= icon('arrow-left') ?></button>
                 <button type="button" id="journalDatePickerBtn" class="journal-nav-icon-btn" aria-label="<?= t('journal.choose_date') ?>"><?= icon('calendar') ?></button>
                 <div class="journal-segments" role="group" aria-label="<?= t('journal.navigation') ?>">
                     <button type="button" id="journalPreviousBtn" class="journal-nav-btn" aria-pressed="false"><?= t('journal.previous') ?></button>

@@ -25,6 +25,7 @@ test.describe('Journal', () => {
     await expect(page).toHaveURL(/screen=journal/);
     await expect(page.locator('#journalView')).toBeVisible();
     await expect(page.locator('#appHeader')).toBeHidden();
+    await expect(page.getByRole('button', { name: 'Zurück zu den Listen' })).toBeVisible();
     await expect(page.locator('#journalDatePickerBtn')).toBeVisible();
     await expect(page.locator('.journal-navigation .btn-settings')).toBeVisible();
     await expect(page.locator('#journalSketchCard')).toBeHidden();
@@ -80,7 +81,7 @@ test.describe('Journal', () => {
     await expect(page.locator('#journalDateHeading')).not.toContainText(String(Number(currentYear) - 1));
     await expect(page.locator('.journal-nav-btn[aria-pressed="true"]')).toHaveCount(0);
 
-    await page.goto('/index.php');
+    await page.getByRole('button', { name: 'Zurück zu den Listen' }).click();
     await expect(page.locator('#journalView')).toBeHidden();
     await expect(page).not.toHaveURL(/screen=journal/);
   });

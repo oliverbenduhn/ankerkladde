@@ -3506,7 +3506,7 @@ body[data-theme*="dark"] .item-card.is-deep-link-highlight {
 
 .journal-navigation {
     display: grid;
-    grid-template-columns: 2.5rem minmax(0, 1fr) 2.5rem;
+    grid-template-columns: 2.5rem 2.5rem minmax(0, 1fr) 2.5rem;
     align-items: center;
     gap: 0.5rem;
     margin-bottom: 0.75rem;

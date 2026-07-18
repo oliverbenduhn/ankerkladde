@@ -15,6 +15,7 @@ function categoryTypeLabel(string $type): string
         'list_due_date' => 'Liste mit Datum',
         'notes' => 'Notizen',
         'daily_notes' => 'Journal',
+        'drawings' => 'Zeichnungen',
         'images' => 'Bilder',
         'files' => 'Dateien',
         'links' => 'Links',
