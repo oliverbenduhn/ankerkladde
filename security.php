@@ -465,8 +465,9 @@ function normalizePriority(?string $priority): string
  *
  * Call this before any output is sent on every PHP page that returns HTML.
  *
- * $allowEsmSh — set to true only for pages that load TipTap from esm.sh
- * (currently index.php). All other pages use a tighter policy.
+ * $allowEsmSh — set to true only for pages that load TipTap/Excalidraw from
+ * esm.sh and Excalidraw's version-pinned static assets from unpkg (currently
+ * index.php). All other pages use a tighter policy.
  *
  * $allowSameOriginFraming — set to true only for pages intentionally embedded
  * by the app shell on the same origin (currently settings.php).
@@ -499,11 +500,13 @@ function sendHtmlPageSecurityHeaders(bool $allowEsmSh = false, bool $allowSameOr
     }
 
     if ($allowEsmSh) {
-        // TipTap and its transitive ESM dependencies are loaded from esm.sh
-        $scriptSrc  .= ' https://esm.sh';
-        $connectSrc .= ' https://esm.sh';
-        $styleSrc   .= ' https://esm.sh';
-        $fontSrc    .= ' https://esm.sh';
+        // TipTap/Excalidraw and their transitive ESM dependencies come from
+        // esm.sh. Excalidraw 0.17 loads its version-pinned lazy chunk and
+        // fonts from the npm package published at unpkg.
+        $scriptSrc  .= ' https://esm.sh https://unpkg.com';
+        $connectSrc .= ' https://esm.sh https://unpkg.com';
+        $styleSrc   .= ' https://esm.sh https://unpkg.com';
+        $fontSrc    .= ' https://esm.sh https://unpkg.com';
     }
 
     $csp = implode('; ', [

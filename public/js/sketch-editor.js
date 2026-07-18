@@ -4,13 +4,16 @@
 // Editor-Fehler bleiben auf das Overlay begrenzt; App-Navigation bleibt
 // unabhängig lauffähig (AC #4).
 
-import { api } from './api.js?v=5.1.25';
-import { t } from './i18n.js?v=5.1.25';
+import { api } from './api.js?v=5.1.26';
+import { t } from './i18n.js?v=5.1.26';
 
 const EXCALIDRAW_MODULE = 'https://esm.sh/@excalidraw/excalidraw@0.17.3?deps=react@18.2.0,react-dom@18.2.0';
 const REACT_MODULE = 'https://esm.sh/react@18.2.0';
 const REACT_DOM_MODULE = 'https://esm.sh/react-dom@18.2.0/client';
-const EXCALIDRAW_ASSET_PATH = 'https://esm.sh/@excalidraw/excalidraw@0.17.3/dist/prod/';
+// The esm.sh module still uses Excalidraw's webpack runtime for its lazy
+// vendor chunk. Static package assets are not exposed by esm.sh, so point the
+// runtime at the version-pinned files published with the npm package.
+const EXCALIDRAW_ASSET_PATH = 'https://unpkg.com/@excalidraw/excalidraw@0.17.3/dist/';
 
 let excalidrawPromise = null;
 
@@ -23,7 +26,14 @@ async function ensureExcalidraw() {
             import(/* @vite-ignore */ REACT_DOM_MODULE),
             import(/* @vite-ignore */ EXCALIDRAW_MODULE),
         ]);
-        return { React, ReactDOM, Excalidraw: ExcalidrawModule.Excalidraw };
+        const defaultExport = ExcalidrawModule.default;
+        return {
+            React,
+            ReactDOM,
+            Excalidraw: ExcalidrawModule.Excalidraw
+                || defaultExport?.Excalidraw
+                || defaultExport?.default,
+        };
     })();
     return excalidrawPromise;
 }

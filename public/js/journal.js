@@ -1,6 +1,6 @@
-import { api, normalizeItem } from './api.js?v=5.1.25';
-import { buildAgendaItem, loadAgenda } from './today-view.js?v=5.1.25';
-import { NOTE_SAVE_DEBOUNCE_MS, state } from './state.js?v=5.1.25';
+import { api, normalizeItem } from './api.js?v=5.1.26';
+import { buildAgendaItem, loadAgenda } from './today-view.js?v=5.1.26';
+import { NOTE_SAVE_DEBOUNCE_MS, state } from './state.js?v=5.1.26';
 import {
     agendaAddBtn,
     appEl,
@@ -22,14 +22,14 @@ import {
     journalSketchStatus,
     journalTodayBtn,
     journalToolbar,
-} from './ui.js?v=5.1.25';
-import { sanitizeItemField } from './utils.js?v=5.1.25';
-import { t } from './i18n.js?v=5.1.25';
+} from './ui.js?v=5.1.26';
+import { sanitizeItemField } from './utils.js?v=5.1.26';
+import { t } from './i18n.js?v=5.1.26';
 
 let sketchEditorModulePromise = null;
 function loadSketchEditor() {
     if (!sketchEditorModulePromise) {
-        sketchEditorModulePromise = import('./sketch-editor.js?v=5.1.25');
+        sketchEditorModulePromise = import('./sketch-editor.js?v=5.1.26');
     }
     return sketchEditorModulePromise;
 }

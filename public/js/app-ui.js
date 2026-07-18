@@ -1,5 +1,5 @@
 import { t } from './i18n.js';
-import { getAvailableLayouts, getCurrentCategory, getCurrentType, getTypeConfig, isAttachmentCategory, state } from './state.js?v=5.1.25';
+import { getAvailableLayouts, getCurrentCategory, getCurrentType, getTypeConfig, isAttachmentCategory, state } from './state.js?v=5.1.26';
 import {
     cameraBtn,
     categoryTitleEl,
@@ -39,8 +39,8 @@ import {
     magicBar,
     magicBtns,
     quickAddFeedback,
-} from './ui.js?v=5.1.25';
-import { syncAutoHeight } from './utils.js?v=5.1.25';
+} from './ui.js?v=5.1.26';
+import { syncAutoHeight } from './utils.js?v=5.1.26';
 
 export function createAppUiController(deps = {}) {
     const {

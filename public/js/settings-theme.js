@@ -4,7 +4,7 @@ import {
     readLocalPrefs,
     saveLocalPrefs,
     postPreferencesUpdate
-} from './settings-state.js?v=5.1.25';
+} from './settings-state.js?v=5.1.26';
 
 const themeMediaQuery = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
 
