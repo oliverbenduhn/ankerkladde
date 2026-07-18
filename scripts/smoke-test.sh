@@ -791,4 +791,117 @@ SKETCH_WRONG_CAT_STATUS="$(curl -s -o /dev/null -w '%{http_code}' -b "$COOKIE_JA
     "http://127.0.0.1:$PORT/api.php?action=sketch_save")"
 [[ "$SKETCH_WRONG_CAT_STATUS" == "422" ]] || { echo "sketch_save auf list_quantity lieferte $SKETCH_WRONG_CAT_STATUS statt 422."; exit 1; }
 
+# -----------------------------------------------------------------------------
+# Tages-Skizze (Issue #43): sketch_save_daily erzeugt die Tagesnotiz atomar
+# -----------------------------------------------------------------------------
+SKETCH_DAILY_DATE="$(date -d 'today +2 days' +%Y-%m-%d 2>/dev/null || date -v+2d +%Y-%m-%d)"
+[[ "$SKETCH_DAILY_DATE" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] || { echo "Konnte Testdatum nicht ableiten."; exit 1; }
+
+# Erster Save ohne Text erzeugt die Tagesnotiz (201).
+DAILY_FIRST_BODY="$(curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+    --data-urlencode "date=$SKETCH_DAILY_DATE" \
+    --data-urlencode "scene=$VALID_SCENE" \
+    -w '%{http_code}' \
+    "http://127.0.0.1:$PORT/api.php?action=sketch_save_daily")"
+DAILY_FIRST_STATUS="${DAILY_FIRST_BODY: -3}"
+DAILY_FIRST_JSON="${DAILY_FIRST_BODY%$'\n'*}"
+[[ "$DAILY_FIRST_STATUS" == "201" ]] || { echo "Erster sketch_save_daily lieferte $DAILY_FIRST_STATUS statt 201: $DAILY_FIRST_JSON"; exit 1; }
+DAILY_ITEM_ID="$(echo "$DAILY_FIRST_JSON" | sed -n 's/.*"item_id":\([0-9]\+\).*/\1/p' | head -n 1)"
+[[ -n "$DAILY_ITEM_ID" ]] || { echo "sketch_save_daily lieferte keine item_id: $DAILY_FIRST_JSON"; exit 1; }
+echo "$DAILY_FIRST_JSON" | grep -q '"has_sketch":1' || { echo "Erster sketch_save_daily lieferte has_sketch != 1: $DAILY_FIRST_JSON"; exit 1; }
+
+# Folgender Save auf gleichem Datum updated dieselbe Zeile (200, gleiche item_id).
+DAILY_SECOND_BODY="$(curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+    --data-urlencode "date=$SKETCH_DAILY_DATE" \
+    --data-urlencode "scene={\"elements\":[{\"type\":\"ellipse\",\"id\":\"x\"}]}" \
+    -w '%{http_code}' \
+    "http://127.0.0.1:$PORT/api.php?action=sketch_save_daily")"
+DAILY_SECOND_STATUS="${DAILY_SECOND_BODY: -3}"
+DAILY_SECOND_JSON="${DAILY_SECOND_BODY%$'\n'*}"
+[[ "$DAILY_SECOND_STATUS" == "200" ]] || { echo "Zweiter sketch_save_daily lieferte $DAILY_SECOND_STATUS statt 200: $DAILY_SECOND_JSON"; exit 1; }
+DAILY_ITEM_ID_2="$(echo "$DAILY_SECOND_JSON" | sed -n 's/.*"item_id":\([0-9]\+\).*/\1/p' | head -n 1)"
+[[ "$DAILY_ITEM_ID_2" == "$DAILY_ITEM_ID" ]] || { echo "Zweiter Save erzeugte neue item_id ($DAILY_ITEM_ID_2 statt $DAILY_ITEM_ID)."; exit 1; }
+
+# Leere Szene: has_sketch=0, daily item bleibt.
+DAILY_EMPTY_STATUS="$(curl -s -o /dev/null -w '%{http_code}' -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+    --data-urlencode "date=$SKETCH_DAILY_DATE" \
+    --data-urlencode 'scene={"elements":[]}' \
+    "http://127.0.0.1:$PORT/api.php?action=sketch_save_daily")"
+[[ "$DAILY_EMPTY_STATUS" == "200" ]] || { echo "Leere sketch_save_daily lieferte $DAILY_EMPTY_STATUS statt 200."; exit 1; }
+
+# Tagesnotiz-Eintrag muss noch da sein (journal_load).
+DAILY_JOURNAL_BODY="$(curl -fsS -b "$COOKIE_JAR" \
+    "http://127.0.0.1:$PORT/api.php?action=journal&date=$SKETCH_DAILY_DATE")"
+echo "$DAILY_JOURNAL_BODY" | grep -q "\"id\":$DAILY_ITEM_ID" || { echo "Tagesnotiz nach leerer Skizze verschwunden: $DAILY_JOURNAL_BODY"; exit 1; }
+echo "$DAILY_JOURNAL_BODY" | grep -q '"has_sketch":0' || { echo "Journal antwortet nach leerer Szene mit has_sketch != 0: $DAILY_JOURNAL_BODY"; exit 1; }
+
+# Skizze + Text gemeinsam: getrennte Daten, atomar.
+DAILY_TEXT_DATE="$(date -d 'today +3 days' +%Y-%m-%d 2>/dev/null || date -v+3d +%Y-%m-%d)"
+curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+    --data-urlencode "date=$DAILY_TEXT_DATE" \
+    --data-urlencode 'content=<p>Hallo Tag</p>' \
+    "http://127.0.0.1:$PORT/api.php?action=journal_save" >/dev/null
+DAILY_TEXT_SKETCH="$(curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+    --data-urlencode "date=$DAILY_TEXT_DATE" \
+    --data-urlencode "scene=$VALID_SCENE" \
+    "http://127.0.0.1:$PORT/api.php?action=sketch_save_daily")"
+DAILY_TEXT_ITEM_ID="$(echo "$DAILY_TEXT_SKETCH" | sed -n 's/.*"item_id":\([0-9]\+\).*/\1/p' | head -n 1)"
+DAILY_TEXT_JOURNAL="$(curl -fsS -b "$COOKIE_JAR" \
+    "http://127.0.0.1:$PORT/api.php?action=journal&date=$DAILY_TEXT_DATE")"
+echo "$DAILY_TEXT_JOURNAL" | grep -q "\"id\":$DAILY_TEXT_ITEM_ID" || { echo "Text+Skizze: Item nicht gefunden: $DAILY_TEXT_JOURNAL"; exit 1; }
+echo "$DAILY_TEXT_JOURNAL" | grep -q '<p>Hallo Tag</p>' || { echo "Text ging verloren beim sketch_save_daily: $DAILY_TEXT_JOURNAL"; exit 1; }
+echo "$DAILY_TEXT_JOURNAL" | grep -q '"has_sketch":1' || { echo "kombinierter Save lieferte has_sketch != 1: $DAILY_TEXT_JOURNAL"; exit 1; }
+
+# Anderes Datum = eigene Skizze (Gestern, Morgen, freie Daten).
+DAILY_OTHER_DATE="$(date -d 'today +4 days' +%Y-%m-%d 2>/dev/null || date -v+4d +%Y-%m-%d)"
+curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+    --data-urlencode "date=$DAILY_OTHER_DATE" \
+    --data-urlencode "scene=$VALID_SCENE" \
+    "http://127.0.0.1:$PORT/api.php?action=sketch_save_daily" >/dev/null
+DAILY_OTHER_JOURNAL="$(curl -fsS -b "$COOKIE_JAR" \
+    "http://127.0.0.1:$PORT/api.php?action=journal&date=$DAILY_OTHER_DATE")"
+echo "$DAILY_OTHER_JOURNAL" | grep -q '"has_sketch":1' || { echo "Anderes Datum hat keine Skizze: $DAILY_OTHER_JOURNAL"; exit 1; }
+DAILY_NEXTDAY="$(date -d "$DAILY_OTHER_DATE +1 day" +%Y-%m-%d 2>/dev/null || date -v+1d -j -f %Y-%m-%d "$DAILY_OTHER_DATE" +%Y-%m-%d)"
+DAILY_NEXT_JOURNAL="$(curl -fsS -b "$COOKIE_JAR" \
+    "http://127.0.0.1:$PORT/api.php?action=journal&date=$DAILY_NEXTDAY")"
+echo "$DAILY_NEXT_JOURNAL" | grep -q '"item":null\|"id":null' || { echo "Folgedatum sollte ohne Tagesnotiz sein, hat aber eine: $DAILY_NEXT_JOURNAL"; exit 1; }
+
+# Sketch-only-Loeschen leer: Tagesnotiz bleibt mit has_sketch:0.
+DAILY_KEEP_DATE="$(date -d 'today +5 days' +%Y-%m-%d 2>/dev/null || date -v+5d +%Y-%m-%d)"
+DAILY_KEEP_SKETCH="$(curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+    --data-urlencode "date=$DAILY_KEEP_DATE" \
+    --data-urlencode 'content=<p>Bleibt</p>' \
+    "http://127.0.0.1:$PORT/api.php?action=journal_save")"
+DAILY_KEEP_ITEM_ID="$(echo "$DAILY_KEEP_SKETCH" | sed -n 's/.*"item":{\"id":\([0-9]\+\).*/\1/p' | head -n 1)"
+curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+    --data-urlencode "date=$DAILY_KEEP_DATE" \
+    --data-urlencode "scene=$VALID_SCENE" \
+    "http://127.0.0.1:$PORT/api.php?action=sketch_save_daily" >/dev/null
+curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+    --data-urlencode "date=$DAILY_KEEP_DATE" \
+    --data-urlencode 'scene={"elements":[]}' \
+    "http://127.0.0.1:$PORT/api.php?action=sketch_save_daily" >/dev/null
+DAILY_KEEP_AFTER="$(curl -fsS -b "$COOKIE_JAR" \
+    "http://127.0.0.1:$PORT/api.php?action=journal&date=$DAILY_KEEP_DATE")"
+echo "$DAILY_KEEP_AFTER" | grep -q "\"id\":$DAILY_KEEP_ITEM_ID" || { echo "Tagesnotiz ging beim Leeren der Skizze verloren: $DAILY_KEEP_AFTER"; exit 1; }
+echo "$DAILY_KEEP_AFTER" | grep -q '<p>Bleibt</p>' || { echo "Text ging beim Leeren der Skizze verloren: $DAILY_KEEP_AFTER"; exit 1; }
+echo "$DAILY_KEEP_AFTER" | grep -q '"has_sketch":0' || { echo "has_sketch sollte 0 sein nach Leeren: $DAILY_KEEP_AFTER"; exit 1; }
+
+# 422 für ungültiges JSON.
+DAILY_BAD_STATUS="$(curl -s -o /dev/null -w '%{http_code}' -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+    --data-urlencode "date=$SKETCH_DAILY_DATE" \
+    --data-urlencode 'scene={kein json' \
+    "http://127.0.0.1:$PORT/api.php?action=sketch_save_daily")"
+[[ "$DAILY_BAD_STATUS" == "422" ]] || { echo "Ungültiges JSON lieferte $DAILY_BAD_STATUS statt 422."; exit 1; }
+
+# 422 für ungültiges Datum.
+DAILY_BAD_DATE_STATUS="$(curl -s -o /dev/null -w '%{http_code}' -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+    --data-urlencode 'date=2026-13-99' \
+    --data-urlencode "scene=$VALID_SCENE" \
+    "http://127.0.0.1:$PORT/api.php?action=sketch_save_daily")"
+[[ "$DAILY_BAD_DATE_STATUS" == "422" ]] || { echo "Ungültiges Datum lieferte $DAILY_BAD_DATE_STATUS statt 422."; exit 1; }
+
+# Fremdes Datum ohne Berechtigung: API wirft CSRF-Token-Fehler statt zu speichern — gegen User X schreiben
+# wir gar nicht erst; bestehender 422/404-Pfad reicht. (Cross-User ist über item_id gesichert.)
+
 echo "Smoke-Test erfolgreich."

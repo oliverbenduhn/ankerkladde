@@ -1,6 +1,6 @@
-import { api } from './api.js?v=5.1.22';
-import { TAB_REORDER_LONG_PRESS_MS, state } from './state.js?v=5.1.22';
-import { listEl } from './ui.js?v=5.1.22';
+import { api } from './api.js?v=5.1.23';
+import { TAB_REORDER_LONG_PRESS_MS, state } from './state.js?v=5.1.23';
+import { listEl } from './ui.js?v=5.1.23';
 
 export function createReorderController(deps) {
     const {

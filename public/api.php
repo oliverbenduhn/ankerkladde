@@ -3340,6 +3340,71 @@ try {
                 'has_sketch' => $normalized !== '' ? 1 : 0,
             ]);
 
+        case 'sketch_save_daily':
+            requireMethod('POST');
+            $data = requestData();
+            if (!isApiKeyAuthRequest()) {
+                requireCsrfToken($data);
+            }
+
+            $date = normalizeJournalDate($data['date'] ?? null);
+            $normalized = normalizeSketchJson($data['scene'] ?? null);
+            $title = (new DateTimeImmutable($date, new DateTimeZone('Europe/Berlin')))->format('d.m.Y');
+
+            // Atomic read-or-insert: same pattern as journal_save so the
+            // first sketch save creates the daily item even without text,
+            // and concurrent first saves for the same day cannot both observe
+            // a missing row.
+            $db->exec('BEGIN IMMEDIATE');
+            $journalTransactionActive = true;
+            try {
+                $category = ensureDailyNotesCategory($db, $userId);
+                $item = loadJournalItem($db, $userId, (int) $category['id'], $date);
+
+                if ($item === null) {
+                    $sortOrder = prependItemSortOrder($db, $userId, (int) $category['id']);
+                    $stmt = $db->prepare(
+                        "INSERT INTO items (name, quantity, due_date, content, section, category_id, sort_order, sketch_json, user_id)
+                         VALUES (:name, '', :due_date, '', '', :category_id, :sort_order, :sketch_json, :user_id)"
+                    );
+                    $stmt->execute([
+                        ':name' => $title,
+                        ':due_date' => $date,
+                        ':category_id' => (int) $category['id'],
+                        ':sort_order' => $sortOrder,
+                        ':sketch_json' => $normalized,
+                        ':user_id' => $userId,
+                    ]);
+                    $itemId = (int) $db->lastInsertId();
+                } else {
+                    $itemId = (int) $item['id'];
+                    $db->prepare(
+                        'UPDATE items
+                         SET sketch_json = :sketch_json, updated_at = CURRENT_TIMESTAMP
+                         WHERE id = :id AND user_id = :user_id'
+                    )->execute([
+                        ':sketch_json' => $normalized,
+                        ':id' => $itemId,
+                        ':user_id' => $userId,
+                    ]);
+                }
+
+                $db->exec('COMMIT');
+                $journalTransactionActive = false;
+            } catch (Throwable $error) {
+                if ($journalTransactionActive) {
+                    $db->exec('ROLLBACK');
+                }
+                throw $error;
+            }
+
+            respond($item === null ? 201 : 200, [
+                'message' => 'Skizze gespeichert.',
+                'item_id' => $itemId,
+                'date' => $date,
+                'has_sketch' => $normalized !== '' ? 1 : 0,
+            ]);
+
         case 'sketch_load':
             requireMethod('GET');
             $itemId = filter_var($_GET['item_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);

@@ -94,6 +94,9 @@ export const journalFormatBtn = document.getElementById('journalFormatBtn');
 export const journalToolbar = document.getElementById('journalToolbar');
 export const journalEditorBody = document.getElementById('journalEditorBody');
 export const journalSaveStatus = document.getElementById('journalSaveStatus');
+export const journalSketchCard = document.getElementById('journalSketchCard');
+export const journalSketchOpenBtn = document.getElementById('journalSketchOpenBtn');
+export const journalSketchStatus = document.getElementById('journalSketchStatus');
 
 const NON_INTERACTIVE_ASSET_SELECTOR = '.category-icon-img, .brand-mark';
 

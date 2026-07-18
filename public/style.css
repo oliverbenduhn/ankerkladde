@@ -3616,6 +3616,70 @@ body[data-theme*="dark"] .item-card.is-deep-link-highlight {
 }
 
 /* ===========================================
+   Tages-Skizze (Issue #43)
+   =========================================== */
+.journal-sketch-card {
+    margin-bottom: 0.75rem;
+}
+
+.journal-sketch-card[hidden] { display: none; }
+
+.journal-sketch-summary {
+    list-style: none;
+    cursor: pointer;
+}
+
+.journal-sketch-summary::-webkit-details-marker { display: none; }
+
+.journal-sketch-summary > .journal-sketch-chevron {
+    width: 1.1rem;
+    height: 1.1rem;
+    color: var(--text-secondary);
+    flex-shrink: 0;
+    transition: transform 0.18s ease;
+}
+
+.journal-sketch-card[open] > .journal-sketch-summary .journal-sketch-chevron {
+    transform: rotate(180deg);
+}
+
+.journal-sketch-status {
+    margin-left: auto;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
+.journal-sketch-body {
+    padding: 0.75rem 1rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.journal-sketch-open-btn {
+    align-self: flex-start;
+    min-height: 2.5rem;
+    padding: 0.4rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    cursor: pointer;
+}
+
+.journal-sketch-open-btn:disabled {
+    opacity: 0.55;
+    cursor: progress;
+}
+
+.journal-sketch-hint {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
+/* ===========================================
    MAGIC BAR
    =========================================== */
 .btn-magic.is-active { 

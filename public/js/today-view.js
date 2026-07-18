@@ -1,11 +1,11 @@
-import { api, normalizeItem } from './api.js?v=5.1.22';
+import { api, normalizeItem } from './api.js?v=5.1.23';
 import {
     AGENDA_GROUPS,
     AGENDA_GROUP_OVERDUE,
     AGENDA_GROUP_SCHEDULED,
     state,
-} from './state.js?v=5.1.22';
-import { t } from './i18n.js?v=5.1.22';
+} from './state.js?v=5.1.23';
+import { t } from './i18n.js?v=5.1.23';
 
 function formatDay(value) {
     const parts = String(value).split('-');

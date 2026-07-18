@@ -4,8 +4,8 @@
 // Editor-Fehler bleiben auf das Overlay begrenzt; App-Navigation bleibt
 // unabhängig lauffähig (AC #4).
 
-import { api } from './api.js?v=5.1.22';
-import { t } from './i18n.js?v=5.1.22';
+import { api } from './api.js?v=5.1.23';
+import { t } from './i18n.js?v=5.1.23';
 
 const EXCALIDRAW_MODULE = 'https://esm.sh/@excalidraw/excalidraw@0.17.3?deps=react@18.2.0,react-dom@18.2.0';
 const REACT_MODULE = 'https://esm.sh/react@18.2.0';
@@ -104,6 +104,16 @@ async function saveScene(itemId, scene, onStatus) {
     onStatus(t('editor.saved'));
 }
 
+async function saveSceneDaily(date, scene, onStatus) {
+    onStatus(t('editor.saving'));
+    const payload = await api('sketch_save_daily', {
+        method: 'POST',
+        body: new URLSearchParams({ date, scene: JSON.stringify(scene) }),
+    });
+    onStatus(t('editor.saved'));
+    return payload;
+}
+
 async function loadScene(itemId) {
     const payload = await api(`sketch_load&item_id=${encodeURIComponent(itemId)}`);
     if (payload && payload.scene && typeof payload.scene === 'object') {
@@ -112,13 +122,52 @@ async function loadScene(itemId) {
     return { elements: [], appState: {} };
 }
 
+// Daily-mode save: emits the new item id once the row exists; subsequent
+// saves reuse that item via `saveScene(itemId, …)`. The caller (journal.js)
+// re-reads the journal payload after the editor closes to refresh `has_sketch`.
+async function loadSceneDaily(date) {
+    const payload = await api(
+        `journal&date=${encodeURIComponent(date)}`
+    );
+    const item = payload.item;
+    if (item && Number.isInteger(Number(item.id)) && Number(item.has_sketch) === 1) {
+        const scenePayload = await api(
+            `sketch_load&item_id=${encodeURIComponent(Number(item.id))}`
+        );
+        if (scenePayload && scenePayload.scene && typeof scenePayload.scene === 'object') {
+            return { itemId: Number(item.id), scene: scenePayload.scene };
+        }
+    }
+    const itemId = item && Number.isInteger(Number(item.id)) ? Number(item.id) : 0;
+    return { itemId, scene: { elements: [], appState: {} } };
+}
+
 // Each openSketchEditor call gets its own state via closure (Issue #42:
 // prevent cross-item race when opening the editor twice in quick succession).
-export async function openSketchEditor(item) {
-    const itemId = Number(item?.id);
-    if (!Number.isInteger(itemId) || itemId <= 0) {
+// `mode === 'daily'` swaps save/load to sketch_save_daily/journal; otherwise
+// the editor operates on an existing item via sketch_save/sketch_load.
+async function openSketchEditorImpl({ item, date, mode }) {
+    let itemId = Number(item?.id);
+    const isDaily = mode === 'daily';
+    if (!isDaily && (!Number.isInteger(itemId) || itemId <= 0)) {
         return;
     }
+
+    const doSave = async (targetItemId, scene, onStatus) => {
+        if (isDaily) {
+            return saveSceneDaily(date, scene, onStatus);
+        }
+        return saveScene(targetItemId, scene, onStatus);
+    };
+
+    const doLoad = async () => {
+        if (isDaily) {
+            const { itemId: resolvedId, scene } = await loadSceneDaily(date);
+            if (resolvedId > 0) itemId = resolvedId;
+            return scene;
+        }
+        return loadScene(itemId);
+    };
 
     const refs = buildOverlay();
     refs.status.textContent = t('editor.loading');
@@ -168,7 +217,7 @@ export async function openSketchEditor(item) {
         if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
         saveInFlight = (async () => {
             try {
-                await saveScene(itemId, scene, text => {
+                await doSave(itemId, scene, text => {
                     if (isOpen()) refs.status.textContent = text;
                 });
                 blockingError = false;
@@ -238,7 +287,7 @@ export async function openSketchEditor(item) {
 
     let initialScene;
     try {
-        initialScene = await loadScene(itemId);
+        initialScene = await doLoad();
     } catch (error) {
         reportFatal(
             error?.message || t('sketch.editor_load_failed'),
@@ -269,4 +318,15 @@ export async function openSketchEditor(item) {
 
     refs.closeBtn.addEventListener('click', handleClose);
     refs.status.textContent = '';
+}
+
+export function openSketchEditor(item) {
+    return openSketchEditorImpl({ item, mode: 'item' });
+}
+
+export function openSketchEditorDaily(date) {
+    if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        return Promise.resolve();
+    }
+    return openSketchEditorImpl({ date, mode: 'daily' });
 }

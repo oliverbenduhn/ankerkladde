@@ -1,6 +1,6 @@
-import { api, normalizeItem } from './api.js?v=5.1.22';
-import { buildAgendaItem, loadAgenda } from './today-view.js?v=5.1.22';
-import { NOTE_SAVE_DEBOUNCE_MS, state } from './state.js?v=5.1.22';
+import { api, normalizeItem } from './api.js?v=5.1.23';
+import { buildAgendaItem, loadAgenda } from './today-view.js?v=5.1.23';
+import { NOTE_SAVE_DEBOUNCE_MS, state } from './state.js?v=5.1.23';
 import {
     journalBackBtn,
     journalAnytimeList,
@@ -12,11 +12,49 @@ import {
     journalPreviousBtn,
     journalSaveStatus,
     journalScheduledList,
+    journalSketchCard,
+    journalSketchOpenBtn,
+    journalSketchStatus,
     journalTodayBtn,
     journalToolbar,
-} from './ui.js?v=5.1.22';
-import { sanitizeItemField } from './utils.js?v=5.1.22';
-import { t } from './i18n.js?v=5.1.22';
+} from './ui.js?v=5.1.23';
+import { sanitizeItemField } from './utils.js?v=5.1.23';
+import { t } from './i18n.js?v=5.1.23';
+
+let sketchEditorModulePromise = null;
+function loadSketchEditor() {
+    if (!sketchEditorModulePromise) {
+        sketchEditorModulePromise = import('./sketch-editor.js?v=5.1.23');
+    }
+    return sketchEditorModulePromise;
+}
+
+// Opens the daily-sketch editor and resolves once the user dismisses the
+// overlay (the editor removes .sketch-editor-overlay from the DOM on close).
+async function openDailySketchEditor(date) {
+    const { openSketchEditorDaily } = await loadSketchEditor();
+    // Register the closed-watcher BEFORE triggering the editor so we don't
+    // miss the overlay-remove event in case setup is unusually fast.
+    const closed = new Promise(resolve => {
+        const started = Date.now();
+        const tick = () => {
+            if (!document.querySelector('.sketch-editor-overlay')) {
+                resolve();
+                return;
+            }
+            if (Date.now() - started > 5 * 60_000) {
+                // Watchdog — give up after 5 minutes so a stuck editor doesn't
+                // freeze the journal view.
+                resolve();
+                return;
+            }
+            setTimeout(tick, 100);
+        };
+        tick();
+    });
+    await openSketchEditorDaily(date);
+    await closed;
+}
 
 function serverDateIso(isoDate) {
     if (typeof isoDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) {
@@ -222,6 +260,28 @@ export function createJournalController(deps) {
         journalScheduledList?.replaceChildren(scheduled);
     }
 
+    async function renderSketchCard() {
+        if (!journalSketchCard) return;
+        const date = state.journalDate;
+        if (!date) {
+            journalSketchCard.hidden = true;
+            return;
+        }
+        journalSketchCard.hidden = false;
+        const hasSketch = Number(currentItem?.has_sketch) === 1;
+        if (journalSketchOpenBtn) {
+            journalSketchOpenBtn.textContent = t(hasSketch ? 'journal.sketch.open' : 'journal.sketch.add');
+            journalSketchOpenBtn.dataset.mode = hasSketch ? 'open' : 'add';
+            journalSketchOpenBtn.disabled = false;
+        }
+        if (!hasSketch && journalSketchCard.open) {
+            journalSketchCard.open = false;
+        }
+        if (hasSketch && journalSketchStatus) {
+            journalSketchStatus.textContent = '';
+        }
+    }
+
     async function openDay(date = null, { focus = false } = {}) {
         const requestedDate = date === null || date === 'today'
             ? (state.serverToday || 'today')
@@ -278,6 +338,7 @@ export function createJournalController(deps) {
         updateToolbar();
         setSaveStatus('');
         if (focus) editor.chain().focus().run();
+        renderSketchCard();
     }
 
     async function reloadAgenda() {
@@ -344,6 +405,39 @@ export function createJournalController(deps) {
     journalDatePicker?.addEventListener('change', event => void navigateTo(event.target.value).catch(error => setMessage(error.message, true)));
     journalFormatBtn?.addEventListener('click', () => setToolbarOpen(journalToolbar?.hidden !== false));
     journalToolbar?.addEventListener('click', handleToolbarClick);
+    journalSketchOpenBtn?.addEventListener('click', () => {
+        if (journalSketchOpenBtn.disabled) return;
+        const date = state.journalDate;
+        if (!date) return;
+        // Auto-expand on add so the hint text is visible while the user waits
+        // for the lazy editor to load.
+        if (journalSketchCard && !journalSketchCard.open) {
+            journalSketchCard.open = true;
+        }
+        journalSketchOpenBtn.disabled = true;
+        void openDailySketchEditor(date)
+            .then(async () => {
+                if (state.screen !== 'journal' || state.journalDate !== date) return;
+                // Re-fetch the day so `has_sketch`/`journalItemId` reflect the
+                // final server state without forcing a full editor re-init.
+                try {
+                    const payload = await api(
+                        `journal&date=${encodeURIComponent(date)}`
+                    );
+                    currentItem = payload.item || null;
+                    state.journalItemId = Number(payload.item?.id) || null;
+                    renderSketchCard();
+                } catch (error) {
+                    setMessage(error instanceof Error ? error.message : t('agenda.open_failed'), true);
+                }
+            })
+            .catch(error => {
+                setMessage(error instanceof Error ? error.message : t('agenda.open_failed'), true);
+            })
+            .finally(() => {
+                if (journalSketchOpenBtn) journalSketchOpenBtn.disabled = false;
+            });
+    });
 
     return { closeJournal, openDay, reloadAgenda, setToggleHandler };
 }
