@@ -271,14 +271,10 @@ export function createJournalController(deps) {
         const hasSketch = Number(currentItem?.has_sketch) === 1;
         if (journalSketchOpenBtn) {
             journalSketchOpenBtn.textContent = t(hasSketch ? 'journal.sketch.open' : 'journal.sketch.add');
-            journalSketchOpenBtn.dataset.mode = hasSketch ? 'open' : 'add';
             journalSketchOpenBtn.disabled = false;
         }
-        if (!hasSketch && journalSketchCard.open) {
-            journalSketchCard.open = false;
-        }
-        if (hasSketch && journalSketchStatus) {
-            journalSketchStatus.textContent = '';
+        if (journalSketchStatus) {
+            journalSketchStatus.textContent = hasSketch ? '' : t('journal.sketch.empty');
         }
     }
 
@@ -409,12 +405,10 @@ export function createJournalController(deps) {
         if (journalSketchOpenBtn.disabled) return;
         const date = state.journalDate;
         if (!date) return;
-        // Auto-expand on add so the hint text is visible while the user waits
-        // for the lazy editor to load.
-        if (journalSketchCard && !journalSketchCard.open) {
-            journalSketchCard.open = true;
-        }
         journalSketchOpenBtn.disabled = true;
+        if (journalSketchStatus) {
+            journalSketchStatus.textContent = t('journal.sketch.loading');
+        }
         void openDailySketchEditor(date)
             .then(async () => {
                 if (state.screen !== 'journal' || state.journalDate !== date) return;

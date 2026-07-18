@@ -221,17 +221,15 @@ $clientWebSocketUrl = is_string($clientWebSocketUrl) ? trim($clientWebSocketUrl)
                     </section>
                 </div>
             </section>
-            <details class="parchment-card journal-sketch-card" id="journalSketchCard" aria-labelledby="journalSketchTitle">
-                <summary class="journal-card-header journal-sketch-summary">
+            <section class="parchment-card journal-sketch-card" id="journalSketchCard" aria-labelledby="journalSketchTitle">
+                <header class="journal-card-header journal-sketch-summary">
                     <h3 id="journalSketchTitle" class="journal-card-title"><?= t('journal.sketch.title') ?></h3>
                     <span class="journal-sketch-status" id="journalSketchStatus" aria-live="polite"></span>
-                    <svg class="journal-sketch-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                </summary>
+                </header>
                 <div class="journal-sketch-body">
                     <button type="button" id="journalSketchOpenBtn" class="journal-sketch-open-btn"><?= t('journal.sketch.add') ?></button>
-                    <p class="journal-sketch-hint"><?= t('journal.sketch.hint') ?></p>
                 </div>
-            </details>
+            </section>
             <section class="parchment-card journal-note-card" aria-labelledby="journalNoteTitle">
                 <header class="journal-card-header">
                     <h3 id="journalNoteTitle" class="journal-card-title"><?= t('journal.note_title') ?></h3>
