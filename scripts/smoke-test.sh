@@ -92,7 +92,7 @@ php -r '
     if (!is_array($shortcuts)) exit(1);
     $names = array_map(static fn(array $shortcut): string => (string) ($shortcut["name"] ?? ""), $shortcuts);
     $urls = array_map(static fn(array $shortcut): string => (string) ($shortcut["url"] ?? ""), $shortcuts);
-    if (!in_array("Heute", $names, true) || !in_array("/?screen=journal&date=today", $urls, true)) exit(1);
+    if (!in_array("Heute", $names, true) || !in_array("/?screen=today", $urls, true)) exit(1);
     if (!in_array("Neue Notiz", $names, true) || !in_array("/?screen=journal&date=today&focus=editor", $urls, true)) exit(1);
     if (!in_array("Barcode scannen", $names, true)) exit(1);
 ' "$MANIFEST_BODY"
@@ -638,7 +638,7 @@ grep -q '"id":"/sub/"' "$SUBPATH_MANIFEST"
 grep -q '"start_url":"/sub/"' "$SUBPATH_MANIFEST"
 grep -q '"scope":"/sub/"' "$SUBPATH_MANIFEST"
 grep -q '"src":"/sub/icon.php?size=192"' "$SUBPATH_MANIFEST"
-grep -q '"url":"/sub/?screen=journal&date=today"' "$SUBPATH_MANIFEST"
+grep -q '"url":"/sub/?screen=today"' "$SUBPATH_MANIFEST"
 grep -q '"url":"/sub/?screen=journal&date=today&focus=editor"' "$SUBPATH_MANIFEST"
 curl -fsS -b "$SUBPATH_COOKIE_JAR" -o /dev/null "http://127.0.0.1:$SUBPATH_PORT/sub/icon.php?size=144"
 curl -fsS -b "$SUBPATH_COOKIE_JAR" -o /dev/null "http://127.0.0.1:$SUBPATH_PORT/sub/category-icon.php?icon=einkauf"
@@ -672,6 +672,9 @@ SKETCH_LOAD_BODY="$(curl -fsS -b "$COOKIE_JAR" \
     "http://127.0.0.1:$PORT/api.php?action=sketch_load&item_id=$DRAWING_ITEM_ID")"
 echo "$SKETCH_LOAD_BODY" | grep -q '"type":"rectangle"' || { echo "sketch_load lieferte keine Szene: $SKETCH_LOAD_BODY"; exit 1; }
 echo "$SKETCH_LOAD_BODY" | grep -q '"has_sketch":1' || { echo "sketch_load lieferte kein has_sketch=1: $SKETCH_LOAD_BODY"; exit 1; }
+SKETCH_CANONICAL_LOAD_BODY="$(curl -fsS -b "$COOKIE_JAR" \
+    "http://127.0.0.1:$PORT/api.php?action=sketch&item_id=$DRAWING_ITEM_ID")"
+echo "$SKETCH_CANONICAL_LOAD_BODY" | grep -q '"type":"rectangle"' || { echo "Kanonischer sketch-Endpunkt lieferte keine Szene: $SKETCH_CANONICAL_LOAD_BODY"; exit 1; }
 
 # Leere Szene: has_sketch muss 0 sein und Liste darf Scene-JSON nicht enthalten
 EMPTY_SCENE='{"elements":[]}'
@@ -796,6 +799,17 @@ SKETCH_WRONG_CAT_STATUS="$(curl -s -o /dev/null -w '%{http_code}' -b "$COOKIE_JA
 # -----------------------------------------------------------------------------
 SKETCH_DAILY_DATE="$(date -d 'today +2 days' +%Y-%m-%d 2>/dev/null || date -v+2d +%Y-%m-%d)"
 [[ "$SKETCH_DAILY_DATE" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] || { echo "Konnte Testdatum nicht ableiten."; exit 1; }
+
+# Eine leere erste Szene darf noch keine leere Tagesnotiz erzeugen.
+SKETCH_EMPTY_DAILY_DATE="$(date -d 'today +9 days' +%Y-%m-%d 2>/dev/null || date -v+9d +%Y-%m-%d)"
+EMPTY_DAILY_BODY="$(curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+    --data-urlencode "date=$SKETCH_EMPTY_DAILY_DATE" \
+    --data-urlencode 'scene={"elements":[]}' \
+    "http://127.0.0.1:$PORT/api.php?action=sketch_save_daily")"
+echo "$EMPTY_DAILY_BODY" | grep -q '"item_id":null' || { echo "Leere erste Tages-Skizze erzeugte ein Item: $EMPTY_DAILY_BODY"; exit 1; }
+EMPTY_DAILY_JOURNAL="$(curl -fsS -b "$COOKIE_JAR" \
+    "http://127.0.0.1:$PORT/api.php?action=journal&date=$SKETCH_EMPTY_DAILY_DATE")"
+echo "$EMPTY_DAILY_JOURNAL" | grep -q '"item":null' || { echo "Leere erste Tages-Skizze hinterließ eine Tagesnotiz: $EMPTY_DAILY_JOURNAL"; exit 1; }
 
 # Erster Save ohne Text erzeugt die Tagesnotiz (201).
 DAILY_FIRST_BODY="$(curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \

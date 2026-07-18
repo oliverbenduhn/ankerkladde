@@ -108,7 +108,7 @@ ESM modules in `public/js/` (structured via `createXxxController(deps)` pattern)
 
 ### Database
 
-SQLite at `data/einkaufsliste.db` (overridable via `EINKAUF_DATA_DIR` env var). Schema is created and migrated automatically in `getDatabase()` on every request — migrations are strictly additive `ALTER TABLE ... ADD COLUMN` statements.
+SQLite at `data/einkaufsliste.db` (overridable via `EINKAUF_DATA_DIR` env var). Schema is created and migrated automatically in `getDatabase()` on every request. Prefer additive `ALTER TABLE ... ADD COLUMN` migrations; when SQLite constraints must change, use the guarded transactional table-rebuild pattern covered by `scripts/test-db-migration.sh`.
 
 Key tables:
 - `users` — user accounts (username, password_hash, is_admin, api_key)

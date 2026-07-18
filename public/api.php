@@ -3361,6 +3361,17 @@ try {
                 $category = ensureDailyNotesCategory($db, $userId);
                 $item = loadJournalItem($db, $userId, (int) $category['id'], $date);
 
+                if ($item === null && $normalized === '') {
+                    $db->exec('COMMIT');
+                    $journalTransactionActive = false;
+                    respond(200, [
+                        'message' => 'Keine Skizze zu speichern.',
+                        'item_id' => null,
+                        'date' => $date,
+                        'has_sketch' => 0,
+                    ]);
+                }
+
                 if ($item === null) {
                     $sortOrder = prependItemSortOrder($db, $userId, (int) $category['id']);
                     $stmt = $db->prepare(
@@ -3405,6 +3416,7 @@ try {
                 'has_sketch' => $normalized !== '' ? 1 : 0,
             ]);
 
+        case 'sketch':
         case 'sketch_load':
             requireMethod('GET');
             $itemId = filter_var($_GET['item_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);

@@ -13,6 +13,9 @@
     --done-bg:          #f0ebe4;
     --error:            #a05030;
     --font-family:      system-ui, -apple-system, sans-serif;
+    --font-serif:       "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Palatino, Georgia, serif;
+    --font-mono:        ui-monospace, "SFMono-Regular", "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    --radius:           14px;
     --brand-mark-surface: rgba(255, 251, 245, 0.92);
     --brand-mark-border: rgba(126, 96, 68, 0.16);
     --brand-mark-shadow: 0 12px 24px rgba(84, 60, 34, 0.14);
@@ -3448,8 +3451,20 @@ body[data-theme*="dark"] .item-card.is-deep-link-highlight {
     display: none !important;
 }
 
+.app.journal-view .app-header,
+.app.journal-view .section-tabs {
+    display: none !important;
+}
+
+.app.journal-view.quick-add-open .input-area {
+    display: block !important;
+    margin: 0 10px 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+}
+
 .parchment-view {
-    --parchment-radius: 14px;
     width: 100%;
     max-width: 640px;
     margin: 0 auto;
@@ -3458,7 +3473,7 @@ body[data-theme*="dark"] .item-card.is-deep-link-highlight {
 
 .journal-navigation {
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-columns: 2.5rem minmax(0, 1fr) 2.5rem;
     align-items: center;
     gap: 0.5rem;
     margin-bottom: 0.75rem;
@@ -3471,14 +3486,22 @@ body[data-theme*="dark"] .item-card.is-deep-link-highlight {
 }
 
 .journal-nav-btn,
-.journal-date-picker {
+.journal-nav-icon-btn {
     min-height: 2.5rem;
     border: 1px solid var(--border);
-    border-radius: var(--parchment-radius);
+    border-radius: 999px;
     background: var(--surface);
     color: var(--text-primary);
     padding: 0.45rem 0.75rem;
     font: inherit;
+}
+
+.journal-nav-icon-btn {
+    display: grid;
+    place-items: center;
+    width: 2.5rem;
+    padding: 0;
+    text-decoration: none;
 }
 
 .journal-nav-btn[aria-pressed="true"] {
@@ -3487,16 +3510,12 @@ body[data-theme*="dark"] .item-card.is-deep-link-highlight {
     color: var(--button-active-text);
 }
 
-.journal-back-btn {
-    display: grid;
-    place-items: center;
-    width: 2.5rem;
-    padding: 0;
-}
-
 .journal-date-picker {
-    grid-column: 1 / -1;
-    width: 100%;
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
 }
 
 .journal-date-picker-label {
@@ -3511,15 +3530,17 @@ body[data-theme*="dark"] .item-card.is-deep-link-highlight {
 .journal-date-heading {
     margin: 0 0 0.75rem;
     color: var(--text-primary);
-    font-size: clamp(1.3rem, 4vw, 2rem);
+    font-family: var(--font-serif);
+    font-size: clamp(1.6rem, 5vw, 2.2rem);
     font-weight: 700;
     text-align: left;
 }
 
 .parchment-card {
     border: 1px solid var(--border);
-    border-radius: var(--parchment-radius);
+    border-radius: var(--radius);
     background: var(--surface);
+    box-shadow: 0 8px 24px color-mix(in srgb, var(--text-primary) 5%, transparent);
     overflow: hidden;
 }
 
@@ -3529,13 +3550,20 @@ body[data-theme*="dark"] .item-card.is-deep-link-highlight {
 
 .journal-agenda-columns {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.5rem;
+    grid-template-columns: minmax(0, 52fr) minmax(0, 48fr);
+    gap: 0;
     padding: 0.75rem;
 }
 
 .journal-agenda-column {
     min-width: 0;
+    padding-right: 0.65rem;
+}
+
+.journal-agenda-column + .journal-agenda-column {
+    padding-right: 0;
+    padding-left: 0.65rem;
+    border-left: 1px solid var(--border);
 }
 
 .journal-agenda-column h4 {
@@ -3549,12 +3577,61 @@ body[data-theme*="dark"] .item-card.is-deep-link-highlight {
     padding: 0;
 }
 
-.journal-agenda-column .agenda-item-button {
+.journal-agenda-column .agenda-item-body {
     min-width: 0;
     align-items: flex-start;
     flex-direction: column;
     gap: 0.35rem;
-    padding: 0.65rem;
+    padding: 0.25rem 0;
+    border: 0;
+    background: transparent;
+}
+
+.journal-agenda-column .agenda-item-name {
+    font-size: 0.84rem;
+    line-height: 1.25;
+}
+
+.journal-agenda-column .agenda-item.is-overdue .agenda-item-body {
+    border-left: 0;
+}
+
+.journal-agenda-column .agenda-item {
+    gap: 0.15rem;
+}
+
+.journal-agenda-column .agenda-item-checkbox {
+    position: relative;
+    width: 40px;
+    height: 40px;
+    border: 0;
+    background: transparent;
+}
+
+.journal-agenda-column .agenda-item-checkbox::before {
+    content: "";
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    border: 2px solid var(--text-muted);
+    border-radius: 50%;
+    background: var(--surface);
+}
+
+.journal-agenda-column .agenda-item-checkbox svg {
+    position: relative;
+    z-index: 1;
+    width: 13px;
+    height: 13px;
+}
+
+.journal-agenda-column .agenda-item.is-done .agenda-item-checkbox {
+    background: transparent;
+}
+
+.journal-agenda-column .agenda-item.is-done .agenda-item-checkbox::before {
+    border-color: var(--accent);
+    background: var(--accent);
 }
 
 .journal-agenda-column .agenda-item-meta {
@@ -3577,6 +3654,7 @@ body[data-theme*="dark"] .item-card.is-deep-link-highlight {
 
 .journal-card-title {
     margin: 0;
+    font-family: var(--font-serif);
     font-size: 1.15rem;
 }
 
@@ -3595,6 +3673,19 @@ body[data-theme*="dark"] .item-card.is-deep-link-highlight {
     color: var(--text-primary);
 }
 
+.journal-card-icon-btn {
+    display: grid;
+    place-items: center;
+    width: 2.5rem;
+    min-height: 2.5rem;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    background: color-mix(in srgb, var(--accent) 18%, transparent);
+    color: var(--text-primary);
+    cursor: pointer;
+}
+
 .journal-toolbar {
     border-bottom: 1px solid var(--border);
 }
@@ -3602,7 +3693,9 @@ body[data-theme*="dark"] .item-card.is-deep-link-highlight {
 .journal-editor-body {
     min-height: min(58vh, 620px);
     padding: 1.25rem;
-    background: var(--surface);
+    background: color-mix(in srgb, var(--surface) 92%, var(--text-primary));
+    font-family: var(--font-mono);
+    line-height: 1.55;
 }
 
 .journal-editor-body .tiptap {
@@ -3619,7 +3712,20 @@ body[data-theme*="dark"] .item-card.is-deep-link-highlight {
    Tages-Skizze (Issue #43)
    =========================================== */
 .journal-sketch-card {
+    margin-top: 0.75rem;
     margin-bottom: 0.75rem;
+}
+
+.journal-sketch-card[hidden] { display: none; }
+
+@media (max-width: 420px) {
+    .parchment-view { padding-inline: 8px; }
+    .journal-segments { gap: 0.15rem; }
+    .journal-nav-btn { padding-inline: 0.4rem; font-size: 0.82rem; }
+    .journal-agenda-columns { padding: 0.6rem; }
+    .journal-agenda-column { padding-right: 0.45rem; }
+    .journal-agenda-column + .journal-agenda-column { padding-left: 0.45rem; }
+    .journal-agenda-column h4 { font-size: 0.67rem; letter-spacing: 0.04em; }
 }
 
 .journal-sketch-card[hidden] { display: none; }

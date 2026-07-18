@@ -1,5 +1,5 @@
-import { basePath, state } from './state.js?v=5.1.23';
-import { sectionTabsEl } from './ui.js?v=5.1.23';
+import { basePath, state } from './state.js?v=5.1.24';
+import { sectionTabsEl } from './ui.js?v=5.1.24';
 
 function normalizeIconKey(icon, fallbackIcon) {
     const value = String(icon || '').trim();
@@ -192,7 +192,7 @@ export function createTabsViewController(deps) {
         sectionTabsEl.replaceChildren();
         sectionTabsEl.classList.add('is-scrollable');
 
-        const categories = getVisibleCategories();
+        const categories = getVisibleCategories().filter(category => category.type !== 'daily_notes');
         const fragment = document.createDocumentFragment();
 
         categories.forEach(category => {

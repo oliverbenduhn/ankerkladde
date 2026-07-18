@@ -9,6 +9,7 @@ test.describe('Settings Theme Smoke Test', () => {
     await page.getByRole('button', { name: 'Anmelden' }).click();
 
     await expect(page).toHaveURL(/index\.php/);
+    await expect(page.locator('#sectionTabs .section-tab').first()).toBeVisible();
 
     await page.getByRole('link', { name: 'Einstellungen' }).first().click();
 
@@ -27,8 +28,10 @@ test.describe('Settings Theme Smoke Test', () => {
 
     await page.goto('/index.php');
     await expect(page.locator('body')).toHaveAttribute('data-theme', 'monochrom');
+    await expect(page.locator('#sectionTabs .section-tab').first()).toBeVisible();
+    await page.getByRole('button', { name: 'Einkauf', exact: true }).click();
 
-    const contrast = await page.getByRole('button', { name: 'Artikel hinzufügen' }).evaluate(element => {
+    const contrast = await page.locator('#itemSubmitBtn').evaluate(element => {
       const style = window.getComputedStyle(element);
       return {
         backgroundColor: style.backgroundColor,
@@ -48,6 +51,7 @@ test.describe('Settings Theme Smoke Test', () => {
     await page.getByRole('button', { name: 'Anmelden' }).click();
 
     await expect(page).toHaveURL(/index\.php/);
+    await expect(page.locator('#sectionTabs .section-tab').first()).toBeVisible();
     await page.getByRole('link', { name: 'Einstellungen' }).first().click();
 
     const settingsFrame = page.frameLocator('#settingsFrame');
@@ -83,6 +87,7 @@ test.describe('Settings Theme Smoke Test', () => {
     await page.getByRole('button', { name: 'Anmelden' }).click();
 
     await expect(page).toHaveURL(/index\.php/);
+    await expect(page.locator('#sectionTabs .section-tab').first()).toBeVisible();
 
     await page.getByRole('link', { name: 'Einstellungen' }).first().click();
 
@@ -133,6 +138,7 @@ test.describe('Settings Theme Smoke Test', () => {
     await page.getByRole('button', { name: 'Anmelden' }).click();
 
     await expect(page).toHaveURL(/index\.php/);
+    await expect(page.locator('#sectionTabs .section-tab').first()).toBeVisible();
     await page.getByRole('button', { name: 'KI-Assistent' }).first().click();
     await expect(page.locator('#magicBar')).toBeVisible();
 
@@ -152,6 +158,7 @@ test.describe('Settings Theme Smoke Test', () => {
     await page.getByRole('button', { name: 'Anmelden' }).click();
 
     await expect(page).toHaveURL(/index\.php/);
+    await expect(page.locator('#sectionTabs .section-tab').first()).toBeVisible();
 
     await page.getByRole('link', { name: 'Einstellungen' }).first().click();
 

@@ -8,6 +8,7 @@ async function login(page) {
   await page.getByLabel('Passwort').fill('playwright-pass');
   await page.getByRole('button', { name: 'Anmelden' }).click();
   await expect(page).toHaveURL(/index\.php/);
+  await expect(page.locator('#sectionTabs .section-tab').first()).toBeVisible();
 }
 
 function shiftIso(isoDate, days) {
@@ -20,9 +21,13 @@ test.describe('Journal', () => {
   test('navigates absolute days without history spam and keeps formatting accessible', async ({ page }) => {
     await login(page);
 
-    await page.getByRole('button', { name: 'Journal' }).click();
+    await page.locator('#journalBtn').click();
     await expect(page).toHaveURL(/screen=journal/);
     await expect(page.locator('#journalView')).toBeVisible();
+    await expect(page.locator('#appHeader')).toBeHidden();
+    await expect(page.locator('#journalDatePickerBtn')).toBeVisible();
+    await expect(page.locator('.journal-navigation .btn-settings')).toBeVisible();
+    await expect(page.locator('#journalSketchCard')).toBeHidden();
     const picker = page.locator('#journalDatePicker');
     const today = await picker.inputValue();
     const yesterday = shiftIso(today, -1);
@@ -72,17 +77,17 @@ test.describe('Journal', () => {
     await picker.fill(previousYearDate);
     await picker.dispatchEvent('change');
     await expect(picker).toHaveValue(previousYearDate);
-    await expect(page.locator('#journalDateHeading')).toContainText(String(Number(currentYear) - 1));
+    await expect(page.locator('#journalDateHeading')).not.toContainText(String(Number(currentYear) - 1));
     await expect(page.locator('.journal-nav-btn[aria-pressed="true"]')).toHaveCount(0);
 
-    await page.locator('#journalBackBtn').click();
+    await page.goto('/index.php');
     await expect(page.locator('#journalView')).toBeHidden();
     await expect(page).not.toHaveURL(/screen=journal/);
   });
 
   test('keeps the current day intact when the target day fails to load', async ({ page }) => {
     await login(page);
-    await page.getByRole('button', { name: 'Journal' }).click();
+    await page.locator('#journalBtn').click();
     await expect(page.locator('#journalView')).toBeVisible();
 
     const picker = page.locator('#journalDatePicker');
@@ -127,7 +132,7 @@ test.describe('Journal', () => {
     });
     expect(scheduledResponse.status()).toBe(201);
 
-    await page.getByRole('button', { name: 'Journal' }).click();
+    await page.locator('#journalBtn').click();
     await page.locator('#journalNextBtn').click();
 
     const anytimeColumn = page.locator('#journalAnytimeList');
@@ -140,13 +145,19 @@ test.describe('Journal', () => {
     const [leftBox, rightBox] = await Promise.all([anytimeColumn.boundingBox(), scheduledColumn.boundingBox()]);
     expect(leftBox.x).toBeLessThan(rightBox.x);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
-    const nameBox = await anytimeColumn.locator('.today-item-name').boundingBox();
+    const nameBox = await anytimeColumn.locator('.agenda-item-name').boundingBox();
     expect(nameBox.height).toBeGreaterThan(20);
+    const columnWidths = await page.locator('.journal-agenda-column').evaluateAll(columns => columns.map(column => column.getBoundingClientRect().width));
+    expect(columnWidths[0]).toBeGreaterThan(columnWidths[1]);
+    await expect(page.locator('#agendaAddBtn')).toBeVisible();
+    await page.locator('#agendaAddBtn').click();
+    await expect(page.locator('#inputArea')).toBeVisible();
+    await expect(page.locator('#itemInput')).toBeFocused();
   });
 
   test('blocks the PWA back exit when saving fails', async ({ page }) => {
     await login(page);
-    await page.getByRole('button', { name: 'Journal' }).click();
+    await page.locator('#journalBtn').click();
 
     await page.route('**/api.php?action=journal_save', route => route.fulfill({
       status: 500,
@@ -156,7 +167,7 @@ test.describe('Journal', () => {
     const editor = page.locator('#journalEditorBody .tiptap');
     const body = `Ungespeichert ${Date.now()}`;
     await editor.fill(body);
-    await page.locator('#journalBackBtn').click();
+    await page.goBack();
 
     await expect(page.locator('#journalView')).toBeVisible();
     await expect(page).toHaveURL(/screen=journal/);

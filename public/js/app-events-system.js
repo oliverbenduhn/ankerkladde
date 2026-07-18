@@ -1,5 +1,5 @@
-import { saveLocalPrefs, state, scannerState } from './state.js?v=5.1.23';
-import { magicBar } from './ui.js?v=5.1.23';
+import { saveLocalPrefs, state, scannerState } from './state.js?v=5.1.24';
+import { magicBar } from './ui.js?v=5.1.24';
 
 export function registerSystemEvents(deps) {
     const { navigation, setMessage, flushOfflineQueue, setNetworkStatus, magicController, closeSearch, savePreferences } = deps;

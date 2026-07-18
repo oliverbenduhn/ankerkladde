@@ -472,6 +472,8 @@ function sendHtmlPageSecurityHeaders(bool $allowEsmSh = false, bool $allowSameOr
 
     $scriptSrc = "'self' 'unsafe-inline'";
     $connectSrc = "'self'";
+    $styleSrc = "'self' 'unsafe-inline'";
+    $fontSrc = "'self'";
     $clientWebSocketUrl = getenv('ANKERKLADDE_WS_CLIENT_URL');
     if (is_string($clientWebSocketUrl) && trim($clientWebSocketUrl) !== '') {
         $wsUrl = trim($clientWebSocketUrl);
@@ -488,12 +490,15 @@ function sendHtmlPageSecurityHeaders(bool $allowEsmSh = false, bool $allowSameOr
         // TipTap and its transitive ESM dependencies are loaded from esm.sh
         $scriptSrc  .= ' https://esm.sh';
         $connectSrc .= ' https://esm.sh';
+        $styleSrc   .= ' https://esm.sh';
+        $fontSrc    .= ' https://esm.sh';
     }
 
     $csp = implode('; ', [
         "default-src 'self'",
         "script-src $scriptSrc",
-        "style-src 'self' 'unsafe-inline'",
+        "style-src {$styleSrc}",
+        "font-src {$fontSrc}",
         "img-src 'self' data: blob:",
         "media-src 'self' blob:",
         "connect-src $connectSrc",

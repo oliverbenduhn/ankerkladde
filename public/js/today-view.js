@@ -1,18 +1,18 @@
-import { api, normalizeItem } from './api.js?v=5.1.23';
+import { api, normalizeItem } from './api.js?v=5.1.24';
 import {
     AGENDA_GROUPS,
     AGENDA_GROUP_OVERDUE,
     AGENDA_GROUP_SCHEDULED,
     state,
-} from './state.js?v=5.1.23';
-import { t } from './i18n.js?v=5.1.23';
+} from './state.js?v=5.1.24';
+import { t } from './i18n.js?v=5.1.24';
 
 function formatDay(value) {
     const parts = String(value).split('-');
     return parts.length === 3 ? `${parts[2]}.${parts[1]}.` : value;
 }
 
-// Ponytail: shared helper used by journal + WebSocket — replace when a dedicated agenda controller appears.
+// Shared agenda loader used by the journal and WebSocket refresh paths.
 export async function loadAgenda(date = null) {
     const params = date ? `&date=${encodeURIComponent(date)}` : '';
     const payload = await api(`today${params}`);
@@ -81,16 +81,6 @@ export function buildAgendaItem(item, onOpenItem) {
 
     entry.append(checkbox, button);
     return entry;
-}
-
-// Backwards-compatible export — the old controller only delegated to buildAgendaItem.
-// Kept as a thin namespace so the journal module can keep its single import path.
-export function createAgendaController(deps) {
-    return {
-        buildAgendaItem: item => buildAgendaItem(item, deps.openSourceItem),
-        loadAgenda,
-        updateAppBadge,
-    };
 }
 
 export function renderGroupedAgenda(list, items, buildItem) {

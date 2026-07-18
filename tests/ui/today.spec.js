@@ -6,6 +6,7 @@ async function login(page) {
   await page.getByLabel('Passwort').fill('playwright-pass');
   await page.getByRole('button', { name: 'Anmelden' }).click();
   await expect(page).toHaveURL(/index\.php/);
+  await expect(page.locator('#sectionTabs .section-tab').first()).toBeVisible();
 }
 
 function shiftDate(date, days) {
@@ -18,8 +19,7 @@ test.describe('Heute', () => {
   test('opens today journal note and focuses the editor', async ({ page }) => {
     await login(page);
 
-    await page.getByRole('button', { name: 'Heute', exact: true }).click();
-    await page.getByRole('button', { name: 'Notiz', exact: true }).click();
+    await page.locator('#journalBtn').click();
 
     await expect(page).toHaveURL(/screen=journal.*date=today.*focus=editor/);
     await expect(page.locator('#journalView')).toBeVisible();
@@ -41,11 +41,11 @@ test.describe('Heute', () => {
     const target = (await createTarget.json()).category;
 
     await page.getByRole('button', { name: 'Einkauf', exact: true }).click();
-    await page.getByRole('button', { name: 'Heute', exact: true }).click();
+    await page.locator('#journalBtn').click();
+    await page.locator('#agendaAddBtn').click();
 
     const input = page.getByLabel('Quick-Add');
     await expect(input).toBeVisible();
-    await expect(page.locator('#itemSubmitBtn')).toBeHidden();
 
     const defaultName = `Agenda Quick Add Default ${Date.now()}`;
     const defaultResponse = page.waitForResponse(response => response.url().includes('action=quick_add') && response.status() === 201);
@@ -53,19 +53,18 @@ test.describe('Heute', () => {
     await input.press('Enter');
     const defaultPayload = await (await defaultResponse).json();
     expect(defaultPayload.category_id).toBe(dueCategories[0].id);
-    await expect(page).toHaveURL(/screen=today/);
-    await expect(page.locator('#categoryTitle')).toHaveText('Heute');
-    await expect(page.locator('#list')).toContainText(defaultName);
+    await expect(page).toHaveURL(/screen=journal/);
+    await expect(page.locator('#journalAnytimeList')).toContainText(defaultName);
 
     const targetedName = `Agenda Quick Add Ziel ${Date.now()}`;
+    await page.locator('#agendaAddBtn').click();
     const targetedResponse = page.waitForResponse(response => response.url().includes('action=quick_add') && response.status() === 201);
     await input.fill(`${targetedName} heute /${targetName.toLocaleLowerCase('de-DE')}`);
     await input.press('Enter');
     const targetedPayload = await (await targetedResponse).json();
     expect(targetedPayload.category_id).toBe(target.id);
-    await expect(page).toHaveURL(/screen=today/);
-    await expect(page.locator('#categoryTitle')).toHaveText('Heute');
-    await expect(page.locator('#list')).toContainText(targetedName);
+    await expect(page).toHaveURL(/screen=journal/);
+    await expect(page.locator('#journalAnytimeList')).toContainText(targetedName);
   });
 
   test('renders the agenda read-only and deep-links to the source item', async ({ page }) => {
@@ -122,34 +121,29 @@ test.describe('Heute', () => {
     });
     expect(toggle.status()).toBe(200);
 
-    await page.getByRole('button', { name: 'Heute', exact: true }).click();
-    await expect(page).toHaveURL(/screen=today/);
-    await expect(page.locator('#categoryTitle')).toHaveText('Heute');
-    await expect(page.locator('.today-section-heading')).toHaveText(['Überfällig', 'Terminiert', 'Irgendwann heute']);
+    await page.locator('#journalBtn').click();
+    await expect(page).toHaveURL(/screen=journal/);
 
-    const overdueEntry = page.locator('.today-item').filter({ hasText: names.overdue });
-    const scheduledEarlyEntry = page.locator('.today-item').filter({ hasText: names.scheduledEarly });
-    const anytimeEntry = page.locator('.today-item').filter({ hasText: names.anytimeFirst });
+    const overdueEntry = page.locator('#journalAnytimeList .agenda-item').filter({ hasText: names.overdue });
+    const scheduledEarlyEntry = page.locator('#journalScheduledList .agenda-item').filter({ hasText: names.scheduledEarly });
+    const anytimeEntry = page.locator('#journalAnytimeList .agenda-item').filter({ hasText: names.anytimeFirst });
     await expect(overdueEntry).toContainText(dueCategories[1].name);
     await expect(scheduledEarlyEntry).toContainText(dueCategories[1].name);
     await expect(scheduledEarlyEntry).toContainText('08:15 Uhr');
     await expect(anytimeEntry).toContainText(dueCategories[0].name);
-    await expect(overdueEntry.locator('.today-overdue-label')).toHaveText(new RegExp(`^seit \\d{2}\\.\\d{2}\\.`));
+    await expect(overdueEntry.locator('.agenda-overdue-label')).toHaveText(new RegExp(`^seit \\d{2}\\.\\d{2}\\.`));
 
-    const renderedNames = await page.locator('.today-item-name').allTextContents();
-    expect(renderedNames.indexOf(names.overdue)).toBeLessThan(renderedNames.indexOf(names.scheduledEarly));
-    expect(renderedNames.indexOf(names.scheduledEarly)).toBeLessThan(renderedNames.indexOf(names.scheduledLate));
-    expect(renderedNames.indexOf(names.scheduledLate)).toBeLessThan(renderedNames.indexOf(names.anytimeFirst));
-    expect(renderedNames.indexOf(names.anytimeFirst)).toBeLessThan(renderedNames.indexOf(names.anytimeSecond));
+    const scheduledNames = await page.locator('#journalScheduledList .agenda-item-name').allTextContents();
+    expect(scheduledNames.indexOf(names.scheduledEarly)).toBeLessThan(scheduledNames.indexOf(names.scheduledLate));
     await expect(overdueEntry).toHaveAttribute('data-agenda-group', 'overdue');
     await expect(scheduledEarlyEntry).toHaveAttribute('data-agenda-group', 'scheduled');
     await expect(anytimeEntry).toHaveAttribute('data-agenda-group', 'anytime_today');
-    await expect(page.locator('#list .toggle')).toHaveCount(0);
+    await expect(page.locator('#journalView .toggle')).toHaveCount(0);
     await expect(page.getByText(names.future)).toHaveCount(0);
     await expect(page.getByText(names.done)).toHaveCount(0);
     await expect(page.getByText(names.undated)).toHaveCount(0);
 
-    await overdueEntry.getByRole('button').click();
+    await overdueEntry.locator('.agenda-item-body').click();
     await expect(page.getByRole('button', { name: dueCategories[1].name, exact: true })).toHaveAttribute('aria-current', 'page');
     const sourceItem = page.locator(`.item-card[data-item-id="${overdue.id}"]`);
     await expect(sourceItem).toHaveClass(/is-deep-link-highlight/);

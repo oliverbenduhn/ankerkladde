@@ -1,6 +1,6 @@
 import { t } from './i18n.js';
-import { appUrl, api, fetchLinkMetadata } from './api.js?v=5.1.23';
-import { getCurrentCategory, isAttachmentCategory, state } from './state.js?v=5.1.23';
+import { appUrl, api, fetchLinkMetadata } from './api.js?v=5.1.24';
+import { getCurrentCategory, isAttachmentCategory, state } from './state.js?v=5.1.24';
 import {
     itemInput,
     linkDescriptionInput,
@@ -8,9 +8,9 @@ import {
     quickAddAiBtn,
     quickAddFeedback,
     quickAddFeedbackText,
-} from './ui.js?v=5.1.23';
-import { sanitizeItemField } from './utils.js?v=5.1.23';
-import { enqueueAction } from './offline-queue.js?v=5.1.23';
+} from './ui.js?v=5.1.24';
+import { sanitizeItemField } from './utils.js?v=5.1.24';
+import { enqueueAction } from './offline-queue.js?v=5.1.24';
 
 export function createAddActions(deps) {
     const {
@@ -69,7 +69,7 @@ export function createAddActions(deps) {
             invalidateCategoryCache(activeCategoryId);
             invalidateCategoryCache(payload.category_id);
             if (stayOnScreen) {
-                // ponytail: caller (e.g. journal quick-add) is responsible for refreshing its view.
+                // The caller (for example journal quick-add) refreshes its own view.
             } else if (Number(payload.category_id) !== Number(activeCategoryId)) {
                 await setCategory(payload.category_id);
             } else {
@@ -115,6 +115,7 @@ export function createAddActions(deps) {
             if (typeof deps.afterJournalQuickAdd === 'function') {
                 await deps.afterJournalQuickAdd(payload);
             }
+            document.getElementById('app')?.classList.remove('quick-add-open');
             setMessage(t('msg.item_added'));
             return payload;
         } catch (error) {

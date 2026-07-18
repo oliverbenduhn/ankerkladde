@@ -60,8 +60,8 @@ test.describe('PWA badge and shortcuts', () => {
 
     const todayShortcut = manifest.shortcuts.find(s => s.name === 'Heute');
     await page.goto(todayShortcut.url);
-    await expect(page).toHaveURL(/screen=today/);
-    await expect(page.locator('#categoryTitle')).toHaveText('Heute');
+    await expect(page).toHaveURL(/screen=journal/);
+    await expect(page.locator('#categoryTitle')).toHaveText('Journal');
 
     await page.goto(manifest.shortcuts[1].url);
     await expect(page.locator('#journalDatePicker')).toHaveValue(localIso());
