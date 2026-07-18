@@ -84,6 +84,8 @@ export function createItemMenuController(deps) {
                 appendAction(t('ui.open_note'), () => openNoteEditorWithNavigation(item));
             } else if (item.category_type === 'list_due_date') {
                 appendAction(t('ui.edit'), () => openTodoEditor(item));
+            } else if (item.category_type === 'drawings' || item.has_sketch) {
+                appendAction(t('sketch.open'), () => openSketchEditor(item));
             } else {
                 appendAction(t('ui.edit'), () => handleEditStart(item));
             }

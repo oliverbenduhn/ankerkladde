@@ -1,9 +1,17 @@
 import { t } from './i18n.js';
-import { getCurrentType, state } from './state.js?v=5.1.20';
-import { clearDoneBtn, listEl, progressEl, svgIcon } from './ui.js?v=5.1.20';
-import { normalizeBarcodeValue, sanitizeItemField, syncAutoHeight } from './utils.js?v=5.1.20';
-import { createLightboxController } from './lightbox.js?v=5.1.20';
-import { createItemMenuController } from './item-menu.js?v=5.1.20';
+import { getCurrentType, state } from './state.js?v=5.1.21';
+import { clearDoneBtn, listEl, progressEl, svgIcon } from './ui.js?v=5.1.21';
+import { normalizeBarcodeValue, sanitizeItemField, syncAutoHeight } from './utils.js?v=5.1.21';
+import { createLightboxController } from './lightbox.js?v=5.1.21';
+import { createItemMenuController } from './item-menu.js?v=5.1.21';
+
+let sketchEditorModulePromise = null;
+async function loadSketchEditor() {
+    if (!sketchEditorModulePromise) {
+        sketchEditorModulePromise = import('./sketch-editor.js?v=5.1.21');
+    }
+    return sketchEditorModulePromise;
+}
 
 export function createItemsViewController(deps) {
     const {
@@ -38,6 +46,10 @@ export function createItemsViewController(deps) {
         handlePin,
         handleDelete,
         handleMove,
+        openSketchEditor: async item => {
+            const { openSketchEditor } = await loadSketchEditor();
+            return openSketchEditor(item);
+        },
         onActionError: (error) => {
             const message = error instanceof Error && error.message
                 ? error.message
@@ -584,6 +596,11 @@ export function createItemsViewController(deps) {
 
         if (item.category_type === 'notes') {
             makeListItemButton(li, `${item.name} öffnen`, () => void openNoteEditorWithNavigation(item));
+        } else if (item.category_type === 'drawings' || item.has_sketch) {
+            makeListItemButton(li, `${item.name} öffnen`, async () => {
+                const { openSketchEditor } = await loadSketchEditor();
+                await openSketchEditor({ id: item.id });
+            });
         }
 
         return li;
@@ -631,6 +648,11 @@ export function createItemsViewController(deps) {
                 closeSearch();
                 if (item.category_type === 'daily_notes') {
                     await openJournalWithNavigation(item.due_date);
+                    return;
+                }
+                if (item.category_type === 'drawings' || item.has_sketch) {
+                    const { openSketchEditor } = await loadSketchEditor();
+                    await openSketchEditor({ id: item.id });
                     return;
                 }
                 await setCategory(item.category_id);

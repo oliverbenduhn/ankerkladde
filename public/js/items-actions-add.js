@@ -1,6 +1,6 @@
 import { t } from './i18n.js';
-import { appUrl, api, fetchLinkMetadata } from './api.js?v=5.1.20';
-import { getCurrentCategory, isAttachmentCategory, state } from './state.js?v=5.1.20';
+import { appUrl, api, fetchLinkMetadata } from './api.js?v=5.1.21';
+import { getCurrentCategory, isAttachmentCategory, state } from './state.js?v=5.1.21';
 import {
     itemInput,
     linkDescriptionInput,
@@ -8,9 +8,9 @@ import {
     quickAddAiBtn,
     quickAddFeedback,
     quickAddFeedbackText,
-} from './ui.js?v=5.1.20';
-import { sanitizeItemField } from './utils.js?v=5.1.20';
-import { enqueueAction } from './offline-queue.js?v=5.1.20';
+} from './ui.js?v=5.1.21';
+import { sanitizeItemField } from './utils.js?v=5.1.21';
+import { enqueueAction } from './offline-queue.js?v=5.1.21';
 
 export function createAddActions(deps) {
     const {

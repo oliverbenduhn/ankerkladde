@@ -5449,3 +5449,67 @@ details[open].settings-category-details > .settings-category-summary .settings-s
     text-decoration: underline;
     margin: 0 0.4rem;
 }
+
+/* ===========================================
+   SKETCH EDITOR (Issue #41)
+   =========================================== */
+.sketch-editor-overlay {
+    position: fixed;
+    inset: 0;
+    background: var(--surface);
+    z-index: 11000;
+    display: flex;
+    flex-direction: column;
+}
+
+.sketch-editor-shell {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+}
+
+.sketch-editor-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.5rem 1rem;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+.sketch-editor-status {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    min-height: 1.25rem;
+}
+
+.sketch-editor-close {
+    width: 2.75rem;
+    height: 2.75rem;
+    border: 0;
+    background: transparent;
+    color: var(--text-primary);
+    font-size: 1.5rem;
+    line-height: 1;
+    cursor: pointer;
+    border-radius: var(--radius, 8px);
+}
+
+.sketch-editor-host {
+    flex: 1;
+    min-height: 0;
+    position: relative;
+}
+
+.sketch-editor-host > div {
+    width: 100%;
+    height: 100%;
+}
+
+.sketch-editor-error {
+    padding: 1.5rem;
+    text-align: center;
+    color: var(--error);
+}

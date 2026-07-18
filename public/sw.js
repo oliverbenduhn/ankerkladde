@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION = 'v5.1.17';
+const VERSION = 'v5.1.21';
 // ASSET_VERSION is derived from VERSION to ensure they stay in sync.
 const ASSET_VERSION = VERSION.replace(/^v/, '');
 const STATIC_CACHE = `ankerkladde-static-${VERSION}`;
@@ -43,6 +43,7 @@ const APP_SHELL_ASSET_URLS = [
     `js/magic.js?v=${ASSET_VERSION}`,
     `js/offline-queue.js?v=${ASSET_VERSION}`,
     `js/todo-editor.js?v=${ASSET_VERSION}`,
+    `js/sketch-editor.js?v=${ASSET_VERSION}`,
     `vendor/zxing/browser-0.1.5.js?v=${ASSET_VERSION}`,
     `manifest.php?v=${ASSET_VERSION}`,
     `icon.php?size=72&v=${ASSET_VERSION}`,

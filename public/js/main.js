@@ -1,4 +1,4 @@
-import { startApp } from './app-entry.js?v=5.1.20';
+import { startApp } from './app-entry.js?v=5.1.21';
 
 const assetVersion = new URL(import.meta.url).searchParams.get('v') || '5.1.13';
 
