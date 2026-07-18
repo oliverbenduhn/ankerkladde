@@ -1,8 +1,8 @@
 import { t } from './i18n.js';
-import { api, apiUpload } from './api.js?v=5.1.5';
-import { getCurrentCategory, isAttachmentCategory } from './state.js?v=5.1.5';
-import { fileInput, itemInput, urlImportInput } from './ui.js?v=5.1.5';
-import { sanitizeItemField } from './utils.js?v=5.1.5';
+import { api, apiUpload } from './api.js?v=5.1.15';
+import { getCurrentCategory, isAttachmentCategory } from './state.js?v=5.1.15';
+import { fileInput, itemInput, urlImportInput } from './ui.js?v=5.1.15';
+import { sanitizeItemField } from './utils.js?v=5.1.15';
 
 export function createUploadActions(deps) {
     const {
