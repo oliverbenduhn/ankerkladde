@@ -968,6 +968,53 @@ function normalizeContent(?string $content): string
     return sanitizeRichTextHtml(truncateText(trim((string) $content), 102400));
 }
 
+function normalizeSketchJson(?string $rawJson): string
+{
+    $raw = (string) $rawJson;
+    if ($raw === '') {
+        return '';
+    }
+    $size = strlen($raw);
+    if ($size > 2 * 1024 * 1024) {
+        respond(413, ['error' => t('error.sketch_too_large'), 'error_key' => 'error.sketch_too_large']);
+    }
+    $decoded = json_decode($raw, true);
+    if (!is_array($decoded)) {
+        respond(422, ['error' => t('error.sketch_invalid_json'), 'error_key' => 'error.sketch_invalid_json']);
+    }
+    if (!isset($decoded['elements']) || !is_array($decoded['elements'])) {
+        respond(422, ['error' => t('error.sketch_invalid_structure'), 'error_key' => 'error.sketch_invalid_structure']);
+    }
+    if (sketchSceneContainsFilesKey($decoded)) {
+        respond(422, ['error' => t('error.sketch_files_not_allowed'), 'error_key' => 'error.sketch_files_not_allowed']);
+    }
+    $elements = array_values(array_filter(
+        $decoded['elements'],
+        static fn($element): bool => is_array($element)
+    ));
+    if ($elements === []) {
+        return '';
+    }
+
+    return json_encode(
+        ['elements' => $elements] + $decoded,
+        JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+    );
+}
+
+function sketchSceneContainsFilesKey(array $scene): bool
+{
+    foreach ($scene as $key => $value) {
+        if ($key === 'files' && is_array($value)) {
+            return true;
+        }
+        if (is_array($value) && sketchSceneContainsFilesKey($value)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 function normalizePlainTextContent(?string $content): string
 {
     return truncateText(trim((string) $content), 8000);
@@ -1636,6 +1683,7 @@ function formatListItem(array $item): array
         'created_at' => (string) ($item['created_at'] ?? ''),
         'updated_at' => (string) ($item['updated_at'] ?? ''),
         'has_attachment' => $attachment !== null ? 1 : 0,
+        'has_sketch' => ((string) ($item['sketch_json'] ?? '') !== '') ? 1 : 0,
         'attachment' => $attachment,
         'attachment_storage_section' => $attachment !== null ? (string) ($item['attachment_storage_section'] ?? '') : null,
         'attachment_original_name' => $attachment['original_name'] ?? null,
@@ -1672,6 +1720,7 @@ function formatJournalItem(?array $item): ?array
         'name' => (string) $item['name'],
         'content' => (string) $item['content'],
         'due_date' => (string) $item['due_date'],
+        'has_sketch' => ((string) ($item['sketch_json'] ?? '') !== '') ? 1 : 0,
         'created_at' => (string) $item['created_at'],
         'updated_at' => (string) $item['updated_at'],
     ];
@@ -1680,7 +1729,7 @@ function formatJournalItem(?array $item): ?array
 function loadJournalItem(PDO $db, int $userId, int $categoryId, string $date): ?array
 {
     $stmt = $db->prepare(
-        'SELECT id, category_id, name, content, due_date, created_at, updated_at
+        'SELECT id, category_id, name, content, due_date, sketch_json, created_at, updated_at
          FROM items
          WHERE user_id = :user_id AND category_id = :category_id AND due_date = :due_date
          ORDER BY id ASC
@@ -1723,7 +1772,8 @@ function fetchItemForUser(PDO $db, int $userId, int $itemId): ?array
             attachments.media_type AS attachment_media_type,
             attachments.size_bytes AS attachment_size_bytes,
             attachments.updated_at AS attachment_updated_at,
-            CASE WHEN attachments.id IS NULL THEN 0 ELSE 1 END AS has_attachment
+            CASE WHEN attachments.id IS NULL THEN 0 ELSE 1 END AS has_attachment,
+            CASE WHEN length(items.sketch_json) > 0 THEN 1 ELSE 0 END AS has_sketch
          FROM items
          INNER JOIN categories ON categories.id = items.category_id
          LEFT JOIN attachments ON attachments.item_id = items.id
@@ -2016,7 +2066,8 @@ try {
                     attachments.media_type AS attachment_media_type,
                     attachments.size_bytes AS attachment_size_bytes,
                     attachments.updated_at AS attachment_updated_at,
-                    CASE WHEN attachments.id IS NULL THEN 0 ELSE 1 END AS has_attachment
+                    CASE WHEN attachments.id IS NULL THEN 0 ELSE 1 END AS has_attachment,
+                    CASE WHEN length(items.sketch_json) > 0 THEN 1 ELSE 0 END AS has_sketch
                  FROM items
                  INNER JOIN categories ON categories.id = items.category_id
                  LEFT JOIN attachments ON attachments.item_id = items.id
@@ -2161,7 +2212,8 @@ try {
                     attachments.media_type AS attachment_media_type,
                     attachments.size_bytes AS attachment_size_bytes,
                     attachments.updated_at AS attachment_updated_at,
-                    CASE WHEN attachments.id IS NULL THEN 0 ELSE 1 END AS has_attachment
+                    CASE WHEN attachments.id IS NULL THEN 0 ELSE 1 END AS has_attachment,
+                    CASE WHEN length(items.sketch_json) > 0 THEN 1 ELSE 0 END AS has_sketch
                  FROM items
                  INNER JOIN categories ON categories.id = items.category_id
                  LEFT JOIN attachments ON attachments.item_id = items.id
@@ -2961,7 +3013,8 @@ try {
                     attachments.media_type AS attachment_media_type,
                     attachments.size_bytes AS attachment_size_bytes,
                     attachments.updated_at AS attachment_updated_at,
-                    CASE WHEN attachments.id IS NULL THEN 0 ELSE 1 END AS has_attachment
+                    CASE WHEN attachments.id IS NULL THEN 0 ELSE 1 END AS has_attachment,
+                    CASE WHEN length(items.sketch_json) > 0 THEN 1 ELSE 0 END AS has_sketch
                  FROM items_fts
                  INNER JOIN items ON items.id = items_fts.rowid
                  INNER JOIN categories ON categories.id = items.category_id
@@ -3240,6 +3293,84 @@ try {
             $preferences = updateExtendedUserPreferences($db, $userId, $patch);
             unset($preferences['gemini_api_key'], $preferences['openrouter_api_key']);
             respond(200, ['preferences' => $preferences]);
+
+        case 'sketch_save':
+            requireMethod('POST');
+            $data = requestData();
+            if (!isApiKeyAuthRequest()) {
+                requireCsrfToken($data);
+            }
+
+            $itemId = filter_var($data['item_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+            if (!is_int($itemId)) {
+                respond(422, ['error' => t('error.invalid_id'), 'error_key' => 'error.invalid_id']);
+            }
+
+            $stmt = $db->prepare(
+                'SELECT items.id, items.sketch_json, categories.type AS category_type
+                 FROM items
+                 INNER JOIN categories ON categories.id = items.category_id
+                 WHERE items.id = :id AND items.user_id = :user_id'
+            );
+            $stmt->execute([':id' => $itemId, ':user_id' => $userId]);
+            $item = $stmt->fetch();
+            if (!is_array($item)) {
+                respond(404, ['error' => t('error.item_not_found'), 'error_key' => 'error.item_not_found']);
+            }
+
+            $categoryType = (string) ($item['category_type'] ?? '');
+            if (!in_array($categoryType, SKETCH_CATEGORY_TYPES, true) && $categoryType !== 'daily_notes') {
+                respond(422, ['error' => t('error.sketch_category_unsupported'), 'error_key' => 'error.sketch_category_unsupported']);
+            }
+
+            $normalized = normalizeSketchJson($data['scene'] ?? null);
+
+            $db->prepare(
+                'UPDATE items SET sketch_json = :sketch_json, updated_at = CURRENT_TIMESTAMP
+                 WHERE id = :id AND user_id = :user_id'
+            )->execute([
+                ':sketch_json' => $normalized,
+                ':id' => $itemId,
+                ':user_id' => $userId,
+            ]);
+
+            respond(200, [
+                'message' => 'Skizze gespeichert.',
+                'item_id' => $itemId,
+                'has_sketch' => $normalized !== '' ? 1 : 0,
+            ]);
+
+        case 'sketch_load':
+            requireMethod('GET');
+            $itemId = filter_var($_GET['item_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+            if (!is_int($itemId)) {
+                respond(422, ['error' => t('error.invalid_id'), 'error_key' => 'error.invalid_id']);
+            }
+
+            $stmt = $db->prepare(
+                'SELECT items.sketch_json, categories.type AS category_type
+                 FROM items
+                 INNER JOIN categories ON categories.id = items.category_id
+                 WHERE items.id = :id AND items.user_id = :user_id'
+            );
+            $stmt->execute([':id' => $itemId, ':user_id' => $userId]);
+            $item = $stmt->fetch();
+            if (!is_array($item)) {
+                respond(404, ['error' => t('error.item_not_found'), 'error_key' => 'error.item_not_found']);
+            }
+
+            $categoryType = (string) ($item['category_type'] ?? '');
+            if (!in_array($categoryType, SKETCH_CATEGORY_TYPES, true) && $categoryType !== 'daily_notes') {
+                respond(422, ['error' => t('error.sketch_category_unsupported'), 'error_key' => 'error.sketch_category_unsupported']);
+            }
+
+            $scene = (string) ($item['sketch_json'] ?? '');
+            $decoded = $scene === '' ? null : json_decode($scene, true);
+            respond(200, [
+                'item_id' => $itemId,
+                'scene' => is_array($decoded) ? $decoded : null,
+                'has_sketch' => $scene !== '' ? 1 : 0,
+            ]);
 
         default:
             respond(404, ['error' => t('error.unknown_action'), 'error_key' => 'error.unknown_action']);

@@ -1,7 +1,8 @@
 <?php
 declare(strict_types=1);
 
-const CATEGORY_TYPES = ['list_quantity', 'list_due_date', 'notes', 'daily_notes', 'images', 'files', 'links'];
+const CATEGORY_TYPES = ['list_quantity', 'list_due_date', 'notes', 'daily_notes', 'drawings', 'images', 'files', 'links'];
+const SKETCH_CATEGORY_TYPES = ['drawings'];
 const ATTACHMENT_CATEGORY_TYPES = ['images', 'files'];
 const AGENDA_GROUP_OVERDUE = 'overdue';
 const AGENDA_GROUP_SCHEDULED = 'scheduled';

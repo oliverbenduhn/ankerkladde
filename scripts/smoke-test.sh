@@ -644,4 +644,123 @@ curl -fsS -b "$SUBPATH_COOKIE_JAR" -o /dev/null "http://127.0.0.1:$SUBPATH_PORT/
 curl -fsS -b "$SUBPATH_COOKIE_JAR" -o /dev/null "http://127.0.0.1:$SUBPATH_PORT/sub/category-icon.php?icon=einkauf"
 php scripts/test-ai-client.php
 
+# -----------------------------------------------------------------------------
+# Sketch-API (Issue #41): Scene-Roundtrip, Validierung, Ownership
+# -----------------------------------------------------------------------------
+
+DRAWINGS_CATEGORY_BODY="$(curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+    --data-urlencode 'name=Skizzen' --data-urlencode 'type=drawings' \
+    "http://127.0.0.1:$PORT/api.php?action=categories_create")"
+DRAWINGS_CATEGORY_ID="$(echo "$DRAWINGS_CATEGORY_BODY" | sed -n 's/.*"id":\([0-9]\+\).*/\1/p' | head -n 1)"
+[[ -n "$DRAWINGS_CATEGORY_ID" ]] || { echo "Zeichnungen-Kategorie konnte nicht angelegt werden."; exit 1; }
+
+DRAWING_ADD_BODY="$(curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+    --data-urlencode "category_id=$DRAWINGS_CATEGORY_ID" --data-urlencode 'name=Haus' \
+    "http://127.0.0.1:$PORT/api.php?action=add")"
+DRAWING_ITEM_ID="$(echo "$DRAWING_ADD_BODY" | sed -n 's/.*"id":\([0-9]\+\).*/\1/p' | head -n 1)"
+[[ -n "$DRAWING_ITEM_ID" ]] || { echo "Zeichnung konnte nicht angelegt werden."; exit 1; }
+
+# Roundtrip: gültige Vektor-Szene speichern und laden
+VALID_SCENE='{"elements":[{"type":"rectangle","x":1,"y":2,"width":3,"height":4}],"appState":{}}'
+SKETCH_SAVE_BODY="$(curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+    --data-urlencode "item_id=$DRAWING_ITEM_ID" \
+    --data-urlencode "scene=$VALID_SCENE" \
+    "http://127.0.0.1:$PORT/api.php?action=sketch_save")"
+echo "$SKETCH_SAVE_BODY" | grep -q '"has_sketch":1' || { echo "sketch_save lieferte kein has_sketch=1: $SKETCH_SAVE_BODY"; exit 1; }
+
+SKETCH_LOAD_BODY="$(curl -fsS -b "$COOKIE_JAR" \
+    "http://127.0.0.1:$PORT/api.php?action=sketch_load&item_id=$DRAWING_ITEM_ID")"
+echo "$SKETCH_LOAD_BODY" | grep -q '"type":"rectangle"' || { echo "sketch_load lieferte keine Szene: $SKETCH_LOAD_BODY"; exit 1; }
+echo "$SKETCH_LOAD_BODY" | grep -q '"has_sketch":1' || { echo "sketch_load lieferte kein has_sketch=1: $SKETCH_LOAD_BODY"; exit 1; }
+
+# Leere Szene: has_sketch muss 0 sein und Liste darf Scene-JSON nicht enthalten
+EMPTY_SCENE='{"elements":[]}'
+SKETCH_EMPTY_BODY="$(curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+    --data-urlencode "item_id=$DRAWING_ITEM_ID" \
+    --data-urlencode "scene=$EMPTY_SCENE" \
+    "http://127.0.0.1:$PORT/api.php?action=sketch_save")"
+echo "$SKETCH_EMPTY_BODY" | grep -q '"has_sketch":0' || { echo "Leere Szene lieferte has_sketch != 0: $SKETCH_EMPTY_BODY"; exit 1; }
+
+DRAWINGS_LIST_BODY="$(curl -fsS -b "$COOKIE_JAR" \
+    "http://127.0.0.1:$PORT/api.php?action=list&category_id=$DRAWINGS_CATEGORY_ID")"
+echo "$DRAWINGS_LIST_BODY" | grep -q '"has_sketch":0' || { echo "Liste enthält has_sketch=1 nach leerer Szene."; exit 1; }
+echo "$DRAWINGS_LIST_BODY" | grep -q '"elements"' && { echo "Liste enthält Scene-JSON: $DRAWINGS_LIST_BODY"; exit 1; } || true
+
+# Ungültiges JSON: 422
+SKETCH_BAD_JSON_STATUS="$(curl -s -o /dev/null -w '%{http_code}' -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+    --data-urlencode "item_id=$DRAWING_ITEM_ID" \
+    --data-urlencode 'scene={kein json' \
+    "http://127.0.0.1:$PORT/api.php?action=sketch_save")"
+[[ "$SKETCH_BAD_JSON_STATUS" == "422" ]] || { echo "Ungültiges JSON lieferte Status $SKETCH_BAD_JSON_STATUS statt 422."; exit 1; }
+
+# Fehlende elements: 422
+SKETCH_BAD_STRUCT_STATUS="$(curl -s -o /dev/null -w '%{http_code}' -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+    --data-urlencode "item_id=$DRAWING_ITEM_ID" \
+    --data-urlencode 'scene={"appState":{}}' \
+    "http://127.0.0.1:$PORT/api.php?action=sketch_save")"
+[[ "$SKETCH_BAD_STRUCT_STATUS" == "422" ]] || { echo "Fehlende elements lieferte Status $SKETCH_BAD_STRUCT_STATUS statt 422."; exit 1; }
+
+# Eingebettete Dateien sind verboten
+SCENE_WITH_FILES='{"elements":[{"type":"rectangle"}],"files":{"id":"abc"}}'
+SKETCH_FILES_STATUS="$(curl -s -o /dev/null -w '%{http_code}' -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+    --data-urlencode "item_id=$DRAWING_ITEM_ID" \
+    --data-urlencode "scene=$SCENE_WITH_FILES" \
+    "http://127.0.0.1:$PORT/api.php?action=sketch_save")"
+[[ "$SKETCH_FILES_STATUS" == "422" ]] || { echo "Szene mit files lieferte Status $SKETCH_FILES_STATUS statt 422."; exit 1; }
+
+# 2-MB-Limit
+LARGE_SCENE_FILE="$(mktemp)"
+head -c $((3 * 1024 * 1024)) /dev/zero 2>/dev/null | tr '\0' 'A' >"$LARGE_SCENE_FILE" \
+    || dd if=/dev/zero bs=1024 count=$((3 * 1024)) 2>/dev/null | tr '\0' 'A' >"$LARGE_SCENE_FILE"
+SKETCH_LARGE_BODY="$(mktemp)"
+printf 'item_id=%s&scene=' "$DRAWING_ITEM_ID" >"$SKETCH_LARGE_BODY"
+cat "$LARGE_SCENE_FILE" >>"$SKETCH_LARGE_BODY"
+SKETCH_LARGE_STATUS="$(curl -s -o /dev/null -w '%{http_code}' -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+    --data-binary "@$SKETCH_LARGE_BODY" \
+    "http://127.0.0.1:$PORT/api.php?action=sketch_save")"
+rm -f "$LARGE_SCENE_FILE" "$SKETCH_LARGE_BODY"
+[[ "$SKETCH_LARGE_STATUS" == "413" || "$SKETCH_LARGE_STATUS" == "422" ]] || { echo "3-MB-Szene lieferte Status $SKETCH_LARGE_STATUS statt 413/422."; exit 1; }
+
+# Fremdes Item: anderer User kann Scene weder laden noch speichern
+OTHER_LOGIN_HTML="$(curl -fsS -c "$TMP_DIR/other-cookies.txt" "http://127.0.0.1:$PORT/login.php")"
+OTHER_CSRF_TOKEN="$(sed -n 's/.*name="csrf_token" value="\([^"]*\)".*/\1/p' <<<"$OTHER_LOGIN_HTML" | head -n 1)"
+curl -fsS -b "$TMP_DIR/other-cookies.txt" -c "$TMP_DIR/other-cookies.txt" \
+    -X POST \
+    --data-urlencode "username=testadmin" \
+    --data-urlencode "password=adminpass123" \
+    --data-urlencode "csrf_token=$OTHER_CSRF_TOKEN" \
+    "http://127.0.0.1:$PORT/login.php" >/dev/null
+
+OTHER_INDEX_HTML="$(curl -fsS -b "$TMP_DIR/other-cookies.txt" "http://127.0.0.1:$PORT/index.php")"
+OTHER_INDEX_CSRF="$(sed -n 's/.*name="csrf-token" content="\([^"]*\)".*/\1/p' <<<"$OTHER_INDEX_HTML" | head -n 1)"
+if [[ -z "$OTHER_INDEX_CSRF" ]]; then
+    OTHER_INDEX_CSRF="$(sed -n 's/.*id="csrf-token"[^>]*content="\([^"]*\)".*/\1/p' <<<"$OTHER_INDEX_HTML" | head -n 1)"
+fi
+if [[ -z "$OTHER_INDEX_CSRF" ]]; then
+    OTHER_INDEX_HTML="$(curl -fsS -b "$TMP_DIR/other-cookies.txt" "http://127.0.0.1:$PORT/api.php?action=categories_list")"
+    OTHER_INDEX_CSRF="$(echo "$OTHER_INDEX_HTML" | sed -n 's/.*"csrf_token":"\([^"]*\)".*/\1/p' | head -n 1)"
+fi
+
+SKETCH_FOREIGN_SAVE_STATUS="$(curl -s -o /dev/null -w '%{http_code}' -b "$TMP_DIR/other-cookies.txt" -H "X-CSRF-Token: $OTHER_INDEX_CSRF" \
+    --data-urlencode "item_id=$DRAWING_ITEM_ID" \
+    --data-urlencode "scene=$VALID_SCENE" \
+    "http://127.0.0.1:$PORT/api.php?action=sketch_save")"
+[[ "$SKETCH_FOREIGN_SAVE_STATUS" == "404" ]] || { echo "Fremder sketch_save lieferte Status $SKETCH_FOREIGN_SAVE_STATUS statt 404."; exit 1; }
+
+SKETCH_FOREIGN_LOAD_STATUS="$(curl -s -o /dev/null -w '%{http_code}' -b "$TMP_DIR/other-cookies.txt" \
+    "http://127.0.0.1:$PORT/api.php?action=sketch_load&item_id=$DRAWING_ITEM_ID")"
+[[ "$SKETCH_FOREIGN_LOAD_STATUS" == "404" ]] || { echo "Fremder sketch_load lieferte Status $SKETCH_FOREIGN_LOAD_STATUS statt 404."; exit 1; }
+
+# Sketch auf Item der falschen Kategorie ablehnen
+SHOPPING_ITEM_BODY="$(curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+    -d "name=Milch&quantity=1&category_id=$SHOPPING_CATEGORY_ID" \
+    "http://127.0.0.1:$PORT/api.php?action=add")"
+SHOPPING_ITEM_ID="$(echo "$SHOPPING_ITEM_BODY" | sed -n 's/.*"id":\([0-9]\+\).*/\1/p' | head -n 1)"
+[[ -n "$SHOPPING_ITEM_ID" ]] || { echo "Shopping-Item konnte nicht angelegt werden."; exit 1; }
+SKETCH_WRONG_CAT_STATUS="$(curl -s -o /dev/null -w '%{http_code}' -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+    --data-urlencode "item_id=$SHOPPING_ITEM_ID" \
+    --data-urlencode "scene=$VALID_SCENE" \
+    "http://127.0.0.1:$PORT/api.php?action=sketch_save")"
+[[ "$SKETCH_WRONG_CAT_STATUS" == "422" ]] || { echo "sketch_save auf list_quantity lieferte $SKETCH_WRONG_CAT_STATUS statt 422."; exit 1; }
+
 echo "Smoke-Test erfolgreich."

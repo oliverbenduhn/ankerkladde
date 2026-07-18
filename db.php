@@ -55,7 +55,7 @@ function getSchemaVersion(PDO $db): int
 
 function migrateParchmentSchema(PDO $db): void
 {
-    $targetVersion = 1;
+    $targetVersion = 2;
     if (getSchemaVersion($db) >= $targetVersion) {
         return;
     }
@@ -82,17 +82,20 @@ function migrateParchmentSchema(PDO $db): void
         if (!in_array('priority', $itemColumnNames, true)) {
             $db->exec("ALTER TABLE items ADD COLUMN priority TEXT NOT NULL DEFAULT ''");
         }
+        if (!in_array('sketch_json', $itemColumnNames, true)) {
+            $db->exec("ALTER TABLE items ADD COLUMN sketch_json TEXT NOT NULL DEFAULT ''");
+        }
 
         $categoriesSql = (string) $db->query(
             "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'categories'"
         )->fetchColumn();
-        if (!str_contains($categoriesSql, "'daily_notes'")) {
+        if (!str_contains($categoriesSql, "'drawings'")) {
             $db->exec(
                 "CREATE TABLE categories_parchment_v1 (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
                     name TEXT NOT NULL,
-                    type TEXT NOT NULL CHECK(type IN ('list_quantity', 'list_due_date', 'notes', 'daily_notes', 'images', 'files', 'links')),
+                    type TEXT NOT NULL CHECK(type IN ('list_quantity', 'list_due_date', 'notes', 'daily_notes', 'drawings', 'images', 'files', 'links')),
                     icon TEXT NOT NULL DEFAULT '',
                     legacy_key TEXT NOT NULL DEFAULT '',
                     sort_order INTEGER NOT NULL DEFAULT 0,
@@ -464,7 +467,7 @@ function getDatabase(): PDO
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
             name TEXT NOT NULL,
-            type TEXT NOT NULL CHECK(type IN ('list_quantity', 'list_due_date', 'notes', 'daily_notes', 'images', 'files', 'links')),
+            type TEXT NOT NULL CHECK(type IN ('list_quantity', 'list_due_date', 'notes', 'daily_notes', 'drawings', 'images', 'files', 'links')),
             icon TEXT NOT NULL DEFAULT '',
             legacy_key TEXT NOT NULL DEFAULT '',
             sort_order INTEGER NOT NULL DEFAULT 0,

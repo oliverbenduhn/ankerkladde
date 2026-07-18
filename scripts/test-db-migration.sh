@@ -58,12 +58,18 @@ run_php "$LEGACY_DIR" '
     }
 
     $version = $db->query("SELECT meta_value FROM database_meta WHERE meta_key = \"schema_version\"")->fetchColumn();
-    if ((int) $version !== 1) {
-        fwrite(STDERR, "Schema-Version wurde nicht genau auf 1 erhöht.\n");
+    if ((int) $version !== 2) {
+        fwrite(STDERR, "Schema-Version wurde nicht genau auf 2 erhöht.\n");
         exit(1);
     }
 
-    $stmt = $db->prepare("INSERT INTO users (username, password_hash) VALUES (:username, :password_hash)");
+    $categoriesSql = (string) $db->query("SELECT sql FROM sqlite_master WHERE type=\"table\" AND name=\"categories\"")->fetchColumn();
+    if (!str_contains($categoriesSql, "'drawings'")) {
+        fwrite(STDERR, "Kategorie-CHECK wurde nicht auf 'drawings' erweitert.\n");
+        exit(1);
+    }
+
+$stmt = $db->prepare("INSERT INTO users (username, password_hash) VALUES (:username, :password_hash)");
     $stmt->execute([":username" => "parchment-migration", ":password_hash" => password_hash("test-password", PASSWORD_DEFAULT)]);
     $userId = (int) $db->lastInsertId();
     $stmt = $db->prepare("INSERT INTO categories (user_id, name, type) VALUES (:user_id, :name, :type)");
@@ -100,10 +106,11 @@ run_php "$LEGACY_DIR" '
     require "'"$ROOT_DIR"'/security.php"; require "'"$ROOT_DIR"'/db.php";
     $db = getDatabase();
     $version = $db->query("SELECT meta_value FROM database_meta WHERE meta_key = \"schema_version\"")->fetchColumn();
-    if ((int) $version !== 1) {
+    if ((int) $version !== 2) {
         fwrite(STDERR, "Parchment-Migration ist nicht idempotent.\n");
         exit(1);
     }
+
     $journalCount = $db->query("SELECT COUNT(*) FROM categories WHERE type = \"daily_notes\"")->fetchColumn();
     if ((int) $journalCount !== 1) {
         fwrite(STDERR, "Parchment-Migration hat bestehende Kategorien verändert.\n");

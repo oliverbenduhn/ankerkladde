@@ -1,21 +1,21 @@
-import { createAppUiController } from './app-ui.js?v=5.1.19';
-import { createHelpersController } from './helpers.js?v=5.1.19';
-import { createItemsActionsController } from './items-actions.js?v=5.1.19';
-import { createItemsController } from './items.js?v=5.1.19';
-import { createItemsViewController } from './items-view.js?v=5.1.19';
-import { createNavigation } from './navigation.js?v=5.1.19';
-import { createEditorController } from './editor.js?v=5.1.19';
-import { createTodoEditorController } from './todo-editor.js?v=5.1.19';
-import { createReorderController } from './reorder.js?v=5.1.19';
-import { createRouter } from './router.js?v=5.1.19';
-import { createScannerController } from './scanner.js?v=5.1.19';
-import { createSwipeController } from './swipe.js?v=5.1.19';
-import { createTabsViewController } from './tabs-view.js?v=5.1.19';
-import { createKanbanViewController } from './kanban-view.js?v=5.1.19';
-import { createMagicController } from './magic.js?v=5.1.19';
-import { createJournalController } from './journal.js?v=5.1.19';
-import { flushQueue, getConflictCount, getPendingCount } from './offline-queue.js?v=5.1.19';
-import { api } from './api.js?v=5.1.19';
+import { createAppUiController } from './app-ui.js?v=5.1.20';
+import { createHelpersController } from './helpers.js?v=5.1.20';
+import { createItemsActionsController } from './items-actions.js?v=5.1.20';
+import { createItemsController } from './items.js?v=5.1.20';
+import { createItemsViewController } from './items-view.js?v=5.1.20';
+import { createNavigation } from './navigation.js?v=5.1.20';
+import { createEditorController } from './editor.js?v=5.1.20';
+import { createTodoEditorController } from './todo-editor.js?v=5.1.20';
+import { createReorderController } from './reorder.js?v=5.1.20';
+import { createRouter } from './router.js?v=5.1.20';
+import { createScannerController } from './scanner.js?v=5.1.20';
+import { createSwipeController } from './swipe.js?v=5.1.20';
+import { createTabsViewController } from './tabs-view.js?v=5.1.20';
+import { createKanbanViewController } from './kanban-view.js?v=5.1.20';
+import { createMagicController } from './magic.js?v=5.1.20';
+import { createJournalController } from './journal.js?v=5.1.20';
+import { flushQueue, getConflictCount, getPendingCount } from './offline-queue.js?v=5.1.20';
+import { api } from './api.js?v=5.1.20';
 import {
     BARCODE_FORMATS,
     SCANNER_COOLDOWN_MS,
@@ -24,9 +24,9 @@ import {
     normalizePreferences,
     scannerState,
     state,
-} from './state.js?v=5.1.19';
-import { applyThemePreferences } from './theme.js?v=5.1.19';
-import { settingsFrameEl } from './ui.js?v=5.1.19';
+} from './state.js?v=5.1.20';
+import { applyThemePreferences } from './theme.js?v=5.1.20';
+import { settingsFrameEl } from './ui.js?v=5.1.20';
 
 export function createAppRuntime(deps) {
     const {
