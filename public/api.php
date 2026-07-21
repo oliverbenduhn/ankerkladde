@@ -2041,6 +2041,14 @@ try {
             $today = (new DateTimeImmutable('now', new DateTimeZone('Europe/Berlin')))->format('Y-m-d');
             $date = array_key_exists('date', $_GET) ? normalizeJournalDate($_GET['date']) : $today;
             $dateCondition = $date === $today ? 'items.due_date <= :date' : 'items.due_date = :date';
+            // ponytail: Parchment Z.55 — timed events verschwinden automatisch,
+            // sobald ihre Uhrzeit vorbei ist. Nur für "heute" sinnvoll, bei
+            // Vergangenheit/Zukunft würde man sonst zukünftige verlieren.
+            $timeCondition = '';
+            if ($date === $today) {
+                $nowHm = (new DateTimeImmutable('now', new DateTimeZone('Europe/Berlin')))->format('H:i');
+                $timeCondition = " AND NOT (items.due_date = :date AND items.due_time != '' AND items.due_time < :now_hm)";
+            }
 
             $stmt = $db->prepare(
                 'SELECT
@@ -2076,7 +2084,7 @@ try {
                    AND categories.type = :category_type
                    AND items.done = 0
                    AND items.due_date != \'\'
-                   AND ' . $dateCondition . '
+                   AND ' . $dateCondition . $timeCondition . '
                  ORDER BY
                     CASE
                         WHEN items.due_date < :date THEN 0
@@ -2090,11 +2098,15 @@ try {
                     items.sort_order ASC,
                     items.id ASC'
             );
-            $stmt->execute([
+            $params = [
                 ':user_id' => $userId,
                 ':category_type' => 'list_due_date',
                 ':date' => $date,
-            ]);
+            ];
+            if ($timeCondition !== '') {
+                $params[':now_hm'] = $nowHm;
+            }
+            $stmt->execute($params);
 
             $items = array_map(static function (array $item) use ($date): array {
                 $formatted = formatListItem($item);

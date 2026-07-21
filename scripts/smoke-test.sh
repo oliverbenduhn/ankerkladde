@@ -543,10 +543,14 @@ grep -q '"name":"Verschieben-Test"' "$MOVE_TARGET_LIST_BODY"
 TODAY_DATE="$(php -r 'date_default_timezone_set("Europe/Berlin"); echo date("Y-m-d");')"
 YESTERDAY_DATE="$(php -r 'date_default_timezone_set("Europe/Berlin"); echo date("Y-m-d", strtotime("-1 day"));')"
 TOMORROW_DATE="$(php -r 'date_default_timezone_set("Europe/Berlin"); echo date("Y-m-d", strtotime("+1 day"));')"
+# ponytail: dynamische Uhrzeiten — die alten Festzeiten (08:15/14:30) fielen je
+# nach Tageszeit aus der Tagesansicht raus (Terminierte mit Zeit < jetzt).
+TIMED_EARLY_TIME="$(php -r 'date_default_timezone_set("Europe/Berlin"); echo date("H:i", strtotime("+1 hour"));')"
+TIMED_LATE_TIME="$(php -r 'date_default_timezone_set("Europe/Berlin"); echo date("H:i", strtotime("+3 hours"));')"
 
 [[ "$(status_code "$TODAY_ADD_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST --data-urlencode "category_id=$TODO_CATEGORY_ID" --data-urlencode 'name=Smoke gestern' --data-urlencode "due_date=$YESTERDAY_DATE" "http://127.0.0.1:$PORT/api.php?action=add")" == "201" ]]
-[[ "$(status_code "$TODAY_TIMED_LATE_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST --data-urlencode "active_category_id=$TODO_CATEGORY_ID" --data-urlencode 'input=Smoke terminiert spät heute 14:30' "http://127.0.0.1:$PORT/api.php?action=quick_add")" == "201" ]]
-[[ "$(status_code "$TODAY_TIMED_EARLY_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST --data-urlencode "active_category_id=$TODO_CATEGORY_ID" --data-urlencode 'input=Smoke terminiert früh heute 08:15' "http://127.0.0.1:$PORT/api.php?action=quick_add")" == "201" ]]
+[[ "$(status_code "$TODAY_TIMED_LATE_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST --data-urlencode "category_id=$TODO_CATEGORY_ID" --data-urlencode 'name=Smoke terminiert spät' --data-urlencode "due_date=$TODAY_DATE" --data-urlencode "due_time=$TIMED_LATE_TIME" "http://127.0.0.1:$PORT/api.php?action=add")" == "201" ]]
+[[ "$(status_code "$TODAY_TIMED_EARLY_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST --data-urlencode "category_id=$TODO_CATEGORY_ID" --data-urlencode 'name=Smoke terminiert früh' --data-urlencode "due_date=$TODAY_DATE" --data-urlencode "due_time=$TIMED_EARLY_TIME" "http://127.0.0.1:$PORT/api.php?action=add")" == "201" ]]
 [[ "$(status_code "$ADD_SECOND_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST --data-urlencode "category_id=$TODO_CATEGORY_ID" --data-urlencode 'name=Smoke heute' --data-urlencode "due_date=$TODAY_DATE" "http://127.0.0.1:$PORT/api.php?action=add")" == "201" ]]
 [[ "$(status_code "$ADD_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST --data-urlencode "category_id=$TODO_CATEGORY_ID" --data-urlencode 'name=Smoke morgen' --data-urlencode "due_date=$TOMORROW_DATE" "http://127.0.0.1:$PORT/api.php?action=add")" == "201" ]]
 [[ "$(status_code "$TODAY_DONE_ADD_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST --data-urlencode "category_id=$TODO_CATEGORY_ID" --data-urlencode 'name=Smoke erledigt' --data-urlencode "due_date=$TODAY_DATE" "http://127.0.0.1:$PORT/api.php?action=add")" == "201" ]]
@@ -569,13 +573,13 @@ php -r '
     if (in_array("Smoke morgen", $names, true) || in_array("Smoke erledigt", $names, true)) exit(1);
     $byName = array_column($payload["items"], null, "name");
     if (($byName["Smoke gestern"]["agenda_group"] ?? "") !== "overdue") exit(1);
-    if (($byName["Smoke terminiert früh"]["agenda_group"] ?? "") !== "scheduled" || ($byName["Smoke terminiert früh"]["due_time"] ?? "") !== "08:15") exit(1);
-    if (($byName["Smoke terminiert spät"]["agenda_group"] ?? "") !== "scheduled" || ($byName["Smoke terminiert spät"]["due_time"] ?? "") !== "14:30") exit(1);
+    if (($byName["Smoke terminiert früh"]["agenda_group"] ?? "") !== "scheduled" || ($byName["Smoke terminiert früh"]["due_time"] ?? "") !== $argv[3]) exit(1);
+    if (($byName["Smoke terminiert spät"]["agenda_group"] ?? "") !== "scheduled" || ($byName["Smoke terminiert spät"]["due_time"] ?? "") !== $argv[4]) exit(1);
     if (($byName["Smoke heute"]["agenda_group"] ?? "") !== "anytime_today" || ($byName["Smoke heute"]["due_time"] ?? null) !== "") exit(1);
     foreach (["id", "category_id", "category_name", "category_type", "name", "due_date", "due_time", "agenda_group", "done", "sort_order"] as $key) {
         if (!array_key_exists($key, $payload["items"][0] ?? [])) exit(1);
     }
-' "$TODAY_BODY" "$TODAY_DATE"
+' "$TODAY_BODY" "$TODAY_DATE" "$TIMED_EARLY_TIME" "$TIMED_LATE_TIME"
 
 [[ "$(status_code "$AGENDA_DATE_BODY" -b "$COOKIE_JAR" "http://127.0.0.1:$PORT/api.php?action=today&date=$TOMORROW_DATE")" == "200" ]]
 php -r '
