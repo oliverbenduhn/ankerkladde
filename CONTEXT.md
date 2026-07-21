@@ -63,7 +63,15 @@ Eingabefeld in jeder `list_due_date`- und `list_quantity`-Kategorie sowie in der
 _Avoid_: Schnell-Add, Quick Input
 
 **Magic Bar**:
-Bestehendes AI-gestütztes Eingabefeld (Gemini), das als Eskalationsziel für Quick-Add dient und parallel als eigenständiger AI-only-Modus erhalten bleibt.
+Bestehendes AI-gestütztes Eingabefeld, das als Eskalationsziel für Quick-Add dient und parallel als eigenständiger AI-only-Modus erhalten bleibt. Spricht den aktiven KI-Provider an.
+
+**KI-Provider**:
+Auswahl des Backend-Dienstes, an den die Magic Bar ihre Anfragen sendet. Zwei Werte: `gemini` (hartcodierte Google-Gemini-API, eigene Modell-Whitelist) und `openai_compatible` (OpenAI-Chat-Completions-API mit vom Nutzer gewählter Basis-URL und freiem Modellnamen).
+_Avoid_: KI-Anbieter, AI-Backend
+
+**OpenAI-kompatibler Endpoint**:
+Ein HTTP-Endpunkt, der die OpenAI-Chat-Completions-API (`POST {basis-url}/chat/completions` mit `Authorization: Bearer <key>`, Request-Body `{"model": ..., "messages": [...]}`, Response-Body `choices[0].message.content`) implementiert. Wird im Provider `openai_compatible` angesprochen. Beispiele: `https://api.openai.com/v1` (OpenAI direkt), `https://openrouter.ai/api/v1` (OpenRouter), `https://litellm.obxy.de/v1` (LiteLLM-Proxy), `http://localhost:11434/v1` (lokal betriebener Ollama-Server). Basis-URL muss `https://` sein oder `http://localhost` bzw. `http://127.0.0.1`; API-Key ist optional.
+_Avoid_: OpenAI-Endpoint, Chat-Completions-URL
 
 **Deep-Link**:
 Aus der Tagesansicht heraus: Tap auf den Inhalt eines Agenda-Eintrags navigiert in die Quell-Kategorie, scrollt zum Item und blendet es für 1,5 s gelb hinterlegt ein. Die Checkbox hakt den Eintrag dagegen direkt in der Tagesansicht ab.

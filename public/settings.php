@@ -31,7 +31,6 @@ $aiKeyStatusType = 'ok';
 $providers = getAvailableProviders();
 $aiModels = [
     'gemini' => getAvailableAiModels('gemini'),
-    'openrouter' => getAvailableAiModels('openrouter'),
 ];
 $geminiModels = $aiModels['gemini'];
 $passwordChangeRequired = isPasswordChangeRequired();
@@ -535,20 +534,18 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                             </select>
                         </label>
                     </div>
-                    <div id="openrouter_fields" class="ai-provider-fields" style="display: none;">
+                    <div id="openai_compatible_fields" class="ai-provider-fields" style="display: none;">
                         <label class="settings-field">
-                            <span><?= t('settings.field.openrouter_api_key') ?></span>
-                            <input type="password" id="openrouter_api_key_input" name="openrouter_api_key" value="<?= htmlspecialchars((string) ($preferences['openrouter_api_key'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="sk-or-...">
+                            <span><?= t('settings.field.openai_compatible_base_url') ?></span>
+                            <input type="url" id="openai_compatible_base_url_input" name="openai_compatible_base_url" value="<?= htmlspecialchars((string) ($preferences['openai_compatible_base_url'] ?? 'https://api.openai.com/v1'), ENT_QUOTES, 'UTF-8') ?>" placeholder="https://api.openai.com/v1">
                         </label>
                         <label class="settings-field">
-                            <span><?= t('settings.field.openrouter_model') ?></span>
-                            <select id="openrouter_model_select" name="openrouter_model">
-                                <?php foreach ($aiModels['openrouter'] as $modelValue => $modelLabel): ?>
-                                    <option value="<?= htmlspecialchars($modelValue, ENT_QUOTES, 'UTF-8') ?>" <?= ($preferences['openrouter_model'] ?? 'google/gemini-2.5-flash') === $modelValue ? 'selected' : '' ?>>
-                                        <?= htmlspecialchars($modelLabel, ENT_QUOTES, 'UTF-8') ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
+                            <span><?= t('settings.field.openai_compatible_model') ?></span>
+                            <input type="text" id="openai_compatible_model_input" name="openai_compatible_model" value="<?= htmlspecialchars((string) ($preferences['openai_compatible_model'] ?? 'gpt-4o-mini'), ENT_QUOTES, 'UTF-8') ?>" placeholder="gpt-4o-mini">
+                        </label>
+                        <label class="settings-field">
+                            <span><?= t('settings.field.openai_compatible_api_key') ?></span>
+                            <input type="password" id="openai_compatible_api_key_input" name="openai_compatible_api_key" value="<?= htmlspecialchars((string) ($preferences['openai_compatible_api_key'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="sk-...">
                         </label>
                     </div>
                     <button type="button" id="test-api-key" class="settings-link"><?= t('settings.action.test_connection') ?></button>

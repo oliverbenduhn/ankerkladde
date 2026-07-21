@@ -28,8 +28,9 @@ function getDefaultUserPreferences(): array
         'gemini_api_key' => '',
         'gemini_model' => 'gemini-2.5-flash',
         'ai_provider' => 'gemini',
-        'openrouter_api_key' => '',
-        'openrouter_model' => 'google/gemini-2.5-flash',
+        'openai_compatible_api_key' => '',
+        'openai_compatible_model' => 'gpt-4o-mini',
+        'openai_compatible_base_url' => 'https://api.openai.com/v1',
     ];
 }
 
@@ -95,13 +96,17 @@ function normalizeUserPreferences(array $preferences): array
         $normalized['ai_provider'] = (string) $preferences['ai_provider'];
     }
 
-    if (isset($preferences['openrouter_api_key'])) {
-        $normalized['openrouter_api_key'] = trim((string) $preferences['openrouter_api_key']);
+    if (isset($preferences['openai_compatible_api_key'])) {
+        $normalized['openai_compatible_api_key'] = trim((string) $preferences['openai_compatible_api_key']);
     }
 
-    $validOpenRouterModels = array_keys(getAvailableAiModels('openrouter'));
-    if (isset($preferences['openrouter_model']) && in_array($preferences['openrouter_model'], $validOpenRouterModels, true)) {
-        $normalized['openrouter_model'] = (string) $preferences['openrouter_model'];
+    if (isset($preferences['openai_compatible_model'])) {
+        $normalized['openai_compatible_model'] = trim((string) $preferences['openai_compatible_model']);
+    }
+
+    if (isset($preferences['openai_compatible_base_url'])) {
+        $url = trim((string) $preferences['openai_compatible_base_url']);
+        $normalized['openai_compatible_base_url'] = $url;
     }
 
     return $normalized;

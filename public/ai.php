@@ -106,20 +106,27 @@ if (!in_array($aiProvider, $validProviders, true)) {
     $aiProvider = 'gemini';
 }
 
-if ($aiProvider === 'openrouter') {
-    $aiKey = trim((string) ($data['openrouter_api_key'] ?? $preferences['openrouter_api_key'] ?? ''));
-    $availableModels = getAvailableAiModels('openrouter');
-    $aiModel = (string) ($data['openrouter_model'] ?? $preferences['openrouter_model'] ?? 'google/gemini-2.5-flash');
+if ($aiProvider === 'openai_compatible') {
+    $aiKey = trim((string) ($data['openai_compatible_api_key'] ?? $preferences['openai_compatible_api_key'] ?? ''));
+    $aiModel = (string) ($data['openai_compatible_model'] ?? $preferences['openai_compatible_model'] ?? 'gpt-4o-mini');
+    $aiBaseUrl = trim((string) ($data['openai_compatible_base_url'] ?? $preferences['openai_compatible_base_url'] ?? 'https://api.openai.com/v1'));
+    if (validateAiBaseUrl($aiBaseUrl) !== null) {
+        http_response_code(422);
+        echo json_encode(['error' => 'Ungültige Basis-URL.']);
+        exit;
+    }
+    $availableModels = []; // Freitext, keine Whitelist
 } else {
     $aiKey = trim((string) ($data['gemini_api_key'] ?? $preferences['gemini_api_key'] ?? ''));
     $availableModels = getAvailableAiModels('gemini');
     $aiModel = (string) ($data['gemini_model'] ?? $preferences['gemini_model'] ?? 'gemini-2.5-flash');
+    $aiBaseUrl = '';
 }
-if (!array_key_exists($aiModel, $availableModels)) {
+if (!array_key_exists($aiModel, $availableModels) && $availableModels !== []) {
     $aiModel = array_key_first($availableModels);
 }
 
-if ($aiKey === '' && $mode !== 'confirm') {
+if ($aiKey === '' && $mode !== 'confirm' && $aiProvider !== 'openai_compatible') {
     http_response_code(403);
     echo json_encode(['error' => 'Bitte hinterlege zuerst einen API-Key in den Einstellungen.']);
     exit;
@@ -129,6 +136,7 @@ if (!empty($data['test_only'])) {
     $result = callAiProvider($aiKey, $aiProvider, $aiModel, 'Hi', [
         'timeout' => 8,
         'connect_timeout' => 3,
+        'base_url' => $aiBaseUrl,
     ]);
 
     if ($result['ok']) {
@@ -364,6 +372,7 @@ $result = callAiProvider($aiKey, $aiProvider, $aiModel, $prompt, [
     'timeout' => 20,
     'connect_timeout' => 5,
     'json_mode' => true,
+    'base_url' => $aiBaseUrl,
 ]);
 
 if (!$result['ok']) {

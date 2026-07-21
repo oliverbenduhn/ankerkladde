@@ -184,13 +184,13 @@ export function initUIHandling(root = document) {
     // AI provider toggle
     const providerSelect = root.querySelector('#ai_provider_select');
     const geminiFields = root.querySelector('#gemini_fields');
-    const openrouterFields = root.querySelector('#openrouter_fields');
+    const openaiCompatibleFields = root.querySelector('#openai_compatible_fields');
 
     function updateProviderFields() {
-        if (!providerSelect || !geminiFields || !openrouterFields) return;
+        if (!providerSelect || !geminiFields || !openaiCompatibleFields) return;
         const provider = providerSelect.value;
         geminiFields.style.display = provider === 'gemini' ? '' : 'none';
-        openrouterFields.style.display = provider === 'openrouter' ? '' : 'none';
+        openaiCompatibleFields.style.display = provider === 'openai_compatible' ? '' : 'none';
     }
 
     if (providerSelect) {
@@ -202,24 +202,27 @@ export function initUIHandling(root = document) {
     const testApiKeyBtn = root.querySelector('#test-api-key');
     const geminiKeyInput = root.querySelector('#gemini_api_key_input');
     const geminiModelSelect = root.querySelector('#gemini_model_select');
-    const openrouterKeyInput = root.querySelector('#openrouter_api_key_input');
-    const openrouterModelSelect = root.querySelector('#openrouter_model_select');
+    const openaiCompatibleKeyInput = root.querySelector('#openai_compatible_api_key_input');
+    const openaiCompatibleModelInput = root.querySelector('#openai_compatible_model_input');
+    const openaiCompatibleBaseUrlInput = root.querySelector('#openai_compatible_base_url_input');
     const apiTestStatus = root.querySelector('#api-test-status');
 
     if (testApiKeyBtn) {
         testApiKeyBtn.addEventListener('click', async () => {
             const provider = providerSelect ? providerSelect.value : 'gemini';
-            let key, model;
+            let key, model, baseUrl;
 
-            if (provider === 'openrouter') {
-                key = openrouterKeyInput ? openrouterKeyInput.value.trim() : '';
-                model = openrouterModelSelect ? openrouterModelSelect.value : '';
+            if (provider === 'openai_compatible') {
+                key = openaiCompatibleKeyInput ? openaiCompatibleKeyInput.value.trim() : '';
+                model = openaiCompatibleModelInput ? openaiCompatibleModelInput.value.trim() : '';
+                baseUrl = openaiCompatibleBaseUrlInput ? openaiCompatibleBaseUrlInput.value.trim() : '';
             } else {
                 key = geminiKeyInput ? geminiKeyInput.value.trim() : '';
                 model = geminiModelSelect ? geminiModelSelect.value : '';
+                baseUrl = '';
             }
 
-            if (!key) {
+            if (!key && provider !== 'openai_compatible') {
                 apiTestStatus.textContent = t('error.enter_key_first');
                 apiTestStatus.style.color = 'var(--error)';
                 apiTestStatus.style.display = 'block';
@@ -237,9 +240,10 @@ export function initUIHandling(root = document) {
                     test_only: true,
                     ai_provider: provider,
                 };
-                if (provider === 'openrouter') {
-                    body.openrouter_api_key = key;
-                    body.openrouter_model = model;
+                if (provider === 'openai_compatible') {
+                    body.openai_compatible_api_key = key;
+                    body.openai_compatible_model = model;
+                    body.openai_compatible_base_url = baseUrl;
                 } else {
                     body.gemini_api_key = key;
                     body.gemini_model = model;

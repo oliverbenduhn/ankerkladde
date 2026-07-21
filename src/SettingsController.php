@@ -30,18 +30,29 @@ function categoryIconAssetPath(string $icon): string
     return appPath('category-icon.php?icon=' . rawurlencode($icon));
 }
 
-function validateAiApiKey(string $provider, string $apiKey, string $modelName): array
+function validateAiApiKey(string $provider, string $apiKey, string $modelName, string $baseUrl = ''): array
 {
-    if ($apiKey === '') {
+    if ($apiKey === '' && $provider !== 'openai_compatible') {
         return [
             'type' => 'info',
             'message' => t('settings.flash.ai_no_key'),
         ];
     }
 
+    if ($provider === 'openai_compatible') {
+        $urlError = validateAiBaseUrl($baseUrl);
+        if ($urlError !== null) {
+            return [
+                'type' => 'err',
+                'message' => $urlError,
+            ];
+        }
+    }
+
     $result = callAiProvider($apiKey, $provider, $modelName, 'Hi', [
         'timeout' => 8,
         'connect_timeout' => 3,
+        'base_url' => $baseUrl,
     ]);
 
     if ($result['ok']) {
@@ -512,31 +523,49 @@ class SettingsController
                     $geminiModel = 'gemini-2.5-flash';
                 }
 
-                $openrouterApiKey = trim((string) ($postData['openrouter_api_key'] ?? ''));
-                $openrouterModel = (string) ($postData['openrouter_model'] ?? 'google/gemini-2.5-flash');
-                $openrouterModels = $aiModels['openrouter'] ?? [];
-                if (!array_key_exists($openrouterModel, $openrouterModels)) {
-                    $openrouterModel = 'google/gemini-2.5-flash';
-                }
+                $openaiCompatibleApiKey = trim((string) ($postData['openai_compatible_api_key'] ?? ''));
+                $openaiCompatibleModel = trim((string) ($postData['openai_compatible_model'] ?? 'gpt-4o-mini'));
+                $openaiCompatibleBaseUrl = trim((string) ($postData['openai_compatible_base_url'] ?? 'https://api.openai.com/v1'));
 
-                updateExtendedUserPreferences($this->db, $this->userId, [
+                $updatePatch = [
                     'ai_provider' => $aiProvider,
                     'gemini_api_key' => $geminiApiKey,
                     'gemini_model' => $geminiModel,
-                    'openrouter_api_key' => $openrouterApiKey,
-                    'openrouter_model' => $openrouterModel,
-                ]);
+                    'openai_compatible_api_key' => $openaiCompatibleApiKey,
+                    'openai_compatible_model' => $openaiCompatibleModel !== '' ? $openaiCompatibleModel : 'gpt-4o-mini',
+                    'openai_compatible_base_url' => $openaiCompatibleBaseUrl !== '' ? $openaiCompatibleBaseUrl : 'https://api.openai.com/v1',
+                ];
 
-                if ($aiProvider === 'openrouter') {
-                    $validation = validateAiApiKey('openrouter', $openrouterApiKey, $openrouterModel);
+                if ($aiProvider === 'openai_compatible') {
+                    $urlError = validateAiBaseUrl($updatePatch['openai_compatible_base_url']);
+                    if ($urlError !== null) {
+                        $aiKeyStatus = $urlError;
+                        $aiKeyStatusType = 'err';
+                        $flash = $urlError;
+                        $flashType = 'err';
+                        break;
+                    }
+                }
+
+                updateExtendedUserPreferences($this->db, $this->userId, $updatePatch);
+
+                if ($aiProvider === 'openai_compatible') {
+                    $validation = validateAiApiKey(
+                        'openai_compatible',
+                        $openaiCompatibleApiKey,
+                        $updatePatch['openai_compatible_model'],
+                        $updatePatch['openai_compatible_base_url']
+                    );
                 } else {
                     $validation = validateAiApiKey('gemini', $geminiApiKey, $geminiModel);
                 }
 
                 $aiKeyStatus = $validation['message'];
                 $aiKeyStatusType = $validation['type'];
-                $activeKey = $aiProvider === 'openrouter' ? $openrouterApiKey : $geminiApiKey;
-                $flash = $activeKey === '' ? t('settings.flash.ai_prefs_saved') : t('settings.flash.ai_prefs_saved') . ' ' . $validation['message'];
+                $activeKey = $aiProvider === 'openai_compatible' ? $openaiCompatibleApiKey : $geminiApiKey;
+                $flash = $activeKey === '' && $aiProvider !== 'openai_compatible'
+                    ? t('settings.flash.ai_prefs_saved')
+                    : t('settings.flash.ai_prefs_saved') . ' ' . $validation['message'];
                 if ($aiKeyStatusType === 'err') {
                     $flashType = 'err';
                 }

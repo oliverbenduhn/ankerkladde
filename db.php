@@ -234,6 +234,49 @@ function getProductDatabase(): PDO
     return $productDb;
 }
 
+function migrateAiProviderOpenrouterToOpenaiCompatible(PDO $db): void
+{
+    // Einmalig: Bestehende OpenRouter-Konfigurationen in den
+    // OpenAI-kompatiblen Provider überführen. Voraussetzung: ai_provider == 'openrouter'
+    // und das neue openai_compatible_api_key-Feld ist noch leer.
+    $rows = $db->query(
+        "SELECT id, preferences_json FROM users
+         WHERE json_extract(preferences_json, '$.ai_provider') = 'openrouter'"
+    )->fetchAll(PDO::FETCH_ASSOC);
+
+    if (!is_array($rows) || $rows === []) {
+        return;
+    }
+
+    $update = $db->prepare('UPDATE users SET preferences_json = :json WHERE id = :id');
+
+    foreach ($rows as $row) {
+        $prefs = json_decode((string) ($row['preferences_json'] ?? '{}'), true);
+        if (!is_array($prefs)) {
+            continue;
+        }
+        $openrouterKey = trim((string) ($prefs['openrouter_api_key'] ?? ''));
+        $openrouterModel = trim((string) ($prefs['openrouter_model'] ?? ''));
+
+        if (trim((string) ($prefs['openai_compatible_api_key'] ?? '')) === '' && $openrouterKey !== '') {
+            $prefs['openai_compatible_api_key'] = $openrouterKey;
+        }
+        if (trim((string) ($prefs['openai_compatible_model'] ?? '')) === '' && $openrouterModel !== '') {
+            $prefs['openai_compatible_model'] = $openrouterModel;
+        }
+        if (trim((string) ($prefs['openai_compatible_base_url'] ?? '')) === '') {
+            $prefs['openai_compatible_base_url'] = 'https://openrouter.ai/api/v1';
+        }
+        $prefs['ai_provider'] = 'openai_compatible';
+        unset($prefs['openrouter_api_key'], $prefs['openrouter_model']);
+
+        $update->execute([
+            ':id' => (int) $row['id'],
+            ':json' => json_encode($prefs, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+        ]);
+    }
+}
+
 function getDatabase(): PDO
 {
     static $db = null;
@@ -601,6 +644,12 @@ function getDatabase(): PDO
     if (!hasDatabaseMetaFlag($db, $remoteImportLimitMigrationKey)) {
         migrateRemoteImportUploadLimitDefault($db);
         setDatabaseMetaFlag($db, $remoteImportLimitMigrationKey);
+    }
+
+    $aiOpenrouterMigrationKey = 'ai_provider_openrouter_to_openai_compatible_v1';
+    if (!hasDatabaseMetaFlag($db, $aiOpenrouterMigrationKey)) {
+        migrateAiProviderOpenrouterToOpenaiCompatible($db);
+        setDatabaseMetaFlag($db, $aiOpenrouterMigrationKey);
     }
 
     return $db;

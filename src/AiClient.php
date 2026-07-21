@@ -5,29 +5,24 @@ function getAvailableProviders(): array
 {
     return [
         'gemini' => 'Google Gemini',
-        'openrouter' => 'OpenRouter (verschiedene Modelle)',
+        'openai_compatible' => 'OpenAI-kompatibel (z.B. OpenAI, OpenRouter, LiteLLM)',
     ];
 }
 
+/**
+ * Whitelist modelle für Provider mit hartcodierter API-Form.
+ * openai_compatibel hat keine Whitelist — Modell ist Freitext.
+ */
 function getAvailableAiModels(string $provider): array
 {
-    if ($provider === 'openrouter') {
+    if ($provider === 'gemini') {
         return [
-            'openrouter/auto' => 'Auto (OpenRouter)',
-            'google/gemini-2.5-flash' => 'Gemini 2.5 Flash',
-            'google/gemini-2.5-pro' => 'Gemini 2.5 Pro',
-            'openai/gpt-4o-mini' => 'GPT-4o Mini',
-            'anthropic/claude-sonnet-4' => 'Claude Sonnet 4',
-            'meta-llama/llama-4-maverick' => 'Llama 4 Maverick',
-            'mimo/mimo-v2.5' => 'MiMo v2.5',
-            'mimo/mimo-v2.5-pro' => 'MiMo v2.5 Pro',
+            'gemini-2.5-flash' => 'Gemini 2.5 Flash',
+            'gemini-3-flash-preview' => 'Gemini 3 Flash Preview',
         ];
     }
 
-    return [
-        'gemini-2.5-flash' => 'Gemini 2.5 Flash',
-        'gemini-3-flash-preview' => 'Gemini 3 Flash Preview',
-    ];
+    return [];
 }
 
 function getActiveAiConfig(array $preferences): array
@@ -40,15 +35,14 @@ function getActiveAiConfig(array $preferences): array
 
     $availableModels = getAvailableAiModels($provider);
 
-    if ($provider === 'openrouter') {
-        $key = trim((string) ($preferences['openrouter_api_key'] ?? ''));
-        $model = (string) ($preferences['openrouter_model'] ?? '');
-        if (!array_key_exists($model, $availableModels)) {
-            $model = array_key_first($availableModels);
-        }
+    if ($provider === 'openai_compatible') {
+        $key = trim((string) ($preferences['openai_compatible_api_key'] ?? ''));
+        $model = trim((string) ($preferences['openai_compatible_model'] ?? 'gpt-4o-mini'));
+        $baseUrl = trim((string) ($preferences['openai_compatible_base_url'] ?? 'https://api.openai.com/v1'));
     } else {
         $key = trim((string) ($preferences['gemini_api_key'] ?? ''));
         $model = (string) ($preferences['gemini_model'] ?? 'gemini-2.5-flash');
+        $baseUrl = '';
         if (!array_key_exists($model, $availableModels)) {
             $model = 'gemini-2.5-flash';
         }
@@ -58,6 +52,7 @@ function getActiveAiConfig(array $preferences): array
         'provider' => $provider,
         'key' => $key,
         'model' => $model,
+        'base_url' => $baseUrl,
         'available_models' => $availableModels,
     ];
 }
@@ -73,9 +68,10 @@ function callAiProvider(string $apiKey, string $provider, string $model, string 
     $connectTimeout = (int) ($options['connect_timeout'] ?? 5);
     $jsonMode = (bool) ($options['json_mode'] ?? false);
     $temperature = $options['temperature'] ?? null;
+    $baseUrl = (string) ($options['base_url'] ?? '');
 
-    if ($provider === 'openrouter') {
-        return callOpenRouter($apiKey, $model, $prompt, $timeout, $connectTimeout, $jsonMode, $temperature);
+    if ($provider === 'openai_compatible') {
+        return callOpenAiCompatible($apiKey, $baseUrl, $model, $prompt, $timeout, $connectTimeout, $jsonMode, $temperature);
     }
 
     return callGemini($apiKey, $model, $prompt, $timeout, $connectTimeout, $jsonMode, $temperature);
@@ -100,6 +96,8 @@ function callGemini(string $apiKey, string $model, string $prompt, int $timeout,
 
     $encoded = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
+    $apiKeyHeader = 'x-goog-api-key: ' . $apiKey;
+
     $ch = curl_init($url);
     if ($ch === false) {
         return ['ok' => false, 'text' => '', 'error' => 'cURL init failed', 'http_code' => 0];
@@ -114,7 +112,7 @@ function callGemini(string $apiKey, string $model, string $prompt, int $timeout,
         CURLOPT_HTTPHEADER => [
             'Content-Type: application/json',
             'Accept: application/json',
-            'x-goog-api-key: ' . $apiKey,
+            $apiKeyHeader,
         ],
     ]);
 
@@ -139,9 +137,28 @@ function callGemini(string $apiKey, string $model, string $prompt, int $timeout,
     return ['ok' => true, 'text' => $text, 'error' => '', 'http_code' => $httpCode];
 }
 
-function callOpenRouter(string $apiKey, string $model, string $prompt, int $timeout, int $connectTimeout, bool $jsonMode, $temperature): array
+/**
+ * SSRF-Guard für vom Nutzer konfigurierte Basis-URL.
+ * Erlaubt nur https:// oder http://localhost bzw. http://127.0.0.1.
+ * ponytail: blockiert Cloud-Metadata-Endpoints. Upgrade wenn Multi-Tenant.
+ */
+function validateAiBaseUrl(string $baseUrl): ?string
 {
-    $url = 'https://openrouter.ai/api/v1/chat/completions';
+    $baseUrl = trim($baseUrl);
+    if ($baseUrl === '') {
+        return 'Bitte eine Basis-URL angeben.';
+    }
+    if (!preg_match('#^https://#i', $baseUrl)
+        && !preg_match('#^http://(localhost|127\.0\.0\.1)(:\d+)?(/|$)#i', $baseUrl)) {
+        return 'Nur https:// oder http://localhost (http://127.0.0.1) erlaubt.';
+    }
+    return null;
+}
+
+function callOpenAiCompatible(string $apiKey, string $baseUrl, string $model, string $prompt, int $timeout, int $connectTimeout, bool $jsonMode, $temperature): array
+{
+    $baseUrl = rtrim($baseUrl, '/');
+    $url = $baseUrl . '/chat/completions';
 
     $payload = [
         'model' => $model,
@@ -159,6 +176,14 @@ function callOpenRouter(string $apiKey, string $model, string $prompt, int $time
 
     $encoded = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
+    $headers = [
+        'Content-Type: application/json',
+        'Accept: application/json',
+    ];
+    if ($apiKey !== '') {
+        $headers[] = 'Authorization: Bearer *** ' . $apiKey;
+    }
+
     $ch = curl_init($url);
     if ($ch === false) {
         return ['ok' => false, 'text' => '', 'error' => 'cURL init failed', 'http_code' => 0];
@@ -170,11 +195,7 @@ function callOpenRouter(string $apiKey, string $model, string $prompt, int $time
         CURLOPT_POSTFIELDS => $encoded === false ? '{}' : $encoded,
         CURLOPT_TIMEOUT => $timeout,
         CURLOPT_CONNECTTIMEOUT => $connectTimeout,
-        CURLOPT_HTTPHEADER => [
-            'Content-Type: application/json',
-            'Accept: application/json',
-            'Authorization: Bearer ' . $apiKey,
-        ],
+        CURLOPT_HTTPHEADER => $headers,
     ]);
 
     $response = curl_exec($ch);

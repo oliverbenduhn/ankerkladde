@@ -3120,7 +3120,10 @@ try {
 
             if (is_array($catalog)) {
                 $preferences = getExtendedUserPreferences($db, $userId);
-                $usedAiNormalization = trim((string) ($preferences['gemini_api_key'] ?? '')) !== '';
+                $aiConfig = getActiveAiConfig($preferences);
+                $usedAiNormalization = $aiConfig['provider'] === 'openai_compatible'
+                    ? $aiConfig['base_url'] !== ''
+                    : trim((string) ($aiConfig['key'] ?? '')) !== '';
                 $normalizedCatalog = normalizeOpenFoodFactsProductWithAi([
                     'product_name' => (string) ($catalog['product_name'] ?? ''),
                     'brands' => (string) ($catalog['brands'] ?? ''),
@@ -3186,7 +3189,13 @@ try {
                 'raw' => $rawProduct,
                 'heuristic' => $heuristicProduct,
                 'ai' => $aiProduct,
-                'ai_enabled' => trim((string) ($preferences['gemini_api_key'] ?? '')) !== '',
+                'ai_enabled' => (function () use ($preferences): bool {
+                    $cfg = getActiveAiConfig($preferences);
+                    if ($cfg['provider'] === 'openai_compatible') {
+                        return $cfg['base_url'] !== '';
+                    }
+                    return trim((string) ($cfg['key'] ?? '')) !== '';
+                })(),
             ]);
 
         case 'fetch_metadata':
@@ -3314,7 +3323,7 @@ try {
         case 'preferences':
             if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 $prefs = getExtendedUserPreferences($db, $userId);
-                unset($prefs['gemini_api_key'], $prefs['openrouter_api_key']);
+                unset($prefs['gemini_api_key'], $prefs['openai_compatible_api_key']);
                 respond(200, ['preferences' => $prefs]);
             }
 
@@ -3339,7 +3348,7 @@ try {
             }
 
             $preferences = updateExtendedUserPreferences($db, $userId, $patch);
-            unset($preferences['gemini_api_key'], $preferences['openrouter_api_key']);
+            unset($preferences['gemini_api_key'], $preferences['openai_compatible_api_key']);
             respond(200, ['preferences' => $preferences]);
 
         case 'sketch_save':
