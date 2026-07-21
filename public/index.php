@@ -14,6 +14,7 @@ $userId = requireAuth();
 $db = getDatabase();
 $csrfToken = getCsrfToken();
 $userPreferences = getExtendedUserPreferences($db, $userId);
+$passwordChangeRequired = isPasswordChangeRequired();
 $scriptName = $_SERVER['SCRIPT_NAME'] ?? '/index.php';
 if (!is_string($scriptName) || $scriptName === '') {
     $scriptName = '/index.php';
@@ -121,7 +122,7 @@ $clientWebSocketUrl = is_string($clientWebSocketUrl) ? trim($clientWebSocketUrl)
             <button type="button" id="searchBtn" class="header-icon-btn btn-search" aria-label="<?= t('ui.search') ?>"><?= icon('search') ?></button>
             <button type="button" id="journalBtn" class="header-icon-btn btn-journal" aria-label="<?= t('ui.open_journal') ?>"><?= icon('calendar') ?></button>
             <button type="button" id="magicBtn" class="header-icon-btn btn-magic" aria-label="<?= t('ui.ai_assistant') ?>"<?= !$magicButtonEnabled ? ' hidden' : '' ?>><?= icon('sparkles') ?></button>
-            <a href="<?= htmlspecialchars(appPath('index.php?view=settings'), ENT_QUOTES, 'UTF-8') ?>" class="header-icon-btn btn-settings" data-settings-tab="app" aria-label="<?= t('ui.settings') ?>"><?= icon('settings') ?></a>
+            <a href="<?= htmlspecialchars(appPath('index.php?screen=settings'), ENT_QUOTES, 'UTF-8') ?>" class="header-icon-btn btn-settings" data-settings-tab="app" aria-label="<?= t('ui.settings') ?>"><?= icon('settings') ?></a>
         </div>
     </header>
 
@@ -203,7 +204,7 @@ $clientWebSocketUrl = is_string($clientWebSocketUrl) ? trim($clientWebSocketUrl)
                     <button type="button" id="journalTodayBtn" class="journal-nav-btn" aria-pressed="false"><?= t('journal.today') ?></button>
                     <button type="button" id="journalNextBtn" class="journal-nav-btn" aria-pressed="false"><?= t('journal.next') ?></button>
                 </div>
-                <a href="<?= htmlspecialchars(appPath('index.php?view=settings'), ENT_QUOTES, 'UTF-8') ?>" class="journal-nav-icon-btn btn-settings" data-settings-tab="app" aria-label="<?= t('ui.settings') ?>"><?= icon('settings') ?></a>
+                <a href="<?= htmlspecialchars(appPath('index.php?screen=settings'), ENT_QUOTES, 'UTF-8') ?>" class="journal-nav-icon-btn btn-settings" data-settings-tab="app" aria-label="<?= t('ui.settings') ?>"><?= icon('settings') ?></a>
                 <label class="journal-date-picker-label" for="journalDatePicker"><?= t('journal.choose_date') ?></label>
                 <input type="date" id="journalDatePicker" class="journal-date-picker" aria-label="<?= t('journal.choose_date') ?>">
             </div>
@@ -262,15 +263,7 @@ $clientWebSocketUrl = is_string($clientWebSocketUrl) ? trim($clientWebSocketUrl)
                 </div>
             </section>
         </section>
-        <section class="settings-embed" id="settingsEmbed" hidden aria-label="<?= t('ui.settings') ?>">
-            <iframe
-                id="settingsFrame"
-                class="settings-embed-frame"
-                title="<?= t('ui.settings') ?>"
-                loading="lazy"
-                referrerpolicy="same-origin"
-            ></iframe>
-        </section>
+
     </main>
 
     <nav class="section-tabs" id="sectionTabs" aria-label="<?= t('ui.select_category') ?>"></nav>
@@ -394,6 +387,16 @@ $clientWebSocketUrl = is_string($clientWebSocketUrl) ? trim($clientWebSocketUrl)
     </div>
 
 </div>
+
+<dialog id="settingsDialog" class="settings-dialog" aria-labelledby="settingsDialogTitle"<?= $passwordChangeRequired ? ' data-required="1"' : '' ?>>
+    <div class="settings-dialog-shell">
+        <header class="settings-dialog-header">
+            <h2 id="settingsDialogTitle"><?= t('ui.settings') ?></h2>
+            <button type="button" id="settingsDialogClose" class="header-icon-btn" aria-label="<?= t('ui.close') ?>"<?= $passwordChangeRequired ? ' hidden' : '' ?>><?= icon('x') ?></button>
+        </header>
+        <div id="settingsDialogContent" class="settings-dialog-content" aria-live="polite"></div>
+    </div>
+</dialog>
 
 <script id="userPreferences" type="application/json"><?= json_encode($userPreferences, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
 <script src="<?= htmlspecialchars(appPath('vendor/zxing/browser-0.1.5.js?v=' . $assetVersion), ENT_QUOTES, 'UTF-8') ?>"></script>

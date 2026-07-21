@@ -323,8 +323,12 @@ function enforcePasswordChangeRedirect(): void
         return;
     }
 
+    if ($scriptName === 'index.php' && ($_GET['screen'] ?? '') === 'settings') {
+        return;
+    }
+
     http_response_code(302);
-    header('Location: ' . appPath('settings.php?tab=password&required=1'));
+    header('Location: ' . appPath('index.php?screen=settings&tab=password&required=1'));
     exit;
 }
 

@@ -4,7 +4,7 @@ import {
     readLocalPrefs,
     saveLocalPrefs,
     postPreferencesUpdate
-} from './settings-state.js?v=5.1.31';
+} from './settings-state.js?v=5.1.34';
 
 const themeMediaQuery = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
 
@@ -23,8 +23,8 @@ export function applyThemePreferencePatch(patch) {
     themePreferences.dark_theme = patch.dark_theme || themePreferences.dark_theme || 'nachtwache';
 }
 
-export function syncThemeFormControls() {
-    const themeForm = document.querySelector('form[data-theme-form="1"]');
+export function syncThemeFormControls(root = document) {
+    const themeForm = root.querySelector('form[data-theme-form="1"]');
     if (!(themeForm instanceof HTMLFormElement)) return;
 
     const findInput = (name, value) => Array.from(themeForm.querySelectorAll(`input[name="${name}"]`))
@@ -57,15 +57,15 @@ export function getEffectiveTheme() {
         : (themePreferences.light_theme || 'hafenblau');
 }
 
-export function updateAutoModeDot() {
-    const dot = document.querySelector('.theme-mode-dot-auto');
+export function updateAutoModeDot(root = document) {
+    const dot = root.querySelector('.theme-mode-dot-auto');
     if (!dot) return;
     const lightColor = allThemeColors[themePreferences.light_theme] || '#cfe0ec';
     const darkColor  = allThemeColors[themePreferences.dark_theme]  || '#162338';
     dot.style.background = `conic-gradient(${lightColor} 0deg 180deg, ${darkColor} 180deg 360deg)`;
 }
 
-export function applySettingsTheme() {
+export function applySettingsTheme(root = document) {
     const theme = getEffectiveTheme();
     document.documentElement.dataset.theme = theme;
     if (document.body) {
@@ -85,13 +85,13 @@ export function applySettingsTheme() {
         } catch (error) {}
     });
 
-    updateAutoModeDot();
+    updateAutoModeDot(root);
 }
 
-export function initThemeHandling() {
+export function initThemeHandling(root = document) {
     applyThemePreferencePatch(getLocalThemePreferences());
-    applySettingsTheme();
-    syncThemeFormControls();
+    applySettingsTheme(root);
+    syncThemeFormControls(root);
 
     window.addEventListener('message', event => {
         if (event.origin !== window.location.origin) return;
@@ -107,14 +107,14 @@ export function initThemeHandling() {
             light_theme: themePreferences.light_theme,
             dark_theme: themePreferences.dark_theme,
         });
-        syncThemeFormControls();
-        applySettingsTheme();
+        syncThemeFormControls(root);
+        applySettingsTheme(root);
     });
 
     if (themeMediaQuery) {
         const onThemeChange = () => {
             if (themePreferences.theme_mode === 'auto') {
-                applySettingsTheme();
+                applySettingsTheme(root);
             }
         };
 

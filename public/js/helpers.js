@@ -1,6 +1,6 @@
-import { state } from './state.js?v=5.1.31';
-import { itemForm, itemInput, linkDescriptionInput } from './ui.js?v=5.1.31';
-import { syncAutoHeight } from './utils.js?v=5.1.31';
+import { state } from './state.js?v=5.1.34';
+import { itemForm, itemInput, linkDescriptionInput } from './ui.js?v=5.1.34';
+import { syncAutoHeight } from './utils.js?v=5.1.34';
 
 export function createHelpersController(deps) {
     const {
@@ -13,19 +13,6 @@ export function createHelpersController(deps) {
         syncAutoHeight(itemInput);
         syncAutoHeight(linkDescriptionInput);
         updateFilePickerLabel();
-    }
-
-    function syncSettingsFrameTheme(settingsFrameEl) {
-        if (!settingsFrameEl?.contentWindow || state.screen !== 'settings') return;
-        const userPreferences = getUserPreferences();
-        settingsFrameEl.contentWindow.postMessage({
-            type: 'ankerkladde-theme-update',
-            preferences: {
-                theme_mode: userPreferences.theme_mode,
-                light_theme: userPreferences.light_theme,
-                dark_theme: userPreferences.dark_theme,
-            },
-        }, window.location.origin);
     }
 
     function triggerHapticFeedback() {
@@ -62,7 +49,6 @@ export function createHelpersController(deps) {
         getTodayDateString,
         isOverdueItem,
         resetItemForm,
-        syncSettingsFrameTheme,
         triggerHapticFeedback,
     };
 }

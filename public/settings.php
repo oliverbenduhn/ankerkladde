@@ -7,10 +7,16 @@ require __DIR__ . '/theme.php';
 require dirname(__DIR__) . '/src/SettingsController.php';
 
 enforceCanonicalRequest();
-sendHtmlPageSecurityHeaders(allowSameOriginFraming: true);
 $userId = requireAuth();
 $db = getDatabase();
 $csrfToken = getCsrfToken();
+$isFragment = $_SERVER['REQUEST_METHOD'] === 'GET' && ($_GET['fragment'] ?? '') === '1';
+
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && !$isFragment) {
+    $tab = rawurlencode((string) ($_GET['tab'] ?? 'app'));
+    header('Location: ' . appPath('index.php?screen=settings&tab=' . $tab));
+    exit;
+}
 $flash = null;
 $flashType = 'ok';
 
@@ -60,8 +66,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $_SESSION['settings_flash_type'] = $flashType;
 
         $redirectTab = $_GET['tab'] ?? ($passwordChangeRequired ? 'password' : 'app');
-        $redirectEmbedded = isset($_GET['embed']) && $_GET['embed'] === '1';
-        $redirectUrl = appPath('settings.php' . ($redirectEmbedded ? '?embed=1&tab=' . rawurlencode((string) $redirectTab) : ''));
+        $redirectUrl = appPath('settings.php');
         header('Location: ' . $redirectUrl);
         exit;
     }
@@ -78,8 +83,7 @@ $currentUser = $stmt->fetch();
 $categories = loadUserCategories($db, $userId);
 $iconOptions = getCategoryIconOptions();
 $currentTab = $_GET['tab'] ?? ($passwordChangeRequired ? 'password' : 'app');
-$isEmbedded = isset($_GET['embed']) && $_GET['embed'] === '1';
-$settingsAction = appPath('settings.php' . ($isEmbedded ? '?embed=1&tab=' . rawurlencode((string) $currentTab) : ''));
+$settingsAction = appPath('settings.php');
 $assetVersion = require __DIR__ . '/version.php';
 
 // Extract Service Worker version
@@ -89,6 +93,7 @@ if ($swContent && preg_match("/const\s+VERSION\s*=\s*['\"]([^'\"]+)['\"]/", $swC
     $swVersion = $matches[1];
 }
 ?>
+<?php if (!$isFragment): ?>
 <!DOCTYPE html>
 <html lang="<?= htmlspecialchars(getCurrentLanguage(), ENT_QUOTES, 'UTF-8') ?>">
 <head>
@@ -107,9 +112,12 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
     <link rel="stylesheet" href="<?= htmlspecialchars(appPath('theme-css.php'), ENT_QUOTES, 'UTF-8') ?>">
     <link rel="stylesheet" href="<?= htmlspecialchars(appPath('style.css?v=' . rawurlencode($assetVersion)), ENT_QUOTES, 'UTF-8') ?>">
 </head>
-<body class="settings-page<?= $isEmbedded ? ' settings-page-embedded' : '' ?>" data-theme="<?= htmlspecialchars($effectiveTheme, ENT_QUOTES, 'UTF-8') ?>">
-<div class="settings-card<?= $isEmbedded ? ' settings-card-embedded' : '' ?>">
-    <?php if (!$isEmbedded): ?>
+<?php endif; ?>
+<?php if (!$isFragment): ?>
+<body class="settings-page" data-theme="<?= htmlspecialchars($effectiveTheme, ENT_QUOTES, 'UTF-8') ?>">
+<?php endif; ?>
+<div class="settings-card">
+    <?php if (!$isFragment): ?>
     <div class="settings-header">
         <div class="settings-title-group">
             <img src="<?= htmlspecialchars($brandMarkSrc, ENT_QUOTES, 'UTF-8') ?>" alt="" class="brand-mark brand-mark-settings" aria-hidden="true">
@@ -162,7 +170,7 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
     ?>
     <div class="rename-dialog card" style="margin: 1rem 0; padding: 1rem;">
         <h3><?= t('settings.rename_categories_title') ?></h3>
-        <form method="post" action="<?= htmlspecialchars(appPath('settings.php' . ($isEmbedded ? '?embed=1&tab=app' : '')), ENT_QUOTES, 'UTF-8') ?>">
+        <form method="post" action="<?= htmlspecialchars($settingsAction, ENT_QUOTES, 'UTF-8') ?>">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
             <input type="hidden" name="action" value="rename_categories">
             <?php foreach ($renameSuggestions as $suggestion): ?>
@@ -184,11 +192,11 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
     <details class="settings-section settings-accordion" data-settings-panel="language">
         <summary><?= t('settings.language') ?></summary>
         <div class="settings-block">
-            <form method="post" action="<?= htmlspecialchars(appPath('settings.php' . ($isEmbedded ? '?embed=1&tab=app' : '')), ENT_QUOTES, 'UTF-8') ?>">
+            <form method="post" action="<?= htmlspecialchars($settingsAction, ENT_QUOTES, 'UTF-8') ?>" data-auto-submit="change">
                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
                 <input type="hidden" name="action" value="save_language">
                 <label class="settings-field">
-                    <select name="language" class="settings-select" onchange="this.form.submit()">
+                    <select name="language" class="settings-select">
                         <?php foreach (getAvailableLanguages() as $langCode): ?>
                             <option value="<?= htmlspecialchars($langCode, ENT_QUOTES, 'UTF-8') ?>" <?= $langCode === getCurrentLanguage() ? 'selected' : '' ?>>
                                 <?= t('language.' . $langCode) ?>
@@ -359,7 +367,7 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                         array_unshift($categoryIconOptions, $categoryIcon);
                     }
                     ?>
-                    <form method="post" action="<?= htmlspecialchars($settingsAction, ENT_QUOTES, 'UTF-8') ?>" class="settings-option settings-category-row" data-category-id="<?= (int) $category['id'] ?>">
+                    <form method="post" action="<?= htmlspecialchars($settingsAction, ENT_QUOTES, 'UTF-8') ?>" class="settings-option settings-category-row" data-category-id="<?= (int) $category['id'] ?>" data-auto-submit="category">
                         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
                         <input type="hidden" name="action" value="save_category">
                         <input type="hidden" name="category_id" value="<?= (int) $category['id'] ?>">
@@ -424,7 +432,6 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                                         <span><?= t('settings.field.hide') ?></span>
                                     </label>
                                     <div class="settings-row-actions">
-                                        <button type="submit" class="settings-save settings-row-save"><?= t('settings.action.save') ?></button>
                                         <button
                                             type="submit"
                                             name="action"
@@ -657,6 +664,8 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
     'settingsStorageScope' => $currentTab,
 ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>
 </script>
+<?php if (!$isFragment): ?>
 <script type="module" src="js/settings.js?v=<?= urlencode($assetVersion) ?>"></script>
 </body>
 </html>
+<?php endif; ?>

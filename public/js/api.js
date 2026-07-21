@@ -1,4 +1,4 @@
-import { LOCAL_PREF_KEYS, basePath, csrfToken, normalizePreferences, readLocalPrefs, saveLocalPrefs } from './state.js?v=5.1.31';
+import { LOCAL_PREF_KEYS, basePath, csrfToken, normalizePreferences, readLocalPrefs, saveLocalPrefs } from './state.js?v=5.1.34';
 
 export const SETTINGS_TABS = ['app', 'appearance', 'features', 'categories', 'new-category', 'ai', 'extension', 'password', 'system'];
 
@@ -12,7 +12,7 @@ export function appUrl(path) {
 
 export function settingsUrl(tab = 'app') {
     const resolvedTab = normalizeSettingsTab(tab);
-    return appUrl(`settings.php?embed=1&tab=${encodeURIComponent(resolvedTab)}`);
+    return appUrl(`settings.php?fragment=1&tab=${encodeURIComponent(resolvedTab)}`);
 }
 
 export async function api(action, options = {}) {

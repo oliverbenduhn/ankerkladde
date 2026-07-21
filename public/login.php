@@ -19,7 +19,7 @@ $brandMarkSrc = appPath('icon.php?size=192&theme=' . rawurlencode($effectiveThem
 $alreadyLoggedIn = getCurrentUserId() !== null;
 if ($alreadyLoggedIn) {
     if (isPasswordChangeRequired()) {
-        header('Location: ' . appPath('settings.php?tab=password&required=1'));
+        header('Location: ' . appPath('index.php?screen=settings&tab=password&required=1'));
     } else {
         header('Location: ' . (empty($_SESSION['is_admin']) ? appPath('index.php') : appPath('admin.php')));
     }
@@ -93,7 +93,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['is_admin'] = (bool) $user['is_admin'];
                 $_SESSION['must_change_password'] = (bool) ($user['must_change_password'] ?? false);
                 if ($_SESSION['must_change_password']) {
-                    header('Location: ' . appPath('settings.php?tab=password&required=1'));
+                    header('Location: ' . appPath('index.php?screen=settings&tab=password&required=1'));
                 } else {
                     header('Location: ' . ($user['is_admin'] ? appPath('admin.php') : appPath('index.php')));
                 }

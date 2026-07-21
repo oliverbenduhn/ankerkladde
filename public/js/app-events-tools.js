@@ -1,6 +1,6 @@
-import { saveLocalPrefs, state, scannerState, normalizePreferences } from './state.js?v=5.1.31';
-import { applyThemePreferences } from './theme.js?v=5.1.31';
-import { normalizeSettingsTab } from './api.js?v=5.1.31';
+import { saveLocalPrefs, state, scannerState, normalizePreferences } from './state.js?v=5.1.34';
+import { applyThemePreferences } from './theme.js?v=5.1.34';
+import { normalizeBarcodeValue } from './utils.js?v=5.1.34';
 import {
     magicBar,
     magicBtns,
@@ -20,16 +20,13 @@ import {
     searchBtn,
     searchClose,
     searchInput,
-    settingsBtns,
-    settingsFrameEl,
     todoEditorBack,
-} from './ui.js?v=5.1.31';
-import { normalizeBarcodeValue } from './utils.js?v=5.1.31';
+} from './ui.js?v=5.1.34';
 
 export function registerToolsEvents(deps) {
     const {
         openScanner, closeScanner, setScannerStatus, navigation, handleScannedBarcode,
-        router, loadCategories, loadItems, updateHeaders, syncSettingsFrameTheme, setUserPreferences,
+        router, loadCategories, loadItems, updateHeaders, setUserPreferences,
         openSearch, closeSearch, doSearch, magicController, scheduleNoteSave, editorController, closeTodoEditor
     } = deps;
 
@@ -70,64 +67,15 @@ export function registerToolsEvents(deps) {
         void handleScannedBarcode(barcode);
     });
 
-    settingsBtns.forEach(button => {
-        button.addEventListener('click', event => {
-            event.preventDefault();
-            const targetTab = button.dataset.settingsTab || 'app';
-            if (state.screen === 'settings' && state.settingsTab === targetTab) {
-                router.closeSettings();
-                navigation.navigateBackOrReplace({ screen: 'list' });
-                void loadCategories().then(() => loadItems(undefined, { useCache: false })).catch(() => {});
-                return;
-            }
-            void router.openSettings(targetTab).then(() => {
-                navigation.pushHistoryState({ screen: 'settings', tab: state.settingsTab });
-            }).catch(() => {});
+    window.addEventListener('ankerkladde-settings-preferences-update', event => {
+        const patch = event.detail || {};
+        saveLocalPrefs(patch);
+        const nextPreferences = normalizePreferences({
+            ...deps.userPreferencesRef(),
+            ...patch,
         });
-    });
-
-    settingsFrameEl?.addEventListener('load', () => {
-        try {
-            const frameUrl = new URL(settingsFrameEl.contentWindow?.location.href || settingsFrameEl.src, window.location.href);
-            if (frameUrl.protocol === 'about:') {
-                return;
-            }
-            state.settingsTab = normalizeSettingsTab(frameUrl.searchParams.get('tab') || 'app');
-            if (state.screen === 'settings') {
-                navigation.replaceCurrentHistoryState({ screen: 'settings', tab: state.settingsTab });
-                void loadCategories()
-                    .then(() => {
-                        updateHeaders();
-                        syncSettingsFrameTheme();
-                    })
-                    .catch(() => {});
-            }
-        } catch {
-            // same-origin expected; ignore if unavailable
-        }
-    });
-
-    window.addEventListener('message', event => {
-        if (event.origin !== window.location.origin) return;
-        if (settingsFrameEl?.contentWindow && event.source !== settingsFrameEl.contentWindow) return;
-        if (event.data?.type === 'ankerkladde-settings-close') {
-            router.closeSettings();
-            navigation.navigateBackOrReplace({ screen: 'list' });
-            void loadCategories().then(() => loadItems(undefined, { useCache: false })).catch(() => {});
-            return;
-        }
-
-        if (event.data?.type === 'ankerkladde-settings-preferences-update') {
-            const patch = event.data?.preferences || {};
-            saveLocalPrefs(patch);
-            const nextPreferences = normalizePreferences({
-                ...deps.userPreferencesRef(),
-                ...patch,
-            });
-            setUserPreferences(nextPreferences);
-            applyThemePreferences(nextPreferences);
-            syncSettingsFrameTheme();
-        }
+        setUserPreferences(nextPreferences);
+        applyThemePreferences(nextPreferences);
     });
 
     searchBtn?.addEventListener('click', () => {

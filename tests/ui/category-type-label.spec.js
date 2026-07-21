@@ -9,6 +9,7 @@ test('shows the drawings category type as Zeichnungen', async ({ page }) => {
   await page.getByRole('button', { name: 'Anmelden' }).click();
 
   await page.goto('/settings.php');
-  const drawingsOption = page.locator('select[name="type"] option[value="drawings"]');
+  await expect(page).toHaveURL(/index\.php\?screen=settings/);
+  const drawingsOption = page.locator('#settingsDialogContent select[name="type"] option[value="drawings"]');
   await expect(drawingsOption).toHaveText('Zeichnungen');
 });

@@ -1,5 +1,5 @@
-export function initCategoryDragReorder() {
-    const categoryList = document.querySelector('[data-category-list]');
+export function initCategoryDragReorder(root = document) {
+    const categoryList = root.querySelector('[data-category-list]');
     if (!categoryList) return;
 
     let dragEl = null;
@@ -45,9 +45,10 @@ export function initCategoryDragReorder() {
         const order = getCategoryOrder();
         if (!order.length) return;
 
-        const csrfToken = (categoryList.querySelector('input[name="csrf_token"]') || document.querySelector('input[name="csrf_token"]'))?.value || '';
+        const csrfToken = (categoryList.querySelector('input[name="csrf_token"]') || root.querySelector('input[name="csrf_token"]'))?.value || '';
+        const actionUrl = categoryList.querySelector('form')?.action || 'settings.php';
         try {
-            await fetch(window.location.href, {
+            await fetch(actionUrl, {
                 method: 'POST',
                 headers: { 'Accept': 'application/json', 'X-Requested-With': 'fetch' },
                 body: new URLSearchParams({ action: 'reorder_categories', csrf_token: csrfToken, order: JSON.stringify(order) }),

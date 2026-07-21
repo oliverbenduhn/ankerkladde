@@ -28,12 +28,15 @@ export function saveLocalPrefs(patch) {
 }
 
 export function postPreferencesUpdate(preferences) {
-    if (!preferences || typeof preferences !== 'object' || !window.parent || window.parent === window) {
+    if (!preferences || typeof preferences !== 'object') return;
+
+    if (window.parent && window.parent !== window) {
+        window.parent.postMessage({
+            type: 'ankerkladde-settings-preferences-update',
+            preferences,
+        }, window.location.origin);
         return;
     }
 
-    window.parent.postMessage({
-        type: 'ankerkladde-settings-preferences-update',
-        preferences,
-    }, window.location.origin);
+    window.dispatchEvent(new CustomEvent('ankerkladde-settings-preferences-update', { detail: preferences }));
 }

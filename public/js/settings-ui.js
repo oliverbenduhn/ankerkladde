@@ -5,12 +5,12 @@ import {
     scrollKey,
     flashStorageKey,
     openCategoryKey,
-} from './settings-state.js?v=5.1.31';
+} from './settings-state.js?v=5.1.34';
 
-export function renderFlash(message, type = 'ok') {
+export function renderFlash(message, type = 'ok', root = document) {
     if (!message) return;
 
-    const currentFlash = document.querySelector('.settings-flash[data-settings-flash="transient"]');
+    const currentFlash = root.querySelector('.settings-flash[data-settings-flash="transient"]');
     if (currentFlash) {
         currentFlash.remove();
     }
@@ -20,7 +20,7 @@ export function renderFlash(message, type = 'ok') {
     flash.dataset.settingsFlash = 'transient';
     flash.setAttribute('role', 'alert');
     flash.textContent = message;
-    document.body.appendChild(flash);
+    (root === document ? document.body : root).appendChild(flash);
 }
 
 export function readOpenPanels() {
@@ -74,9 +74,9 @@ export function saveOpenCategories(categoryRows) {
     } catch (error) {}
 }
 
-export function initUIHandling() {
-    const settingsPanels = Array.from(document.querySelectorAll('details[data-settings-panel]'));
-    const categoryRows = Array.from(document.querySelectorAll('form.settings-category-row'));
+export function initUIHandling(root = document) {
+    const settingsPanels = Array.from(root.querySelectorAll('details[data-settings-panel]'));
+    const categoryRows = Array.from(root.querySelectorAll('form.settings-category-row'));
 
     // Restore open panels
     const savedPanels = readOpenPanels();
@@ -98,7 +98,7 @@ export function initUIHandling() {
     if (saved !== null) {
         window.sessionStorage.removeItem(scrollKey);
         window.requestAnimationFrame(() => {
-            window.scrollTo({ top: Number(saved) || 0, behavior: 'auto' });
+            root.scrollTo({ top: Number(saved) || 0, behavior: 'auto' });
         });
     }
 
@@ -110,7 +110,7 @@ export function initUIHandling() {
             const parsedFlash = JSON.parse(savedFlash);
             if (parsedFlash && parsedFlash.message) {
                 window.requestAnimationFrame(() => {
-                    renderFlash(parsedFlash.message, parsedFlash.type || 'ok');
+                    renderFlash(parsedFlash.message, parsedFlash.type || 'ok', root);
                 });
             }
         } catch (error) {}
@@ -146,27 +146,27 @@ export function initUIHandling() {
 
     // Protect non-interactive assets from drag/context menu
     const nonInteractiveAssetSelector = '.category-icon-img, .brand-mark';
-    document.querySelectorAll(nonInteractiveAssetSelector).forEach(element => {
+    root.querySelectorAll(nonInteractiveAssetSelector).forEach(element => {
         if (element instanceof HTMLImageElement) {
             element.draggable = false;
         }
     });
 
-    document.addEventListener('dragstart', event => {
+    root.addEventListener('dragstart', event => {
         if (event.target instanceof Element && event.target.closest(nonInteractiveAssetSelector)) {
             event.preventDefault();
         }
     });
 
-    document.addEventListener('contextmenu', event => {
+    root.addEventListener('contextmenu', event => {
         if (event.target instanceof Element && event.target.closest(nonInteractiveAssetSelector)) {
             event.preventDefault();
         }
     });
 
     // API Key logic
-    const copyButton = document.getElementById('copy-api-key');
-    const apiKeyInput = document.getElementById('api-key-value');
+    const copyButton = root.querySelector('#copy-api-key');
+    const apiKeyInput = root.querySelector('#api-key-value');
     if (copyButton && apiKeyInput) {
         copyButton.addEventListener('click', async () => {
             try {
@@ -182,9 +182,9 @@ export function initUIHandling() {
     }
 
     // AI provider toggle
-    const providerSelect = document.getElementById('ai_provider_select');
-    const geminiFields = document.getElementById('gemini_fields');
-    const openrouterFields = document.getElementById('openrouter_fields');
+    const providerSelect = root.querySelector('#ai_provider_select');
+    const geminiFields = root.querySelector('#gemini_fields');
+    const openrouterFields = root.querySelector('#openrouter_fields');
 
     function updateProviderFields() {
         if (!providerSelect || !geminiFields || !openrouterFields) return;
@@ -199,12 +199,12 @@ export function initUIHandling() {
     }
 
     // AI test logic
-    const testApiKeyBtn = document.getElementById('test-api-key');
-    const geminiKeyInput = document.getElementById('gemini_api_key_input');
-    const geminiModelSelect = document.getElementById('gemini_model_select');
-    const openrouterKeyInput = document.getElementById('openrouter_api_key_input');
-    const openrouterModelSelect = document.getElementById('openrouter_model_select');
-    const apiTestStatus = document.getElementById('api-test-status');
+    const testApiKeyBtn = root.querySelector('#test-api-key');
+    const geminiKeyInput = root.querySelector('#gemini_api_key_input');
+    const geminiModelSelect = root.querySelector('#gemini_model_select');
+    const openrouterKeyInput = root.querySelector('#openrouter_api_key_input');
+    const openrouterModelSelect = root.querySelector('#openrouter_model_select');
+    const apiTestStatus = root.querySelector('#api-test-status');
 
     if (testApiKeyBtn) {
         testApiKeyBtn.addEventListener('click', async () => {
@@ -245,7 +245,7 @@ export function initUIHandling() {
                     body.gemini_model = model;
                 }
 
-                const csrfToken = document.querySelector('input[name="csrf_token"]')?.value || '';
+                const csrfToken = root.querySelector('input[name="csrf_token"]')?.value || '';
                 const response = await fetch('ai.php', {
                     method: 'POST',
                     headers: { 

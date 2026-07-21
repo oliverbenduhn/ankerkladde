@@ -1,7 +1,7 @@
 import { t } from './i18n.js';
-import { api } from './api.js?v=5.1.31';
-import { getCurrentCategory, state } from './state.js?v=5.1.31';
-import { enqueueAction } from './offline-queue.js?v=5.1.31';
+import { api } from './api.js?v=5.1.34';
+import { getCurrentCategory, state } from './state.js?v=5.1.34';
+import { enqueueAction } from './offline-queue.js?v=5.1.34';
 
 export function createUpdateActions(deps) {
     const {

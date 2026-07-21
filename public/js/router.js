@@ -1,14 +1,12 @@
-import { normalizeSettingsTab, settingsUrl } from './api.js?v=5.1.31';
-import { isBarcodeCategory, state } from './state.js?v=5.1.31';
+import { normalizeSettingsTab } from './api.js?v=5.1.34';
+import { isBarcodeCategory, state } from './state.js?v=5.1.34';
 import {
     appEl,
     journalViewEl,
     listSwipeStageEl,
     searchInput,
     settingsBtns,
-    settingsEmbedEl,
-    settingsFrameEl,
-} from './ui.js?v=5.1.31';
+} from './ui.js?v=5.1.34';
 
 export function applyViewState() {
     const inSettings = state.screen === 'settings';
@@ -16,11 +14,8 @@ export function applyViewState() {
     appEl?.classList.toggle('settings-view', inSettings);
     appEl?.classList.toggle('journal-view', inJournal);
     settingsBtns.forEach(button => button.classList.toggle('is-active', inSettings));
-    if (settingsEmbedEl) {
-        settingsEmbedEl.hidden = !inSettings;
-    }
     if (journalViewEl) journalViewEl.hidden = !inJournal;
-    if (listSwipeStageEl) listSwipeStageEl.hidden = inSettings || inJournal;
+    if (listSwipeStageEl) listSwipeStageEl.hidden = inJournal;
 }
 
 export function createRouter(deps) {
@@ -63,10 +58,7 @@ export function createRouter(deps) {
         applyViewState();
         updateHeaders();
 
-        const nextSrc = settingsUrl(state.settingsTab);
-        if (settingsFrameEl && settingsFrameEl.getAttribute('src') !== nextSrc) {
-            settingsFrameEl.setAttribute('src', nextSrc);
-        }
+        await deps.settingsDrawer.open(state.settingsTab);
     }
 
     function highlightItem(itemId) {
@@ -103,6 +95,7 @@ export function createRouter(deps) {
 
     function closeSettings() {
         if (state.screen !== 'settings') return;
+        deps.settingsDrawer.close();
         state.screen = 'list';
         applyViewState();
         updateHeaders();

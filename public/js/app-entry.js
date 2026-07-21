@@ -1,10 +1,10 @@
-import { registerAppEventHandlers } from './app-events.js?v=5.1.31';
-import { initApp, registerServiceWorker, initWebSocketServer } from './app-init.js?v=5.1.31';
-import { createAppRuntime } from './app-runtime.js?v=5.1.31';
-import { readInitialPreferences, state } from './state.js?v=5.1.31';
-import { applyThemePreferences } from './theme.js?v=5.1.31';
-import { modeToggleBtns, modeChip, layoutToggleBtn } from './ui.js?v=5.1.31';
-import { initConflictUI } from './offline-conflicts.js?v=5.1.31';
+import { registerAppEventHandlers } from './app-events.js?v=5.1.34';
+import { initApp, registerServiceWorker, initWebSocketServer } from './app-init.js?v=5.1.34';
+import { createAppRuntime } from './app-runtime.js?v=5.1.34';
+import { readInitialPreferences, state } from './state.js?v=5.1.34';
+import { applyThemePreferences } from './theme.js?v=5.1.34';
+import { modeToggleBtns, modeChip, layoutToggleBtn } from './ui.js?v=5.1.34';
+import { initConflictUI } from './offline-conflicts.js?v=5.1.34';
 
 export function startApp(version) {
     let userPreferences = readInitialPreferences();
@@ -60,7 +60,6 @@ export function startApp(version) {
         setUploadProgress,
         setUploadMode,
         swipeController,
-        syncSettingsFrameTheme,
         tabsViewController,
         triggerUploadSelectedAttachment,
         updateFilePickerLabel,
@@ -113,7 +112,6 @@ export function startApp(version) {
         setUploadProgress,
         setUploadMode,
         setUserPreferences,
-        syncSettingsFrameTheme,
         tabsViewController,
         triggerUploadSelectedAttachment,
         getUploadMode,

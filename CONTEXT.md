@@ -67,3 +67,7 @@ Bestehendes AI-gestütztes Eingabefeld (Gemini), das als Eskalationsziel für Qu
 
 **Deep-Link**:
 Aus der Tagesansicht heraus: Tap auf den Inhalt eines Agenda-Eintrags navigiert in die Quell-Kategorie, scrollt zum Item und blendet es für 1,5 s gelb hinterlegt ein. Die Checkbox hakt den Eintrag dagegen direkt in der Tagesansicht ab.
+
+**Einstellungsansicht**:
+Die innerhalb der Haupt-App geöffnete Oberfläche für App-, Kategorie- und Kontoeinstellungen. Beim Schließen kehrt der Nutzer in exakt den zuvor sichtbaren App-Zustand zurück.
+_Avoid_: Settings-Seite, Settings-iframe

@@ -1,5 +1,7 @@
 const { test, expect } = require('@playwright/test');
 
+test.use({ serviceWorkers: 'block' });
+
 test.describe('Settings Theme Smoke Test', () => {
   test('theme change works and monochrom buttons keep readable contrast', async ({ page }) => {
     await page.goto('/login.php');
@@ -13,17 +15,14 @@ test.describe('Settings Theme Smoke Test', () => {
 
     await page.getByRole('link', { name: 'Einstellungen' }).first().click();
 
-    const settingsFrame = page.frameLocator('#settingsFrame');
+    const settingsFrame = page.locator('#settingsDialogContent');
     await expect(settingsFrame.getByText('Erscheinungsbild')).toBeVisible();
     await settingsFrame.locator('details[data-settings-panel="appearance"] > summary').click();
 
     await settingsFrame.getByText('Hell').click();
-    await settingsFrame.locator('label').filter({
-      has: settingsFrame.locator('input[name="light_theme"][value="monochrom"]'),
-    }).click();
+    await settingsFrame.locator('input[name="light_theme"][value="monochrom"] + .theme-card').click();
 
     await expect(page.locator('body')).toHaveAttribute('data-theme', 'monochrom');
-    await expect(settingsFrame.locator('body')).toHaveAttribute('data-theme', 'monochrom');
     await expect(settingsFrame.locator('.settings-flash')).toContainText('gespeichert', { ignoreCase: true });
 
     await page.goto('/index.php');
@@ -54,7 +53,7 @@ test.describe('Settings Theme Smoke Test', () => {
     await expect(page.locator('#sectionTabs .section-tab').first()).toBeVisible();
     await page.getByRole('link', { name: 'Einstellungen' }).first().click();
 
-    const settingsFrame = page.frameLocator('#settingsFrame');
+    const settingsFrame = page.locator('#settingsDialogContent');
     await expect(settingsFrame.getByText('Erscheinungsbild')).toBeVisible();
     await settingsFrame.locator('details[data-settings-panel="appearance"] > summary').click();
 
@@ -73,7 +72,6 @@ test.describe('Settings Theme Smoke Test', () => {
     await settingsFrame.getByText('Dunkel', { exact: true }).click();
 
     await expect(page.locator('body')).toHaveAttribute('data-theme', /nachtwache|pier|monochrom-dark|grauton-dark/);
-    await expect(settingsFrame.locator('body')).toHaveAttribute('data-theme', /nachtwache|pier|monochrom-dark|grauton-dark/);
 
     releaseAutosave();
     await expect(settingsFrame.locator('.settings-flash')).toContainText('gespeichert', { ignoreCase: true });
@@ -91,7 +89,7 @@ test.describe('Settings Theme Smoke Test', () => {
 
     await page.getByRole('link', { name: 'Einstellungen' }).first().click();
 
-    const settingsFrame = page.frameLocator('#settingsFrame');
+    const settingsFrame = page.locator('#settingsDialogContent');
     await expect(settingsFrame.getByText('Erscheinungsbild')).toBeVisible();
 
     const appearancePanel = settingsFrame.locator('details[data-settings-panel="appearance"]');
@@ -117,7 +115,7 @@ test.describe('Settings Theme Smoke Test', () => {
     await expect(page).toHaveURL(/(?:view|screen)=settings/);
     await expect(page.locator('#app')).toHaveClass(/settings-view/);
 
-    const reloadedFrame = page.frameLocator('#settingsFrame');
+    const reloadedFrame = page.locator('#settingsDialogContent');
     const reloadedAppearancePanel = reloadedFrame.locator('details[data-settings-panel="appearance"]');
     const reloadedFeaturesPanel = reloadedFrame.locator('details[data-settings-panel="features"]');
     const reloadedCategoriesPanel = reloadedFrame.locator('details[data-settings-panel="categories"]');
@@ -130,7 +128,7 @@ test.describe('Settings Theme Smoke Test', () => {
     await expect(reloadedNewCategoryPanel).toHaveJSProperty('open', true);
   });
 
-  test('settings hides list-only feature buttons in the header', async ({ page }) => {
+  test('settings keep the inert app visible behind the modal drawer', async ({ page }) => {
     await page.goto('/login.php');
 
     await page.getByLabel('Benutzername').fill('playwright-user');
@@ -146,8 +144,8 @@ test.describe('Settings Theme Smoke Test', () => {
 
     await expect(page.locator('#app')).toHaveClass(/settings-view/);
     await expect(page.locator('#magicBar')).toBeHidden();
-    await expect(page.getByRole('button', { name: 'KI-Assistent' }).first()).toBeHidden();
-    await expect(page.getByRole('link', { name: 'Produktinfos per Scan öffnen' }).first()).toBeHidden();
+    await expect(page.getByRole('button', { name: 'KI-Assistent' }).first()).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Produktinfos per Scan öffnen' }).first()).toBeVisible();
   });
 
   test('category rows keep their expanded state when settings are reopened', async ({ page }) => {
@@ -162,7 +160,7 @@ test.describe('Settings Theme Smoke Test', () => {
 
     await page.getByRole('link', { name: 'Einstellungen' }).first().click();
 
-    const settingsFrame = page.frameLocator('#settingsFrame');
+    const settingsFrame = page.locator('#settingsDialogContent');
     await expect(settingsFrame.locator('details[data-settings-panel="categories"] > summary')).toBeVisible();
     await settingsFrame.locator('details[data-settings-panel="categories"] > summary').click();
 
@@ -177,7 +175,7 @@ test.describe('Settings Theme Smoke Test', () => {
     await page.goto('/index.php');
     await page.getByRole('link', { name: 'Einstellungen' }).first().click();
 
-    const reopenedFrame = page.frameLocator('#settingsFrame');
+    const reopenedFrame = page.locator('#settingsDialogContent');
     const reopenedFirstCategory = reopenedFrame.locator('form.settings-category-row').first();
     const reopenedFirstCategoryDetails = reopenedFirstCategory.locator('details.settings-category-details');
     const reopenedFirstCategorySummary = reopenedFirstCategory.locator('summary.settings-category-summary');
@@ -190,7 +188,7 @@ test.describe('Settings Theme Smoke Test', () => {
 
     await page.reload();
 
-    const reloadedFrame = page.frameLocator('#settingsFrame');
+    const reloadedFrame = page.locator('#settingsDialogContent');
     const reloadedFirstCategoryDetails = reloadedFrame
       .locator('form.settings-category-row')
       .first()
@@ -210,7 +208,7 @@ test.describe('Settings Theme Smoke Test', () => {
     await expect(page).toHaveURL(/index\.php/);
     await page.getByRole('link', { name: 'Einstellungen' }).first().click();
 
-    const settingsFrame = page.frameLocator('#settingsFrame');
+    const settingsFrame = page.locator('#settingsDialogContent');
     const categoryName = `Neue Kategorie ${Date.now()}`;
 
     await settingsFrame.locator('details[data-settings-panel="new-category"] > summary').click();

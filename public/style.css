@@ -580,8 +580,57 @@ button, input { font: inherit; }
     }
 }
 
-.app.settings-view .list-area {
+.settings-dialog {
+    width: min(640px, 100vw);
+    max-width: none;
+    height: 100vh;
+    height: 100dvh;
+    max-height: none;
+    margin: 0 0 0 auto;
+    padding: 0;
+    border: 0;
+    background: var(--surface);
+    color: var(--text-primary);
     overflow: hidden;
+}
+
+.settings-dialog::backdrop {
+    background: rgb(0 0 0 / 45%);
+}
+
+@media (max-width: 640px) {
+    .settings-dialog {
+        width: 100vw;
+        margin: 0;
+    }
+}
+
+.settings-dialog-shell {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.settings-dialog-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: max(12px, env(safe-area-inset-top)) 16px 12px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    flex: 0 0 auto;
+}
+
+.settings-dialog-header h2 {
+    margin: 0;
+    font-size: 1.35rem;
+}
+
+.settings-dialog-content {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
 }
 
 .list-area.is-swipe-gesture {
@@ -611,46 +660,6 @@ button, input { font: inherit; }
 
 .list-swipe-preview {
     display: none !important;
-}
-
-.settings-embed {
-    display: flex;
-    min-height: 100%;
-    height: 100%;
-}
-
-.settings-embed[hidden] {
-    display: none !important;
-}
-
-.settings-embed-frame {
-    width: 100%;
-    height: 100%;
-    border: 0;
-    border-radius: 16px;
-    background: transparent;
-}
-
-.app.settings-view .input-area,
-.app.settings-view .search-bar,
-.app.settings-view .list-swipe-stage,
-.app.settings-view .list-swipe-preview,
-.app.settings-view .section-tabs {
-    display: none !important;
-}
-
-.app.settings-view .progress,
-.app.settings-view .btn-tabs-toggle,
-.app.settings-view .btn-search,
-.app.settings-view .btn-magic,
-.app.settings-view .btn-scan,
-.app.settings-view .btn-journal,
-.app.settings-view .header-actions [href$="barcode.php"],
-.app.settings-view .btn-mode-toggle,
-.app.settings-view .btn-layout-toggle,
-.app.settings-view .desktop-layout-switcher {
-    visibility: hidden;
-    pointer-events: none;
 }
 
 /* Pull-to-refresh indicator */
@@ -4197,24 +4206,16 @@ body[data-theme*="dark"] .item-card.is-deep-link-highlight {
     margin: 0 auto;
 }
 
-.settings-page.settings-page-embedded {
-    min-height: 100%;
-    max-width: none;
-    padding: 0;
-}
-
 .settings-card {
     margin-top: 20px;
     padding: 20px;
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 24px;
+    border-radius: 0;
 }
 
-.settings-card.settings-card-embedded {
+.settings-card:first-child {
     margin-top: 0;
-    min-height: 100%;
-    border-radius: 16px;
 }
 
 .settings-header {

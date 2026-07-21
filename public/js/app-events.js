@@ -1,7 +1,6 @@
 import { t } from './i18n.js';
-import { saveLocalPrefs, state, scannerState, themeMediaQuery, isAttachmentCategory, normalizePreferences, isLayoutAvailable, getAvailableLayouts } from './state.js?v=5.1.31';
-import { normalizeSettingsTab } from './api.js?v=5.1.31';
-import { getPendingCount } from './offline-queue.js?v=5.1.31';
+import { saveLocalPrefs, state, scannerState, themeMediaQuery, isAttachmentCategory, normalizePreferences, isLayoutAvailable, getAvailableLayouts } from './state.js?v=5.1.34';
+import { getPendingCount } from './offline-queue.js?v=5.1.34';
 import {
     appEl,
     cameraBtn,
@@ -35,15 +34,14 @@ import {
     magicClose,
     sectionTabsEl,
     settingsBtns,
-    settingsFrameEl,
     tabsToggleBtns,
     updateViewportHeight,
     uploadModeFileBtn,
     uploadModeUrlBtn,
     urlImportInput,
-} from './ui.js?v=5.1.31';
-import { applyThemePreferences } from './theme.js?v=5.1.31';
-import { normalizeBarcodeValue, syncAutoHeight } from './utils.js?v=5.1.31';
+} from './ui.js?v=5.1.34';
+import { applyThemePreferences } from './theme.js?v=5.1.34';
+import { normalizeBarcodeValue, syncAutoHeight } from './utils.js?v=5.1.34';
 
 export function registerAppEventHandlers(deps) {
     const {
@@ -71,7 +69,6 @@ export function registerAppEventHandlers(deps) {
         setUploadProgress,
         setUserPreferences,
         setUploadMode,
-        syncSettingsFrameTheme,
         tabsViewController,
         triggerUploadSelectedAttachment,
         updateFilePickerLabel,
@@ -241,54 +238,23 @@ export function registerAppEventHandlers(deps) {
                 void loadCategories().then(() => loadItems(undefined, { useCache: false })).catch(() => {});
                 return;
             }
-            void router.openSettings(targetTab).then(() => {
-                navigation.pushHistoryState({ screen: 'settings', tab: state.settingsTab });
-            }).catch(() => {});
+            const opening = router.openSettings(targetTab);
+            navigation.pushHistoryState({ screen: 'settings', tab: targetTab });
+            void opening.catch(() => {
+                navigation.navigateBackOrReplace({ screen: 'list' });
+            });
         });
     });
 
-    settingsFrameEl?.addEventListener('load', () => {
-        try {
-            const frameUrl = new URL(settingsFrameEl.contentWindow?.location.href || settingsFrameEl.src, window.location.href);
-            if (frameUrl.protocol === 'about:') {
-                return;
-            }
-            state.settingsTab = normalizeSettingsTab(frameUrl.searchParams.get('tab') || 'app');
-            if (state.screen === 'settings') {
-                navigation.replaceCurrentHistoryState({ screen: 'settings', tab: state.settingsTab });
-                void loadCategories()
-                    .then(() => {
-                        updateHeaders();
-                        syncSettingsFrameTheme();
-                    })
-                    .catch(() => {});
-            }
-        } catch {
-            // same-origin expected; ignore if unavailable
-        }
-    });
-
-    window.addEventListener('message', event => {
-        if (event.origin !== window.location.origin) return;
-        if (settingsFrameEl?.contentWindow && event.source !== settingsFrameEl.contentWindow) return;
-        if (event.data?.type === 'ankerkladde-settings-close') {
-            router.closeSettings();
-            navigation.navigateBackOrReplace({ screen: 'list' });
-            void loadCategories().then(() => loadItems(undefined, { useCache: false })).catch(() => {});
-            return;
-        }
-
-        if (event.data?.type === 'ankerkladde-settings-preferences-update') {
-            const patch = event.data?.preferences || {};
-            saveLocalPrefs(patch);
-            const nextPreferences = normalizePreferences({
-                ...userPreferencesRef(),
-                ...patch,
-            });
-            setUserPreferences(nextPreferences);
-            applyThemePreferences(nextPreferences);
-            syncSettingsFrameTheme();
-        }
+    window.addEventListener('ankerkladde-settings-preferences-update', event => {
+        const patch = event.detail || {};
+        saveLocalPrefs(patch);
+        const nextPreferences = normalizePreferences({
+            ...userPreferencesRef(),
+            ...patch,
+        });
+        setUserPreferences(nextPreferences);
+        applyThemePreferences(nextPreferences);
     });
 
     window.addEventListener('popstate', event => {

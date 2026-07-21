@@ -1,21 +1,22 @@
-import { createAppUiController } from './app-ui.js?v=5.1.31';
-import { createHelpersController } from './helpers.js?v=5.1.31';
-import { createItemsActionsController } from './items-actions.js?v=5.1.31';
-import { createItemsController } from './items.js?v=5.1.31';
-import { createItemsViewController } from './items-view.js?v=5.1.31';
-import { createNavigation } from './navigation.js?v=5.1.31';
-import { createEditorController } from './editor.js?v=5.1.31';
-import { createTodoEditorController } from './todo-editor.js?v=5.1.31';
-import { createReorderController } from './reorder.js?v=5.1.31';
-import { createRouter } from './router.js?v=5.1.31';
-import { createScannerController } from './scanner.js?v=5.1.31';
-import { createSwipeController } from './swipe.js?v=5.1.31';
-import { createTabsViewController } from './tabs-view.js?v=5.1.31';
-import { createKanbanViewController } from './kanban-view.js?v=5.1.31';
-import { createMagicController } from './magic.js?v=5.1.31';
-import { createJournalController } from './journal.js?v=5.1.31';
-import { flushQueue, getConflictCount, getPendingCount } from './offline-queue.js?v=5.1.31';
-import { api } from './api.js?v=5.1.31';
+import { createAppUiController } from './app-ui.js?v=5.1.34';
+import { createHelpersController } from './helpers.js?v=5.1.34';
+import { createItemsActionsController } from './items-actions.js?v=5.1.34';
+import { createItemsController } from './items.js?v=5.1.34';
+import { createItemsViewController } from './items-view.js?v=5.1.34';
+import { createNavigation } from './navigation.js?v=5.1.34';
+import { createEditorController } from './editor.js?v=5.1.34';
+import { createTodoEditorController } from './todo-editor.js?v=5.1.34';
+import { createReorderController } from './reorder.js?v=5.1.34';
+import { createRouter } from './router.js?v=5.1.34';
+import { createScannerController } from './scanner.js?v=5.1.34';
+import { createSwipeController } from './swipe.js?v=5.1.34';
+import { createTabsViewController } from './tabs-view.js?v=5.1.34';
+import { createKanbanViewController } from './kanban-view.js?v=5.1.34';
+import { createMagicController } from './magic.js?v=5.1.34';
+import { createJournalController } from './journal.js?v=5.1.34';
+import { createSettingsDrawer } from './settings-drawer.js?v=5.1.34';
+import { flushQueue, getConflictCount, getPendingCount } from './offline-queue.js?v=5.1.34';
+import { api } from './api.js?v=5.1.34';
 import {
     BARCODE_FORMATS,
     SCANNER_COOLDOWN_MS,
@@ -24,9 +25,9 @@ import {
     normalizePreferences,
     scannerState,
     state,
-} from './state.js?v=5.1.31';
-import { applyThemePreferences } from './theme.js?v=5.1.31';
-import { settingsFrameEl } from './ui.js?v=5.1.31';
+} from './state.js?v=5.1.34';
+import { applyThemePreferences } from './theme.js?v=5.1.34';
+
 
 export function createAppRuntime(deps) {
     const {
@@ -106,7 +107,7 @@ export function createAppRuntime(deps) {
     const closeTodoEditor = async () => { await todoEditorController.closeTodoEditor(); };
     const scheduleNoteSave = () => editorController.scheduleNoteSave();
     const resetItemForm = () => helpersController.resetItemForm();
-    const syncSettingsFrameTheme = () => helpersController.syncSettingsFrameTheme(settingsFrameEl);
+
     const triggerHapticFeedback = () => helpersController.triggerHapticFeedback();
     const isOverdueItem = item => helpersController.isOverdueItem(item);
     const formatDate = value => helpersController.formatDate(value);
@@ -148,6 +149,18 @@ export function createAppRuntime(deps) {
         return hadItems;
     };
 
+    const settingsDrawer = createSettingsDrawer({
+        onRequestClose: () => {
+            router.closeSettings();
+            navigation.navigateBackOrReplace({ screen: 'list' });
+        },
+        onContentChanged: async () => {
+            await loadCategories();
+            await loadItems(undefined, { useCache: false });
+            updateHeaders();
+        },
+    });
+
     router = createRouter({
         closeNoteEditor,
         closeMagic: () => magicController?.closeMagic(),
@@ -162,6 +175,7 @@ export function createAppRuntime(deps) {
         openScanner,
         openSearch,
         scannerState,
+        settingsDrawer,
         renderCategoryTabs,
         setCategory,
         updateHeaders,
@@ -380,7 +394,6 @@ export function createAppRuntime(deps) {
         setUploadMode,
         setUserPreferences,
         swipeController,
-        syncSettingsFrameTheme,
         tabsViewController,
         triggerUploadSelectedAttachment: async () => { await itemsActionsController.uploadSelectedAttachment(); },
         updateFilePickerLabel,

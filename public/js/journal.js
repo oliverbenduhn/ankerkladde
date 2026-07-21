@@ -1,6 +1,6 @@
-import { api, normalizeItem } from './api.js?v=5.1.31';
-import { buildAgendaItem, loadAgenda } from './today-view.js?v=5.1.31';
-import { NOTE_SAVE_DEBOUNCE_MS, state } from './state.js?v=5.1.31';
+import { api, normalizeItem } from './api.js?v=5.1.34';
+import { buildAgendaItem, loadAgenda } from './today-view.js?v=5.1.34';
+import { NOTE_SAVE_DEBOUNCE_MS, state } from './state.js?v=5.1.34';
 import {
     agendaAddBtn,
     appEl,
@@ -24,9 +24,9 @@ import {
     journalSketchStatus,
     journalTodayBtn,
     journalToolbar,
-} from './ui.js?v=5.1.31';
-import { sanitizeItemField } from './utils.js?v=5.1.31';
-import { t } from './i18n.js?v=5.1.31';
+} from './ui.js?v=5.1.34';
+import { sanitizeItemField } from './utils.js?v=5.1.34';
+import { t } from './i18n.js?v=5.1.34';
 
 // ponytail: Parchment-Original zeigt im collapsed mode die nächsten 2 timed
 // Items; wenn keine timed Items mehr offen sind, rückt die any-time-Liste nach.
@@ -36,7 +36,7 @@ const COLLAPSED_SCHEDULED_LIMIT = 2;
 let sketchEditorModulePromise = null;
 function loadSketchEditor() {
     if (!sketchEditorModulePromise) {
-        sketchEditorModulePromise = import('./sketch-editor.js?v=5.1.31');
+        sketchEditorModulePromise = import('./sketch-editor.js?v=5.1.34');
     }
     return sketchEditorModulePromise;
 }

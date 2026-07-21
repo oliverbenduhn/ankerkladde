@@ -18,10 +18,10 @@ test('offers installation only after the first saved item', async ({ page }) => 
 
   const categoryName = `Install-Test ${Date.now()}`;
   await page.getByRole('link', { name: 'Einstellungen' }).first().click();
-  const settingsFrame = page.frameLocator('#settingsFrame');
-  await settingsFrame.locator('details[data-settings-panel="new-category"] > summary').click();
-  await settingsFrame.locator('input[name="name"]').fill(categoryName);
-  await settingsFrame.getByRole('button', { name: 'Kategorie anlegen' }).click();
+  const settingsDialog = page.locator('#settingsDialogContent');
+  await settingsDialog.locator('details[data-settings-panel="new-category"] > summary').click();
+  await settingsDialog.locator('input[name="name"]').fill(categoryName);
+  await settingsDialog.getByRole('button', { name: 'Kategorie anlegen' }).click();
   await page.goto('/index.php');
   await page.getByRole('button', { name: categoryName, exact: true }).click();
   await expect(page.locator('#list .empty-state')).toHaveText('Artikel eingeben – Menge ist optional. Mit + speichern.');
