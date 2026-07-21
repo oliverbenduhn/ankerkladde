@@ -12,5 +12,10 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.54.2"
+  },
+  "dependencies": {
+    "@astryxdesign/cli": "^0.1.6",
+    "@astryxdesign/core": "^0.1.6",
+    "@astryxdesign/theme-neutral": "^0.1.6"
   }
 }
