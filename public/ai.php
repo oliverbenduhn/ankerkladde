@@ -107,9 +107,14 @@ if (!in_array($aiProvider, $validProviders, true)) {
 }
 
 if ($aiProvider === 'openai_compatible') {
-    $aiKey = trim((string) ($data['openai_compatible_api_key'] ?? $preferences['openai_compatible_api_key'] ?? ''));
-    $aiModel = (string) ($data['openai_compatible_model'] ?? $preferences['openai_compatible_model'] ?? 'gpt-4o-mini');
-    $aiBaseUrl = trim((string) ($data['openai_compatible_base_url'] ?? $preferences['openai_compatible_base_url'] ?? 'https://api.openai.com/v1'));
+    $requestKey = $data['openai_compatible_api_key'] ?? null;
+    $aiKey = trim((string) ($requestKey !== null ? $requestKey : ($preferences['openai_compatible_api_key'] ?? '')));
+    $requestModel = $data['openai_compatible_model'] ?? null;
+    $aiModel = trim((string) ($requestModel !== null && $requestModel !== '' ? $requestModel : ($preferences['openai_compatible_model'] ?? 'gpt-4o-mini')));
+    if ($aiModel === '') $aiModel = 'gpt-4o-mini';
+    $requestBaseUrl = $data['openai_compatible_base_url'] ?? null;
+    $aiBaseUrl = trim((string) ($requestBaseUrl !== null && $requestBaseUrl !== '' ? $requestBaseUrl : ($preferences['openai_compatible_base_url'] ?? 'https://api.openai.com/v1')));
+    if ($aiBaseUrl === '') $aiBaseUrl = 'https://api.openai.com/v1';
     if (validateAiBaseUrl($aiBaseUrl) !== null) {
         http_response_code(422);
         echo json_encode(['error' => 'Ungültige Basis-URL.']);
@@ -117,9 +122,11 @@ if ($aiProvider === 'openai_compatible') {
     }
     $availableModels = []; // Freitext, keine Whitelist
 } else {
-    $aiKey = trim((string) ($data['gemini_api_key'] ?? $preferences['gemini_api_key'] ?? ''));
+    $requestKey = $data['gemini_api_key'] ?? null;
+    $aiKey = trim((string) ($requestKey !== null ? $requestKey : ($preferences['gemini_api_key'] ?? '')));
     $availableModels = getAvailableAiModels('gemini');
-    $aiModel = (string) ($data['gemini_model'] ?? $preferences['gemini_model'] ?? 'gemini-2.5-flash');
+    $requestModel = $data['gemini_model'] ?? null;
+    $aiModel = (string) ($requestModel !== null && $requestModel !== '' ? $requestModel : ($preferences['gemini_model'] ?? 'gemini-2.5-flash'));
     $aiBaseUrl = '';
 }
 if (!array_key_exists($aiModel, $availableModels) && $availableModels !== []) {

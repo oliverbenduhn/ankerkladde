@@ -44,16 +44,11 @@ if ($aiProvider === 'gemini') {
     }
     $result = listGeminiModels($apiKey);
 } else {
-    $apiKey = trim((string) (
-        $data['openai_compatible_api_key']
-        ?? $preferences['openai_compatible_api_key']
-        ?? ''
-    ));
-    $baseUrl = trim((string) (
-        $data['openai_compatible_base_url']
-        ?? $preferences['openai_compatible_base_url']
-        ?? 'https://api.openai.com/v1'
-    ));
+    $requestKey = $data['openai_compatible_api_key'] ?? null;
+    $apiKey = trim((string) ($requestKey !== null ? $requestKey : ($preferences['openai_compatible_api_key'] ?? '')));
+    $requestBaseUrl = $data['openai_compatible_base_url'] ?? null;
+    $baseUrl = trim((string) ($requestBaseUrl !== null && $requestBaseUrl !== '' ? $requestBaseUrl : ($preferences['openai_compatible_base_url'] ?? 'https://api.openai.com/v1')));
+    if ($baseUrl === '') $baseUrl = 'https://api.openai.com/v1';
     $result = listOpenAiCompatibleModels($apiKey, $baseUrl);
 }
 

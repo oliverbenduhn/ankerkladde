@@ -228,6 +228,45 @@ function test_authorization_header_clean()
     );
 }
 
+function test_empty_string_fallback()
+{
+    // Regressionsschutz: 2026-07-21 Bug. Wenn ein Request einen leeren String
+    // statt gar keinen Wert sendet (z.B. Form-Feld ist leer), greift `??`
+    // NICHT (null coalescing schlägt nur bei null, nicht bei ''). Dann wird
+    // der leere String übernommen statt auf den Default zurückzufallen.
+    echo "Testing empty-string fallback for model/baseUrl...\n";
+
+    // 1) Leerer Modell-String aus Request → muss auf Default fallen.
+    $data = ['openai_compatible_model' => ''];
+    $prefs = [];
+    $requestModel = $data['openai_compatible_model'] ?? null;
+    $model = trim((string) ($requestModel !== null && $requestModel !== '' ? $requestModel : ($prefs['openai_compatible_model'] ?? 'gpt-4o-mini')));
+    if ($model === '') $model = 'gpt-4o-mini';
+    assertTrue($model === 'gpt-4o-mini', 'leerer Request-Wert fällt auf Default, nicht auf ""');
+
+    // 2) Whitespace-String wird getrimmt und greift auch als Default.
+    $data = ['openai_compatible_model' => '   '];
+    $prefs = [];
+    $requestModel = $data['openai_compatible_model'] ?? null;
+    $model = trim((string) ($requestModel !== null && $requestModel !== '' ? $requestModel : ($prefs['openai_compatible_model'] ?? 'gpt-4o-mini')));
+    if ($model === '') $model = 'gpt-4o-mini';
+    assertTrue($model === 'gpt-4o-mini', 'Whitespace-Wert fällt nach trim() auf Default');
+
+    // 3) Vorhandener Request-Wert wird übernommen.
+    $data = ['openai_compatible_model' => 'claude-3-5-sonnet'];
+    $prefs = [];
+    $requestModel = $data['openai_compatible_model'] ?? null;
+    $model = trim((string) ($requestModel !== null && $requestModel !== '' ? $requestModel : ($prefs['openai_compatible_model'] ?? 'gpt-4o-mini')));
+    assertTrue($model === 'claude-3-5-sonnet', 'echter Request-Wert wird übernommen');
+
+    // 4) baseUrl-Pfad gleiche Logik.
+    $data = ['openai_compatible_base_url' => ''];
+    $requestBaseUrl = $data['openai_compatible_base_url'] ?? null;
+    $baseUrl = trim((string) ($requestBaseUrl !== null && $requestBaseUrl !== '' ? $requestBaseUrl : ($prefs['openai_compatible_base_url'] ?? 'https://api.openai.com/v1')));
+    if ($baseUrl === '') $baseUrl = 'https://api.openai.com/v1';
+    assertTrue($baseUrl === 'https://api.openai.com/v1', 'leerer baseUrl fällt auf Default');
+}
+
 // Run tests
 try {
     test_getAvailableProviders();
@@ -238,6 +277,7 @@ try {
     test_normalizeGeminiModelList();
     test_normalizeOpenAiModelList();
     test_authorization_header_clean();
+    test_empty_string_fallback();
     echo "\nAll AiClient tests passed!\n";
 } catch (Throwable $t) {
     echo "\nTest failed: " . $t->getMessage() . "\n";

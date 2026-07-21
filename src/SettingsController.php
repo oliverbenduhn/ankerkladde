@@ -524,8 +524,10 @@ class SettingsController
                 }
 
                 $openaiCompatibleApiKey = trim((string) ($postData['openai_compatible_api_key'] ?? ''));
-                $openaiCompatibleModel = trim((string) ($postData['openai_compatible_model'] ?? 'gpt-4o-mini'));
-                $openaiCompatibleBaseUrl = trim((string) ($postData['openai_compatible_base_url'] ?? 'https://api.openai.com/v1'));
+                $openaiCompatibleModel = trim((string) ($postData['openai_compatible_model'] ?? ''));
+                if ($openaiCompatibleModel === '') $openaiCompatibleModel = 'gpt-4o-mini';
+                $openaiCompatibleBaseUrl = trim((string) ($postData['openai_compatible_base_url'] ?? ''));
+                if ($openaiCompatibleBaseUrl === '') $openaiCompatibleBaseUrl = 'https://api.openai.com/v1';
 
                 $updatePatch = [
                     'ai_provider' => $aiProvider,
