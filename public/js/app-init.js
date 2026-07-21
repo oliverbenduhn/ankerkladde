@@ -1,7 +1,7 @@
-import { basePath, state } from './state.js?v=5.1.29';
-import { applyViewState } from './router.js?v=5.1.29';
-import { appEl, updateBannerEl, updateViewportHeight } from './ui.js?v=5.1.29';
-import { loadAgenda, updateAppBadge } from './today-view.js?v=5.1.29';
+import { basePath, state } from './state.js?v=5.1.31';
+import { applyViewState } from './router.js?v=5.1.31';
+import { appEl, updateBannerEl, updateViewportHeight } from './ui.js?v=5.1.31';
+import { loadAgenda, updateAppBadge } from './today-view.js?v=5.1.31';
 
 export async function initApp(deps) {
     const {
@@ -24,7 +24,6 @@ export async function initApp(deps) {
         applyThemePreferences(userPreferences);
         updateViewportHeight();
         setNetworkStatus();
-        applyViewState();
         state.mode = userPreferences.mode;
         state.layout = userPreferences.layout;
         if (appEl) {
@@ -32,6 +31,22 @@ export async function initApp(deps) {
             appEl.dataset.layout = state.layout;
         }
         deps.applyTabsVisibility(userPreferences.tabs_hidden);
+        // ponytail: state.screen VOR dem ersten applyViewState setzen, sonst
+        // flackert kurz die Default-Liste bevor JS den Tagesansicht-State zieht.
+        const initialRoute = navigation.readInitialRouteFromUrl();
+        if (initialRoute.screen === 'journal') {
+            state.screen = 'journal';
+            state.journalDate = initialRoute.date || state.serverToday;
+        } else if (initialRoute.screen === 'settings') {
+            state.screen = 'settings';
+            state.settingsTab = initialRoute.tab || 'app';
+        } else if (initialRoute.screen === 'search') {
+            state.search.open = true;
+            state.search.query = initialRoute.query || '';
+        } else if (initialRoute.screen === 'note' || initialRoute.screen === 'scanner') {
+            // bleiben bis zum vollständigen applyRouteState unsichtbar
+        }
+        applyViewState();
         reorderController.initItemDragReorder();
         swipeController.initCategorySwipe();
         await loadCategories();
@@ -46,9 +61,9 @@ export async function initApp(deps) {
             // Badging is optional; failing silently here matches the journal
             // agenda fetch behaviour (which also swallows network errors).
         }
-        const initialRoute = navigation.readInitialRouteFromUrl();
-        if (initialRoute.screen !== 'list') {
-            await router.applyRouteState(initialRoute, route => route);
+        const initialRouteForRouting = navigation.readInitialRouteFromUrl();
+        if (initialRouteForRouting.screen !== 'list') {
+            await router.applyRouteState(initialRouteForRouting, route => route);
         }
         navigation.replaceCurrentHistoryState();
         prefetchAdjacentCategories();

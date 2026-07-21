@@ -1,7 +1,7 @@
 import { t } from './i18n.js';
-import { saveLocalPrefs, state, scannerState, themeMediaQuery, isAttachmentCategory, normalizePreferences, isLayoutAvailable, getAvailableLayouts } from './state.js?v=5.1.29';
-import { normalizeSettingsTab } from './api.js?v=5.1.29';
-import { getPendingCount } from './offline-queue.js?v=5.1.29';
+import { saveLocalPrefs, state, scannerState, themeMediaQuery, isAttachmentCategory, normalizePreferences, isLayoutAvailable, getAvailableLayouts } from './state.js?v=5.1.31';
+import { normalizeSettingsTab } from './api.js?v=5.1.31';
+import { getPendingCount } from './offline-queue.js?v=5.1.31';
 import {
     appEl,
     cameraBtn,
@@ -41,9 +41,9 @@ import {
     uploadModeFileBtn,
     uploadModeUrlBtn,
     urlImportInput,
-} from './ui.js?v=5.1.29';
-import { applyThemePreferences } from './theme.js?v=5.1.29';
-import { normalizeBarcodeValue, syncAutoHeight } from './utils.js?v=5.1.29';
+} from './ui.js?v=5.1.31';
+import { applyThemePreferences } from './theme.js?v=5.1.31';
+import { normalizeBarcodeValue, syncAutoHeight } from './utils.js?v=5.1.31';
 
 export function registerAppEventHandlers(deps) {
     const {

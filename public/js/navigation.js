@@ -1,5 +1,5 @@
-import { normalizeSettingsTab } from './api.js?v=5.1.29';
-import { state } from './state.js?v=5.1.29';
+import { normalizeSettingsTab } from './api.js?v=5.1.31';
+import { state } from './state.js?v=5.1.31';
 
 export function createNavigation({ applyRouteState, getCurrentRouteState }) {
     let appHistoryIndex = 0;
@@ -156,8 +156,31 @@ export function createNavigation({ applyRouteState, getCurrentRouteState }) {
         const params = new URLSearchParams(window.location.search);
         const categoryId = Number(params.get('category_id'));
 
-        // Read new params, fall back to old 'view' param
+        // ponytail: wenn history.state gesetzt ist (vom pushState), daraus den
+        // Initial-Screen lesen — sonst springt die View beim Reload kurz auf
+        // die Default-Liste, bevor JS die history.state nachzieht.
         let screen = params.get('screen') || params.get('view');
+        let dateParam = params.get('date');
+        let focusParam = params.get('focus');
+        let tabParam = params.get('tab');
+        let noteParam = Number(params.get('note'));
+        let itemParam = Number(params.get('item'));
+        let queryParam = params.get('q');
+        let scannerActionParam = params.get('scanner_action');
+        if (!screen && window.history.state && typeof window.history.state === 'object') {
+            const stateful = window.history.state;
+            if (typeof stateful.screen === 'string') screen = stateful.screen;
+            if (typeof stateful.date === 'string') dateParam = stateful.date;
+            if (typeof stateful.focus === 'string') focusParam = stateful.focus;
+            if (typeof stateful.tab === 'string') tabParam = stateful.tab;
+            if (Number.isInteger(stateful.noteId)) noteParam = stateful.noteId;
+            if (Number.isInteger(stateful.itemId)) itemParam = stateful.itemId;
+            if (typeof stateful.query === 'string') queryParam = stateful.query;
+            if (typeof stateful.action === 'string') scannerActionParam = stateful.action;
+            if (Number.isInteger(stateful.categoryId)) {
+                params.set('category_id', String(stateful.categoryId));
+            }
+        }
 
         // Read mode and layout from URL
         const urlMode = params.get('mode');
@@ -173,25 +196,25 @@ export function createNavigation({ applyRouteState, getCurrentRouteState }) {
         }
 
         if (screen === 'settings') {
-            return normalizeRouteState({ ...base, screen: 'settings', tab: params.get('tab') });
+            return normalizeRouteState({ ...base, screen: 'settings', tab: tabParam });
         }
         if (screen === 'search') {
-            return normalizeRouteState({ ...base, screen: 'search', query: params.get('q') || '' });
+            return normalizeRouteState({ ...base, screen: 'search', query: queryParam || '' });
         }
         if (screen === 'journal') {
-            return normalizeRouteState({ ...base, screen: 'journal', date: params.get('date'), focus: params.get('focus') });
+            return normalizeRouteState({ ...base, screen: 'journal', date: dateParam, focus: focusParam });
         }
         if (screen === 'note') {
             return normalizeRouteState({
                 ...base, screen: 'note',
-                noteId: Number(params.get('note')),
+                noteId: noteParam,
                 categoryId: Number.isInteger(categoryId) ? categoryId : null,
             });
         }
         if (screen === 'scanner') {
             return normalizeRouteState({
                 ...base, screen: 'scanner',
-                action: params.get('scanner_action'),
+                action: scannerActionParam,
                 categoryId: Number.isInteger(categoryId) ? categoryId : null,
             });
         }
@@ -199,7 +222,7 @@ export function createNavigation({ applyRouteState, getCurrentRouteState }) {
             ...base,
             screen: 'list',
             categoryId: Number.isInteger(categoryId) ? categoryId : null,
-            itemId: Number(params.get('item')),
+            itemId: itemParam,
         });
     }
 
