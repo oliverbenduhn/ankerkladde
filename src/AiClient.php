@@ -64,8 +64,8 @@ function getActiveAiConfig(array $preferences): array
  */
 function callAiProvider(string $apiKey, string $provider, string $model, string $prompt, array $options = []): array
 {
-    $timeout = (int) ($options['timeout'] ?? 20);
-    $connectTimeout = (int) ($options['connect_timeout'] ?? 5);
+    $timeout = (int) ($options['timeout'] ?? 30);
+    $connectTimeout = (int) ($options['connect_timeout'] ?? 10);
     $jsonMode = (bool) ($options['json_mode'] ?? false);
     $temperature = $options['temperature'] ?? null;
     $baseUrl = (string) ($options['base_url'] ?? '');
@@ -300,8 +300,8 @@ function listGeminiModels(string $apiKey): array
 
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT => 8,
-        CURLOPT_CONNECTTIMEOUT => 3,
+        CURLOPT_TIMEOUT => 30,
+        CURLOPT_CONNECTTIMEOUT => 10,
         CURLOPT_HTTPHEADER => ['Accept: application/json'],
     ]);
 
@@ -355,8 +355,8 @@ function listOpenAiCompatibleModels(string $apiKey, string $baseUrl): array
 
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT => 8,
-        CURLOPT_CONNECTTIMEOUT => 3,
+        CURLOPT_TIMEOUT => 30,
+        CURLOPT_CONNECTTIMEOUT => 10,
         CURLOPT_HTTPHEADER => $headers,
     ]);
 

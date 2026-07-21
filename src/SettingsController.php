@@ -50,8 +50,8 @@ function validateAiApiKey(string $provider, string $apiKey, string $modelName, s
     }
 
     $result = callAiProvider($apiKey, $provider, $modelName, 'Hi', [
-        'timeout' => 8,
-        'connect_timeout' => 3,
+        'timeout' => 30,
+        'connect_timeout' => 10,
         'base_url' => $baseUrl,
     ]);
 

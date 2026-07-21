@@ -887,8 +887,8 @@ PROMPT;
     $prompt = $systemPrompt . "\n\nInput: " . json_encode($product, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
     $result = callAiProvider($aiConfig['key'], $aiConfig['provider'], $aiConfig['model'], $prompt, [
-        'timeout' => 8,
-        'connect_timeout' => 3,
+        'timeout' => 30,
+        'connect_timeout' => 10,
         'json_mode' => true,
         'temperature' => 0.1,
     ]);

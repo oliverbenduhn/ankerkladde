@@ -134,8 +134,8 @@ if ($aiKey === '' && $mode !== 'confirm' && $aiProvider !== 'openai_compatible')
 
 if (!empty($data['test_only'])) {
     $result = callAiProvider($aiKey, $aiProvider, $aiModel, 'Hi', [
-        'timeout' => 8,
-        'connect_timeout' => 3,
+        'timeout' => 30,
+        'connect_timeout' => 10,
         'base_url' => $aiBaseUrl,
     ]);
 
@@ -369,8 +369,8 @@ Regeln:
 $prompt = $systemPrompt . "\n\nBenutzereingabe: " . $userInput;
 
 $result = callAiProvider($aiKey, $aiProvider, $aiModel, $prompt, [
-    'timeout' => 20,
-    'connect_timeout' => 5,
+    'timeout' => 30,
+    'connect_timeout' => 10,
     'json_mode' => true,
     'base_url' => $aiBaseUrl,
 ]);
