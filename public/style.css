@@ -3588,6 +3588,16 @@ body[data-theme*="dark"] .item-card.is-deep-link-highlight {
     padding: 0.75rem;
 }
 
+/* ponytail: Parchment-Verhalten — collapsed blendet die Any-Time-Spalte aus,
+   solange noch scheduled Items offen sind. Toggle-Button im Header. */
+.journal-agenda-columns[data-collapsed="true"] {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.journal-agenda-columns[data-collapsed="true"] .journal-agenda-column[data-suppressed="true"] {
+    display: none;
+}
+
 .journal-agenda-column {
     min-width: 0;
     padding-right: 0.65rem;

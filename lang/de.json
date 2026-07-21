@@ -45,6 +45,8 @@
     "agenda.toggle": "{name} abhaken",
     "agenda.toggle_failed": "Abhaken fehlgeschlagen.",
     "agenda.open_failed": "Quelle konnte nicht geöffnet werden.",
+    "agenda.collapse": "Weniger anzeigen",
+    "agenda.expand": "Mehr anzeigen",
     "manifest.today": "Heute",
     "manifest.new_note": "Neue Notiz",
     "today.title": "Heute",

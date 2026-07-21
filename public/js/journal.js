@@ -5,6 +5,8 @@ import {
     agendaAddBtn,
     appEl,
     itemInput,
+    journalAgendaBody,
+    journalAgendaCollapseBtn,
     journalBackBtn,
     journalAnytimeList,
     journalDateHeading,
@@ -25,6 +27,11 @@ import {
 } from './ui.js?v=5.1.27';
 import { sanitizeItemField } from './utils.js?v=5.1.27';
 import { t } from './i18n.js?v=5.1.27';
+
+// ponytail: Parchment-Original zeigt im collapsed mode die nächsten 2 timed
+// Items; wenn keine timed Items mehr offen sind, rückt die any-time-Liste nach.
+// Hardcoded 2 — Original-Wert; PATCH wenn Parchment-Doku eine andere Zahl nennt.
+const COLLAPSED_SCHEDULED_LIMIT = 2;
 
 let sketchEditorModulePromise = null;
 function loadSketchEditor() {
@@ -86,6 +93,9 @@ export function createJournalController(deps) {
     let pendingSave = Promise.resolve();
     let editorGeneration = 0;
     let returnCategoryId = null;
+    let lastAgendaItems = [];
+    // ponytail: Default collapsed = true entspricht dem Parchment-Original.
+    let agendaCollapsed = true;
 
     function waitForTipTap() {
         return new Promise(resolve => {
@@ -202,6 +212,7 @@ export function createJournalController(deps) {
     }
 
     function renderAgenda(items) {
+        lastAgendaItems = items;
         const anytime = document.createDocumentFragment();
         const scheduled = document.createDocumentFragment();
         const buildWithHandlers = (sourceItem, handlerToggle, handlerOpen) => {
@@ -222,6 +233,9 @@ export function createJournalController(deps) {
         const onToggle = (item, entry) => {
             void toggleHandler(item.id, true).then(() => {
                 entry.classList.add('is-done');
+                // ponytail: nach toggle neu laden, damit die Any-Time-Spalte
+                // auftaucht, sobald keine scheduled Items mehr offen sind.
+                void reloadAgenda();
             }).catch(error => {
                 setMessage(error instanceof Error ? error.message : t('agenda.toggle_failed'), true);
             });
@@ -233,13 +247,33 @@ export function createJournalController(deps) {
                     setMessage(error instanceof Error ? error.message : t('agenda.open_failed'), true);
                 });
         };
+        const scheduledItems = items.filter(item => item.agenda_group === 'scheduled');
+        const anytimeItems = items.filter(item => item.agenda_group !== 'scheduled');
+        // ponytail: collapsed = max 2 scheduled; anytime unterdrückt, solange scheduled offen.
+        const visibleScheduled = agendaCollapsed
+            ? scheduledItems.slice(0, COLLAPSED_SCHEDULED_LIMIT)
+            : scheduledItems;
+        const anytimeSuppressed = agendaCollapsed && visibleScheduled.length > 0 && anytimeItems.length > 0;
         items.forEach(item => {
+            const isScheduled = item.agenda_group === 'scheduled';
+            if (isScheduled && agendaCollapsed && !visibleScheduled.includes(item)) return;
             const node = buildWithHandlers(item, () => onToggle(item, node), () => onOpen(item));
-            const target = item.agenda_group === 'scheduled' ? scheduled : anytime;
-            target.appendChild(node);
+            (isScheduled ? scheduled : anytime).appendChild(node);
         });
         journalAnytimeList?.replaceChildren(anytime);
         journalScheduledList?.replaceChildren(scheduled);
+        if (journalAgendaBody) {
+            journalAgendaBody.dataset.collapsed = agendaCollapsed ? 'true' : 'false';
+        }
+        const anytimeColumn = journalAnytimeList?.closest('.journal-agenda-column');
+        if (anytimeColumn) {
+            anytimeColumn.dataset.suppressed = anytimeSuppressed ? 'true' : 'false';
+        }
+        if (journalAgendaCollapseBtn) {
+            journalAgendaCollapseBtn.textContent = agendaCollapsed ? t('agenda.expand') : t('agenda.collapse');
+            journalAgendaCollapseBtn.setAttribute('aria-expanded', agendaCollapsed ? 'false' : 'true');
+            journalAgendaCollapseBtn.hidden = items.length === 0;
+        }
     }
 
     async function renderSketchCard() {
@@ -395,6 +429,10 @@ export function createJournalController(deps) {
     });
     journalFormatBtn?.addEventListener('click', () => setToolbarOpen(journalToolbar?.hidden !== false));
     journalToolbar?.addEventListener('click', handleToolbarClick);
+    journalAgendaCollapseBtn?.addEventListener('click', () => {
+        agendaCollapsed = !agendaCollapsed;
+        renderAgenda(lastAgendaItems);
+    });
     const handleSketchOpen = () => {
         if (journalSketchOpenBtn?.disabled || journalSketchPreviewBtn?.disabled) return;
         const date = state.journalDate;

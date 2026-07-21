@@ -45,6 +45,8 @@
     "agenda.toggle": "Mark {name} done",
     "agenda.toggle_failed": "Failed to mark item done.",
     "agenda.open_failed": "Could not open source item.",
+    "agenda.collapse": "Show less",
+    "agenda.expand": "Show more",
     "manifest.today": "Today",
     "manifest.new_note": "New Note",
     "today.title": "Today",
