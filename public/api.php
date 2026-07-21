@@ -2648,7 +2648,21 @@ try {
             }
 
             $id = filter_var($data['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
-            $done = filter_var($data['done'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 0, 'max_range' => 1]]);
+            // ponytail: tolerate truthy strings from legacy clients / offline queue
+            // ("true"/"t"/"1" → 1, "false"/"f"/"0"/"" → 0) instead of 422-ing them.
+            $rawDone = $data['done'] ?? null;
+            if (is_string($rawDone)) {
+                $normalized = strtolower(trim($rawDone));
+                if (in_array($normalized, ['true', 't', '1', 'yes', 'on'], true)) {
+                    $done = 1;
+                } elseif (in_array($normalized, ['false', 'f', '0', 'no', 'off', ''], true)) {
+                    $done = 0;
+                } else {
+                    $done = filter_var($rawDone, FILTER_VALIDATE_INT, ['options' => ['min_range' => 0, 'max_range' => 1]]);
+                }
+            } else {
+                $done = filter_var($rawDone, FILTER_VALIDATE_INT, ['options' => ['min_range' => 0, 'max_range' => 1]]);
+            }
 
             if (!is_int($id) || !is_int($done)) {
                 respond(422, ['error' => t('error.invalid_status_params'), 'error_key' => 'error.invalid_status_params']);

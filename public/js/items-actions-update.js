@@ -1,7 +1,7 @@
 import { t } from './i18n.js';
-import { api } from './api.js?v=5.1.28';
-import { getCurrentCategory, state } from './state.js?v=5.1.28';
-import { enqueueAction } from './offline-queue.js?v=5.1.28';
+import { api } from './api.js?v=5.1.29';
+import { getCurrentCategory, state } from './state.js?v=5.1.29';
+import { enqueueAction } from './offline-queue.js?v=5.1.29';
 
 export function createUpdateActions(deps) {
     const {
@@ -21,21 +21,24 @@ export function createUpdateActions(deps) {
     } = deps;
 
     async function handleToggle(id, done) {
+        // ponytail: coerce to 0/1 — callers from the journal pass a boolean which
+        // would stringify to "true"/"false" and fail PHP FILTER_VALIDATE_INT with 422.
+        const doneFlag = done ? 1 : 0;
         const item = getItemById(id);
         const previousDone = item?.done;
         if (item) {
-            item.done = done;
+            item.done = doneFlag;
             cacheCurrentCategoryItems();
             renderItems();
         }
         try {
             await api('toggle', {
                 method: 'POST',
-                body: new URLSearchParams({ id: String(id), done: String(done) }),
+                body: new URLSearchParams({ id: String(id), done: String(doneFlag) }),
             });
         } catch (error) {
             if (shouldQueueOffline(error)) {
-                enqueueAction('toggle', { id: String(id), done: String(done) });
+                enqueueAction('toggle', { id: String(id), done: String(doneFlag) });
                 setNetworkStatus();
                 return;
             }
