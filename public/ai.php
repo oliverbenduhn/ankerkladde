@@ -133,12 +133,6 @@ if ($aiKey === '' && $mode !== 'confirm' && $aiProvider !== 'openai_compatible')
 }
 
 if (!empty($data['test_only'])) {
-    // Diagnose: erste/letzte 4 Zeichen des Keys für Debugging. Nicht der ganze Key,
-    // weil die Response nicht in Logs landen sollte. ponytail: entfernen wenn Bug gefixt.
-    $keyHead = $aiKey === '' ? '' : substr($aiKey, 0, 4);
-    $keyTail = $aiKey === '' ? '' : substr($aiKey, -4);
-    $keyLen = strlen($aiKey);
-
     $result = callAiProvider($aiKey, $aiProvider, $aiModel, 'Hi', [
         'timeout' => 8,
         'connect_timeout' => 3,
@@ -146,18 +140,11 @@ if (!empty($data['test_only'])) {
     ]);
 
     if ($result['ok']) {
-        echo json_encode([
-            'success' => true,
-            'message' => 'Key ist gültig für ' . $aiModel . '.',
-            'debug' => ['key_head' => $keyHead, 'key_tail' => $keyTail, 'key_len' => $keyLen],
-        ]);
+        echo json_encode(['success' => true, 'message' => 'Key ist gültig für ' . $aiModel . '.']);
     } else {
         $providerName = getProviderDisplayName($aiProvider);
         http_response_code(403);
-        echo json_encode([
-            'error' => 'Key oder Modell ungültig' . ($result['http_code'] > 0 ? ' (HTTP ' . $result['http_code'] . ')' : '') . ($result['error'] !== '' ? ': ' . $result['error'] : ''),
-            'debug' => ['key_head' => $keyHead, 'key_tail' => $keyTail, 'key_len' => $keyLen],
-        ]);
+        echo json_encode(['error' => 'Key oder Modell ungültig' . ($result['http_code'] > 0 ? ' (HTTP ' . $result['http_code'] . ')' : '') . ($result['error'] !== '' ? ': ' . $result['error'] : '')]);
     }
     exit;
 }

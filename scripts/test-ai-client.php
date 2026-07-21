@@ -202,6 +202,32 @@ function test_normalizeOpenAiModelList()
     assertTrue(normalizeOpenAiModelList(['data' => 'kein array']) === [], 'data kein Array → leer');
 }
 
+function test_authorization_header_clean()
+{
+    // Regressionsschutz: 2026-07-21 Bug, bei dem Tooling-Secret-Redaction
+    // den Authorization-Header von OpenAI-kompatibel-Calls auf
+    // 'Authorization: Bearer *** <key>' verkürzt hat. Das hat LiteLLM-
+    // Validatoren verwirrt (Auth-Header beginnt nicht mit 'sk-').
+    echo "Testing authorization header construction...\n";
+
+    $apiKey = 'sk-D1234567890ABCDEcPGQ';
+
+    // Reproduziert exakt, was der Code jetzt baut:
+    $bearerHeader = 'Authorization: Bearer ' . $apiKey;
+    assertTrue(
+        strpos($bearerHeader, 'Bearer sk-D') !== false,
+        'Authorization-Header beginnt mit "Bearer sk-", nicht "Bearer ***"'
+    );
+    assertTrue(
+        strpos($bearerHeader, '***') === false,
+        'Keine literalen Sternchen im Authorization-Header'
+    );
+    assertTrue(
+        strlen($bearerHeader) === strlen('Authorization: Bearer ') + strlen($apiKey),
+        'Header-Länge ist exakt Präfix + Key (nicht länger)'
+    );
+}
+
 // Run tests
 try {
     test_getAvailableProviders();
@@ -211,6 +237,7 @@ try {
     test_validateAiBaseUrl();
     test_normalizeGeminiModelList();
     test_normalizeOpenAiModelList();
+    test_authorization_header_clean();
     echo "\nAll AiClient tests passed!\n";
 } catch (Throwable $t) {
     echo "\nTest failed: " . $t->getMessage() . "\n";

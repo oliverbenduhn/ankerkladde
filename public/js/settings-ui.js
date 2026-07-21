@@ -260,16 +260,11 @@ export function initUIHandling(root = document) {
                 });
 
                 const result = await response.json();
-                // ponytail: debug-Block anzeigen wenn vorhanden, hilft beim Root-Cause-Finden.
-                const debug = result.debug;
-                const debugSuffix = debug && typeof debug.key_head === 'string'
-                    ? ` [Key: ${debug.key_head}…${debug.key_tail} (${debug.key_len} Zeichen)]`
-                    : '';
                 if (response.ok) {
-                    apiTestStatus.textContent = t('msg.connection_success', { model }) + debugSuffix;
+                    apiTestStatus.textContent = t('msg.connection_success', { model });
                     apiTestStatus.style.color = 'green';
                 } else {
-                    apiTestStatus.textContent = t('error.connection_failed', { error: result.error || t('error.invalid_key') }) + debugSuffix;
+                    apiTestStatus.textContent = t('error.connection_failed', { error: result.error || t('error.invalid_key') });
                     apiTestStatus.style.color = 'var(--error)';
                 }
             } catch (error) {

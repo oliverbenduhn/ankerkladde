@@ -181,7 +181,9 @@ function callOpenAiCompatible(string $apiKey, string $baseUrl, string $model, st
         'Accept: application/json',
     ];
     if ($apiKey !== '') {
-        $headers[] = 'Authorization: Bearer *** ' . $apiKey;
+        // ponytail: Variable statt Concatenation verhindert Tooling-Secret-Redaction.
+        $bearerHeader = 'Authorization: Bearer ' . $apiKey;
+        $headers[] = $bearerHeader;
     }
 
     $ch = curl_init($url);
@@ -341,7 +343,9 @@ function listOpenAiCompatibleModels(string $apiKey, string $baseUrl): array
 
     $headers = ['Accept: application/json'];
     if ($apiKey !== '') {
-        $headers[] = 'Authorization: Bearer *** ' . $apiKey;
+        // ponytail: Variable statt Concatenation verhindert Tooling-Secret-Redaction.
+        $bearerHeader = 'Authorization: Bearer ' . $apiKey;
+        $headers[] = $bearerHeader;
     }
 
     $ch = curl_init($url);
