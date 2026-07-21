@@ -386,7 +386,16 @@ export function initUIHandling(root = document) {
                     body: JSON.stringify({ ...body, csrf_token: csrfToken }),
                 });
 
-                const result = await response.json();
+                // Erst Body als Text lesen, damit wir Server-Fehler sehen können,
+                // die kein gültiges JSON sind (z.B. PHP-Warnings vor der JSON-Ausgabe).
+                const responseText = await response.text();
+                let result = null;
+                try {
+                    result = JSON.parse(responseText);
+                } catch (parseErr) {
+                    showModelsLoadStatus(`HTTP ${response.status} ${response.statusText} (kein JSON): ${responseText.slice(0, 200)}`, 'var(--error)');
+                    return;
+                }
                 const models = Array.isArray(result.models) ? result.models : [];
 
                 if (response.ok && models.length > 0) {
@@ -399,7 +408,7 @@ export function initUIHandling(root = document) {
                     showModelsLoadStatus(t('error.models_load_failed', { error: result.error || t('error.invalid_key') }), 'var(--error)');
                 }
             } catch (err) {
-                showModelsLoadStatus(t('error.network_test_failed'), 'var(--error)');
+                showModelsLoadStatus(t('error.network_test_failed') + ' (' + err.message + ')', 'var(--error)');
             } finally {
                 loadModelsBtn.disabled = false;
             }

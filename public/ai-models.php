@@ -20,7 +20,12 @@ $data = json_decode($rawInput, true);
 requireCsrfToken($data ?? []);
 
 $db = getDatabase();
-$userId = requireAuth();
+$userId = getCurrentUserId();
+if ($userId === null) {
+    http_response_code(401);
+    echo json_encode(['error' => 'Nicht angemeldet.', 'models' => []]);
+    exit;
+}
 $preferences = getExtendedUserPreferences($db, $userId);
 
 $aiProvider = (string) ($data['ai_provider'] ?? $preferences['ai_provider'] ?? 'gemini');
