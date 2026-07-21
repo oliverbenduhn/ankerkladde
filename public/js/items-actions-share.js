@@ -1,5 +1,5 @@
-import { appUrl, api, apiUpload, fetchLinkMetadata } from './api.js?v=5.1.27';
-import { escapeRegExp, limitText, sanitizeItemField, sanitizeItemPayload } from './utils.js?v=5.1.27';
+import { appUrl, api, apiUpload, fetchLinkMetadata } from './api.js?v=5.1.28';
+import { escapeRegExp, limitText, sanitizeItemField, sanitizeItemPayload } from './utils.js?v=5.1.28';
 
 export function createShareActions(deps) {
     const {

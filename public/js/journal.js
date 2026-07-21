@@ -1,6 +1,6 @@
-import { api, normalizeItem } from './api.js?v=5.1.27';
-import { buildAgendaItem, loadAgenda } from './today-view.js?v=5.1.27';
-import { NOTE_SAVE_DEBOUNCE_MS, state } from './state.js?v=5.1.27';
+import { api, normalizeItem } from './api.js?v=5.1.28';
+import { buildAgendaItem, loadAgenda } from './today-view.js?v=5.1.28';
+import { NOTE_SAVE_DEBOUNCE_MS, state } from './state.js?v=5.1.28';
 import {
     agendaAddBtn,
     appEl,
@@ -24,9 +24,9 @@ import {
     journalSketchStatus,
     journalTodayBtn,
     journalToolbar,
-} from './ui.js?v=5.1.27';
-import { sanitizeItemField } from './utils.js?v=5.1.27';
-import { t } from './i18n.js?v=5.1.27';
+} from './ui.js?v=5.1.28';
+import { sanitizeItemField } from './utils.js?v=5.1.28';
+import { t } from './i18n.js?v=5.1.28';
 
 // ponytail: Parchment-Original zeigt im collapsed mode die nächsten 2 timed
 // Items; wenn keine timed Items mehr offen sind, rückt die any-time-Liste nach.
@@ -36,7 +36,7 @@ const COLLAPSED_SCHEDULED_LIMIT = 2;
 let sketchEditorModulePromise = null;
 function loadSketchEditor() {
     if (!sketchEditorModulePromise) {
-        sketchEditorModulePromise = import('./sketch-editor.js?v=5.1.27');
+        sketchEditorModulePromise = import('./sketch-editor.js?v=5.1.28');
     }
     return sketchEditorModulePromise;
 }
@@ -249,14 +249,23 @@ export function createJournalController(deps) {
         };
         const scheduledItems = items.filter(item => item.agenda_group === 'scheduled');
         const anytimeItems = items.filter(item => item.agenda_group !== 'scheduled');
-        // ponytail: collapsed = max 2 scheduled; anytime unterdrückt, solange scheduled offen.
+        // ponytail: collapsed = max N pro Gruppe. Parchment: scheduled zeigt die
+        // nächsten 2 timed, anytime rückt erst nach wenn scheduled leer ist und
+        // wird ebenfalls auf 2 begrenzt, sonst scrollt die Spalte.
         const visibleScheduled = agendaCollapsed
             ? scheduledItems.slice(0, COLLAPSED_SCHEDULED_LIMIT)
             : scheduledItems;
         const anytimeSuppressed = agendaCollapsed && visibleScheduled.length > 0 && anytimeItems.length > 0;
+        const visibleAnytime = agendaCollapsed
+            ? anytimeItems.slice(0, COLLAPSED_SCHEDULED_LIMIT)
+            : anytimeItems;
         items.forEach(item => {
             const isScheduled = item.agenda_group === 'scheduled';
-            if (isScheduled && agendaCollapsed && !visibleScheduled.includes(item)) return;
+            if (isScheduled) {
+                if (agendaCollapsed && !visibleScheduled.includes(item)) return;
+            } else if (agendaCollapsed && !visibleAnytime.includes(item)) {
+                return;
+            }
             const node = buildWithHandlers(item, () => onToggle(item, node), () => onOpen(item));
             (isScheduled ? scheduled : anytime).appendChild(node);
         });

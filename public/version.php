@@ -1,5 +1,5 @@
 <?php
 declare(strict_types=1);
 
-return '5.1.27';
+return '5.1.28';
 
