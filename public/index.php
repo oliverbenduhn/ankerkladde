@@ -209,8 +209,11 @@ $clientWebSocketUrl = is_string($clientWebSocketUrl) ? trim($clientWebSocketUrl)
             <section class="parchment-card journal-agenda-card" aria-labelledby="journalAgendaTitle">
                 <header class="journal-card-header">
                     <h3 id="journalAgendaTitle" class="journal-card-title"><?= t('journal.agenda') ?></h3>
+                    <div class="journal-card-actions">
+                        <button type="button" id="journalAgendaCollapseBtn" class="journal-format-btn" aria-expanded="false" aria-controls="journalAgendaBody"><?= t('agenda.expand') ?></button>
+                    </div>
                 </header>
-                <div class="journal-agenda-columns">
+                <div id="journalAgendaBody" class="journal-agenda-columns" data-collapsed="true">
                     <section class="journal-agenda-column" aria-labelledby="journalAnytimeTitle">
                         <h4 id="journalAnytimeTitle"><?= t('journal.without_time') ?></h4>
                         <ul id="journalAnytimeList"></ul>
