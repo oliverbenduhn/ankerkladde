@@ -104,7 +104,7 @@ $clientWebSocketUrl = is_string($clientWebSocketUrl) ? trim($clientWebSocketUrl)
         <div class="app-title-group clickable-brand">
             <img src="<?= htmlspecialchars($brandMarkSrc, ENT_QUOTES, 'UTF-8') ?>" alt="" class="brand-mark brand-mark-app" aria-hidden="true">
             <div class="app-title-stack">
-                <h1 class="app-title">Ankerkladde</h1>
+                <h1 class="app-title">Ankerkladde <span class="app-version-badge"><?= htmlspecialchars(require __DIR__ . '/version.php', ENT_QUOTES, 'UTF-8') ?></span></h1>
                 <div class="app-subtitle" id="categoryTitle"></div>
             </div>
             <button type="button" id="modeChip" class="mode-chip" aria-label="<?= t('ui.toggle_mode') ?>">
