@@ -113,7 +113,7 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
     <div class="settings-header">
         <div class="settings-title-group">
             <img src="<?= htmlspecialchars($brandMarkSrc, ENT_QUOTES, 'UTF-8') ?>" alt="" class="brand-mark brand-mark-settings" aria-hidden="true">
-            <h1><?= t('ui.settings') ?></h1>
+            <h1><?= t('ui.settings') ?> <span class="app-version-badge"><?= htmlspecialchars(require __DIR__ . '/version.php', ENT_QUOTES, 'UTF-8') ?></span></h1>
         </div>
         <a href="<?= htmlspecialchars(appPath('index.php'), ENT_QUOTES, 'UTF-8') ?>" class="settings-back" aria-label="<?= t('settings.back_to_app') ?>">←</a>
     </div>
