@@ -275,4 +275,134 @@ export function initUIHandling(root = document) {
             }
         });
     }
+
+    // AI model discovery
+    const loadModelsBtn = root.querySelector('#load-models');
+    const modelsLoadStatus = root.querySelector('#models-load-status');
+    const openaiModelsDatalist = root.querySelector('#openai_models_datalist');
+    const modelsCache = new Map(); // key: provider|baseUrl|keyHash → models[]
+
+    function shortHash(input) {
+        let h = 0;
+        for (let i = 0; i < input.length; i++) {
+            h = ((h << 5) - h) + input.charCodeAt(i);
+            h |= 0;
+        }
+        return String(h);
+    }
+
+    function invalidateModelCacheForInputs() {
+        if (!openaiCompatibleBaseUrlInput && !openaiCompatibleKeyInput && !geminiKeyInput) return;
+        modelsCache.clear();
+    }
+
+    if (openaiCompatibleBaseUrlInput) {
+        openaiCompatibleBaseUrlInput.addEventListener('input', invalidateModelCacheForInputs);
+    }
+    if (openaiCompatibleKeyInput) {
+        openaiCompatibleKeyInput.addEventListener('input', invalidateModelCacheForInputs);
+    }
+    if (geminiKeyInput) {
+        geminiKeyInput.addEventListener('input', invalidateModelCacheForInputs);
+    }
+    if (providerSelect) {
+        providerSelect.addEventListener('change', invalidateModelCacheForInputs);
+    }
+
+    function showModelsLoadStatus(text, color) {
+        if (!modelsLoadStatus) return;
+        modelsLoadStatus.textContent = text;
+        modelsLoadStatus.style.color = color || '';
+        modelsLoadStatus.style.display = 'block';
+    }
+
+    function applyModelsToUi(provider, models) {
+        if (provider === 'gemini' && geminiModelSelect) {
+            const current = geminiModelSelect.value;
+            geminiModelSelect.innerHTML = '';
+            for (const m of models) {
+                const opt = document.createElement('option');
+                opt.value = m.id;
+                opt.textContent = m.label;
+                if (m.id === current) opt.selected = true;
+                geminiModelSelect.appendChild(opt);
+            }
+        } else if (provider === 'openai_compatible' && openaiModelsDatalist) {
+            openaiModelsDatalist.innerHTML = '';
+            for (const m of models) {
+                const opt = document.createElement('option');
+                opt.value = m.id;
+                openaiModelsDatalist.appendChild(opt);
+            }
+        }
+    }
+
+    if (loadModelsBtn) {
+        loadModelsBtn.addEventListener('click', async () => {
+            const provider = providerSelect ? providerSelect.value : 'gemini';
+            let key, baseUrl, cacheKey;
+
+            if (provider === 'openai_compatible') {
+                key = openaiCompatibleKeyInput ? openaiCompatibleKeyInput.value.trim() : '';
+                baseUrl = openaiCompatibleBaseUrlInput ? openaiCompatibleBaseUrlInput.value.trim() : '';
+                cacheKey = 'openai_compatible|' + baseUrl + '|' + shortHash(key);
+            } else {
+                key = geminiKeyInput ? geminiKeyInput.value.trim() : '';
+                baseUrl = '';
+                cacheKey = 'gemini||' + shortHash(key);
+            }
+
+            if (!key) {
+                showModelsLoadStatus(t('error.enter_key_first'), 'var(--error)');
+                return;
+            }
+
+            const cached = modelsCache.get(cacheKey);
+            if (cached) {
+                applyModelsToUi(provider, cached);
+                showModelsLoadStatus(t('msg.models_loaded', { count: cached.length }), 'green');
+                return;
+            }
+
+            loadModelsBtn.disabled = true;
+            showModelsLoadStatus(t('msg.loading_models'), '');
+
+            try {
+                const body = { ai_provider: provider };
+                if (provider === 'openai_compatible') {
+                    body.openai_compatible_api_key = key;
+                    body.openai_compatible_base_url = baseUrl;
+                } else {
+                    body.gemini_api_key = key;
+                }
+
+                const csrfToken = root.querySelector('input[name="csrf_token"]')?.value || '';
+                const response = await fetch('ai-models.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': csrfToken,
+                    },
+                    body: JSON.stringify({ ...body, csrf_token: csrfToken }),
+                });
+
+                const result = await response.json();
+                const models = Array.isArray(result.models) ? result.models : [];
+
+                if (response.ok && models.length > 0) {
+                    modelsCache.set(cacheKey, models);
+                    applyModelsToUi(provider, models);
+                    showModelsLoadStatus(t('msg.models_loaded', { count: models.length }), 'green');
+                } else if (response.ok) {
+                    showModelsLoadStatus(t('msg.no_models_found'), 'var(--error)');
+                } else {
+                    showModelsLoadStatus(t('error.models_load_failed', { error: result.error || t('error.invalid_key') }), 'var(--error)');
+                }
+            } catch (err) {
+                showModelsLoadStatus(t('error.network_test_failed'), 'var(--error)');
+            } finally {
+                loadModelsBtn.disabled = false;
+            }
+        });
+    }
 }

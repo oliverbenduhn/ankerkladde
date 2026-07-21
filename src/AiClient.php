@@ -228,3 +228,150 @@ function getProviderDisplayName(string $provider): string
     $providers = getAvailableProviders();
     return $providers[$provider] ?? $provider;
 }
+
+/**
+ * Normalisiert Gemini-Model-Liste-Rohresponse auf einheitliches Format.
+ * ponytail: Pure function, einfach testbar ohne cURL-Mock.
+ *
+ * @return array<int, array{id: string, label: string}>
+ */
+function normalizeGeminiModelList(array $raw): array
+{
+    $models = [];
+    $rawModels = $raw['models'] ?? [];
+    if (!is_array($rawModels)) return [];
+    foreach ($rawModels as $entry) {
+        if (!is_array($entry)) continue;
+        $name = (string) ($entry['name'] ?? '');
+        if ($name === '') continue;
+
+        $methods = $entry['supportedGenerationMethods'] ?? [];
+        if (!is_array($methods) || !in_array('generateContent', $methods, true)) {
+            continue;
+        }
+
+        // Gemini liefert "models/gemini-2.5-flash" → ID ist "gemini-2.5-flash"
+        $id = str_starts_with($name, 'models/') ? substr($name, 7) : $name;
+        $models[] = ['id' => $id, 'label' => $id];
+    }
+
+    usort($models, static fn(array $a, array $b): int => strcmp($a['id'], $b['id']));
+    return $models;
+}
+
+/**
+ * Normalisiert OpenAI-Listen-Response auf einheitliches Format.
+ * Akzeptiert sowohl {"data":[...]} (Standard) als auch {"models":[...]} (manche Proxys).
+ *
+ * @return array<int, array{id: string, label: string}>
+ */
+function normalizeOpenAiModelList(array $raw): array
+{
+    $entries = $raw['data'] ?? $raw['models'] ?? [];
+    if (!is_array($entries)) return [];
+
+    $models = [];
+    foreach ($entries as $entry) {
+        if (!is_array($entry)) continue;
+        $id = trim((string) ($entry['id'] ?? ''));
+        if ($id === '') continue;
+        $models[] = ['id' => $id, 'label' => $id];
+    }
+
+    usort($models, static fn(array $a, array $b): int => strcmp($a['id'], $b['id']));
+    return $models;
+}
+
+/**
+ * Liste der Gemini-Modelle vom Provider abfragen.
+ *
+ * @return array{ok: bool, models: array, error: string}
+ */
+function listGeminiModels(string $apiKey): array
+{
+    $url = 'https://generativelanguage.googleapis.com/v1beta/models?key=' . rawurlencode($apiKey);
+
+    $ch = curl_init($url);
+    if ($ch === false) {
+        return ['ok' => false, 'models' => [], 'error' => 'cURL init failed'];
+    }
+
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 8,
+        CURLOPT_CONNECTTIMEOUT => 3,
+        CURLOPT_HTTPHEADER => ['Accept: application/json'],
+    ]);
+
+    $response = curl_exec($ch);
+    $httpCode = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+    $curlError = curl_error($ch);
+    curl_close($ch);
+
+    if ($response === false) {
+        return ['ok' => false, 'models' => [], 'error' => $curlError];
+    }
+    if ($httpCode !== 200) {
+        return ['ok' => false, 'models' => [], 'error' => 'HTTP ' . $httpCode];
+    }
+
+    $decoded = json_decode($response, true);
+    if (!is_array($decoded)) {
+        return ['ok' => false, 'models' => [], 'error' => 'Ungültige Antwort.'];
+    }
+
+    return ['ok' => true, 'models' => normalizeGeminiModelList($decoded), 'error' => ''];
+}
+
+/**
+ * Liste der Modelle von einem OpenAI-kompatiblen Endpoint abfragen.
+ * Bei 401/403/404/leerem data[] wird {ok:false} geliefert, die UI entscheidet.
+ *
+ * @return array{ok: bool, models: array, error: string}
+ */
+function listOpenAiCompatibleModels(string $apiKey, string $baseUrl): array
+{
+    $urlError = validateAiBaseUrl($baseUrl);
+    if ($urlError !== null) {
+        return ['ok' => false, 'models' => [], 'error' => $urlError];
+    }
+
+    $baseUrl = rtrim($baseUrl, '/');
+    $url = $baseUrl . '/models';
+
+    $headers = ['Accept: application/json'];
+    if ($apiKey !== '') {
+        $headers[] = 'Authorization: Bearer *** ' . $apiKey;
+    }
+
+    $ch = curl_init($url);
+    if ($ch === false) {
+        return ['ok' => false, 'models' => [], 'error' => 'cURL init failed'];
+    }
+
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 8,
+        CURLOPT_CONNECTTIMEOUT => 3,
+        CURLOPT_HTTPHEADER => $headers,
+    ]);
+
+    $response = curl_exec($ch);
+    $httpCode = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+    $curlError = curl_error($ch);
+    curl_close($ch);
+
+    if ($response === false) {
+        return ['ok' => false, 'models' => [], 'error' => $curlError];
+    }
+    if ($httpCode !== 200) {
+        return ['ok' => false, 'models' => [], 'error' => 'HTTP ' . $httpCode];
+    }
+
+    $decoded = json_decode($response, true);
+    if (!is_array($decoded)) {
+        return ['ok' => false, 'models' => [], 'error' => 'Ungültige Antwort.'];
+    }
+
+    return ['ok' => true, 'models' => normalizeOpenAiModelList($decoded), 'error' => ''];
+}

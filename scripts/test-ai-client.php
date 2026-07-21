@@ -128,6 +128,80 @@ function test_validateAiBaseUrl()
     );
 }
 
+function test_normalizeGeminiModelList()
+{
+    echo "Testing normalizeGeminiModelList...\n";
+
+    // Standardfall: Gemini liefert models mit models/-Präfix und generateContent-Support.
+    $raw = [
+        'models' => [
+            [
+                'name' => 'models/gemini-2.5-flash',
+                'displayName' => 'Gemini 2.5 Flash',
+                'supportedGenerationMethods' => ['generateContent', 'countTokens'],
+            ],
+            [
+                'name' => 'models/gemini-3-flash-preview',
+                'supportedGenerationMethods' => ['generateContent'],
+            ],
+            // Embedding-Modell ohne generateContent → muss rausgefiltert werden.
+            [
+                'name' => 'models/text-embedding-004',
+                'supportedGenerationMethods' => ['embedContent', 'countTokens'],
+            ],
+            // Modell ohne supportedGenerationMethods → raus (sicherer Default)
+            [
+                'name' => 'models/gemini-experimental',
+            ],
+        ],
+    ];
+    $result = normalizeGeminiModelList($raw);
+
+    assertTrue(count($result) === 2, '2 Modelle nach Filter (text-embedding raus, experimental ohne generateContent raus)');
+    assertTrue($result[0]['id'] === 'gemini-2.5-flash', 'Präfix models/ entfernt');
+    assertTrue($result[0]['label'] === 'gemini-2.5-flash', 'label = id');
+    assertTrue($result[1]['id'] === 'gemini-3-flash-preview', 'zweites Modell');
+
+    // Leere / kaputte Eingaben
+    assertTrue(normalizeGeminiModelList([]) === [], 'leere Liste → leeres Array');
+    assertTrue(normalizeGeminiModelList(['models' => 'kein array']) === [], 'kein Array models → leer');
+    assertTrue(normalizeGeminiModelList(['models' => [['kein_name' => true]]]) === [], 'Eintrag ohne name → übersprungen');
+}
+
+function test_normalizeOpenAiModelList()
+{
+    echo "Testing normalizeOpenAiModelList...\n";
+
+    // Standard OpenAI-Form: data[]
+    $rawStandard = [
+        'object' => 'list',
+        'data' => [
+            ['id' => 'gpt-4o-mini', 'object' => 'model'],
+            ['id' => 'gpt-4o', 'object' => 'model'],
+            ['id' => 'o1-preview', 'object' => 'model'],
+            // Kaputter Eintrag ohne id → muss raus
+            ['object' => 'model'],
+            // Leere ID → muss raus
+            ['id' => '', 'object' => 'model'],
+        ],
+    ];
+    $result = normalizeOpenAiModelList($rawStandard);
+    assertTrue(count($result) === 3, '3 valide Modelle nach Filter');
+    assertTrue($result[0]['id'] === 'gpt-4o', 'alphabetisch sortiert (gpt-4o vor gpt-4o-mini)');
+    assertTrue($result[1]['id'] === 'gpt-4o-mini', 'gpt-4o-mini an zweiter Stelle');
+    assertTrue($result[2]['id'] === 'o1-preview', 'o1-preview an dritter Stelle');
+
+    // Manche LiteLLM-Proxys liefern models[] statt data[]
+    $rawAlt = ['models' => [['id' => 'claude-3-5-sonnet'], ['id' => 'gpt-3.5-turbo']]];
+    $resultAlt = normalizeOpenAiModelList($rawAlt);
+    assertTrue(count($resultAlt) === 2, 'models[]-Form wird auch akzeptiert');
+    assertTrue($resultAlt[0]['id'] === 'claude-3-5-sonnet', 'erstes LiteLLM-Modell');
+
+    // Weder data noch models → leeres Array
+    assertTrue(normalizeOpenAiModelList(['foo' => 'bar']) === [], 'kein data/models → leer');
+    assertTrue(normalizeOpenAiModelList(['data' => 'kein array']) === [], 'data kein Array → leer');
+}
+
 // Run tests
 try {
     test_getAvailableProviders();
@@ -135,6 +209,8 @@ try {
     test_getAvailableAiModels();
     test_getActiveAiConfig();
     test_validateAiBaseUrl();
+    test_normalizeGeminiModelList();
+    test_normalizeOpenAiModelList();
     echo "\nAll AiClient tests passed!\n";
 } catch (Throwable $t) {
     echo "\nTest failed: " . $t->getMessage() . "\n";

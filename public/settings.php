@@ -541,16 +541,21 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                         </label>
                         <label class="settings-field">
                             <span><?= t('settings.field.openai_compatible_model') ?></span>
-                            <input type="text" id="openai_compatible_model_input" name="openai_compatible_model" value="<?= htmlspecialchars((string) ($preferences['openai_compatible_model'] ?? 'gpt-4o-mini'), ENT_QUOTES, 'UTF-8') ?>" placeholder="gpt-4o-mini">
+                            <input type="text" id="openai_compatible_model_input" name="openai_compatible_model" value="<?= htmlspecialchars((string) ($preferences['openai_compatible_model'] ?? 'gpt-4o-mini'), ENT_QUOTES, 'UTF-8') ?>" placeholder="gpt-4o-mini" list="openai_models_datalist">
+                            <datalist id="openai_models_datalist"></datalist>
                         </label>
                         <label class="settings-field">
                             <span><?= t('settings.field.openai_compatible_api_key') ?></span>
                             <input type="password" id="openai_compatible_api_key_input" name="openai_compatible_api_key" value="<?= htmlspecialchars((string) ($preferences['openai_compatible_api_key'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="sk-...">
                         </label>
                     </div>
-                    <button type="button" id="test-api-key" class="settings-link"><?= t('settings.action.test_connection') ?></button>
+                    <div class="settings-ai-actions">
+                        <button type="button" id="test-api-key" class="settings-link"><?= t('settings.action.test_connection') ?></button>
+                        <button type="button" id="load-models" class="settings-link"><?= t('settings.action.load_models') ?></button>
+                    </div>
                 </div>
                 <div id="api-test-status" class="api-test-status" style="margin-top: 8px; font-size: 0.85rem; display: none;"></div>
+                <div id="models-load-status" class="api-test-status" style="margin-top: 8px; font-size: 0.85rem; display: none;"></div>
                 <?php if ($aiKeyStatus !== null): ?>
                     <p class="settings-inline-status settings-inline-status-<?= htmlspecialchars($aiKeyStatusType, ENT_QUOTES, 'UTF-8') ?>">
                         <?= htmlspecialchars($aiKeyStatus, ENT_QUOTES, 'UTF-8') ?>
