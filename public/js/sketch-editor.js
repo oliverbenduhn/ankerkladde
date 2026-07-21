@@ -4,24 +4,36 @@
 // Editor-Fehler bleiben auf das Overlay begrenzt; App-Navigation bleibt
 // unabhängig lauffähig (AC #4).
 
-import { api } from './api.js?v=5.1.24';
-import { t } from './i18n.js?v=5.1.24';
+import { api } from './api.js?v=5.1.27';
+import { t } from './i18n.js?v=5.1.27';
 
 const EXCALIDRAW_MODULE = 'https://esm.sh/@excalidraw/excalidraw@0.17.3?deps=react@18.2.0,react-dom@18.2.0';
 const REACT_MODULE = 'https://esm.sh/react@18.2.0';
 const REACT_DOM_MODULE = 'https://esm.sh/react-dom@18.2.0/client';
+// The esm.sh module still uses Excalidraw's webpack runtime for its lazy
+// vendor chunk. Static package assets are not exposed by esm.sh, so point the
+// runtime at the version-pinned files published with the npm package.
+const EXCALIDRAW_ASSET_PATH = 'https://unpkg.com/@excalidraw/excalidraw@0.17.3/dist/';
 
 let excalidrawPromise = null;
 
 async function ensureExcalidraw() {
     if (excalidrawPromise) return excalidrawPromise;
     excalidrawPromise = (async () => {
+        window.EXCALIDRAW_ASSET_PATH = EXCALIDRAW_ASSET_PATH;
         const [React, ReactDOM, ExcalidrawModule] = await Promise.all([
             import(/* @vite-ignore */ REACT_MODULE),
             import(/* @vite-ignore */ REACT_DOM_MODULE),
             import(/* @vite-ignore */ EXCALIDRAW_MODULE),
         ]);
-        return { React, ReactDOM, Excalidraw: ExcalidrawModule.Excalidraw };
+        const defaultExport = ExcalidrawModule.default;
+        return {
+            React,
+            ReactDOM,
+            Excalidraw: ExcalidrawModule.Excalidraw
+                || defaultExport?.Excalidraw
+                || defaultExport?.default,
+        };
     })();
     return excalidrawPromise;
 }
@@ -100,7 +112,10 @@ function showFatal(footer, message, retryHandler, discardHandler) {
 
 async function saveScene(itemId, scene, onStatus) {
     onStatus(t('editor.saving'));
-    await api('sketch_save', { item_id: itemId, scene: JSON.stringify(scene) });
+    await api('sketch_save', {
+        method: 'POST',
+        body: new URLSearchParams({ item_id: String(itemId), scene: JSON.stringify(scene) }),
+    });
     onStatus(t('editor.saved'));
 }
 
@@ -171,6 +186,8 @@ async function openSketchEditorImpl({ item, date, mode }) {
 
     const refs = buildOverlay();
     refs.status.textContent = t('editor.loading');
+    let resolveClosed;
+    const closed = new Promise(resolve => { resolveClosed = resolve; });
 
     // Closure-scoped editor state.
     let root = null;
@@ -182,12 +199,13 @@ async function openSketchEditorImpl({ item, date, mode }) {
 
     const isOpen = () => !unmounted && document.body.contains(refs.overlay);
 
-    const safeUnmount = () => {
+    const safeUnmount = (finish = true) => {
         if (unmounted) return;
         unmounted = true;
         if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
         try { root?.unmount(); } catch (_e) { /* root might not exist yet */ }
         refs.overlay.remove();
+        if (finish) resolveClosed();
     };
 
     const reportFatal = (message, retryHandler, discardHandler) => {
@@ -279,10 +297,15 @@ async function openSketchEditorImpl({ item, date, mode }) {
     } catch (_error) {
         reportFatal(
             t('sketch.editor_load_failed'),
-            async () => { safeUnmount(); await openSketchEditor(item); },
+            async () => {
+                excalidrawPromise = null;
+                safeUnmount(false);
+                await openSketchEditorImpl({ item, date, mode });
+                resolveClosed();
+            },
             () => { safeUnmount(); }
         );
-        return;
+        return closed;
     }
 
     let initialScene;
@@ -291,10 +314,14 @@ async function openSketchEditorImpl({ item, date, mode }) {
     } catch (error) {
         reportFatal(
             error?.message || t('sketch.editor_load_failed'),
-            () => { safeUnmount(); },
+            async () => {
+                safeUnmount(false);
+                await openSketchEditorImpl({ item, date, mode });
+                resolveClosed();
+            },
             () => { safeUnmount(); }
         );
-        return;
+        return closed;
     }
 
     const { React, ReactDOM, Excalidraw } = bundle;
@@ -310,14 +337,19 @@ async function openSketchEditorImpl({ item, date, mode }) {
     } catch (_error) {
         reportFatal(
             t('sketch.editor_load_failed'),
-            () => { safeUnmount(); },
+            async () => {
+                safeUnmount(false);
+                await openSketchEditorImpl({ item, date, mode });
+                resolveClosed();
+            },
             () => { safeUnmount(); }
         );
-        return;
+        return closed;
     }
 
     refs.closeBtn.addEventListener('click', handleClose);
     refs.status.textContent = '';
+    return closed;
 }
 
 export function openSketchEditor(item) {

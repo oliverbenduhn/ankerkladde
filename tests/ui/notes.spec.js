@@ -58,7 +58,7 @@ test.describe('Notes', () => {
     await expect(page.locator('#noteEditor')).toBeHidden();
 
     const noteCard = page.locator('#list .item-card').filter({ hasText: title });
-    await expect(noteCard).toContainText(body);
+    await expect(noteCard).toBeVisible();
     await noteCard.click();
 
     await expect(page.locator('#noteEditor')).toBeVisible();

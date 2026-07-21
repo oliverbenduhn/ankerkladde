@@ -91,7 +91,7 @@ Die komplette TipTap-Toolbar bleibt funktional, ist im Grundzustand aber nicht d
 5. Bestehende Manifest-Shortcuts bleiben kompatibel: `?screen=today` wird zum Journal-Alias; `?screen=journal&date=today&focus=editor` bleibt erhalten.
 6. Vor einem Deep-Link aus der Agenda wird der Journal-Editor geschlossen und ein ausstehender Save geflusht.
 7. WebSocket-Updates aktualisieren in der Tagesansicht nur die Agenda, nicht den gerade bearbeiteten Notizinhalt.
-8. Excalidraw-Szenen werden getrennt vom durch FTS indexierten `content` in `items.sketch` gespeichert und lazy übertragen.
+8. Excalidraw-Szenen werden getrennt vom durch FTS indexierten `content` in `items.sketch_json` gespeichert und lazy übertragen.
 
 ## Arbeitsweise je Release-Schritt
 
@@ -313,7 +313,7 @@ Dieser Meilenstein beginnt erst nach der visuellen Abnahme der Parchment-Tagesan
 
 `db.php`:
 
-- neue Migrationsstufe für `items.sketch TEXT NOT NULL DEFAULT ''`
+- neue Migrationsstufe für `items.sketch_json TEXT NOT NULL DEFAULT ''`
 - `categories`-CHECK um `drawings` erweitern; SQLite-Tabelle nach vorhandenem Migrationsmuster sicher rebuilden
 - frisches Schema und Upgrade bestehender Datenbanken unterstützen
 

@@ -2336,6 +2336,8 @@ try {
             $barcode = truncateText($barcode, 64);
             $quantity = normalizeQuantity($data['quantity'] ?? null);
             $dueDate = normalizeDueDate($data['due_date'] ?? null);
+            $dueTime = normalizeDueTime($data['due_time'] ?? null);
+            $priority = normalizePriority($data['priority'] ?? null);
             $content = normalizeContent($data['content'] ?? null);
 
             if ($name === '') {
@@ -2349,20 +2351,28 @@ try {
             $barcode  = $normalized['barcode'];
             $quantity = $normalized['quantity'];
             $dueDate  = $normalized['due_date'];
+            if ($type !== 'list_due_date' || $dueDate === '') {
+                $dueTime = '';
+            }
+            if (!in_array($type, ['list_due_date', 'list_quantity'], true)) {
+                $priority = '';
+            }
 
             $db->beginTransaction();
             try {
                 $sortOrder = prependItemSortOrder($db, $userId, (int) $category['id']);
 
                 $stmt = $db->prepare(
-                    'INSERT INTO items (name, barcode, quantity, due_date, content, section, category_id, sort_order, user_id)
-                     VALUES (:name, :barcode, :quantity, :due_date, :content, :section, :category_id, :sort_order, :user_id)'
+                    'INSERT INTO items (name, barcode, quantity, due_date, due_time, priority, content, section, category_id, sort_order, user_id)
+                     VALUES (:name, :barcode, :quantity, :due_date, :due_time, :priority, :content, :section, :category_id, :sort_order, :user_id)'
                 );
                 $stmt->execute([
                     ':name' => $name,
                     ':barcode' => $barcode,
                     ':quantity' => $quantity,
                     ':due_date' => $dueDate,
+                    ':due_time' => $dueTime,
+                    ':priority' => $priority,
                     ':content' => $content,
                     ':section' => '',
                     ':category_id' => (int) $category['id'],
@@ -2676,6 +2686,8 @@ try {
             $barcode = truncateText($barcode, 64);
             $quantity = normalizeQuantity($data['quantity'] ?? null);
             $dueDate = normalizeDueDate($data['due_date'] ?? null);
+            $dueTime = normalizeDueTime($data['due_time'] ?? null);
+            $priority = normalizePriority($data['priority'] ?? null);
             $content = normalizeContent($data['content'] ?? null);
 
             if ($name === '') {
@@ -2687,6 +2699,12 @@ try {
             $barcode  = $normalized['barcode'];
             $quantity = $normalized['quantity'];
             $dueDate  = $normalized['due_date'];
+            if ($type !== 'list_due_date' || $dueDate === '') {
+                $dueTime = '';
+            }
+            if (!in_array($type, ['list_due_date', 'list_quantity'], true)) {
+                $priority = '';
+            }
 
             $status = null;
             if ($type === 'list_due_date') {
@@ -2697,7 +2715,7 @@ try {
             if ($status !== null) {
                 $stmt = $db->prepare(
                     'UPDATE items
-                     SET name = :name, barcode = :barcode, quantity = :quantity, due_date = :due_date, content = :content, status = :status, updated_at = CURRENT_TIMESTAMP
+                     SET name = :name, barcode = :barcode, quantity = :quantity, due_date = :due_date, due_time = :due_time, priority = :priority, content = :content, status = :status, updated_at = CURRENT_TIMESTAMP
                      WHERE id = :id AND user_id = :user_id'
                 );
                 $stmt->execute([
@@ -2706,6 +2724,8 @@ try {
                     ':barcode' => $barcode,
                     ':quantity' => $quantity,
                     ':due_date' => $dueDate,
+                    ':due_time' => $dueTime,
+                    ':priority' => $priority,
                     ':content' => $content,
                     ':status' => $status,
                     ':user_id' => $userId,
@@ -2713,7 +2733,7 @@ try {
             } else {
                 $stmt = $db->prepare(
                     'UPDATE items
-                     SET name = :name, barcode = :barcode, quantity = :quantity, due_date = :due_date, content = :content, updated_at = CURRENT_TIMESTAMP
+                     SET name = :name, barcode = :barcode, quantity = :quantity, due_date = :due_date, due_time = :due_time, priority = :priority, content = :content, updated_at = CURRENT_TIMESTAMP
                      WHERE id = :id AND user_id = :user_id'
                 );
                 $stmt->execute([
@@ -2722,6 +2742,8 @@ try {
                     ':barcode' => $barcode,
                     ':quantity' => $quantity,
                     ':due_date' => $dueDate,
+                    ':due_time' => $dueTime,
+                    ':priority' => $priority,
                     ':content' => $content,
                     ':user_id' => $userId,
                 ]);
@@ -3361,6 +3383,17 @@ try {
                 $category = ensureDailyNotesCategory($db, $userId);
                 $item = loadJournalItem($db, $userId, (int) $category['id'], $date);
 
+                if ($item === null && $normalized === '') {
+                    $db->exec('COMMIT');
+                    $journalTransactionActive = false;
+                    respond(200, [
+                        'message' => 'Keine Skizze zu speichern.',
+                        'item_id' => null,
+                        'date' => $date,
+                        'has_sketch' => 0,
+                    ]);
+                }
+
                 if ($item === null) {
                     $sortOrder = prependItemSortOrder($db, $userId, (int) $category['id']);
                     $stmt = $db->prepare(
@@ -3405,6 +3438,7 @@ try {
                 'has_sketch' => $normalized !== '' ? 1 : 0,
             ]);
 
+        case 'sketch':
         case 'sketch_load':
             requireMethod('GET');
             $itemId = filter_var($_GET['item_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);

@@ -1,6 +1,6 @@
-import { state } from './state.js?v=5.1.24';
-import { itemForm, itemInput, linkDescriptionInput } from './ui.js?v=5.1.24';
-import { syncAutoHeight } from './utils.js?v=5.1.24';
+import { state } from './state.js?v=5.1.27';
+import { itemForm, itemInput, linkDescriptionInput } from './ui.js?v=5.1.27';
+import { syncAutoHeight } from './utils.js?v=5.1.27';
 
 export function createHelpersController(deps) {
     const {

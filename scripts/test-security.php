@@ -104,12 +104,32 @@ function test_appPath()
     $_SERVER = $originalServer;
 }
 
+function test_normalizeDueTime()
+{
+    echo "Testing normalizeDueTime...\n";
+
+    assertTrue(normalizeDueTime('08:15') === '08:15', 'valid time should survive');
+    assertTrue(normalizeDueTime(' 23:59 ') === '23:59', 'time should be trimmed');
+    assertTrue(normalizeDueTime('24:00') === '', 'invalid hour should be rejected');
+    assertTrue(normalizeDueTime('8:15') === '', 'time must use HTML time-input format');
+}
+
+function test_normalizePriority()
+{
+    echo "Testing normalizePriority...\n";
+    assertTrue(normalizePriority('1') === '1', 'priority 1 should survive');
+    assertTrue(normalizePriority('3') === '3', 'priority 3 should survive');
+    assertTrue(normalizePriority('4') === '', 'priority 4 should be rejected');
+}
+
 // Run tests
 try {
     test_getEnvBool();
     test_isTrustedProxyPeer();
     test_isLocalDevelopmentHost();
     test_appPath();
+    test_normalizeDueTime();
+    test_normalizePriority();
     echo "\nAll security tests passed!\n";
 } catch (Throwable $t) {
     echo "\nTest failed: " . $t->getMessage() . "\n";

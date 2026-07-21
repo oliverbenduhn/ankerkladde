@@ -1,14 +1,14 @@
 import { t } from './i18n.js';
-import { getCurrentType, state } from './state.js?v=5.1.24';
-import { clearDoneBtn, listEl, progressEl, svgIcon } from './ui.js?v=5.1.24';
-import { normalizeBarcodeValue, sanitizeItemField, syncAutoHeight } from './utils.js?v=5.1.24';
-import { createLightboxController } from './lightbox.js?v=5.1.24';
-import { createItemMenuController } from './item-menu.js?v=5.1.24';
+import { getCurrentType, state } from './state.js?v=5.1.27';
+import { clearDoneBtn, listEl, progressEl, svgIcon } from './ui.js?v=5.1.27';
+import { normalizeBarcodeValue, sanitizeItemField, syncAutoHeight } from './utils.js?v=5.1.27';
+import { createLightboxController } from './lightbox.js?v=5.1.27';
+import { createItemMenuController } from './item-menu.js?v=5.1.27';
 
 let sketchEditorModulePromise = null;
 async function loadSketchEditor() {
     if (!sketchEditorModulePromise) {
-        sketchEditorModulePromise = import('./sketch-editor.js?v=5.1.24');
+        sketchEditorModulePromise = import('./sketch-editor.js?v=5.1.27');
     }
     return sketchEditorModulePromise;
 }
@@ -71,6 +71,8 @@ export function createItemsViewController(deps) {
             barcode: item.barcode || '',
             quantity: item.quantity || '',
             due_date: item.due_date || '',
+            due_time: item.due_time || '',
+            priority: item.priority || '',
             content: item.content || '',
         };
     }
@@ -405,13 +407,23 @@ export function createItemsViewController(deps) {
             if (isOverdueItem(item)) {
                 badge.classList.add('is-overdue');
             }
-            badge.textContent = formatDate(item.due_date);
+            badge.textContent = item.due_time
+                ? `${formatDate(item.due_date)} · ${item.due_time}`
+                : formatDate(item.due_date);
             content.appendChild(badge);
         } else if (item.quantity) {
             const badge = document.createElement('span');
             badge.className = 'quantity-badge';
             badge.textContent = item.quantity;
             content.appendChild(badge);
+        }
+
+        if (item.priority && ['list_due_date', 'list_quantity'].includes(item.category_type)) {
+            const priority = document.createElement('span');
+            priority.className = `priority-badge priority-badge--${item.priority}`;
+            priority.textContent = `!${item.priority}`;
+            priority.setAttribute('aria-label', `Priorität ${item.priority}`);
+            content.appendChild(priority);
         }
     }
 
@@ -465,6 +477,19 @@ export function createItemsViewController(deps) {
             fields.appendChild(quantity);
         }
 
+        if (['list_quantity', 'list_due_date'].includes(item.category_type)) {
+            const priority = document.createElement('select');
+            priority.className = 'item-edit-input';
+            priority.setAttribute('aria-label', 'Priorität');
+            [['', 'Keine Priorität'], ['1', '!1 – Hoch'], ['2', '!2 – Mittel'], ['3', '!3 – Niedrig']]
+                .forEach(([value, label]) => priority.appendChild(new Option(label, value)));
+            priority.value = draft.priority;
+            priority.addEventListener('change', event => {
+                draft.priority = event.target.value;
+            });
+            fields.appendChild(priority);
+        }
+
         if (item.category_type === 'list_due_date') {
             const dueDate = document.createElement('input');
             dueDate.type = 'date';
@@ -475,6 +500,17 @@ export function createItemsViewController(deps) {
                 if (event.target.value !== draft.due_date) event.target.value = draft.due_date;
             });
             fields.appendChild(dueDate);
+
+            const dueTime = document.createElement('input');
+            dueTime.type = 'time';
+            dueTime.step = '60';
+            dueTime.className = 'item-edit-input';
+            dueTime.value = draft.due_time;
+            dueTime.setAttribute('aria-label', 'Fälligkeitszeit');
+            dueTime.addEventListener('input', event => {
+                draft.due_time = event.target.value;
+            });
+            fields.appendChild(dueTime);
 
             const noteInput = document.createElement('textarea');
             noteInput.className = 'item-edit-input item-edit-textarea item-edit-textarea--note';

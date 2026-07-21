@@ -448,13 +448,26 @@ function normalizeDueDate(?string $date): string
     return preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) ? $date : '';
 }
 
+function normalizeDueTime(?string $time): string
+{
+    $time = trim((string) $time);
+    return preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/', $time) ? $time : '';
+}
+
+function normalizePriority(?string $priority): string
+{
+    $priority = trim((string) $priority);
+    return in_array($priority, ['1', '2', '3'], true) ? $priority : '';
+}
+
 /**
  * Sends Content-Security-Policy and X-Frame-Options headers for HTML pages.
  *
  * Call this before any output is sent on every PHP page that returns HTML.
  *
- * $allowEsmSh — set to true only for pages that load TipTap from esm.sh
- * (currently index.php). All other pages use a tighter policy.
+ * $allowEsmSh — set to true only for pages that load TipTap/Excalidraw from
+ * esm.sh and Excalidraw's version-pinned static assets from unpkg (currently
+ * index.php). All other pages use a tighter policy.
  *
  * $allowSameOriginFraming — set to true only for pages intentionally embedded
  * by the app shell on the same origin (currently settings.php).
@@ -472,6 +485,8 @@ function sendHtmlPageSecurityHeaders(bool $allowEsmSh = false, bool $allowSameOr
 
     $scriptSrc = "'self' 'unsafe-inline'";
     $connectSrc = "'self'";
+    $styleSrc = "'self' 'unsafe-inline'";
+    $fontSrc = "'self'";
     $clientWebSocketUrl = getenv('ANKERKLADDE_WS_CLIENT_URL');
     if (is_string($clientWebSocketUrl) && trim($clientWebSocketUrl) !== '') {
         $wsUrl = trim($clientWebSocketUrl);
@@ -485,15 +500,20 @@ function sendHtmlPageSecurityHeaders(bool $allowEsmSh = false, bool $allowSameOr
     }
 
     if ($allowEsmSh) {
-        // TipTap and its transitive ESM dependencies are loaded from esm.sh
-        $scriptSrc  .= ' https://esm.sh';
-        $connectSrc .= ' https://esm.sh';
+        // TipTap/Excalidraw and their transitive ESM dependencies come from
+        // esm.sh. Excalidraw 0.17 loads its version-pinned lazy chunk and
+        // fonts from the npm package published at unpkg.
+        $scriptSrc  .= ' https://esm.sh https://unpkg.com';
+        $connectSrc .= ' https://esm.sh https://unpkg.com';
+        $styleSrc   .= ' https://esm.sh https://unpkg.com';
+        $fontSrc    .= ' https://esm.sh https://unpkg.com';
     }
 
     $csp = implode('; ', [
         "default-src 'self'",
         "script-src $scriptSrc",
-        "style-src 'self' 'unsafe-inline'",
+        "style-src {$styleSrc}",
+        "font-src {$fontSrc}",
         "img-src 'self' data: blob:",
         "media-src 'self' blob:",
         "connect-src $connectSrc",

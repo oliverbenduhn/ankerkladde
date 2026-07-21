@@ -31,6 +31,9 @@ assertQuickAdd($timed['due_date'] === '2026-07-19' && $timed['due_time'] === '08
 $colonTime = parseQuickAdd('Anruf heute 17:45 !3', 2, $categories, '2026-07-17');
 assertQuickAdd($colonTime['due_date'] === '2026-07-17' && $colonTime['due_time'] === '17:45', 'HH:MM wurde nicht erkannt.');
 
+$commaSeparated = parseQuickAdd('Zahnarzt, morgen, 8:00, !2', 2, $categories, '2026-07-17');
+assertQuickAdd($commaSeparated['name'] === 'Zahnarzt', 'Trennkommas erkannter Steuer-Tokens dürfen nicht im Namen bleiben.');
+
 $defaults = parseQuickAdd('Milch', 1, $categories, '2026-07-17');
 assertQuickAdd($defaults['category_id'] === 1, 'Aktive Kategorie wurde nicht als Default verwendet.');
 assertQuickAdd($defaults['due_date'] === '' && $defaults['due_time'] === '' && $defaults['priority'] === '', 'Fehlende Tokens müssen leer bleiben.');

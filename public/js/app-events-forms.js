@@ -1,5 +1,5 @@
 import { t } from './i18n.js';
-import { isAttachmentCategory, state } from './state.js?v=5.1.24';
+import { isAttachmentCategory, state } from './state.js?v=5.1.27';
 import {
     cameraBtn,
     cameraInput,
@@ -13,8 +13,8 @@ import {
     uploadModeFileBtn,
     uploadModeUrlBtn,
     urlImportInput,
-} from './ui.js?v=5.1.24';
-import { syncAutoHeight } from './utils.js?v=5.1.24';
+} from './ui.js?v=5.1.27';
+import { syncAutoHeight } from './utils.js?v=5.1.27';
 
 export function registerFormsEvents(deps) {
     const { addItem, setUploadProgress, setMessage, updateFilePickerLabel, getUploadMode, triggerUploadSelectedAttachment, setUploadMode, updateUploadUi, clearDone } = deps;

@@ -1,13 +1,17 @@
-import { api, normalizeItem } from './api.js?v=5.1.24';
-import { buildAgendaItem, loadAgenda } from './today-view.js?v=5.1.24';
-import { NOTE_SAVE_DEBOUNCE_MS, state } from './state.js?v=5.1.24';
+import { api, normalizeItem } from './api.js?v=5.1.27';
+import { buildAgendaItem, loadAgenda } from './today-view.js?v=5.1.27';
+import { NOTE_SAVE_DEBOUNCE_MS, state } from './state.js?v=5.1.27';
 import {
-    journalBackBtn,
-    journalAnytimeList,
+    agendaAddBtn,
+    appEl,
+    itemInput,
     journalAgendaBody,
     journalAgendaCollapseBtn,
+    journalBackBtn,
+    journalAnytimeList,
     journalDateHeading,
     journalDatePicker,
+    journalDatePickerBtn,
     journalEditorBody,
     journalFormatBtn,
     journalNextBtn,
@@ -16,12 +20,13 @@ import {
     journalScheduledList,
     journalSketchCard,
     journalSketchOpenBtn,
+    journalSketchPreviewBtn,
     journalSketchStatus,
     journalTodayBtn,
     journalToolbar,
-} from './ui.js?v=5.1.24';
-import { sanitizeItemField } from './utils.js?v=5.1.24';
-import { t } from './i18n.js?v=5.1.24';
+} from './ui.js?v=5.1.27';
+import { sanitizeItemField } from './utils.js?v=5.1.27';
+import { t } from './i18n.js?v=5.1.27';
 
 // ponytail: Parchment-Original zeigt im collapsed mode die nächsten 2 timed
 // Items; wenn keine timed Items mehr offen sind, rückt die any-time-Liste nach.
@@ -31,7 +36,7 @@ const COLLAPSED_SCHEDULED_LIMIT = 2;
 let sketchEditorModulePromise = null;
 function loadSketchEditor() {
     if (!sketchEditorModulePromise) {
-        sketchEditorModulePromise = import('./sketch-editor.js?v=5.1.24');
+        sketchEditorModulePromise = import('./sketch-editor.js?v=5.1.27');
     }
     return sketchEditorModulePromise;
 }
@@ -40,27 +45,7 @@ function loadSketchEditor() {
 // overlay (the editor removes .sketch-editor-overlay from the DOM on close).
 async function openDailySketchEditor(date) {
     const { openSketchEditorDaily } = await loadSketchEditor();
-    // Register the closed-watcher BEFORE triggering the editor so we don't
-    // miss the overlay-remove event in case setup is unusually fast.
-    const closed = new Promise(resolve => {
-        const started = Date.now();
-        const tick = () => {
-            if (!document.querySelector('.sketch-editor-overlay')) {
-                resolve();
-                return;
-            }
-            if (Date.now() - started > 5 * 60_000) {
-                // Watchdog — give up after 5 minutes so a stuck editor doesn't
-                // freeze the journal view.
-                resolve();
-                return;
-            }
-            setTimeout(tick, 100);
-        };
-        tick();
-    });
     await openSketchEditorDaily(date);
-    await closed;
 }
 
 function serverDateIso(isoDate) {
@@ -79,16 +64,13 @@ function shiftDate(isoDate, days) {
     return `${year}-${month}-${day}`;
 }
 
-function formatDateHeading(isoDate, todayIso) {
+function formatDateHeading(isoDate) {
     const locale = document.documentElement.lang === 'en' ? 'en-US' : 'de-DE';
     const options = {
         weekday: 'long',
         day: '2-digit',
         month: 'long',
     };
-    if (isoDate.slice(0, 4) !== todayIso.slice(0, 4)) {
-        options.year = 'numeric';
-    }
     return new Intl.DateTimeFormat(locale, options).format(new Date(`${isoDate}T12:00:00`));
 }
 
@@ -217,10 +199,10 @@ export function createJournalController(deps) {
     }
 
     function updateDateUi(date) {
-        // ponytail: aria-pressed as a 3-button screen-segment map; revisit if more segments appear.
+        // Map the three absolute day segments relative to the server's date.
         const today = serverDateIso(state.serverToday);
         if (journalDatePicker) journalDatePicker.value = date;
-        if (journalDateHeading) journalDateHeading.textContent = formatDateHeading(date, today || date);
+        if (journalDateHeading) journalDateHeading.textContent = formatDateHeading(date);
         const targets = new Map([
             [journalPreviousBtn, today ? shiftDate(today, -1) : ''],
             [journalTodayBtn, today],
@@ -301,14 +283,14 @@ export function createJournalController(deps) {
             journalSketchCard.hidden = true;
             return;
         }
-        journalSketchCard.hidden = false;
         const hasSketch = Number(currentItem?.has_sketch) === 1;
+        journalSketchCard.hidden = !hasSketch;
         if (journalSketchOpenBtn) {
-            journalSketchOpenBtn.textContent = t(hasSketch ? 'journal.sketch.open' : 'journal.sketch.add');
+            journalSketchOpenBtn.setAttribute('aria-label', t(hasSketch ? 'journal.sketch.open' : 'journal.sketch.add'));
             journalSketchOpenBtn.disabled = false;
         }
         if (journalSketchStatus) {
-            journalSketchStatus.textContent = hasSketch ? '' : t('journal.sketch.empty');
+            journalSketchStatus.textContent = '';
         }
     }
 
@@ -367,7 +349,11 @@ export function createJournalController(deps) {
         });
         updateToolbar();
         setSaveStatus('');
-        if (focus) editor.chain().focus().run();
+        if (focus) {
+            window.requestAnimationFrame(() => {
+                if (state.screen === 'journal' && editor) editor.chain().focus().run();
+            });
+        }
         renderSketchCard();
     }
 
@@ -433,17 +419,26 @@ export function createJournalController(deps) {
     journalTodayBtn?.addEventListener('click', () => void navigateTo(state.serverToday || 'today').catch(error => setMessage(error.message, true)));
     journalNextBtn?.addEventListener('click', () => void navigateTo(shiftDate(state.serverToday || state.journalDate || '', 1)).catch(error => setMessage(error.message, true)));
     journalDatePicker?.addEventListener('change', event => void navigateTo(event.target.value).catch(error => setMessage(error.message, true)));
+    journalDatePickerBtn?.addEventListener('click', () => {
+        if (typeof journalDatePicker?.showPicker === 'function') journalDatePicker.showPicker();
+        else journalDatePicker?.focus();
+    });
+    agendaAddBtn?.addEventListener('click', () => {
+        appEl?.classList.toggle('quick-add-open');
+        if (appEl?.classList.contains('quick-add-open')) itemInput?.focus();
+    });
     journalFormatBtn?.addEventListener('click', () => setToolbarOpen(journalToolbar?.hidden !== false));
     journalToolbar?.addEventListener('click', handleToolbarClick);
     journalAgendaCollapseBtn?.addEventListener('click', () => {
         agendaCollapsed = !agendaCollapsed;
         renderAgenda(lastAgendaItems);
     });
-    journalSketchOpenBtn?.addEventListener('click', () => {
-        if (journalSketchOpenBtn.disabled) return;
+    const handleSketchOpen = () => {
+        if (journalSketchOpenBtn?.disabled || journalSketchPreviewBtn?.disabled) return;
         const date = state.journalDate;
         if (!date) return;
         journalSketchOpenBtn.disabled = true;
+        if (journalSketchPreviewBtn) journalSketchPreviewBtn.disabled = true;
         if (journalSketchStatus) {
             journalSketchStatus.textContent = t('journal.sketch.loading');
         }
@@ -468,8 +463,11 @@ export function createJournalController(deps) {
             })
             .finally(() => {
                 if (journalSketchOpenBtn) journalSketchOpenBtn.disabled = false;
+                if (journalSketchPreviewBtn) journalSketchPreviewBtn.disabled = false;
             });
-    });
+    };
+    journalSketchOpenBtn?.addEventListener('click', handleSketchOpen);
+    journalSketchPreviewBtn?.addEventListener('click', handleSketchOpen);
 
     return { closeJournal, openDay, reloadAgenda, setToggleHandler };
 }

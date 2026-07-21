@@ -196,12 +196,14 @@ $clientWebSocketUrl = is_string($clientWebSocketUrl) ? trim($clientWebSocketUrl)
         </div>
         <section class="journal-view parchment-view" id="journalView" aria-labelledby="journalDateHeading" hidden>
             <div class="journal-navigation">
-                <button type="button" id="journalBackBtn" class="journal-nav-btn journal-back-btn" aria-label="<?= t('journal.back') ?>"><?= icon('arrow-left') ?></button>
+                <button type="button" id="journalBackBtn" class="journal-nav-icon-btn" aria-label="<?= t('journal.back') ?>"><?= icon('arrow-left') ?></button>
+                <button type="button" id="journalDatePickerBtn" class="journal-nav-icon-btn" aria-label="<?= t('journal.choose_date') ?>"><?= icon('calendar') ?></button>
                 <div class="journal-segments" role="group" aria-label="<?= t('journal.navigation') ?>">
                     <button type="button" id="journalPreviousBtn" class="journal-nav-btn" aria-pressed="false"><?= t('journal.previous') ?></button>
                     <button type="button" id="journalTodayBtn" class="journal-nav-btn" aria-pressed="false"><?= t('journal.today') ?></button>
                     <button type="button" id="journalNextBtn" class="journal-nav-btn" aria-pressed="false"><?= t('journal.next') ?></button>
                 </div>
+                <a href="<?= htmlspecialchars(appPath('index.php?view=settings'), ENT_QUOTES, 'UTF-8') ?>" class="journal-nav-icon-btn btn-settings" data-settings-tab="app" aria-label="<?= t('ui.settings') ?>"><?= icon('settings') ?></a>
                 <label class="journal-date-picker-label" for="journalDatePicker"><?= t('journal.choose_date') ?></label>
                 <input type="date" id="journalDatePicker" class="journal-date-picker" aria-label="<?= t('journal.choose_date') ?>">
             </div>
@@ -211,6 +213,7 @@ $clientWebSocketUrl = is_string($clientWebSocketUrl) ? trim($clientWebSocketUrl)
                     <h3 id="journalAgendaTitle" class="journal-card-title"><?= t('journal.agenda') ?></h3>
                     <div class="journal-card-actions">
                         <button type="button" id="journalAgendaCollapseBtn" class="journal-format-btn" aria-expanded="false" aria-controls="journalAgendaBody"><?= t('agenda.expand') ?></button>
+                        <button type="button" id="agendaAddBtn" class="journal-card-icon-btn" aria-label="<?= t('item.add') ?>"><?= icon('plus') ?></button>
                     </div>
                 </header>
                 <div id="journalAgendaBody" class="journal-agenda-columns" data-collapsed="true">
@@ -224,20 +227,12 @@ $clientWebSocketUrl = is_string($clientWebSocketUrl) ? trim($clientWebSocketUrl)
                     </section>
                 </div>
             </section>
-            <section class="parchment-card journal-sketch-card" id="journalSketchCard" aria-labelledby="journalSketchTitle">
-                <header class="journal-card-header journal-sketch-summary">
-                    <h3 id="journalSketchTitle" class="journal-card-title"><?= t('journal.sketch.title') ?></h3>
-                    <span class="journal-sketch-status" id="journalSketchStatus" aria-live="polite"></span>
-                </header>
-                <div class="journal-sketch-body">
-                    <button type="button" id="journalSketchOpenBtn" class="journal-sketch-open-btn"><?= t('journal.sketch.add') ?></button>
-                </div>
-            </section>
             <section class="parchment-card journal-note-card" aria-labelledby="journalNoteTitle">
                 <header class="journal-card-header">
                     <h3 id="journalNoteTitle" class="journal-card-title"><?= t('journal.note_title') ?></h3>
                     <div class="journal-card-actions">
                         <span class="note-save-status journal-save-status" id="journalSaveStatus" aria-live="polite"></span>
+                        <button type="button" id="journalSketchOpenBtn" class="journal-card-icon-btn" aria-label="<?= t('journal.sketch.add') ?>"><?= icon('pencil') ?></button>
                         <button type="button" id="journalFormatBtn" class="journal-format-btn" aria-controls="journalToolbar" aria-expanded="false"><?= t('journal.format') ?></button>
                     </div>
                 </header>
@@ -256,6 +251,15 @@ $clientWebSocketUrl = is_string($clientWebSocketUrl) ? trim($clientWebSocketUrl)
                     <button type="button" data-cmd="redo" title="<?= t('editor.toolbar.redo') ?>" aria-label="<?= t('editor.toolbar.redo') ?>">↪</button>
                 </div>
                 <div class="journal-editor-body note-editor-body" id="journalEditorBody"></div>
+            </section>
+            <section class="parchment-card journal-sketch-card" id="journalSketchCard" aria-labelledby="journalSketchTitle" hidden>
+                <header class="journal-card-header journal-sketch-summary">
+                    <h3 id="journalSketchTitle" class="journal-card-title"><?= t('journal.sketch.title') ?></h3>
+                    <span class="journal-sketch-status" id="journalSketchStatus" aria-live="polite"></span>
+                </header>
+                <div class="journal-sketch-body">
+                    <button type="button" id="journalSketchPreviewBtn" class="journal-sketch-open-btn"><?= t('journal.sketch.open') ?></button>
+                </div>
             </section>
         </section>
         <section class="settings-embed" id="settingsEmbed" hidden aria-label="<?= t('ui.settings') ?>">
@@ -353,8 +357,16 @@ $clientWebSocketUrl = is_string($clientWebSocketUrl) ? trim($clientWebSocketUrl)
         </div>
         <div class="todo-editor-body" id="todoEditorBody">
             <div class="todo-editor-section">
-                <label class="todo-editor-label" for="todoDateInput"><?= t('todo.due_date') ?></label>
-                <input type="date" id="todoDateInput" class="todo-editor-date-input">
+                <div class="todo-due-fields">
+                    <label class="todo-due-field" for="todoDateInput">
+                        <span class="todo-editor-label"><?= t('todo.due_date') ?></span>
+                        <input type="date" id="todoDateInput" class="todo-editor-date-input">
+                    </label>
+                    <label class="todo-due-field" for="todoTimeInput">
+                        <span class="todo-editor-label"><?= t('todo.due_time') ?></span>
+                        <input type="time" id="todoTimeInput" class="todo-editor-date-input" step="60">
+                    </label>
+                </div>
             </div>
             <div class="todo-editor-section">
                 <span class="todo-editor-label"><?= t('todo.status') ?></span>
@@ -364,6 +376,15 @@ $clientWebSocketUrl = is_string($clientWebSocketUrl) ? trim($clientWebSocketUrl)
                     <button type="button" class="todo-status-btn" data-status="waiting"><?= t('todo.status_waiting') ?></button>
                     <button type="button" class="todo-status-btn" id="todoDoneBtn"><?= t('todo.status_done') ?></button>
                 </div>
+            </div>
+            <div class="todo-editor-section">
+                <label class="todo-editor-label" for="todoPriorityInput"><?= t('todo.priority') ?></label>
+                <select id="todoPriorityInput" class="todo-editor-date-input">
+                    <option value=""><?= t('todo.priority_none') ?></option>
+                    <option value="1">!1 – <?= t('todo.priority_high') ?></option>
+                    <option value="2">!2 – <?= t('todo.priority_medium') ?></option>
+                    <option value="3">!3 – <?= t('todo.priority_low') ?></option>
+                </select>
             </div>
             <div class="todo-editor-section todo-editor-section--note">
                 <label class="todo-editor-label" for="todoNoteInput"><?= t('todo.notes_placeholder') ?></label>

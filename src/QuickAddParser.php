@@ -26,7 +26,7 @@ function parseQuickAdd(string $input, int $activeCategoryId, array $categories, 
         return $failure('quick_add.ambiguous', 'Die Eingabe enthält mehrere Datumsangaben.');
     }
     $dateToken = isset($dateMatches[1][0]) ? mb_strtolower($dateMatches[1][0], 'UTF-8') : '';
-    $working = preg_replace('/\b(übermorgen|heute|morgen)\b/iu', ' ', $working) ?? $working;
+    $working = preg_replace('/(?:\s*,\s*)?\b(übermorgen|heute|morgen)\b(?:\s*,\s*)?/iu', ' ', $working) ?? $working;
 
     preg_match_all('/(?<!\d)([01]?\d|2[0-3]):([0-5]\d)(?!\d)/u', $working, $colonMatches, PREG_SET_ORDER);
     preg_match_all('/(?<!\d)([01]?\d|2[0-3])\s+Uhr\b/iu', $working, $hourMatches, PREG_SET_ORDER);
@@ -36,10 +36,10 @@ function parseQuickAdd(string $input, int $activeCategoryId, array $categories, 
     $dueTime = '';
     if ($colonMatches !== []) {
         $dueTime = sprintf('%02d:%02d', (int) $colonMatches[0][1], (int) $colonMatches[0][2]);
-        $working = preg_replace('/(?<!\d)([01]?\d|2[0-3]):([0-5]\d)(?!\d)/u', ' ', $working) ?? $working;
+        $working = preg_replace('/(?:\s*,\s*)?(?<!\d)([01]?\d|2[0-3]):([0-5]\d)(?!\d)(?:\s*,\s*)?/u', ' ', $working) ?? $working;
     } elseif ($hourMatches !== []) {
         $dueTime = sprintf('%02d:00', (int) $hourMatches[0][1]);
-        $working = preg_replace('/(?<!\d)([01]?\d|2[0-3])\s+Uhr\b/iu', ' ', $working) ?? $working;
+        $working = preg_replace('/(?:\s*,\s*)?(?<!\d)([01]?\d|2[0-3])\s+Uhr\b(?:\s*,\s*)?/iu', ' ', $working) ?? $working;
     }
 
     preg_match_all('/!(1|2|3)\b/u', $working, $priorityMatches);
@@ -47,9 +47,9 @@ function parseQuickAdd(string $input, int $activeCategoryId, array $categories, 
         return $failure('quick_add.ambiguous', 'Die Eingabe enthält mehrere Prioritäten.');
     }
     $priority = $priorityMatches[1][0] ?? '';
-    $working = preg_replace('/!(1|2|3)\b/u', ' ', $working) ?? $working;
+    $working = preg_replace('/(?:\s*,\s*)?!(1|2|3)\b(?:\s*,\s*)?/u', ' ', $working) ?? $working;
 
-    preg_match_all('/\/([^\s!]+)/u', $working, $categoryMatches);
+    preg_match_all('/\/([^\s!,]+)/u', $working, $categoryMatches);
     if (count($categoryMatches[0]) > 1) {
         return $failure('quick_add.ambiguous', 'Die Eingabe enthält mehrere Kategorien.');
     }
@@ -65,7 +65,7 @@ function parseQuickAdd(string $input, int $activeCategoryId, array $categories, 
             return $failure('quick_add.unknown_category', 'Kategorie nicht gefunden: /' . $categoryMatches[1][0], false);
         }
         $categoryId = (int) $matching[0]['id'];
-        $working = preg_replace('/\/([^\s!]+)/u', ' ', $working) ?? $working;
+        $working = preg_replace('/(?:\s*,\s*)?\/([^\s!,]+)(?:\s*,\s*)?/u', ' ', $working) ?? $working;
     }
 
     if (preg_match('/(?:!\S+|\/\S+|\b\d{1,2}:\d{2}\b)/u', $working) === 1) {

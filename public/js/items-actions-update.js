@@ -1,7 +1,7 @@
 import { t } from './i18n.js';
-import { api } from './api.js?v=5.1.24';
-import { getCurrentCategory, state } from './state.js?v=5.1.24';
-import { enqueueAction } from './offline-queue.js?v=5.1.24';
+import { api } from './api.js?v=5.1.27';
+import { getCurrentCategory, state } from './state.js?v=5.1.27';
+import { enqueueAction } from './offline-queue.js?v=5.1.27';
 
 export function createUpdateActions(deps) {
     const {
@@ -21,20 +21,17 @@ export function createUpdateActions(deps) {
     } = deps;
 
     async function handleToggle(id, done) {
-        // ponytail: coerce to 0/1 — callers from the journal pass a boolean which
-        // would stringify to "true"/"false" and fail PHP FILTER_VALIDATE_INT with 422.
-        const doneFlag = done ? 1 : 0;
         const item = getItemById(id);
         const previousDone = item?.done;
         if (item) {
-            item.done = doneFlag;
+            item.done = done;
             cacheCurrentCategoryItems();
             renderItems();
         }
         try {
             await api('toggle', {
                 method: 'POST',
-                body: new URLSearchParams({ id: String(id), done: String(doneFlag) }),
+                body: new URLSearchParams({ id: String(id), done: String(done) }),
             });
         } catch (error) {
             if (shouldQueueOffline(error)) {
@@ -186,7 +183,7 @@ export function createUpdateActions(deps) {
         const draft = state.editDraft || {};
         if (state.editingId !== id || Number(draft.itemId) !== Number(id)) {
             state.editingId = null;
-            state.editDraft = { itemId: null, categoryId: null, name: '', barcode: '', quantity: '', due_date: '', content: '' };
+            state.editDraft = { itemId: null, categoryId: null, name: '', barcode: '', quantity: '', due_date: '', due_time: '', priority: '', content: '' };
             renderItems();
             setMessage(t('msg.edit_draft_stale'), true);
             return;
@@ -198,12 +195,14 @@ export function createUpdateActions(deps) {
             barcode: (draft.barcode || '').trim(),
             quantity: (draft.quantity || '').trim(),
             due_date: (draft.due_date || '').trim(),
+            due_time: (draft.due_time || '').trim(),
+            priority: (draft.priority || '').trim(),
             content: (draft.content || '').trim(),
         });
 
         await api('update', { method: 'POST', body });
         state.editingId = null;
-        state.editDraft = { itemId: null, categoryId: null, name: '', barcode: '', quantity: '', due_date: '', content: '' };
+        state.editDraft = { itemId: null, categoryId: null, name: '', barcode: '', quantity: '', due_date: '', due_time: '', priority: '', content: '' };
         invalidateCategoryCache(state.categoryId);
         await loadItems();
         setMessage(t('msg.item_saved'));
