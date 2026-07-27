@@ -100,6 +100,18 @@ function requireMethod(string $expectedMethod): void
     }
 }
 
+// ponytail: replaces the 4-line POST auth dance (method check + body read +
+// CSRF for browser sessions). API key requests still skip CSRF as before.
+function requireWriteRequest(): array
+{
+    requireMethod('POST');
+    $data = requestData();
+    if (!isApiKeyAuthRequest()) {
+        requireCsrfToken($data);
+    }
+    return $data;
+}
+
 function ensureUtf8(mixed $value): mixed
 {
     if (is_string($value)) {
@@ -1859,11 +1871,7 @@ try {
             ]);
 
         case 'categories_create':
-            requireMethod('POST');
-            $data = requestData();
-            if (!isApiKeyAuthRequest()) {
-                requireCsrfToken($data);
-            }
+            $data = requireWriteRequest();
 
             $name = normalizeName($data['name'] ?? null);
             $type = trim((string) ($data['type'] ?? ''));
@@ -1881,19 +1889,14 @@ try {
 
             $icon = normalizeCategoryIcon($data['icon'] ?? null, $type);
 
-            $stmt = $db->prepare(
-                'INSERT INTO categories (user_id, name, type, icon, sort_order, is_hidden)
-                 VALUES (:user_id, :name, :type, :icon, :sort_order, 0)'
+            $categoryId = insertCategory(
+                $db,
+                $userId,
+                $name,
+                $type,
+                $icon,
+                nextCategorySortOrder($db, $userId)
             );
-            $stmt->execute([
-                ':user_id' => $userId,
-                ':name' => $name,
-                ':type' => $type,
-                ':icon' => $icon,
-                ':sort_order' => nextCategorySortOrder($db, $userId),
-            ]);
-
-            $categoryId = (int) $db->lastInsertId();
             updateExtendedUserPreferences($db, $userId, ['last_category_id' => $categoryId]);
 
             respond(201, [
@@ -1902,11 +1905,7 @@ try {
             ]);
 
         case 'categories_update':
-            requireMethod('POST');
-            $data = requestData();
-            if (!isApiKeyAuthRequest()) {
-                requireCsrfToken($data);
-            }
+            $data = requireWriteRequest();
 
             $categoryId = filter_var($data['category_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
             if (!is_int($categoryId)) {
@@ -1947,11 +1946,7 @@ try {
                 respond(422, ['error' => t('error.no_changes'), 'error_key' => 'error.no_changes']);
             }
 
-            $stmt = $db->prepare(
-                'UPDATE categories SET ' . implode(', ', $patches) . ', updated_at = CURRENT_TIMESTAMP
-                 WHERE id = :id AND user_id = :user_id'
-            );
-            $stmt->execute($params);
+            updateCategoryFields($db, $userId, $categoryId, $patches, $params);
 
             respond(200, [
                 'message' => 'Kategorie aktualisiert.',
@@ -1959,11 +1954,7 @@ try {
             ]);
 
         case 'categories_reorder':
-            requireMethod('POST');
-            $data = requestData();
-            if (!isApiKeyAuthRequest()) {
-                requireCsrfToken($data);
-            }
+            $data = requireWriteRequest();
 
             $ids = normalizeIdList($data['ids'] ?? ($data['ids[]'] ?? null));
             if ($ids === []) {
@@ -1983,50 +1974,23 @@ try {
                 respond(422, ['error' => t('error.order_mismatch_categories'), 'error_key' => 'error.order_mismatch_categories']);
             }
 
-            $stmt = $db->prepare(
-                'UPDATE categories SET sort_order = :sort_order, updated_at = CURRENT_TIMESTAMP
-                 WHERE id = :id AND user_id = :user_id'
-            );
-
-            $db->beginTransaction();
-            try {
-                foreach ($ids as $index => $id) {
-                    $stmt->execute([
-                        ':sort_order' => $index + 1,
-                        ':id' => $id,
-                        ':user_id' => $userId,
-                    ]);
-                }
-                $db->commit();
-            } catch (Throwable $exception) {
-                if ($db->inTransaction()) {
-                    $db->rollBack();
-                }
-                throw $exception;
-            }
+            reorderUserCategories($db, $userId, $ids);
 
             respond(200, ['message' => 'Kategorien neu sortiert.']);
 
         case 'categories_delete':
-            requireMethod('POST');
-            $data = requestData();
-            if (!isApiKeyAuthRequest()) {
-                requireCsrfToken($data);
-            }
+            $data = requireWriteRequest();
 
             $category = requireCategory($data, $db, $userId);
             if ((string) $category['type'] === 'daily_notes') {
                 respond(422, ['error' => t('error.system_category'), 'error_key' => 'error.system_category']);
             }
 
-            $countStmt = $db->prepare('SELECT COUNT(*) FROM items WHERE user_id = :user_id AND category_id = :category_id');
-            $countStmt->execute([':user_id' => $userId, ':category_id' => (int) $category['id']]);
-            if ((int) $countStmt->fetchColumn() > 0) {
+            if (countItemsInCategory($db, $userId, (int) $category['id']) > 0) {
                 respond(422, ['error' => t('error.category_not_empty'), 'error_key' => 'error.category_not_empty']);
             }
 
-            $db->prepare('DELETE FROM categories WHERE id = :id AND user_id = :user_id')
-                ->execute([':id' => (int) $category['id'], ':user_id' => $userId]);
+            deleteUserCategory($db, $userId, (int) $category['id']);
 
             $preferences = getExtendedUserPreferences($db, $userId);
             if ((int) ($preferences['last_category_id'] ?? 0) === (int) $category['id']) {
@@ -2132,11 +2096,7 @@ try {
             ]);
 
         case 'journal_save':
-            requireMethod('POST');
-            $data = requestData();
-            if (!isApiKeyAuthRequest()) {
-                requireCsrfToken($data);
-            }
+            $data = requireWriteRequest();
 
             $date = normalizeJournalDate($data['date'] ?? null);
             $content = normalizeContent($data['content'] ?? null);
@@ -2248,11 +2208,7 @@ try {
             respond(200, $response);
 
         case 'quick_add':
-            requireMethod('POST');
-            $data = requestData();
-            if (!isApiKeyAuthRequest()) {
-                requireCsrfToken($data);
-            }
+            $data = requireWriteRequest();
 
             $activeCategoryId = filter_var($data['active_category_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
             if (!is_int($activeCategoryId)) {
@@ -2336,11 +2292,7 @@ try {
             ]);
 
         case 'add':
-            requireMethod('POST');
-            $data = requestData();
-            if (!isApiKeyAuthRequest()) {
-                requireCsrfToken($data);
-            }
+            $data = requireWriteRequest();
 
             $category = requireCategory($data, $db, $userId);
             $name = normalizeName($data['name'] ?? null);
@@ -2414,11 +2366,7 @@ try {
             ]);
 
         case 'upload':
-            requireMethod('POST');
-            $data = requestData();
-            if (!isApiKeyAuthRequest()) {
-                requireCsrfToken($data);
-            }
+            $data = requireWriteRequest();
 
             $category = requireCategory($data, $db, $userId);
             validateCategoryType($category, ['images', 'files'], t('error.invalid_category'));
@@ -2567,11 +2515,7 @@ try {
             respond(201, ['message' => 'Upload gespeichert.', 'id' => $itemId]);
 
         case 'import_url':
-            requireMethod('POST');
-            $data = requestData();
-            if (!isApiKeyAuthRequest()) {
-                requireCsrfToken($data);
-            }
+            $data = requireWriteRequest();
 
             $category = requireCategory($data, $db, $userId);
             validateCategoryType($category, ['files'], t('error.invalid_category'));
@@ -2653,11 +2597,7 @@ try {
             respond(201, ['message' => 'Datei importiert.', 'id' => $itemId]);
 
         case 'toggle':
-            requireMethod('POST');
-            $data = requestData();
-            if (!isApiKeyAuthRequest()) {
-                requireCsrfToken($data);
-            }
+            $data = requireWriteRequest();
 
             $id = filter_var($data['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
             // ponytail: tolerate truthy strings from legacy clients / offline queue
@@ -2690,11 +2630,7 @@ try {
             respond(200, ['message' => 'Status aktualisiert.']);
 
         case 'update':
-            requireMethod('POST');
-            $data = requestData();
-            if (!isApiKeyAuthRequest()) {
-                requireCsrfToken($data);
-            }
+            $data = requireWriteRequest();
 
             $id = filter_var($data['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
             if (!is_int($id)) {
@@ -2794,11 +2730,7 @@ try {
             respond(200, ['message' => 'Artikel aktualisiert.']);
 
         case 'delete':
-            requireMethod('POST');
-            $data = requestData();
-            if (!isApiKeyAuthRequest()) {
-                requireCsrfToken($data);
-            }
+            $data = requireWriteRequest();
 
             $id = filter_var($data['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
             if (!is_int($id)) {
@@ -2827,11 +2759,7 @@ try {
             respond(200, ['message' => 'Artikel gelöscht.']);
 
         case 'move':
-            requireMethod('POST');
-            $data = requestData();
-            if (!isApiKeyAuthRequest()) {
-                requireCsrfToken($data);
-            }
+            $data = requireWriteRequest();
 
             $id = filter_var($data['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
             $targetCategoryId = filter_var($data['target_category_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
@@ -2894,11 +2822,7 @@ try {
             ]);
 
         case 'clear':
-            requireMethod('POST');
-            $data = requestData();
-            if (!isApiKeyAuthRequest()) {
-                requireCsrfToken($data);
-            }
+            $data = requireWriteRequest();
 
             $category = requireCategory($data, $db, $userId);
 
@@ -2928,11 +2852,7 @@ try {
             respond(200, ['message' => 'Erledigte Artikel gelöscht.', 'deleted' => $deletedCount]);
 
         case 'reorder':
-            requireMethod('POST');
-            $data = requestData();
-            if (!isApiKeyAuthRequest()) {
-                requireCsrfToken($data);
-            }
+            $data = requireWriteRequest();
 
             $category = requireCategory($data, $db, $userId);
             $orderedIds = normalizeIdList($data['ids'] ?? ($data['ids[]'] ?? null));
@@ -2979,11 +2899,7 @@ try {
             respond(200, ['message' => 'Reihenfolge aktualisiert.']);
 
         case 'pin':
-            requireMethod('POST');
-            $data = requestData();
-            if (!isApiKeyAuthRequest()) {
-                requireCsrfToken($data);
-            }
+            $data = requireWriteRequest();
 
             $id = filter_var($data['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
             $isPinned = filter_var($data['is_pinned'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 0, 'max_range' => 1]]);
@@ -3002,11 +2918,7 @@ try {
             respond(200, ['message' => 'Pinned-Status aktualisiert.']);
 
         case 'status':
-            requireMethod('POST');
-            $data = requestData();
-            if (!isApiKeyAuthRequest()) {
-                requireCsrfToken($data);
-            }
+            $data = requireWriteRequest();
 
             $id = filter_var($data['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
             $status = $data['status'] ?? null;
@@ -3327,11 +3239,7 @@ try {
                 respond(200, ['preferences' => $prefs]);
             }
 
-            requireMethod('POST');
-            $data = requestData();
-            if (!isApiKeyAuthRequest()) {
-                requireCsrfToken($data);
-            }
+            $data = requireWriteRequest();
 
             $patch = [];
 
@@ -3352,11 +3260,7 @@ try {
             respond(200, ['preferences' => $preferences]);
 
         case 'sketch_save':
-            requireMethod('POST');
-            $data = requestData();
-            if (!isApiKeyAuthRequest()) {
-                requireCsrfToken($data);
-            }
+            $data = requireWriteRequest();
 
             $itemId = filter_var($data['item_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
             if (!is_int($itemId)) {
@@ -3398,11 +3302,7 @@ try {
             ]);
 
         case 'sketch_save_daily':
-            requireMethod('POST');
-            $data = requestData();
-            if (!isApiKeyAuthRequest()) {
-                requireCsrfToken($data);
-            }
+            $data = requireWriteRequest();
 
             $date = normalizeJournalDate($data['date'] ?? null);
             $normalized = normalizeSketchJson($data['scene'] ?? null);

@@ -171,6 +171,70 @@ function nextCategorySortOrder(PDO $db, int $userId): int
     return (int) $stmt->fetchColumn() + 1;
 }
 
+function insertCategory(PDO $db, int $userId, string $name, string $type, string $icon, int $sortOrder): int
+{
+    $stmt = $db->prepare(
+        'INSERT INTO categories (user_id, name, type, icon, sort_order, is_hidden)
+         VALUES (:user_id, :name, :type, :icon, :sort_order, 0)'
+    );
+    $stmt->execute([
+        ':user_id' => $userId,
+        ':name' => $name,
+        ':type' => $type,
+        ':icon' => $icon,
+        ':sort_order' => $sortOrder,
+    ]);
+    return (int) $db->lastInsertId();
+}
+
+function updateCategoryFields(PDO $db, int $userId, int $categoryId, array $patches, array $params): int
+{
+    $stmt = $db->prepare(
+        'UPDATE categories SET ' . implode(', ', $patches) . ', updated_at = CURRENT_TIMESTAMP
+         WHERE id = :id AND user_id = :user_id'
+    );
+    $stmt->execute($params);
+    return $stmt->rowCount();
+}
+
+function reorderUserCategories(PDO $db, int $userId, array $orderedIds): void
+{
+    $stmt = $db->prepare(
+        'UPDATE categories SET sort_order = :sort_order, updated_at = CURRENT_TIMESTAMP
+         WHERE id = :id AND user_id = :user_id'
+    );
+    $db->beginTransaction();
+    try {
+        foreach ($orderedIds as $index => $id) {
+            $stmt->execute([
+                ':sort_order' => $index + 1,
+                ':id' => $id,
+                ':user_id' => $userId,
+            ]);
+        }
+        $db->commit();
+    } catch (Throwable $exception) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
+        throw $exception;
+    }
+}
+
+function deleteUserCategory(PDO $db, int $userId, int $categoryId): int
+{
+    $stmt = $db->prepare('DELETE FROM categories WHERE id = :id AND user_id = :user_id');
+    $stmt->execute([':id' => $categoryId, ':user_id' => $userId]);
+    return $stmt->rowCount();
+}
+
+function countItemsInCategory(PDO $db, int $userId, int $categoryId): int
+{
+    $stmt = $db->prepare('SELECT COUNT(*) FROM items WHERE user_id = :user_id AND category_id = :category_id');
+    $stmt->execute([':user_id' => $userId, ':category_id' => $categoryId]);
+    return (int) $stmt->fetchColumn();
+}
+
 function loadItemCategory(PDO $db, int $userId, int $itemId): ?array
 {
     $stmt = $db->prepare(

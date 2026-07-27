@@ -288,18 +288,14 @@ class SettingsController
                     $flash = t('error.invalid_category_type');
                     $flashType = 'err';
                 } else {
-                    $stmt = $this->db->prepare(
-                        'INSERT INTO categories (user_id, name, type, icon, sort_order, is_hidden)
-                         VALUES (:user_id, :name, :type, :icon, :sort_order, 0)'
+                    $categoryId = insertCategory(
+                        $this->db,
+                        $this->userId,
+                        $name,
+                        $type,
+                        $icon,
+                        nextCategorySortOrder($this->db, $this->userId)
                     );
-                    $stmt->execute([
-                        ':user_id' => $this->userId,
-                        ':name' => $name,
-                        ':type' => $type,
-                        ':icon' => $icon,
-                        ':sort_order' => nextCategorySortOrder($this->db, $this->userId),
-                    ]);
-                    $categoryId = (int) $this->db->lastInsertId();
                     updateExtendedUserPreferences($this->db, $this->userId, ['last_category_id' => $categoryId]);
                     $flash = t('settings.flash.category_created');
                     notifyWebSocket($this->userId);
@@ -329,17 +325,19 @@ class SettingsController
                             $name = (string) $category['name'];
                         }
 
-                        $this->db->prepare(
-                            'UPDATE categories
-                             SET name = :name, icon = :icon, is_hidden = :is_hidden, updated_at = CURRENT_TIMESTAMP
-                             WHERE id = :id AND user_id = :user_id'
-                        )->execute([
-                            ':name' => $name,
-                            ':icon' => $icon,
-                            ':is_hidden' => $isHidden,
-                            ':id' => $categoryId,
-                            ':user_id' => $this->userId,
-                        ]);
+                        updateCategoryFields(
+                            $this->db,
+                            $this->userId,
+                            $categoryId,
+                            ['name = :name', 'icon = :icon', 'is_hidden = :is_hidden'],
+                            [
+                                ':name' => $name,
+                                ':icon' => $icon,
+                                ':is_hidden' => $isHidden,
+                                ':id' => $categoryId,
+                                ':user_id' => $this->userId,
+                            ]
+                        );
 
                         $flash = t('settings.flash.category_saved');
                         notifyWebSocket($this->userId);
@@ -384,26 +382,9 @@ class SettingsController
                         }
                     }
 
-                    $this->db->beginTransaction();
-                    try {
-                        $updateStmt = $this->db->prepare(
-                            'UPDATE categories
-                             SET sort_order = :sort_order, updated_at = CURRENT_TIMESTAMP
-                             WHERE id = :id AND user_id = :user_id'
-                        );
-                        foreach ($filteredIds as $i => $id) {
-                            $updateStmt->execute([':sort_order' => $i + 1, ':id' => $id, ':user_id' => $this->userId]);
-                        }
-                        $this->db->commit();
-                        $flash = t('settings.flash.order_saved');
-                        notifyWebSocket($this->userId);
-                    } catch (Throwable $e) {
-                        if ($this->db->inTransaction()) {
-                            $this->db->rollBack();
-                        }
-                        $flash = t('settings.flash.order_save_failed');
-                        $flashType = 'err';
-                    }
+                    reorderUserCategories($this->db, $this->userId, $filteredIds);
+                    $flash = t('settings.flash.order_saved');
+                    notifyWebSocket($this->userId);
                 }
                 break;
 
@@ -422,15 +403,11 @@ class SettingsController
                         $flash = t('error.system_category');
                         $flashType = 'err';
                     } else {
-                        $countStmt = $this->db->prepare('SELECT COUNT(*) FROM items WHERE user_id = :user_id AND category_id = :category_id');
-                        $countStmt->execute([':user_id' => $this->userId, ':category_id' => $deleteCategoryId]);
-
-                        if ((int) $countStmt->fetchColumn() > 0) {
+                        if (countItemsInCategory($this->db, $this->userId, $deleteCategoryId) > 0) {
                             $flash = t('error.category_not_empty');
                             $flashType = 'err';
                         } else {
-                            $this->db->prepare('DELETE FROM categories WHERE id = :id AND user_id = :user_id')
-                                ->execute([':id' => $deleteCategoryId, ':user_id' => $this->userId]);
+                            deleteUserCategory($this->db, $this->userId, $deleteCategoryId);
                             $preferences = getExtendedUserPreferences($this->db, $this->userId);
                             if ((int) ($preferences['last_category_id'] ?? 0) === $deleteCategoryId) {
                                 $fallback = loadUserCategories($this->db, $this->userId, false)[0]['id'] ?? null;
