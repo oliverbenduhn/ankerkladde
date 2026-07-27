@@ -14,24 +14,39 @@ module.exports = defineConfig({
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {
     baseURL,
-    trace: 'on-first-retry',
+    trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
+    actionTimeout: 10_000,
+    navigationTimeout: 15_000,
   },
   webServer: {
     command: './scripts/ui-test-server.sh',
     url: baseURL,
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: false,
     timeout: 120_000,
+    stdout: 'pipe',
+    stderr: 'pipe',
   },
   projects: [
     {
-      name: 'chromium',
+      name: 'desktop',
       use: {
         ...devices['Desktop Chrome'],
         viewport: { width: 1280, height: 900 },
         launchOptions: chromiumExecutablePath ? { executablePath: chromiumExecutablePath } : undefined,
       },
+      testMatch: /flows\//,
+    },
+    {
+      name: 'mobile',
+      use: {
+        ...devices['Pixel 7'],
+        launchOptions: chromiumExecutablePath ? { executablePath: chromiumExecutablePath } : undefined,
+        hasTouch: true,
+        isMobile: true,
+      },
+      testMatch: /flows\//,
     },
   ],
 });
