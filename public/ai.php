@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 require dirname(__DIR__) . '/db.php';
 require dirname(__DIR__) . '/security.php';
+require_once dirname(__DIR__) . '/src/AiClient.php';
+require_once dirname(__DIR__) . '/src/AiProvider.php';
 require __DIR__ . '/theme.php';
 
 enforceCanonicalRequest();
@@ -99,39 +101,19 @@ if ($userInput === '' && $mode !== 'confirm') {
 }
 
 $preferences = getUserPreferences($db, $userId);
-// Allow testing a key before saving — provider-aware
-$aiProvider = (string) ($data['ai_provider'] ?? $preferences['ai_provider'] ?? 'gemini');
-$validProviders = array_keys(getAvailableProviders());
-if (!in_array($aiProvider, $validProviders, true)) {
-    $aiProvider = 'gemini';
-}
 
-if ($aiProvider === 'openai_compatible') {
-    $requestKey = $data['openai_compatible_api_key'] ?? null;
-    $aiKey = trim((string) ($requestKey !== null ? $requestKey : ($preferences['openai_compatible_api_key'] ?? '')));
-    $requestModel = $data['openai_compatible_model'] ?? null;
-    $aiModel = trim((string) ($requestModel !== null && $requestModel !== '' ? $requestModel : ($preferences['openai_compatible_model'] ?? 'gpt-4o-mini')));
-    if ($aiModel === '') $aiModel = 'gpt-4o-mini';
-    $requestBaseUrl = $data['openai_compatible_base_url'] ?? null;
-    $aiBaseUrl = trim((string) ($requestBaseUrl !== null && $requestBaseUrl !== '' ? $requestBaseUrl : ($preferences['openai_compatible_base_url'] ?? 'https://api.openai.com/v1')));
-    if ($aiBaseUrl === '') $aiBaseUrl = 'https://api.openai.com/v1';
-    if (validateAiBaseUrl($aiBaseUrl) !== null) {
-        http_response_code(422);
-        echo json_encode(['error' => 'Ungültige Basis-URL.']);
-        exit;
-    }
-    $availableModels = []; // Freitext, keine Whitelist
-} else {
-    $requestKey = $data['gemini_api_key'] ?? null;
-    $aiKey = trim((string) ($requestKey !== null ? $requestKey : ($preferences['gemini_api_key'] ?? '')));
-    $availableModels = getAvailableAiModels('gemini');
-    $requestModel = $data['gemini_model'] ?? null;
-    $aiModel = (string) ($requestModel !== null && $requestModel !== '' ? $requestModel : ($preferences['gemini_model'] ?? 'gemini-2.5-flash'));
-    $aiBaseUrl = '';
+// Allow testing a key before saving — provider-aware
+[$config, $err] = aiProviderResolve($preferences, $data ?? []);
+if ($err !== null) {
+    http_response_code($err['status']);
+    echo json_encode(['error' => $err['message']]);
+    exit;
 }
-if (!array_key_exists($aiModel, $availableModels) && $availableModels !== []) {
-    $aiModel = array_key_first($availableModels);
-}
+$aiProvider = $config['provider'];
+$aiKey = $config['key'];
+$aiModel = $config['model'];
+$aiBaseUrl = $config['base_url'];
+$availableModels = $config['whitelist'];
 
 if ($aiKey === '' && $mode !== 'confirm' && $aiProvider !== 'openai_compatible') {
     http_response_code(403);
@@ -140,10 +122,9 @@ if ($aiKey === '' && $mode !== 'confirm' && $aiProvider !== 'openai_compatible')
 }
 
 if (!empty($data['test_only'])) {
-    $result = callAiProvider($aiKey, $aiProvider, $aiModel, 'Hi', [
+    $result = aiProviderCall($config, 'Hi', [
         'timeout' => 30,
         'connect_timeout' => 10,
-        'base_url' => $aiBaseUrl,
     ]);
 
     if ($result['ok']) {
@@ -375,11 +356,10 @@ Regeln:
 
 $prompt = $systemPrompt . "\n\nBenutzereingabe: " . $userInput;
 
-$result = callAiProvider($aiKey, $aiProvider, $aiModel, $prompt, [
+$result = aiProviderCall($config, $prompt, [
     'timeout' => 30,
     'connect_timeout' => 10,
     'json_mode' => true,
-    'base_url' => $aiBaseUrl,
 ]);
 
 if (!$result['ok']) {

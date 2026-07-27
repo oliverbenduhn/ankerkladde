@@ -3,6 +3,9 @@ declare(strict_types=1);
 
 require dirname(__DIR__) . '/db.php';
 require dirname(__DIR__) . '/security.php';
+require_once dirname(__DIR__) . '/src/AiClient.php';
+require_once dirname(__DIR__) . '/src/AiProvider.php';
+require __DIR__ . '/theme.php';
 
 enforceCanonicalRequest();
 requireAuth();
@@ -28,35 +31,20 @@ if ($userId === null) {
 }
 $preferences = getExtendedUserPreferences($db, $userId);
 
-$aiProvider = (string) ($data['ai_provider'] ?? $preferences['ai_provider'] ?? 'gemini');
-$validProviders = array_keys(getAvailableProviders());
-if (!in_array($aiProvider, $validProviders, true)) {
-    http_response_code(422);
-    echo json_encode(['error' => 'Unbekannter Provider.', 'models' => []]);
+[$config, $err] = aiProviderResolve($preferences, $data ?? []);
+if ($err !== null) {
+    http_response_code($err['status']);
+    echo json_encode(['error' => $err['message'], 'models' => []]);
     exit;
 }
 
-if ($aiProvider === 'gemini') {
-    $apiKey = trim((string) (
-        $data['gemini_api_key']
-        ?? $preferences['gemini_api_key']
-        ?? ''
-    ));
-    if ($apiKey === '') {
-        http_response_code(403);
-        echo json_encode(['error' => 'Bitte zuerst Gemini API-Key eintragen.', 'models' => []]);
-        exit;
-    }
-    $result = listGeminiModels($apiKey);
-} else {
-    $requestKey = $data['openai_compatible_api_key'] ?? null;
-    $apiKey = trim((string) ($requestKey !== null ? $requestKey : ($preferences['openai_compatible_api_key'] ?? '')));
-    $requestBaseUrl = $data['openai_compatible_base_url'] ?? null;
-    $baseUrl = trim((string) ($requestBaseUrl !== null && $requestBaseUrl !== '' ? $requestBaseUrl : ($preferences['openai_compatible_base_url'] ?? 'https://api.openai.com/v1')));
-    if ($baseUrl === '') $baseUrl = 'https://api.openai.com/v1';
-    $result = listOpenAiCompatibleModels($apiKey, $baseUrl);
+if ($config['provider'] === 'gemini' && $config['key'] === '') {
+    http_response_code(403);
+    echo json_encode(['error' => 'Bitte zuerst Gemini API-Key eintragen.', 'models' => []]);
+    exit;
 }
 
+$result = aiProviderListModels($config);
 if (!$result['ok']) {
     http_response_code(502);
     echo json_encode([
