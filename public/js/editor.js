@@ -68,6 +68,14 @@ export function createEditorController(deps) {
             cacheCurrentCategoryItems();
             setNoteSaveStatus('Gespeichert');
         } catch (error) {
+            // Konflikt: kanonische Server-Fassung in den lokalen Item-Cache uebernehmen.
+            if (Number(error?.status) === 409 && error.payload?.item) {
+                const conflictedItem = deps.getItemById(id);
+                if (conflictedItem) {
+                    Object.assign(conflictedItem, error.payload.item);
+                    cacheCurrentCategoryItems();
+                }
+            }
             if (error.message.includes('Artikel nicht gefunden')) {
                 setNoteSaveStatus(t('msg.note_deleted'));
                 console.log('[Note] Item was deleted by another user, closing editor');

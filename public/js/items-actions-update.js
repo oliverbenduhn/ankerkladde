@@ -18,6 +18,7 @@ export function createUpdateActions(deps) {
         shouldQueueOffline,
         itemParams,
         handleStaleCategory,
+        applyServerItem,
     } = deps;
 
     async function handleToggle(id, done) {
@@ -211,7 +212,20 @@ export function createUpdateActions(deps) {
             content: (draft.content || '').trim(),
         });
 
-        const result = await api('update', { method: 'POST', body });
+        let result;
+        try {
+            result = await api('update', { method: 'POST', body });
+        } catch (error) {
+            if (Number(error?.status) === 409 && error.payload?.item) {
+                applyServerItem(error.payload.item);
+                await loadItems();
+                setMessage(t('msg.item_conflict_remote_update'), true);
+                state.editingId = null;
+                state.editDraft = { itemId: null, categoryId: null, name: '', barcode: '', quantity: '', due_date: '', due_time: '', priority: '', content: '' };
+                return;
+            }
+            throw error;
+        }
         state.editingId = null;
         state.editDraft = { itemId: null, categoryId: null, name: '', barcode: '', quantity: '', due_date: '', due_time: '', priority: '', content: '' };
         invalidateCategoryCache(state.categoryId);

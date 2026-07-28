@@ -388,6 +388,7 @@
     "msg.no_models_found": "⚠️ Keine Modelle gefunden — Modell manuell eintragen.",
     "msg.no_move_target": "Keine passende Zielkategorie",
     "msg.item_saved": "Artikel gespeichert.",
+    "msg.item_conflict_remote_update": "Der Artikel wurde gerade von woanders geändert. Aktuelle Serverfassung geladen.",
     "msg.done_cleared": "Erledigte Artikel entfernt.",
     "msg.item_moved": "Verschoben nach {name}.",
     "msg.item_moved_generic": "Artikel verschoben.",

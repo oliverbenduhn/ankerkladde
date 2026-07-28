@@ -40,7 +40,16 @@ export function createTodoEditorController(deps) {
             content,
             status: currentStatus,
         });
-        const result = await api('update', { method: 'POST', body });
+        let result;
+        try {
+            result = await api('update', { method: 'POST', body });
+        } catch (error) {
+            if (Number(error?.status) === 409 && error.payload?.item) {
+                // Konflikt: kanonische Server-Fassung uebernehmen.
+                Object.assign(currentItem, error.payload.item);
+            }
+            throw error;
+        }
 
         currentItem = {
             ...currentItem,

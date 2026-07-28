@@ -21,6 +21,20 @@ export function createActionUtils(deps) {
         return Boolean(error?.isNetworkError || Number(error?.status) >= 500);
     }
 
+    // Uebernehme die kanonische Server-Fassung aus einer 409-Antwort in den
+    // lokalen state (Spec AC4: Browser uebernimmt den vollstaendigen
+    // Serverzustand bei Revisions-Konflikt ohne zusaetzlichen GET).
+    function applyServerItem(item) {
+        if (!item || Number(item.id) <= 0) return;
+        const idx = state.items.findIndex(entry => Number(entry.id) === Number(item.id));
+        if (idx >= 0) {
+            state.items[idx] = { ...state.items[idx], ...item };
+        } else {
+            state.items.push(item);
+        }
+        cacheCurrentCategoryItems();
+    }
+
     function itemParams(payload) {
         return new URLSearchParams(sanitizeItemPayload(payload));
     }
@@ -36,5 +50,5 @@ export function createActionUtils(deps) {
         return true;
     }
 
-    return { removeItemById, shouldQueueOffline, itemParams, handleStaleCategory };
+    return { removeItemById, shouldQueueOffline, itemParams, handleStaleCategory, applyServerItem };
 }
