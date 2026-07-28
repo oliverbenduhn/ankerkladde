@@ -2685,10 +2685,16 @@ try {
                 $priority = '';
             }
 
+            $statusActive = array_key_exists('status', $data);
             $status = null;
-            if ($type === 'list_due_date') {
-                $statusRaw = $data['status'] ?? null;
-                $status = in_array($statusRaw, ['', 'in_progress', 'waiting'], true) ? $statusRaw : null;
+            if ($statusActive) {
+                $statusRaw = $data['status'];
+                $statusCandidate = in_array($statusRaw, ['', 'in_progress', 'waiting'], true) ? $statusRaw : null;
+                if ($statusCandidate !== null) {
+                    $status = $statusCandidate;
+                } else {
+                    $statusActive = false;
+                }
             }
 
             $stmt = $db->prepare(
@@ -2700,7 +2706,7 @@ try {
                      due_time = :due_time,
                      priority = :priority,
                      content = :content,
-                     status = CASE WHEN :status_active = 1 THEN :status ELSE status END,
+                     status = CASE WHEN :status_active = "1" THEN :status ELSE status END,
                      revision = revision + 1,
                      updated_at = CURRENT_TIMESTAMP
                  WHERE id = :id AND user_id = :user_id AND revision = :expected_revision'
@@ -2714,7 +2720,7 @@ try {
                 ':due_time' => $dueTime,
                 ':priority' => $priority,
                 ':content' => $content,
-                ':status_active' => $status !== null ? 1 : 0,
+                ':status_active' => $statusActive ? '1' : '0',
                 ':status' => (string) ($status ?? ''),
                 ':user_id' => $userId,
                 ':expected_revision' => $expectedRevision,

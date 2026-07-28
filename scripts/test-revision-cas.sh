@@ -227,4 +227,90 @@ grep -q '"error_key":"error.item_not_found"' "$NOTFOUND_BODY" \
     || { echo "404-Fallback: error_key falsch." >&2; exit 1; }
 echo "404-Fallback ok: 404 bei nicht existierender item_id"
 
+# Zusatz: list_due_date muss status setzen koennen (Bugfix fuer PDO-Binding-Typenmismatch)
+TODO_CAT_ID="$(curl -fsS -b "$COOKIE_JAR" "http://127.0.0.1:$PORT/api.php?action=categories_list" \
+    | php -r '
+        $payload = json_decode(file_get_contents("php://stdin"), true);
+        foreach (($payload["categories"] ?? []) as $cat) {
+            if (($cat["type"] ?? "") === "list_due_date") { echo (int) ($cat["id"] ?? 0); exit; }
+        }
+        exit(1);
+    ')"
+TODO_BODY="$TMP_DIR/todo.json"
+curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+    --data-urlencode "category_id=$TODO_CAT_ID" \
+    --data-urlencode 'name=Test-Todo' \
+    -o "$TODO_BODY" \
+    "http://127.0.0.1:$PORT/api.php?action=add" >/dev/null
+TODO_ID="$(php -r 'echo (int) (json_decode(file_get_contents($argv[1]), true)["id"] ?? 0);' "$TODO_BODY")"
+TODO_REV="$(php -r 'echo (int) (json_decode(file_get_contents($argv[1]), true)["revision"] ?? 0);' "$TODO_BODY")"
+
+# Status darf nicht stumm ignoriert werden.
+curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+    --data-urlencode "id=$TODO_ID" \
+    --data-urlencode 'name=Test-Todo' \
+    --data-urlencode 'barcode=' \
+    --data-urlencode 'quantity=' \
+    --data-urlencode 'due_date=2026-08-01' \
+    --data-urlencode 'due_time=' \
+    --data-urlencode 'priority=' \
+    --data-urlencode 'content=' \
+    --data-urlencode 'status=in_progress' \
+    --data-urlencode "expected_revision=$TODO_REV" \
+    -o "$TMP_DIR/todo-update.json" \
+    "http://127.0.0.1:$PORT/api.php?action=update" >/dev/null
+php -r '
+    $payload = json_decode(file_get_contents($argv[1]), true);
+    if (($payload["item"]["status"] ?? "") !== "in_progress") {
+        fwrite(STDERR, "Status wurde nicht gespeichert (Bug-Regression).\n");
+        exit(1);
+    }
+' "$TMP_DIR/todo-update.json"
+echo "Status-Bugfix ok: list_due_date speichert status korrekt"
+
+# Probe: ohne 'status'-Key im Request behalten wir den bestehenden Wert (nicht auf '' setzen).
+# Das ist der entscheidende Bug: vorher/nachher wurde fehlender Status als '' interpretiert.
+echo "=== Add TODO mit status=in_progress ==="
+TODO_ADD_BODY="$TMP_DIR/todo-add2.json"
+curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+    --data-urlencode "category_id=$TODO_CAT_ID" \
+    --data-urlencode 'name=Status-Hold-Test' \
+    -o "$TODO_ADD_BODY" \
+    "http://127.0.0.1:$PORT/api.php?action=add" >/dev/null
+TODO_ID2="$(php -r 'echo (int) (json_decode(file_get_contents($argv[1]), true)["id"] ?? 0);' "$TODO_ADD_BODY")"
+TODO_REV2="$(php -r 'echo (int) (json_decode(file_get_contents($argv[1]), true)["revision"] ?? 0);' "$TODO_ADD_BODY")"
+
+# Status auf 'in_progress' setzen
+curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+    --data-urlencode "id=$TODO_ID2" \
+    --data-urlencode 'name=Status-Hold-Test' \
+    --data-urlencode "status=in_progress" \
+    --data-urlencode "expected_revision=$TODO_REV2" \
+    -o "$TMP_DIR/todo-set-status.json" \
+    "http://127.0.0.1:$PORT/api.php?action=update" >/dev/null
+TODO_REV2="$(php -r 'echo (int) (json_decode(file_get_contents($argv[1]), true)["item"]["revision"] ?? 0);' "$TMP_DIR/todo-set-status.json")"
+php -r '
+    $p = json_decode(file_get_contents($argv[1]), true);
+    if (($p["item"]["status"] ?? "") !== "in_progress") { fwrite(STDERR, "status konnte nicht gesetzt werden.\n"); exit(1); }
+' "$TMP_DIR/todo-set-status.json"
+
+# Jetzt Update OHNE status-Key: bestehender status MUSS erhalten bleiben.
+curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+    --data-urlencode "id=$TODO_ID2" \
+    --data-urlencode 'name=Status-Hold-Test-bearbeitet' \
+    --data-urlencode "expected_revision=$TODO_REV2" \
+    -o "$TMP_DIR/todo-preserve.json" \
+    "http://127.0.0.1:$PORT/api.php?action=update" >/dev/null
+php -r '
+    $p = json_decode(file_get_contents($argv[1]), true);
+    if (($p["item"]["status"] ?? "") !== "in_progress") {
+        fwrite(STDERR, "Status wurde durch Update ohne status-Key ueberschrieben (Bug-Regression).\n");
+        exit(1);
+    }
+    if (($p["item"]["name"] ?? "") !== "Status-Hold-Test-bearbeitet") {
+        fwrite(STDERR, "Name wurde nicht aktualisiert.\n"); exit(1);
+    }
+' "$TMP_DIR/todo-preserve.json"
+echo "Status-Hold ok: fehlender status-Key ueberschreibt bestehenden status nicht"
+
 echo "Alle Revisions-ACs (#61) bestanden."
