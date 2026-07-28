@@ -228,8 +228,10 @@ export function createUpdateActions(deps) {
         }
         state.editingId = null;
         state.editDraft = { itemId: null, categoryId: null, name: '', barcode: '', quantity: '', due_date: '', due_time: '', priority: '', content: '' };
-        invalidateCategoryCache(state.categoryId);
-        await loadItems();
+        // AC #61: Nach Erfolg direkt den kanonischen Serverzustand uebernehmen,
+        // kein zusaetzlicher GET.
+        applyServerItem(result?.item);
+        renderItems();
         setMessage(t('msg.item_saved'));
     }
 
