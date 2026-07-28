@@ -1694,6 +1694,7 @@ function formatListItem(array $item): array
         'sort_order' => (int) ($item['sort_order'] ?? 0),
         'created_at' => (string) ($item['created_at'] ?? ''),
         'updated_at' => (string) ($item['updated_at'] ?? ''),
+        'revision' => (int) ($item['revision'] ?? 1),
         'has_attachment' => $attachment !== null ? 1 : 0,
         'has_sketch' => ((string) ($item['sketch_json'] ?? '') !== '') ? 1 : 0,
         'attachment' => $attachment,
@@ -1735,13 +1736,14 @@ function formatJournalItem(?array $item): ?array
         'has_sketch' => ((string) ($item['sketch_json'] ?? '') !== '') ? 1 : 0,
         'created_at' => (string) $item['created_at'],
         'updated_at' => (string) $item['updated_at'],
+        'revision' => (int) ($item['revision'] ?? 1),
     ];
 }
 
 function loadJournalItem(PDO $db, int $userId, int $categoryId, string $date): ?array
 {
     $stmt = $db->prepare(
-        'SELECT id, category_id, name, content, due_date, sketch_json, created_at, updated_at
+        'SELECT id, category_id, name, content, due_date, sketch_json, created_at, updated_at, revision
          FROM items
          WHERE user_id = :user_id AND category_id = :category_id AND due_date = :due_date
          ORDER BY id ASC
@@ -1778,6 +1780,7 @@ function fetchItemForUser(PDO $db, int $userId, int $itemId): ?array
             items.sort_order,
             items.created_at,
             items.updated_at,
+            items.revision,
             attachments.storage_section AS attachment_storage_section,
             attachments.stored_name AS attachment_stored_name,
             attachments.original_name AS attachment_original_name,
@@ -2032,6 +2035,7 @@ try {
                     items.sort_order,
                     items.created_at,
                     items.updated_at,
+                    items.revision,
                     attachments.storage_section AS attachment_storage_section,
                     attachments.stored_name AS attachment_stored_name,
                     attachments.original_name AS attachment_original_name,
@@ -2178,6 +2182,7 @@ try {
                     items.sort_order,
                     items.created_at,
                     items.updated_at,
+                    items.revision,
                     attachments.storage_section AS attachment_storage_section,
                     attachments.stored_name AS attachment_stored_name,
                     attachments.original_name AS attachment_original_name,
@@ -2288,6 +2293,7 @@ try {
                 'message' => 'Eintrag hinzugefügt.',
                 'id' => $itemId,
                 'category_id' => (int) $targetCategory['id'],
+                'revision' => 1,
                 'parsed' => $parsed,
             ]);
 
@@ -2363,6 +2369,7 @@ try {
             respond(201, [
                 'message' => 'Artikel hinzugefügt.',
                 'id' => (int) $db->lastInsertId(),
+                'revision' => 1,
             ]);
 
         case 'upload':
@@ -2637,6 +2644,16 @@ try {
                 respond(422, ['error' => t('error.invalid_id'), 'error_key' => 'error.invalid_id']);
             }
 
+            $expectedRevision = array_key_exists('expected_revision', $data) ? $data['expected_revision'] : null;
+            if ($expectedRevision === null || $expectedRevision === '') {
+                respond(428, ['error' => t('error.revision_required'), 'error_key' => 'error.revision_required']);
+            }
+            $expectedRevisionRaw = filter_var($expectedRevision, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+            if (!is_int($expectedRevisionRaw)) {
+                respond(422, ['error' => t('error.revision_invalid'), 'error_key' => 'error.revision_invalid']);
+            }
+            $expectedRevision = $expectedRevisionRaw;
+
             $item = fetchItemForUser($db, $userId, $id);
             if ($item === null) {
                 respond(404, ['error' => t('error.item_not_found'), 'error_key' => 'error.item_not_found']);
@@ -2674,40 +2691,46 @@ try {
                 $status = in_array($statusRaw, ['', 'in_progress', 'waiting'], true) ? $statusRaw : null;
             }
 
-            if ($status !== null) {
-                $stmt = $db->prepare(
-                    'UPDATE items
-                     SET name = :name, barcode = :barcode, quantity = :quantity, due_date = :due_date, due_time = :due_time, priority = :priority, content = :content, status = :status, updated_at = CURRENT_TIMESTAMP
-                     WHERE id = :id AND user_id = :user_id'
-                );
-                $stmt->execute([
-                    ':id' => $id,
-                    ':name' => $name,
-                    ':barcode' => $barcode,
-                    ':quantity' => $quantity,
-                    ':due_date' => $dueDate,
-                    ':due_time' => $dueTime,
-                    ':priority' => $priority,
-                    ':content' => $content,
-                    ':status' => $status,
-                    ':user_id' => $userId,
-                ]);
-            } else {
-                $stmt = $db->prepare(
-                    'UPDATE items
-                     SET name = :name, barcode = :barcode, quantity = :quantity, due_date = :due_date, due_time = :due_time, priority = :priority, content = :content, updated_at = CURRENT_TIMESTAMP
-                     WHERE id = :id AND user_id = :user_id'
-                );
-                $stmt->execute([
-                    ':id' => $id,
-                    ':name' => $name,
-                    ':barcode' => $barcode,
-                    ':quantity' => $quantity,
-                    ':due_date' => $dueDate,
-                    ':due_time' => $dueTime,
-                    ':priority' => $priority,
-                    ':content' => $content,
-                    ':user_id' => $userId,
+            $stmt = $db->prepare(
+                'UPDATE items
+                 SET name = :name,
+                     barcode = :barcode,
+                     quantity = :quantity,
+                     due_date = :due_date,
+                     due_time = :due_time,
+                     priority = :priority,
+                     content = :content,
+                     status = CASE WHEN :status_active = 1 THEN :status ELSE status END,
+                     revision = revision + 1,
+                     updated_at = CURRENT_TIMESTAMP
+                 WHERE id = :id AND user_id = :user_id AND revision = :expected_revision'
+            );
+            $stmt->execute([
+                ':id' => $id,
+                ':name' => $name,
+                ':barcode' => $barcode,
+                ':quantity' => $quantity,
+                ':due_date' => $dueDate,
+                ':due_time' => $dueTime,
+                ':priority' => $priority,
+                ':content' => $content,
+                ':status_active' => $status !== null ? 1 : 0,
+                ':status' => (string) ($status ?? ''),
+                ':user_id' => $userId,
+                ':expected_revision' => $expectedRevision,
+            ]);
+
+            if ($stmt->rowCount() === 0) {
+                $current = fetchItemForUser($db, $userId, $id);
+                if ($current === null) {
+                    respond(404, ['error' => t('error.item_not_found'), 'error_key' => 'error.item_not_found']);
+                }
+                respond(409, [
+                    'error' => t('error.item_revision_conflict'),
+                    'error_key' => 'error.item_revision_conflict',
+                    'expected_revision' => $expectedRevision,
+                    'current_revision' => (int) $current['revision'],
+                    'item' => formatListItem($current),
                 ]);
             }
 
@@ -2727,7 +2750,11 @@ try {
                 ]);
             }
 
-            respond(200, ['message' => 'Artikel aktualisiert.']);
+            $updated = fetchItemForUser($db, $userId, $id);
+            respond(200, [
+                'message' => 'Artikel aktualisiert.',
+                'item' => formatListItem($updated),
+            ]);
 
         case 'delete':
             $data = requireWriteRequest();
@@ -2967,6 +2994,7 @@ try {
                     items.sort_order,
                     items.created_at,
                     items.updated_at,
+                    items.revision,
                     attachments.storage_section AS attachment_storage_section,
                     attachments.stored_name AS attachment_stored_name,
                     attachments.original_name AS attachment_original_name,

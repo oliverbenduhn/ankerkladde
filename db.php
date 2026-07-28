@@ -53,6 +53,43 @@ function getSchemaVersion(PDO $db): int
     return $version === false ? 0 : max(0, (int) $version);
 }
 
+function setSchemaVersion(PDO $db, int $version): void
+{
+    $stmt = $db->prepare(
+        'INSERT INTO database_meta (meta_key, meta_value, updated_at)
+         VALUES (:meta_key, :meta_value, CURRENT_TIMESTAMP)
+         ON CONFLICT(meta_key) DO UPDATE SET
+            meta_value = excluded.meta_value,
+            updated_at = CURRENT_TIMESTAMP'
+    );
+    $stmt->execute([
+        ':meta_key' => 'schema_version',
+        ':meta_value' => (string) $version,
+    ]);
+}
+
+// ponytail: additive revision column for compare-and-swap on existing items.
+// Adds items.revision >= 1 with DEFAULT 1; existing rows get revision = 1.
+// Lazy ceiling: not yet used by delete/move/toggle/reorder/clear/status —
+// those action paths keep their plain WHERE id=:id updates. Cascade up if
+// conflict-loss on those paths becomes a real complaint.
+function migrateItemRevisionSchema(PDO $db): void
+{
+    $targetVersion = 3;
+    if (getSchemaVersion($db) >= $targetVersion) {
+        return;
+    }
+
+    $columns = $db->query('PRAGMA table_info(items)')->fetchAll();
+    $columnNames = array_map(static fn(array $column): string => $column['name'], $columns);
+
+    if (!in_array('revision', $columnNames, true)) {
+        $db->exec("ALTER TABLE items ADD COLUMN revision INTEGER NOT NULL DEFAULT 1 CHECK (revision >= 1)");
+    }
+
+    setSchemaVersion($db, $targetVersion);
+}
+
 function migrateParchmentSchema(PDO $db): void
 {
     $targetVersion = 2;
@@ -594,6 +631,7 @@ function getDatabase(): PDO
     }
 
     migrateParchmentSchema($db);
+    migrateItemRevisionSchema($db);
     $db->exec('CREATE INDEX IF NOT EXISTS idx_categories_user_id ON categories(user_id)');
     $db->exec('CREATE INDEX IF NOT EXISTS idx_categories_user_sort ON categories(user_id, sort_order)');
     $db->exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_categories_one_daily_notes_per_user ON categories(user_id) WHERE type = 'daily_notes'");

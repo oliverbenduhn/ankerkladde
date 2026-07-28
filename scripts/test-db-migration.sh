@@ -58,8 +58,8 @@ run_php "$LEGACY_DIR" '
     }
 
     $version = $db->query("SELECT meta_value FROM database_meta WHERE meta_key = \"schema_version\"")->fetchColumn();
-    if ((int) $version !== 2) {
-        fwrite(STDERR, "Schema-Version wurde nicht genau auf 2 erhöht.\n");
+    if ((int) $version < 2) {
+        fwrite(STDERR, "Schema-Version wurde nicht mindestens auf 2 erhoeht.\n");
         exit(1);
     }
 
@@ -106,7 +106,7 @@ run_php "$LEGACY_DIR" '
     require "'"$ROOT_DIR"'/security.php"; require "'"$ROOT_DIR"'/db.php";
     $db = getDatabase();
     $version = $db->query("SELECT meta_value FROM database_meta WHERE meta_key = \"schema_version\"")->fetchColumn();
-    if ((int) $version !== 2) {
+    if ((int) $version < 2) {
         fwrite(STDERR, "Parchment-Migration ist nicht idempotent.\n");
         exit(1);
     }
@@ -240,6 +240,53 @@ run_php "$LIMIT_DIR" '
         fwrite(STDERR, "Remote-Import-Limit wurde nicht auf 10240 MB migriert.\n");
         exit(1);
     }
+'
+
+# --- Revision-Spalte (#61): additive Migration v3 -----------------------------
+REVISION_DIR="$TMP_DIR/revision"
+mkdir -p "$REVISION_DIR"
+
+# Frische DB ohne revision-Spalte
+run_php "$REVISION_DIR" '
+    $db = new PDO("sqlite:" . getenv("EINKAUF_DATA_DIR") . "/einkaufsliste.db");
+    $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $db->exec("CREATE TABLE items (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        done INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )");
+    $db->exec("INSERT INTO items (name) VALUES (\"Legacy-Item\")");
+'
+
+# Migration laeuft, revision-Spalte + CHECK + DEFAULT wird angelegt.
+run_php "$REVISION_DIR" '
+    require "'"$ROOT_DIR"'/security.php"; require "'"$ROOT_DIR"'/db.php";
+    $db = getDatabase();
+    $columns = array_column($db->query("PRAGMA table_info(items)")->fetchAll(PDO::FETCH_ASSOC), null, "name");
+    if (!isset($columns["revision"])) { fwrite(STDERR, "Revision-Spalte wurde nicht ergaenzt.\n"); exit(1); }
+    $definition = $columns["revision"];
+    if ((int) $definition["notnull"] !== 1 || stripos((string) $definition["dflt_value"], "1") === false) {
+        fwrite(STDERR, "Revision-Spalte hat nicht NOT NULL DEFAULT 1.\n");
+        exit(1);
+    }
+    $version = (int) $db->query("SELECT meta_value FROM database_meta WHERE meta_key = \"schema_version\"")->fetchColumn();
+    if ($version < 3) { fwrite(STDERR, "Schema-Version wurde nicht auf v3 erhoeht ($version).\n"); exit(1); }
+    // Bestehendes Legacy-Item hat die Default-Revision 1.
+    $row = $db->query("SELECT revision FROM items LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+    if ((int) ($row["revision"] ?? 0) !== 1) {
+        fwrite(STDERR, "Legacy-Item hat nicht revision=1.\n");
+        exit(1);
+    }
+'
+
+# Migration ist idempotent: zweite Initialisierung aendert nichts.
+run_php "$REVISION_DIR" '
+    require "'"$ROOT_DIR"'/security.php"; require "'"$ROOT_DIR"'/db.php";
+    $db = getDatabase();
+    $version = (int) $db->query("SELECT meta_value FROM database_meta WHERE meta_key = \"schema_version\"")->fetchColumn();
+    if ($version < 3) { fwrite(STDERR, "Revision-Migration ist nicht idempotent.\n"); exit(1); }
 '
 
 echo "DB-Migrationstest erfolgreich."

@@ -145,6 +145,13 @@ DUPLICATE_REORDER_BODY="$TMP_DIR/reorder-duplicate.json"
 UPDATE_BODY="$TMP_DIR/update.json"
 TODO_UPDATE_BODY="$TMP_DIR/todo-update.json"
 INVALID_UPDATE_BODY="$TMP_DIR/update-invalid.json"
+REV_MISSING_BODY="$TMP_DIR/rev-missing.json"
+REV_INVALID_BODY="$TMP_DIR/rev-invalid.json"
+REV_HAPPY_BODY="$TMP_DIR/rev-happy.json"
+REV_HAPPY_BODY2="$TMP_DIR/rev-happy2.json"
+REV_CONFLICT_BODY="$TMP_DIR/rev-conflict.json"
+REV_APIKEY_BODY="$TMP_DIR/rev-apikey.json"
+REV_APIKEY_CONFLICT_BODY="$TMP_DIR/rev-apikey-conflict.json"
 TOGGLE_BODY="$TMP_DIR/toggle.json"
 POST_TOGGLE_LIST_BODY="$TMP_DIR/post-toggle-list.json"
 FILES_ADD_BODY="$TMP_DIR/files-add.json"
@@ -285,6 +292,7 @@ grep -q 'Sicherheits-Token' "$FORBIDDEN_BODY"
 
 [[ "$(status_code "$ADD_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST -d 'name=Milch&quantity=2x' "http://127.0.0.1:$PORT/api.php?action=add")" == "201" ]]
 ITEM_ID="$(sed -n 's/.*"id":\([0-9][0-9]*\).*/\1/p' "$ADD_BODY" | head -n 1)"
+ITEM_REVISION="$(sed -n 's/.*"revision":\([0-9][0-9]*\).*/\1/p' "$ADD_BODY" | head -n 1)"
 
 if [[ -z "$ITEM_ID" ]]; then
     echo "Artikel-ID konnte nicht aus der Add-Antwort gelesen werden." >&2
@@ -307,6 +315,7 @@ php -r '$payload = json_decode(file_get_contents($argv[1]), true); foreach (($pa
 
 [[ "$(status_code "$TODO_ADD_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST --data-urlencode "category_id=$TODO_CATEGORY_ID" --data-urlencode 'name=Abgabe' --data-urlencode 'due_date=2026-05-01' "http://127.0.0.1:$PORT/api.php?action=add")" == "201" ]]
 TODO_ITEM_ID="$(sed -n 's/.*"id":\([0-9][0-9]*\).*/\1/p' "$TODO_ADD_BODY" | head -n 1)"
+TODO_ITEM_REVISION="$(sed -n 's/.*"revision":\([0-9][0-9]*\).*/\1/p' "$TODO_ADD_BODY" | head -n 1)"
 
 if [[ -z "$TODO_ITEM_ID" ]]; then
     echo "Todo-Artikel-ID konnte nicht aus der Add-Antwort gelesen werden." >&2
@@ -472,14 +481,83 @@ if [[ -z "$SECOND_POS" || -z "$FIRST_POS" || "$SECOND_POS" -ge "$FIRST_POS" ]]; 
     exit 1
 fi
 
-[[ "$(status_code "$UPDATE_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST -d "id=$ITEM_ID&name=Hafermilch&quantity=3x" "http://127.0.0.1:$PORT/api.php?action=update")" == "200" ]]
+[[ "$(status_code "$UPDATE_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST -d "id=$ITEM_ID&name=Hafermilch&quantity=3x&expected_revision=$ITEM_REVISION" "http://127.0.0.1:$PORT/api.php?action=update")" == "200" ]]
 grep -q 'Artikel aktualisiert' "$UPDATE_BODY"
 
-[[ "$(status_code "$TODO_UPDATE_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST --data-urlencode "id=$TODO_ITEM_ID" --data-urlencode 'name=Abgabe' --data-urlencode 'due_date=2026-05-01' --data-urlencode 'content=Unterlagen fertigstellen' --data-urlencode 'status=waiting' "http://127.0.0.1:$PORT/api.php?action=update")" == "200" ]]
+[[ "$(status_code "$TODO_UPDATE_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST --data-urlencode "id=$TODO_ITEM_ID" --data-urlencode 'name=Abgabe' --data-urlencode 'due_date=2026-05-01' --data-urlencode 'content=Unterlagen fertigstellen' --data-urlencode 'status=waiting' --data-urlencode "expected_revision=$TODO_ITEM_REVISION" "http://127.0.0.1:$PORT/api.php?action=update")" == "200" ]]
 grep -q 'Artikel aktualisiert' "$TODO_UPDATE_BODY"
 
-[[ "$(status_code "$INVALID_UPDATE_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST -d "id=$ITEM_ID&name=   &quantity=1" "http://127.0.0.1:$PORT/api.php?action=update")" == "422" ]]
+[[ "$(status_code "$INVALID_UPDATE_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST -d "id=$ITEM_ID&name=   &quantity=1&expected_revision=$ITEM_REVISION" "http://127.0.0.1:$PORT/api.php?action=update")" == "422" ]]
 grep -q 'Bitte gib einen Artikelnamen ein' "$INVALID_UPDATE_BODY"
+
+# --- Revisionsvertrag (#61): 428, 422, 409, CAS-Happy-Path, API-Key-Client-Vertrag ---
+
+# 428 revision_required: fehlende expected_revision
+[[ "$(status_code "$REV_MISSING_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST -d "id=$ITEM_ID&name=Rev-Missing" "http://127.0.0.1:$PORT/api.php?action=update")" == "428" ]]
+grep -q '"error_key":"error.revision_required"' "$REV_MISSING_BODY"
+
+# 422 revision_invalid: ungültige (nicht positive) expected_revision
+[[ "$(status_code "$REV_INVALID_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST -d "id=$ITEM_ID&name=Rev-Invalid&expected_revision=0" "http://127.0.0.1:$PORT/api.php?action=update")" == "422" ]]
+grep -q '"error_key":"error.revision_invalid"' "$REV_INVALID_BODY"
+
+# CAS-Happy-Path: expected_revision der aktuellen Server-Revision erhöht die Revision exakt einmal.
+[[ "$(status_code "$REV_HAPPY_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST -d "id=$ITEM_ID&name=Hafermilch+Rev&quantity=2x&expected_revision=$ITEM_REVISION" "http://127.0.0.1:$PORT/api.php?action=update")" == "200" ]]
+grep -q '"message":"Artikel aktualisiert."' "$REV_HAPPY_BODY"
+grep -q "\"id\":$ITEM_ID" "$REV_HAPPY_BODY"
+php -r '
+    $payload = json_decode(file_get_contents($argv[1]), true);
+    if (!is_array($payload)) { fwrite(STDERR, "Update-Antwort war kein JSON.\n"); exit(1); }
+    $item = $payload["item"] ?? null;
+    if (!is_array($item)) { fwrite(STDERR, "Update-Antwort enthaelt kein item-Objekt (Spec AC4).\n"); exit(1); }
+    if ((int) ($item["id"] ?? 0) !== (int) $argv[2]) { fwrite(STDERR, "Update-Antwort hat falsche item.id.\n"); exit(1); }
+    $newRevision = (int) ($item["revision"] ?? 0);
+    if ($newRevision !== (int) $argv[3] + 1) { fwrite(STDERR, sprintf("Update-Antwort hat revision=%d, erwartet wurde expected+1=%d.\n", $newRevision, (int) $argv[3] + 1)); exit(1); }
+' "$REV_HAPPY_BODY" "$ITEM_ID" "$ITEM_REVISION"
+
+# Erneutes Update mit erwarteter Revision = 2 (nach obigem Erfolg) muss wieder 200 liefern und auf 3 erhöhen.
+[[ "$(status_code "$REV_HAPPY_BODY2" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST -d "id=$ITEM_ID&name=Hafermilch+Rev2&quantity=2x&expected_revision=2" "http://127.0.0.1:$PORT/api.php?action=update")" == "200" ]]
+php -r '
+    $payload = json_decode(file_get_contents($argv[1]), true);
+    if (!is_array($payload)) { fwrite(STDERR, "Update-Antwort kein JSON.\n"); exit(1); }
+    $newRevision = (int) ($payload["item"]["revision"] ?? 0);
+    if ($newRevision !== 3) { fwrite(STDERR, "Zweiter Update hat revision nicht auf 3 erhoeht ($newRevision).\n"); exit(1); }
+' "$REV_HAPPY_BODY2"
+
+# 409 item_revision_conflict: veraltete expected_revision, kein Schreib-Effekt.
+BEFORE_REVISION_LIST_BODY="$TMP_DIR/before-revision-list.json"
+curl -fsS -b "$COOKIE_JAR" -o "$BEFORE_REVISION_LIST_BODY" "http://127.0.0.1:$PORT/api.php?action=list&category_id=$SHOPPING_CATEGORY_ID" >/dev/null
+[[ "$(status_code "$REV_CONFLICT_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST -d "id=$ITEM_ID&name=Sollte-Nicht-Greifen&quantity=1&expected_revision=1" "http://127.0.0.1:$PORT/api.php?action=update")" == "409" ]]
+grep -q '"error_key":"error.item_revision_conflict"' "$REV_CONFLICT_BODY"
+grep -q '"expected_revision":1' "$REV_CONFLICT_BODY"
+grep -q '"current_revision":3' "$REV_CONFLICT_BODY"
+grep -q "\"id\":$ITEM_ID" "$REV_CONFLICT_BODY"
+grep -q '"item":{' "$REV_CONFLICT_BODY"
+# Konflikt darf nicht teilweise geschrieben haben: Server-Liste darf nicht "Sollte-Nicht-Greifen" enthalten.
+AFTER_REVISION_LIST_BODY="$TMP_DIR/after-revision-list.json"
+curl -fsS -b "$COOKIE_JAR" -o "$AFTER_REVISION_LIST_BODY" "http://127.0.0.1:$PORT/api.php?action=list&category_id=$SHOPPING_CATEGORY_ID" >/dev/null
+if grep -q '"name":"Sollte-Nicht-Greifen"' "$AFTER_REVISION_LIST_BODY"; then
+    echo "409-Konflikt hat unerwartet teilweise geschrieben." >&2
+    exit 1
+fi
+
+# Konflikt-Antwort liefert kanonisches Item; Client kann es direkt übernehmen (Spec AC4).
+php -r '
+    $payload = json_decode(file_get_contents($argv[1]), true);
+    $item = $payload["item"] ?? null;
+    if (!is_array($item)) { fwrite(STDERR, "Konflikt-Antwort enthaelt kein item (Spec AC3+AC4).\n"); exit(1); }
+    if ((int) ($item["id"] ?? 0) !== (int) $argv[2]) { fwrite(STDERR, "Konflikt-item hat falsche id.\n"); exit(1); }
+    if ((int) ($item["revision"] ?? 0) !== 3) { fwrite(STDERR, "Konflikt-item hat nicht die aktuelle Server-Revision 3.\n"); exit(1); }
+' "$REV_CONFLICT_BODY" "$ITEM_ID"
+
+# Gleicher Vertrag für API-Key-Clients (Spec AC5: kein Sonderweg).
+[[ "$(status_code "$REV_APIKEY_BODY" -H "X-Api-Key: $JOURNAL_CONCURRENCY_API_KEY" -X POST -d "id=$ITEM_ID&name=Via-ApiKey&quantity=2x&expected_revision=3" "http://127.0.0.1:$PORT/api.php?action=update")" == "200" ]]
+grep -q '"message":"Artikel aktualisiert."' "$REV_APIKEY_BODY"
+php -r '
+    $payload = json_decode(file_get_contents($argv[1]), true);
+    if ((int) ($payload["item"]["revision"] ?? 0) !== 4) { fwrite(STDERR, "API-Key-Update hat revision nicht auf 4 erhoeht.\n"); exit(1); }
+' "$REV_APIKEY_BODY"
+[[ "$(status_code "$REV_APIKEY_CONFLICT_BODY" -H "X-Api-Key: $JOURNAL_CONCURRENCY_API_KEY" -X POST -d "id=$ITEM_ID&name=Auch-Nicht&expected_revision=2" "http://127.0.0.1:$PORT/api.php?action=update")" == "409" ]]
+grep -q '"error_key":"error.item_revision_conflict"' "$REV_APIKEY_CONFLICT_BODY"
 
 [[ "$(status_code "$REORDERED_LIST_BODY" -b "$COOKIE_JAR" "http://127.0.0.1:$PORT/api.php?action=list")" == "200" ]]
 grep -q "\"name\":\"Hafermilch\"" "$REORDERED_LIST_BODY"
