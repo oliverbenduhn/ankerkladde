@@ -2659,15 +2659,19 @@ try {
                 respond(404, ['error' => t('error.item_not_found'), 'error_key' => 'error.item_not_found']);
             }
 
+            // Lese für jedes Feld den Server-Wert als Default; nur überschreiben,
+            // wenn der Schlüssel im Request steht. Sonst löscht ein Teilupdate
+            // (nur Titel getippt) den Inhalt der Notiz / die Menge / das Datum.
             $type = (string) $item['category_type'];
-            $name = normalizeName($data['name'] ?? null);
-            $barcode = preg_replace('/\D+/', '', (string) ($data['barcode'] ?? ($item['barcode'] ?? ''))) ?? '';
-            $barcode = truncateText($barcode, 64);
-            $quantity = normalizeQuantity($data['quantity'] ?? null);
-            $dueDate = normalizeDueDate($data['due_date'] ?? null);
-            $dueTime = normalizeDueTime($data['due_time'] ?? null);
-            $priority = normalizePriority($data['priority'] ?? null);
-            $content = normalizeContent($data['content'] ?? null);
+            $name = array_key_exists('name', $data) ? normalizeName($data['name']) : (string) $item['name'];
+            $barcode = array_key_exists('barcode', $data)
+                ? truncateText(preg_replace('/\D+/', '', (string) $data['barcode']) ?? '', 64)
+                : (string) ($item['barcode'] ?? '');
+            $quantity = array_key_exists('quantity', $data) ? normalizeQuantity($data['quantity']) : (string) ($item['quantity'] ?? '');
+            $dueDate = array_key_exists('due_date', $data) ? normalizeDueDate($data['due_date']) : (string) ($item['due_date'] ?? '');
+            $dueTime = array_key_exists('due_time', $data) ? normalizeDueTime($data['due_time']) : (string) ($item['due_time'] ?? '');
+            $priority = array_key_exists('priority', $data) ? normalizePriority($data['priority']) : (string) ($item['priority'] ?? '');
+            $content = array_key_exists('content', $data) ? normalizeContent($data['content']) : (string) ($item['content'] ?? '');
 
             if ($name === '') {
                 respond(422, ['error' => t('error.item_name_required'), 'error_key' => 'error.item_name_required']);

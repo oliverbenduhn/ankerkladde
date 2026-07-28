@@ -313,4 +313,48 @@ php -r '
 ' "$TMP_DIR/todo-preserve.json"
 echo "Status-Hold ok: fehlender status-Key ueberschreibt bestehenden status nicht"
 
+# Probe: Teilupdate (nur name) darf vorhandenes content (Notiz) NICHT ueberschreiben.
+# Das ist der User-Bug: Notiz-Titel umbenannt -> Notiz-Inhalt weg.
+NOTE_CAT_ID="$(curl -fsS -b "$COOKIE_JAR" "http://127.0.0.1:$PORT/api.php?action=categories_list" \
+    | php -r '
+        $payload = json_decode(file_get_contents("php://stdin"), true);
+        foreach (($payload["categories"] ?? []) as $cat) {
+            if (($cat["type"] ?? "") === "notes") { echo (int) ($cat["id"] ?? 0); exit; }
+        }
+        exit(1);
+    ')"
+NOTE_BODY="$TMP_DIR/note-add.json"
+curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+    --data-urlencode "category_id=$NOTE_CAT_ID" \
+    --data-urlencode 'name=NotizTitel' \
+    --data-urlencode 'content=<p>Wichtiger Notiz-Inhalt</p>' \
+    -o "$NOTE_BODY" \
+    "http://127.0.0.1:$PORT/api.php?action=add" >/dev/null
+NOTE_ID="$(php -r 'echo (int) (json_decode(file_get_contents($argv[1]), true)["id"] ?? 0);' "$NOTE_BODY")"
+NOTE_REV="$(php -r 'echo (int) (json_decode(file_get_contents($argv[1]), true)["revision"] ?? 0);' "$NOTE_BODY")"
+
+# Jetzt nur den Titel aendern: KEIN 'content' im Body.
+curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+    --data-urlencode "id=$NOTE_ID" \
+    --data-urlencode 'name=NotizTitel - bearbeitet' \
+    --data-urlencode "expected_revision=$NOTE_REV" \
+    -o "$TMP_DIR/note-update.json" \
+    "http://127.0.0.1:$PORT/api.php?action=update" >/dev/null
+php -r '
+    $payload = json_decode(file_get_contents($argv[1]), true);
+    $item = $payload["item"] ?? null;
+    if (!is_array($item)) { fwrite(STDERR, "Update-Antwort enthaelt kein item.\n"); exit(1); }
+    if (($item["name"] ?? "") !== "NotizTitel - bearbeitet") {
+        fwrite(STDERR, "Titel wurde nicht uebernommen.\n"); exit(1);
+    }
+    if (($item["content"] ?? null) !== "<p>Wichtiger Notiz-Inhalt</p>") {
+        fwrite(STDERR, sprintf(
+            "BUG: Notiz-Inhalt wurde ueberschrieben. content=%s\n",
+            var_export($item["content"] ?? null, true)
+        ));
+        exit(1);
+    }
+' "$TMP_DIR/note-update.json"
+echo "Notiz-Hold ok: Teilupdate (nur Titel) loescht den Notiz-Inhalt nicht"
+
 echo "Alle Revisions-ACs (#61) bestanden."
