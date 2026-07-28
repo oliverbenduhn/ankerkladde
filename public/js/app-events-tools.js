@@ -1,6 +1,6 @@
-import { saveLocalPrefs, state, scannerState, normalizePreferences } from './state.js?v=5.3.12';
-import { applyThemePreferences } from './theme.js?v=5.3.12';
-import { normalizeBarcodeValue } from './utils.js?v=5.3.12';
+import { saveLocalPrefs, state, scannerState, normalizePreferences } from './state.js';
+import { applyThemePreferences } from './theme.js';
+import { normalizeBarcodeValue } from './utils.js';
 import {
     magicBar,
     magicBtns,
@@ -21,7 +21,7 @@ import {
     searchClose,
     searchInput,
     todoEditorBack,
-} from './ui.js?v=5.3.12';
+} from './ui.js';
 
 export function registerToolsEvents(deps) {
     const {

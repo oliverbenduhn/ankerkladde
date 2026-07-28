@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION = 'v5.3.12';
+const VERSION = 'v5.3.13';
 // ASSET_VERSION is derived from VERSION to ensure they stay in sync.
 const ASSET_VERSION = VERSION.replace(/^v/, '');
 const STATIC_CACHE = `ankerkladde-static-${VERSION}`;
@@ -187,6 +187,15 @@ self.addEventListener('fetch', event => {
 
     if (APP_SHELL_ASSET_URLS.includes(request.url)) {
         event.respondWith(staleWhileRevalidate(request, STATIC_CACHE));
+        return;
+    }
+
+    // Interne JS-Imports ohne ?v= mit aktuellem ASSET_VERSION abfangen,
+    // damit der Browser-Cache bei Versionswechsel ungueltig wird.
+    if (url.pathname.startsWith('/js/') && !url.searchParams.has('v')) {
+        const versionedUrl = new URL(url);
+        versionedUrl.searchParams.set('v', ASSET_VERSION);
+        event.respondWith(staleWhileRevalidate(new Request(versionedUrl), STATIC_CACHE));
         return;
     }
 

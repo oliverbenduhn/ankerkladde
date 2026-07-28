@@ -6,9 +6,9 @@ import {
     postPreferencesUpdate,
     themePreferences,
     allThemeColors,
-} from './settings-state.js?v=5.3.12';
-import { applyThemePreferencePatch, applySettingsTheme } from './settings-theme.js?v=5.3.12';
-import { renderFlash } from './settings-ui.js?v=5.3.12';
+} from './settings-state.js';
+import { applyThemePreferencePatch, applySettingsTheme } from './settings-theme.js';
+import { renderFlash } from './settings-ui.js';
 
 const RELOAD_ACTIONS = new Set([
     'change_password',

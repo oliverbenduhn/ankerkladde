@@ -1,12 +1,12 @@
-import { normalizeSettingsTab } from './api.js?v=5.3.12';
-import { isBarcodeCategory, state } from './state.js?v=5.3.12';
+import { normalizeSettingsTab } from './api.js';
+import { isBarcodeCategory, state } from './state.js';
 import {
     appEl,
     journalViewEl,
     listSwipeStageEl,
     searchInput,
     settingsBtns,
-} from './ui.js?v=5.3.12';
+} from './ui.js';
 
 export function applyViewState() {
     const inSettings = state.screen === 'settings';

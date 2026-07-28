@@ -1,6 +1,6 @@
 import { t } from './i18n.js';
-import { state } from './state.js?v=5.3.12';
-import { sanitizeItemPayload } from './utils.js?v=5.3.12';
+import { state } from './state.js';
+import { sanitizeItemPayload } from './utils.js';
 
 export function createActionUtils(deps) {
     const {

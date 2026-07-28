@@ -1,6 +1,6 @@
-import { api } from './api.js?v=5.3.12';
-import { state } from './state.js?v=5.3.12';
-import { appEl, todoEditorEl, todoTitleInput, todoDateInput, todoTimeInput, todoPriorityInput, todoNoteInput } from './ui.js?v=5.3.12';
+import { api } from './api.js';
+import { state } from './state.js';
+import { appEl, todoEditorEl, todoTitleInput, todoDateInput, todoTimeInput, todoPriorityInput, todoNoteInput } from './ui.js';
 
 export function createTodoEditorController(deps) {
     const { invalidateCategoryCache, loadItems, handleToggle } = deps;

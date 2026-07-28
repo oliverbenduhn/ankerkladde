@@ -1,7 +1,7 @@
-import { initThemeHandling, getLocalThemePreferences } from './settings-theme.js?v=5.3.12';
-import { initUIHandling, renderFlash } from './settings-ui.js?v=5.3.12';
-import { initFormHandling } from './settings-forms.js?v=5.3.12';
-import { initCategoryDragReorder } from './settings-dnd.js?v=5.3.12';
+import { initThemeHandling, getLocalThemePreferences } from './settings-theme.js';
+import { initUIHandling, renderFlash } from './settings-ui.js';
+import { initFormHandling } from './settings-forms.js';
+import { initCategoryDragReorder } from './settings-dnd.js';
 
 export { renderFlash };
 
@@ -13,7 +13,7 @@ export function initSettings(root = document) {
 
     const categorySwipeInput = root.querySelector('input[name="category_swipe_enabled"]');
     if (categorySwipeInput instanceof HTMLInputElement) {
-        import('./settings-state.js?v=5.3.12').then(({ readLocalPrefs }) => {
+        import('./settings-state.js').then(({ readLocalPrefs }) => {
             const localPrefs = readLocalPrefs();
             if (typeof localPrefs.category_swipe_enabled === 'boolean') {
                 categorySwipeInput.checked = localPrefs.category_swipe_enabled;

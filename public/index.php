@@ -400,8 +400,8 @@ $clientWebSocketUrl = is_string($clientWebSocketUrl) ? trim($clientWebSocketUrl)
 
 <script id="userPreferences" type="application/json"><?= json_encode($userPreferences, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
 <script src="<?= htmlspecialchars(appPath('vendor/zxing/browser-0.1.5.js?v=' . $assetVersion), ENT_QUOTES, 'UTF-8') ?>"></script>
-<script type="module" src="js/main.js?v=<?= urlencode($assetVersion) ?>"></script>
-<script type="module" src="js/tiptap-init.js?v=<?= urlencode($assetVersion) ?>"></script>
+<script type="module" src="js/main.js"></script>
+<script type="module" src="js/tiptap-init.js"></script>
 <nav class="legal-footer" aria-label="Rechtliche Hinweise">
   <a href="<?= htmlspecialchars(appPath('legal/impressum.php'), ENT_QUOTES, 'UTF-8') ?>">Impressum</a>
   <span aria-hidden="true">·</span>

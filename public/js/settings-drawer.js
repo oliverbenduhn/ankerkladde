@@ -1,5 +1,5 @@
-import { settingsUrl } from './api.js?v=5.3.12';
-import { settingsDialogContentEl, settingsDialogEl, settingsDialogCloseEl } from './ui.js?v=5.3.12';
+import { settingsUrl } from './api.js';
+import { settingsDialogContentEl, settingsDialogEl, settingsDialogCloseEl } from './ui.js';
 
 export function createSettingsDrawer({ onRequestClose, onContentChanged }) {
     let loaded = false;
@@ -13,7 +13,7 @@ export function createSettingsDrawer({ onRequestClose, onContentChanged }) {
         if (!response.ok) throw new Error('Einstellungen konnten nicht geladen werden.');
 
         settingsDialogContentEl.innerHTML = await response.text();
-        settingsModule ||= await import('./settings.js?v=5.3.12');
+        settingsModule ||= await import('./settings.js');
         settingsModule.initSettings(settingsDialogContentEl);
         settingsDialogContentEl.scrollTop = scrollTop;
         loaded = true;

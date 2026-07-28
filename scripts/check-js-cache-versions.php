@@ -12,17 +12,15 @@ foreach (glob($root . '/public/js/*.js') ?: [] as $file) {
         continue;
     }
 
-    preg_match_all('/(?:from\s+|import\s*)[\'\"]\.\/[^\'\"]+\?v=([^\'\"]+)[\'\"]/', $source, $matches, PREG_SET_ORDER);
+    preg_match_all('/(?:from\s+|import\s*)[\'"]\.\/[^\'"]+\?v=([^\'"]+)[\'"]/', $source, $matches, PREG_SET_ORDER);
     foreach ($matches as $match) {
-        if (($match[1] ?? '') !== $expected) {
-            $errors[] = basename($file) . ': v=' . ($match[1] ?? '<leer>') . ' statt v=' . $expected;
-        }
+        $errors[] = basename($file) . ': hat ?v=' . ($match[1] ?? '<leer>') . ' — interne JS-Imports sollen keine Version mehr enthalten (Service Worker versieht sie selbst)';
     }
 }
 
 if ($errors !== []) {
-    fwrite(STDERR, "Inkonsistente JS-Cache-Versionen:\n- " . implode("\n- ", $errors) . "\n");
+    fwrite(STDERR, "Veraltete JS-Cache-Versionen gefunden:\n- " . implode("\n- ", $errors) . "\n");
     exit(1);
 }
 
-echo "JS-Cache-Versionen konsistent: v={$expected}\n";
+echo "JS-Cache-Versionen konsistent: keine hardcodierten ?v= in internen Imports (Service Worker versieht sie selbst, aktuell v={$expected})\n";

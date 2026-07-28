@@ -1,22 +1,22 @@
-import { createAppUiController } from './app-ui.js?v=5.3.12';
-import { createHelpersController } from './helpers.js?v=5.3.12';
-import { createItemsActionsController } from './items-actions.js?v=5.3.12';
-import { createItemsController } from './items.js?v=5.3.12';
-import { createItemsViewController } from './items-view.js?v=5.3.12';
-import { createNavigation } from './navigation.js?v=5.3.12';
-import { createEditorController } from './editor.js?v=5.3.12';
-import { createTodoEditorController } from './todo-editor.js?v=5.3.12';
-import { createReorderController } from './reorder.js?v=5.3.12';
-import { createRouter } from './router.js?v=5.3.12';
-import { createScannerController } from './scanner.js?v=5.3.12';
-import { createSwipeController } from './swipe.js?v=5.3.12';
-import { createTabsViewController } from './tabs-view.js?v=5.3.12';
-import { createKanbanViewController } from './kanban-view.js?v=5.3.12';
-import { createMagicController } from './magic.js?v=5.3.12';
-import { createJournalController } from './journal.js?v=5.3.12';
-import { createSettingsDrawer } from './settings-drawer.js?v=5.3.12';
-import { flushQueue, getConflictCount, getPendingCount } from './offline-queue.js?v=5.3.12';
-import { api } from './api.js?v=5.3.12';
+import { createAppUiController } from './app-ui.js';
+import { createHelpersController } from './helpers.js';
+import { createItemsActionsController } from './items-actions.js';
+import { createItemsController } from './items.js';
+import { createItemsViewController } from './items-view.js';
+import { createNavigation } from './navigation.js';
+import { createEditorController } from './editor.js';
+import { createTodoEditorController } from './todo-editor.js';
+import { createReorderController } from './reorder.js';
+import { createRouter } from './router.js';
+import { createScannerController } from './scanner.js';
+import { createSwipeController } from './swipe.js';
+import { createTabsViewController } from './tabs-view.js';
+import { createKanbanViewController } from './kanban-view.js';
+import { createMagicController } from './magic.js';
+import { createJournalController } from './journal.js';
+import { createSettingsDrawer } from './settings-drawer.js';
+import { flushQueue, getConflictCount, getPendingCount } from './offline-queue.js';
+import { api } from './api.js';
 import {
     BARCODE_FORMATS,
     SCANNER_COOLDOWN_MS,
@@ -25,8 +25,8 @@ import {
     normalizePreferences,
     scannerState,
     state,
-} from './state.js?v=5.3.12';
-import { applyThemePreferences } from './theme.js?v=5.3.12';
+} from './state.js';
+import { applyThemePreferences } from './theme.js';
 
 
 export function createAppRuntime(deps) {

@@ -1,8 +1,8 @@
 import { t } from './i18n.js';
-import { api } from './api.js?v=5.3.12';
-import { NOTE_SAVE_DEBOUNCE_MS, state } from './state.js?v=5.3.12';
-import { appEl, noteEditorBody, noteEditorEl, noteSaveStatus, noteTitleInput, noteToolbar } from './ui.js?v=5.3.12';
-import { sanitizeItemField, sanitizeItemPayload } from './utils.js?v=5.3.12';
+import { api } from './api.js';
+import { NOTE_SAVE_DEBOUNCE_MS, state } from './state.js';
+import { appEl, noteEditorBody, noteEditorEl, noteSaveStatus, noteTitleInput, noteToolbar } from './ui.js';
+import { sanitizeItemField, sanitizeItemPayload } from './utils.js';
 
 export function createEditorController(deps) {
     const {
