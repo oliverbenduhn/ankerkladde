@@ -43,6 +43,9 @@ export function createUpdateActions(deps) {
             if (shouldQueueOffline(error)) {
                 enqueueAction('toggle', { id: String(id), done: String(doneFlag) });
                 setNetworkStatus();
+                // AC #63: Offline-Zustand muss sofort am Item sichtbar sein,
+                // nicht erst beim naechsten unabhaengigen Re-Render.
+                renderItems();
                 return;
             }
             // 4xx or unexpected error: revert the optimistic state so UI and server agree.
