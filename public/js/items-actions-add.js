@@ -207,7 +207,7 @@ export function createAddActions(deps) {
             if (await handleStaleCategory(error, category.id)) return;
 
             if (shouldQueueOffline(error)) {
-                enqueueAction('add', Object.fromEntries(body.entries()));
+                enqueueAction('add', Object.fromEntries(body.entries()), error.idempotencyKey);
                 resetItemForm();
                 setNetworkStatus();
                 setMessage(t('msg.offline_saved'));

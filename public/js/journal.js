@@ -231,7 +231,7 @@ export function createJournalController(deps) {
             return node;
         };
         const onToggle = (item, entry) => {
-            void toggleHandler(item.id, true).then(() => {
+            void toggleHandler(item.id, true, item).then(() => {
                 entry.classList.add('is-done');
                 // ponytail: nach toggle neu laden, damit die Any-Time-Spalte
                 // auftaucht, sobald keine scheduled Items mehr offen sind.

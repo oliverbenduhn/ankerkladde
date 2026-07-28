@@ -1,9 +1,10 @@
 import { api } from './api.js';
+import { t } from './i18n.js';
 import { state } from './state.js';
 import { appEl, todoEditorEl, todoTitleInput, todoDateInput, todoTimeInput, todoPriorityInput, todoNoteInput } from './ui.js';
 
 export function createTodoEditorController(deps) {
-    const { invalidateCategoryCache, loadItems, handleToggle } = deps;
+    const { invalidateCategoryCache, loadItems, handleStatus, handleToggle } = deps;
 
     let currentItem = null;
     let currentStatus = '';
@@ -77,8 +78,10 @@ export function createTodoEditorController(deps) {
                     return;
                 }
 
-                setStatus(nextStatus);
-                await save();
+                await handleStatus(currentItem.id, currentStatus, nextStatus);
+                const canonical = state.items.find(item => Number(item.id) === Number(currentItem.id));
+                if (canonical) Object.assign(currentItem, canonical);
+                setStatus(currentItem.status || '');
             };
         });
 
@@ -87,8 +90,11 @@ export function createTodoEditorController(deps) {
             doneBtn.onclick = async () => {
                 await save();
                 await handleToggle(item.id, item.done === 1 ? 0 : 1);
-                currentItem = { ...currentItem, done: item.done === 1 ? 0 : 1 };
-                item.done = currentItem.done;
+                const canonical = state.items.find(entry => Number(entry.id) === Number(item.id));
+                if (canonical) {
+                    Object.assign(currentItem, canonical);
+                    Object.assign(item, canonical);
+                }
                 doneBtn.classList.toggle('is-active', currentItem.done === 1);
             };
             doneBtn.classList.toggle('is-active', item.done === 1);

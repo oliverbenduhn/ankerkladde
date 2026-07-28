@@ -61,7 +61,7 @@ test.describe('FLOW 2 — Tagesansicht (Heute / Agenda)', () => {
     const group2 = (await scheduled2.count()) ? scheduled2 : anytime2;
     await expect(group2.first()).toBeVisible();
     await group2.first().locator('.agenda-item-checkbox').click();
-    await expect(page.getByText(name)).toHaveCount(0);
+    await expect(page.locator('.agenda-item').filter({ hasText: name })).toHaveCount(0);
     await snap(page, testInfo, '4-toggled-from-agenda');
 
     const cls = await readCls(page);

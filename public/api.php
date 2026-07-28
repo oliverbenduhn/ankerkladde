@@ -131,6 +131,19 @@ function isValidIdempotencyRequestId(string $requestId): bool
     return preg_match('/^[A-Za-z0-9_-]+$/', $requestId) === 1;
 }
 
+function requireIdempotencyRequestId(): string
+{
+    $requestId = getIdempotencyRequestId();
+    if ($requestId === '') {
+        respond(428, [
+            'error' => t('error.idempotency_key_required'),
+            'error_key' => 'error.idempotency_key_required',
+        ]);
+    }
+
+    return $requestId;
+}
+
 function canonicalizeForHash(array $data): array
 {
     foreach ($data as $key => $value) {
@@ -1931,6 +1944,46 @@ function fetchItemForUser(PDO $db, int $userId, int $itemId): ?array
     return is_array($item) ? $item : null;
 }
 
+function requireExpectedItemRevision(array $data): int
+{
+    $expectedRevision = array_key_exists('expected_revision', $data) ? $data['expected_revision'] : null;
+    if ($expectedRevision === null || $expectedRevision === '') {
+        respond(428, ['error' => t('error.revision_required'), 'error_key' => 'error.revision_required']);
+    }
+
+    $revision = filter_var($expectedRevision, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+    if (!is_int($revision)) {
+        respond(422, ['error' => t('error.revision_invalid'), 'error_key' => 'error.revision_invalid']);
+    }
+
+    return $revision;
+}
+
+function respondStatusMutationMiss(
+    PDO $db,
+    int $userId,
+    int $itemId,
+    int $expectedRevision,
+    callable $targetReached,
+    string $successMessage
+): never {
+    $current = fetchItemForUser($db, $userId, $itemId);
+    if ($current === null) {
+        respond(404, ['error' => t('error.item_not_found'), 'error_key' => 'error.item_not_found']);
+    }
+    if ($targetReached($current)) {
+        respond(200, ['message' => $successMessage, 'item' => formatListItem($current)]);
+    }
+
+    respond(409, [
+        'error' => t('error.item_revision_conflict'),
+        'error_key' => 'error.item_revision_conflict',
+        'expected_revision' => $expectedRevision,
+        'current_revision' => (int) $current['revision'],
+        'item' => formatListItem($current),
+    ]);
+}
+
 function isAdminUser(): bool
 {
     return ($_SESSION['is_admin'] ?? false) === true;
@@ -2737,6 +2790,7 @@ try {
 
         case 'toggle':
             $data = requireWriteRequest();
+            requireIdempotencyRequestId();
 
             $id = filter_var($data['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
             // ponytail: tolerate truthy strings from legacy clients / offline queue
@@ -2759,14 +2813,33 @@ try {
                 respond(422, ['error' => t('error.invalid_status_params'), 'error_key' => 'error.invalid_status_params']);
             }
 
-            $stmt = $db->prepare('UPDATE items SET done = :done, updated_at = CURRENT_TIMESTAMP WHERE id = :id AND user_id = :user_id');
-            $stmt->execute([':done' => $done, ':id' => $id, ':user_id' => $userId]);
+            $expectedRevision = requireExpectedItemRevision($data);
+
+            $stmt = $db->prepare(
+                'UPDATE items
+                 SET done = :done, revision = revision + 1, updated_at = CURRENT_TIMESTAMP
+                 WHERE id = :id AND user_id = :user_id AND revision = :expected_revision AND done <> :done'
+            );
+            $stmt->execute([
+                ':done' => $done,
+                ':id' => $id,
+                ':user_id' => $userId,
+                ':expected_revision' => $expectedRevision,
+            ]);
 
             if ($stmt->rowCount() === 0) {
-                respond(404, ['error' => t('error.item_not_found'), 'error_key' => 'error.item_not_found']);
+                respondStatusMutationMiss(
+                    $db,
+                    $userId,
+                    $id,
+                    $expectedRevision,
+                    static fn(array $item): bool => (int) $item['done'] === $done,
+                    'Status aktualisiert.'
+                );
             }
 
-            respond(200, ['message' => 'Status aktualisiert.']);
+            $updated = fetchItemForUser($db, $userId, $id);
+            respond(200, ['message' => 'Status aktualisiert.', 'item' => formatListItem($updated)]);
 
         case 'update':
             $data = requireWriteRequest();
@@ -2776,15 +2849,7 @@ try {
                 respond(422, ['error' => t('error.invalid_id'), 'error_key' => 'error.invalid_id']);
             }
 
-            $expectedRevision = array_key_exists('expected_revision', $data) ? $data['expected_revision'] : null;
-            if ($expectedRevision === null || $expectedRevision === '') {
-                respond(428, ['error' => t('error.revision_required'), 'error_key' => 'error.revision_required']);
-            }
-            $expectedRevisionRaw = filter_var($expectedRevision, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
-            if (!is_int($expectedRevisionRaw)) {
-                respond(422, ['error' => t('error.revision_invalid'), 'error_key' => 'error.revision_invalid']);
-            }
-            $expectedRevision = $expectedRevisionRaw;
+            $expectedRevision = requireExpectedItemRevision($data);
 
             $item = fetchItemForUser($db, $userId, $id);
             if ($item === null) {
@@ -2929,6 +2994,7 @@ try {
 
         case 'move':
             $data = requireWriteRequest();
+            requireIdempotencyRequestId();
 
             $id = filter_var($data['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
             $targetCategoryId = filter_var($data['target_category_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
@@ -2936,6 +3002,8 @@ try {
             if (!is_int($id) || !is_int($targetCategoryId)) {
                 respond(422, ['error' => t('error.invalid_move'), 'error_key' => 'error.invalid_move']);
             }
+
+            $expectedRevision = requireExpectedItemRevision($data);
 
             $item = fetchItemForUser($db, $userId, $id);
             if ($item === null) {
@@ -2954,6 +3022,7 @@ try {
                     'message' => 'Artikel ist bereits in dieser Kategorie.',
                     'source_category_id' => (int) $sourceCategory['id'],
                     'target_category_id' => (int) $targetCategory['id'],
+                    'item' => formatListItem($item),
                 ]);
             }
 
@@ -2967,15 +3036,28 @@ try {
                     'UPDATE items
                      SET category_id = :target_category_id,
                          sort_order = :sort_order,
+                         revision = revision + 1,
                          updated_at = CURRENT_TIMESTAMP
-                     WHERE id = :id AND user_id = :user_id'
+                     WHERE id = :id AND user_id = :user_id AND revision = :expected_revision'
                 );
                 $stmt->execute([
                     ':target_category_id' => (int) $targetCategory['id'],
                     ':sort_order' => nextItemSortOrder($db, $userId, (int) $targetCategory['id']),
                     ':id' => $id,
                     ':user_id' => $userId,
+                    ':expected_revision' => $expectedRevision,
                 ]);
+                if ($stmt->rowCount() === 0) {
+                    $db->rollBack();
+                    respondStatusMutationMiss(
+                        $db,
+                        $userId,
+                        $id,
+                        $expectedRevision,
+                        static fn(array $current): bool => (int) $current['category_id'] === $targetCategoryId,
+                        'Artikel ist bereits in dieser Kategorie.'
+                    );
+                }
                 $db->commit();
             } catch (Throwable $exception) {
                 if ($db->inTransaction()) {
@@ -2988,6 +3070,7 @@ try {
                 'message' => 'Artikel verschoben.',
                 'source_category_id' => (int) $sourceCategory['id'],
                 'target_category_id' => (int) $targetCategory['id'],
+                'item' => formatListItem(fetchItemForUser($db, $userId, $id)),
             ]);
 
         case 'clear':
@@ -3069,6 +3152,7 @@ try {
 
         case 'pin':
             $data = requireWriteRequest();
+            requireIdempotencyRequestId();
 
             $id = filter_var($data['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
             $isPinned = filter_var($data['is_pinned'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 0, 'max_range' => 1]]);
@@ -3077,17 +3161,39 @@ try {
                 respond(422, ['error' => t('error.invalid_params'), 'error_key' => 'error.invalid_params']);
             }
 
-            $stmt = $db->prepare('UPDATE items SET is_pinned = :is_pinned, updated_at = CURRENT_TIMESTAMP WHERE id = :id AND user_id = :user_id');
-            $stmt->execute([':is_pinned' => $isPinned, ':id' => $id, ':user_id' => $userId]);
+            $expectedRevision = requireExpectedItemRevision($data);
+
+            $stmt = $db->prepare(
+                'UPDATE items
+                 SET is_pinned = :is_pinned, revision = revision + 1, updated_at = CURRENT_TIMESTAMP
+                 WHERE id = :id AND user_id = :user_id AND revision = :expected_revision AND is_pinned <> :is_pinned'
+            );
+            $stmt->execute([
+                ':is_pinned' => $isPinned,
+                ':id' => $id,
+                ':user_id' => $userId,
+                ':expected_revision' => $expectedRevision,
+            ]);
 
             if ($stmt->rowCount() === 0) {
-                respond(404, ['error' => t('error.item_not_found'), 'error_key' => 'error.item_not_found']);
+                respondStatusMutationMiss(
+                    $db,
+                    $userId,
+                    $id,
+                    $expectedRevision,
+                    static fn(array $item): bool => (int) $item['is_pinned'] === $isPinned,
+                    'Pinned-Status aktualisiert.'
+                );
             }
 
-            respond(200, ['message' => 'Pinned-Status aktualisiert.']);
+            respond(200, [
+                'message' => 'Pinned-Status aktualisiert.',
+                'item' => formatListItem(fetchItemForUser($db, $userId, $id)),
+            ]);
 
         case 'status':
             $data = requireWriteRequest();
+            requireIdempotencyRequestId();
 
             $id = filter_var($data['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
             $status = $data['status'] ?? null;
@@ -3096,14 +3202,35 @@ try {
                 respond(422, ['error' => t('error.invalid_params'), 'error_key' => 'error.invalid_params']);
             }
 
-            $stmt = $db->prepare('UPDATE items SET status = :status, updated_at = CURRENT_TIMESTAMP WHERE id = :id AND user_id = :user_id');
-            $stmt->execute([':status' => $status, ':id' => $id, ':user_id' => $userId]);
+            $expectedRevision = requireExpectedItemRevision($data);
+
+            $stmt = $db->prepare(
+                'UPDATE items
+                 SET status = :status, revision = revision + 1, updated_at = CURRENT_TIMESTAMP
+                 WHERE id = :id AND user_id = :user_id AND revision = :expected_revision AND status <> :status'
+            );
+            $stmt->execute([
+                ':status' => $status,
+                ':id' => $id,
+                ':user_id' => $userId,
+                ':expected_revision' => $expectedRevision,
+            ]);
 
             if ($stmt->rowCount() === 0) {
-                respond(404, ['error' => t('error.item_not_found'), 'error_key' => 'error.item_not_found']);
+                respondStatusMutationMiss(
+                    $db,
+                    $userId,
+                    $id,
+                    $expectedRevision,
+                    static fn(array $item): bool => (string) $item['status'] === $status,
+                    'Status aktualisiert.'
+                );
             }
 
-            respond(200, ['message' => 'Status aktualisiert.']);
+            respond(200, [
+                'message' => 'Status aktualisiert.',
+                'item' => formatListItem(fetchItemForUser($db, $userId, $id)),
+            ]);
 
         case 'search':
             requireMethod('GET');

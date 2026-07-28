@@ -116,8 +116,8 @@ test.describe('Heute', () => {
     await add(dueCategories[0].id, names.undated);
     const completed = await add(dueCategories[0].id, names.done, today);
     const toggle = await page.request.post('/api.php?action=toggle', {
-      headers: { 'X-CSRF-Token': csrf },
-      form: { id: String(completed.id), done: '1' },
+      headers: { 'X-CSRF-Token': csrf, 'X-Idempotency-Key': `today-toggle-${completed.id}` },
+      form: { id: String(completed.id), done: '1', expected_revision: String(completed.revision) },
     });
     expect(toggle.status()).toBe(200);
 

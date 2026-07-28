@@ -593,7 +593,7 @@ grep -q "\"id\":$TODO_ITEM_ID" "$TODO_LIST_BODY"
 grep -q "\"status\":\"waiting\"" "$TODO_LIST_BODY"
 grep -q "\"content\":\"Unterlagen fertigstellen\"" "$TODO_LIST_BODY"
 
-[[ "$(status_code "$TOGGLE_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST -d "id=$ITEM_ID&done=1" "http://127.0.0.1:$PORT/api.php?action=toggle")" == "200" ]]
+[[ "$(status_code "$TOGGLE_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H "X-Idempotency-Key: smoke-toggle-main" -X POST -d "id=$ITEM_ID&done=1&expected_revision=4" "http://127.0.0.1:$PORT/api.php?action=toggle")" == "200" ]]
 grep -q 'Status aktualisiert' "$TOGGLE_BODY"
 
 [[ "$(status_code "$POST_TOGGLE_LIST_BODY" -b "$COOKIE_JAR" "http://127.0.0.1:$PORT/api.php?action=list")" == "200" ]]
@@ -631,10 +631,10 @@ if [[ -z "$MOVE_ITEM_ID" ]]; then
     exit 1
 fi
 
-[[ "$(status_code "$MOVE_INVALID_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST -d "id=$MOVE_ITEM_ID&target_category_id=$TODO_CATEGORY_ID" "http://127.0.0.1:$PORT/api.php?action=move")" == "422" ]]
+[[ "$(status_code "$MOVE_INVALID_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H "X-Idempotency-Key: smoke-move-invalid" -X POST -d "id=$MOVE_ITEM_ID&target_category_id=$TODO_CATEGORY_ID&expected_revision=1" "http://127.0.0.1:$PORT/api.php?action=move")" == "422" ]]
 grep -q 'gleichartige Kategorien' "$MOVE_INVALID_BODY"
 
-[[ "$(status_code "$MOVE_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST -d "id=$MOVE_ITEM_ID&target_category_id=$MOVE_TARGET_CATEGORY_ID" "http://127.0.0.1:$PORT/api.php?action=move")" == "200" ]]
+[[ "$(status_code "$MOVE_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H "X-Idempotency-Key: smoke-move-main" -X POST -d "id=$MOVE_ITEM_ID&target_category_id=$MOVE_TARGET_CATEGORY_ID&expected_revision=1" "http://127.0.0.1:$PORT/api.php?action=move")" == "200" ]]
 grep -q 'Artikel verschoben' "$MOVE_BODY"
 
 [[ "$(status_code "$MOVE_SOURCE_LIST_BODY" -b "$COOKIE_JAR" "http://127.0.0.1:$PORT/api.php?action=list&category_id=$SHOPPING_CATEGORY_ID")" == "200" ]]
@@ -659,7 +659,7 @@ TIMED_LATE_TIME="$(php -r 'date_default_timezone_set("Europe/Berlin"); echo date
 [[ "$(status_code "$ADD_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST --data-urlencode "category_id=$TODO_CATEGORY_ID" --data-urlencode 'name=Smoke morgen' --data-urlencode "due_date=$TOMORROW_DATE" "http://127.0.0.1:$PORT/api.php?action=add")" == "201" ]]
 [[ "$(status_code "$TODAY_DONE_ADD_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST --data-urlencode "category_id=$TODO_CATEGORY_ID" --data-urlencode 'name=Smoke erledigt' --data-urlencode "due_date=$TODAY_DATE" "http://127.0.0.1:$PORT/api.php?action=add")" == "201" ]]
 TODAY_DONE_ID="$(sed -n 's/.*"id":\([0-9][0-9]*\).*/\1/p' "$TODAY_DONE_ADD_BODY" | head -n 1)"
-[[ "$(status_code "$TOGGLE_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST -d "id=$TODAY_DONE_ID&done=1" "http://127.0.0.1:$PORT/api.php?action=toggle")" == "200" ]]
+[[ "$(status_code "$TOGGLE_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H "X-Idempotency-Key: smoke-toggle-today" -X POST -d "id=$TODAY_DONE_ID&done=1&expected_revision=1" "http://127.0.0.1:$PORT/api.php?action=toggle")" == "200" ]]
 
 [[ "$(status_code "$TODAY_BODY" -b "$COOKIE_JAR" "http://127.0.0.1:$PORT/api.php?action=today")" == "200" ]]
 [[ "$(status_code "$TODAY_EXPLICIT_BODY" -b "$COOKIE_JAR" "http://127.0.0.1:$PORT/api.php?action=today&date=$TODAY_DATE")" == "200" ]]

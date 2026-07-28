@@ -17,6 +17,7 @@ import { createJournalController } from './journal.js';
 import { createSettingsDrawer } from './settings-drawer.js';
 import { flushQueue, getConflictCount, getPendingCount } from './offline-queue.js';
 import { api } from './api.js';
+import { t } from './i18n.js';
 import {
     BARCODE_FORMATS,
     SCANNER_COOLDOWN_MS,
@@ -142,12 +143,14 @@ export function createAppRuntime(deps) {
     };
 
     const flushOfflineQueue = async () => {
-        const hadItems = await flushQueue(api);
+        let statusConflict = false;
+        const hadItems = await flushQueue(api, () => { statusConflict = true; });
         if (hadItems) {
             invalidateCategoryCache(state.categoryId);
             invalidateSwListCache(state.categoryId);
             await loadItems();
         }
+        if (statusConflict) setMessage(t('msg.status_conflict_retry'), true);
         return hadItems;
     };
 
@@ -323,6 +326,7 @@ export function createAppRuntime(deps) {
     todoEditorController = createTodoEditorController({
         invalidateCategoryCache,
         loadItems,
+        handleStatus: async (id, current, target) => itemsActionsController.handleStatus(id, current, target),
         handleToggle: async (id, done) => { await itemsActionsController.handleToggle(id, done); },
     });
 
@@ -357,8 +361,8 @@ export function createAppRuntime(deps) {
         updateHeaders,
     });
 
-    journalController.setToggleHandler(async (id, done) => {
-        await itemsActionsController.handleToggle(id, done);
+    journalController.setToggleHandler(async (id, done, item) => {
+        await itemsActionsController.handleToggle(id, done, item);
     });
 
     return {

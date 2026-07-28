@@ -15,53 +15,15 @@ export function settingsUrl(tab = 'app') {
     return appUrl(`settings.php?fragment=1&tab=${encodeURIComponent(resolvedTab)}`);
 }
 
-// ponytail: deterministic idempotency key per (action, payload). Reuses the
-// same body hash the server caches, so a retry after a lost response carries
-// the same X-Idempotency-Key without stateful client bookkeeping.
-export async function buildIdempotencyKey(action, payload, files = null) {
-    const canonical = (value) => {
-        if (Array.isArray(value)) return value.map(canonical);
-        if (value && typeof value === 'object') {
-            return Object.keys(value).sort().reduce((acc, key) => {
-                acc[key] = canonical(value[key]);
-                return acc;
-            }, {});
-        }
-        return value;
-    };
-    const fileSummary = [];
-    if (files instanceof FormData) {
-        for (const [name, info] of files.entries()) {
-            if (info && typeof info === 'object' && 'name' in info && 'size' in info) {
-                fileSummary.push({
-                    name,
-                    fileName: String(info.name ?? ''),
-                    size: Number(info.size ?? 0),
-                    type: String(info.type ?? ''),
-                });
-            }
-        }
+// Eine Request-ID bezeichnet eine lokale Aktion, nicht deren Payload: zwei
+// Tabs duerfen fuer denselben Zielzustand nie versehentlich dieselbe ID teilen.
+export async function buildIdempotencyKey() {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+    if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
+        const bytes = crypto.getRandomValues(new Uint8Array(16));
+        return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
     }
-    fileSummary.sort((a, b) => a.name.localeCompare(b.name));
-
-    const payloadHash = JSON.stringify({
-        action,
-        data: canonical(payload ?? {}),
-        files: fileSummary,
-    });
-
-    if (typeof crypto !== 'undefined' && crypto.subtle) {
-        const bytes = new TextEncoder().encode(payloadHash);
-        const digest = await crypto.subtle.digest('SHA-256', bytes);
-        return Array.from(new Uint8Array(digest))
-            .map((byte) => byte.toString(16).padStart(2, '0'))
-            .join('')
-            .slice(0, 32);
-    }
-    // ponytail: fallback hash (legacy / test environments without subtle).
-    let h = 5381;
-    for (let i = 0; i < payloadHash.length; i += 1) h = ((h << 5) + h + payloadHash.charCodeAt(i)) >>> 0;
-    return `fallback-${h.toString(16)}-${Date.now().toString(36)}`;
+    return `fallback-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 }
 
 export async function api(action, options = {}) {
@@ -100,6 +62,7 @@ export async function api(action, options = {}) {
         // Network error - could be offline or actual network failure
         const networkError = new Error('Offline oder Netzwerkfehler');
         networkError.isNetworkError = true;
+        networkError.idempotencyKey = headers['X-Idempotency-Key'] || '';
         throw networkError;
     }
 
@@ -115,6 +78,7 @@ export async function api(action, options = {}) {
         error.status = response.status;
         error.payload = payload;
         error.errorKey = payload.error_key || '';
+        error.idempotencyKey = headers['X-Idempotency-Key'] || '';
         throw error;
     }
 

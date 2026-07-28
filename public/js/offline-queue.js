@@ -37,21 +37,24 @@ export function getQueue() {
     }
 }
 
-export function enqueueAction(type, payload) {
+export function enqueueAction(type, payload, requestId = '') {
     const sanitizedPayload = sanitizeItemPayload(payload);
-    const item = { type, payload: sanitizedPayload };
-    const itemJson = JSON.stringify(item);
-    if (storageBytes(itemJson) > OFFLINE_QUEUE_ITEM_MAX_BYTES) {
-        throw new Error(t('error.offline_too_large'));
-    }
-
     let queue = getQueue();
     // AC #63: mehrere ungesendete Aenderungen derselben Konflikteinheit
     // (gleicher type + id) werden zum letzten Zielzustand zusammengefasst,
     // statt eine unnoetige Aktionshistorie zu wiederholen. "delete" bleibt
     // bewusst eine eigene Aktion und wird nie mit anderen Typen verschmolzen.
     if (type !== 'delete' && sanitizedPayload.id !== undefined) {
+        const previous = queue.find(entry => entry.type === type && entry?.payload?.id === sanitizedPayload.id);
+        for (const [key, value] of Object.entries(previous?.payload || {})) {
+            if (key.startsWith('base_')) sanitizedPayload[key] = value;
+        }
         queue = queue.filter(entry => !(entry.type === type && entry?.payload?.id === sanitizedPayload.id));
+    }
+    const item = { type, payload: sanitizedPayload, requestId };
+    const itemJson = JSON.stringify(item);
+    if (storageBytes(itemJson) > OFFLINE_QUEUE_ITEM_MAX_BYTES) {
+        throw new Error(t('error.offline_too_large'));
     }
     queue.push(item);
     const queueJson = JSON.stringify(queue);
@@ -103,7 +106,7 @@ export function clearConflicts() {
     window.dispatchEvent(new Event('ankerkladde-conflicts-updated'));
 }
 
-export async function flushQueue(apiFn) {
+export async function flushQueue(apiFn, onStatusConflict = () => {}) {
     const queue = getQueue();
     if (queue.length === 0) return false;
 
@@ -112,25 +115,69 @@ export async function flushQueue(apiFn) {
     let queueHalted = false;
 
     for (let index = 0; index < queue.length; index += 1) {
-        const { type, payload } = queue[index];
-        const sanitizedPayload = sanitizeItemPayload(payload);
+        const { type, payload, requestId = '' } = queue[index];
+        let sanitizedPayload = sanitizeItemPayload(payload);
         
         if (queueHalted) {
-            remainingQueue.push({ type, payload: sanitizedPayload });
+            remainingQueue.push({ type, payload: sanitizedPayload, requestId });
             continue;
         }
 
         try {
-            await apiFn(type, { method: 'POST', body: new URLSearchParams(sanitizedPayload) });
+            try {
+                await apiFn(type, {
+                    method: 'POST',
+                    body: new URLSearchParams(sanitizedPayload),
+                    ...(requestId ? { idempotencyKey: requestId } : {}),
+                });
+            } catch (error) {
+                const specs = {
+                    toggle: ['done', 'base_done'],
+                    status: ['status', 'base_status'],
+                    pin: ['is_pinned', 'base_is_pinned'],
+                    move: ['category_id', 'base_category_id'],
+                };
+                const spec = specs[type];
+                const current = error?.payload?.item;
+                if (Number(error?.status) !== 409 || !spec || !current) {
+                    throw error;
+                }
+                if (String(current[spec[0]] ?? '') !== String(sanitizedPayload[spec[1]] ?? '')) {
+                    error.isStatusConflict = true;
+                    throw error;
+                }
+
+                sanitizedPayload = { ...sanitizedPayload, expected_revision: String(current.revision) };
+                try {
+                    await apiFn(type, {
+                        method: 'POST',
+                        body: new URLSearchParams(sanitizedPayload),
+                        idempotencyKey: requestId || error.idempotencyKey,
+                    });
+                } catch (retryError) {
+                    retryError.queuePayload = sanitizedPayload;
+                    const retryCurrent = retryError?.payload?.item;
+                    if (Number(retryError?.status) === 409 && retryCurrent
+                        && String(retryCurrent[spec[0]] ?? '') !== String(sanitizedPayload[spec[1]] ?? '')) {
+                        retryError.isStatusConflict = true;
+                    }
+                    throw retryError;
+                }
+            }
             flushedAny = true;
         } catch (error) {
             if (error.isNetworkError || (error.status && error.status >= 500)) {
                 // Keep this and all subsequent items in the queue
-                remainingQueue.push({ type, payload: sanitizedPayload });
+                remainingQueue.push({
+                    type,
+                    payload: error.queuePayload || sanitizedPayload,
+                    requestId: requestId || error.idempotencyKey || '',
+                });
                 queueHalted = true;
             } else {
                 // 4xx/conflict: remove it from the retry queue, but keep the payload recoverable.
                 addConflict(type, sanitizedPayload, error);
+                if (error.isStatusConflict) onStatusConflict(error.payload.item);
                 console.warn('Offline queue item moved to conflicts due to client error:', error);
                 flushedAny = true; // Queue changed
             }

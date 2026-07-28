@@ -357,4 +357,175 @@ php -r '
 ' "$TMP_DIR/note-update.json"
 echo "Notiz-Hold ok: Teilupdate (nur Titel) loescht den Notiz-Inhalt nicht"
 
+# Issue #65, erste vertikale Scheibe: Erledigt-Status nutzt denselben CAS-Vertrag.
+TOGGLE_MISSING_REQUEST_BODY="$TMP_DIR/toggle-missing-request.json"
+[[ "$(curl -sS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+    --data-urlencode "id=$ITEM_ID" --data-urlencode 'done=1' --data-urlencode 'expected_revision=3' \
+    -w '%{http_code}' -o "$TOGGLE_MISSING_REQUEST_BODY" \
+    "http://127.0.0.1:$PORT/api.php?action=toggle")" == "428" ]]
+grep -q '"error_key":"error.idempotency_key_required"' "$TOGGLE_MISSING_REQUEST_BODY" \
+    || { echo "Toggle ohne Request-ID: error_key falsch." >&2; exit 1; }
+
+TOGGLE_MISSING_BODY="$TMP_DIR/toggle-missing.json"
+[[ "$(curl -sS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: revision-toggle-missing' -X POST \
+    --data-urlencode "id=$ITEM_ID" \
+    --data-urlencode 'done=1' \
+    -w '%{http_code}' \
+    -o "$TOGGLE_MISSING_BODY" \
+    "http://127.0.0.1:$PORT/api.php?action=toggle")" == "428" ]]
+grep -q '"error_key":"error.revision_required"' "$TOGGLE_MISSING_BODY" \
+    || { echo "Toggle ohne Revision: error_key falsch." >&2; exit 1; }
+
+TOGGLE_BODY="$TMP_DIR/toggle.json"
+[[ "$(curl -sS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: revision-toggle-main' -X POST \
+    --data-urlencode "id=$ITEM_ID" \
+    --data-urlencode 'done=1' \
+    --data-urlencode 'expected_revision=3' \
+    -w '%{http_code}' \
+    -o "$TOGGLE_BODY" \
+    "http://127.0.0.1:$PORT/api.php?action=toggle")" == "200" ]]
+php -r '
+    $item = json_decode(file_get_contents($argv[1]), true)["item"] ?? null;
+    if (!is_array($item) || (int) ($item["done"] ?? 0) !== 1 || (int) ($item["revision"] ?? 0) !== 4) {
+        fwrite(STDERR, "Toggle liefert kein kanonisches Item mit Revision 4.\n"); exit(1);
+    }
+' "$TOGGLE_BODY"
+
+# Gleiches Ziel mit alter Revision ist Erfolg ohne zweite Revisionserhoehung.
+TOGGLE_SAME_BODY="$TMP_DIR/toggle-same.json"
+[[ "$(curl -sS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: revision-toggle-same' -X POST \
+    --data-urlencode "id=$ITEM_ID" \
+    --data-urlencode 'done=1' \
+    --data-urlencode 'expected_revision=3' \
+    -w '%{http_code}' \
+    -o "$TOGGLE_SAME_BODY" \
+    "http://127.0.0.1:$PORT/api.php?action=toggle")" == "200" ]]
+php -r '
+    $item = json_decode(file_get_contents($argv[1]), true)["item"] ?? null;
+    if (!is_array($item) || (int) ($item["done"] ?? 0) !== 1 || (int) ($item["revision"] ?? 0) !== 4) {
+        fwrite(STDERR, "Identisches Toggle-Ziel ist nicht idempotent.\n"); exit(1);
+    }
+' "$TOGGLE_SAME_BODY"
+
+# Unabhaengige Inhaltsaenderung erzeugt erst 409; Rebase auf current_revision wendet das Ziel an.
+curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+    --data-urlencode "id=$ITEM_ID" \
+    --data-urlencode 'name=Via-ApiKey-mit-Inhaltsaenderung' \
+    --data-urlencode 'expected_revision=4' \
+    -o "$TMP_DIR/toggle-independent-update.json" \
+    "http://127.0.0.1:$PORT/api.php?action=update" >/dev/null
+TOGGLE_CONFLICT_BODY="$TMP_DIR/toggle-conflict.json"
+[[ "$(curl -sS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: revision-toggle-rebase' -X POST \
+    --data-urlencode "id=$ITEM_ID" \
+    --data-urlencode 'done=0' \
+    --data-urlencode 'expected_revision=4' \
+    -w '%{http_code}' \
+    -o "$TOGGLE_CONFLICT_BODY" \
+    "http://127.0.0.1:$PORT/api.php?action=toggle")" == "409" ]]
+grep -q '"current_revision":5' "$TOGGLE_CONFLICT_BODY" \
+    || { echo "Toggle-Konflikt liefert nicht current_revision=5." >&2; exit 1; }
+TOGGLE_REBASED_BODY="$TMP_DIR/toggle-rebased.json"
+[[ "$(curl -sS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: revision-toggle-rebase' -X POST \
+    --data-urlencode "id=$ITEM_ID" \
+    --data-urlencode 'done=0' \
+    --data-urlencode 'expected_revision=5' \
+    -w '%{http_code}' \
+    -o "$TOGGLE_REBASED_BODY" \
+    "http://127.0.0.1:$PORT/api.php?action=toggle")" == "200" ]]
+php -r '
+    $item = json_decode(file_get_contents($argv[1]), true)["item"] ?? null;
+    if (!is_array($item) || (int) ($item["done"] ?? 1) !== 0 || (int) ($item["revision"] ?? 0) !== 6
+        || ($item["name"] ?? "") !== "Via-ApiKey-mit-Inhaltsaenderung") {
+        fwrite(STDERR, "Rebased Toggle hat Inhalt/Ziel/Revision nicht erhalten.\n"); exit(1);
+    }
+' "$TOGGLE_REBASED_BODY"
+TOGGLE_REPLAY_BODY="$TMP_DIR/toggle-replay.json"
+[[ "$(curl -sS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: revision-toggle-rebase' -X POST \
+    --data-urlencode "id=$ITEM_ID" --data-urlencode 'done=0' --data-urlencode 'expected_revision=5' \
+    -w '%{http_code}' -o "$TOGGLE_REPLAY_BODY" "http://127.0.0.1:$PORT/api.php?action=toggle")" == "200" ]]
+grep -q '"idempotent_replay":1' "$TOGGLE_REPLAY_BODY" || { echo "Toggle-Replay wurde erneut ausgefuehrt." >&2; exit 1; }
+echo "Issue #65 Toggle ok: CAS, idempotentes Ziel und Rebase-Vertrag"
+
+# Workflow-Status: gleicher Vertrag, einschliesslich abweichender paralleler Absicht.
+STATUS_BODY="$TMP_DIR/status-cas.json"
+[[ "$(curl -sS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: revision-status-main' -X POST \
+    --data-urlencode "id=$TODO_ID" --data-urlencode 'status=waiting' --data-urlencode 'expected_revision=2' \
+    -w '%{http_code}' -o "$STATUS_BODY" "http://127.0.0.1:$PORT/api.php?action=status")" == "200" ]]
+php -r '
+    $item = json_decode(file_get_contents($argv[1]), true)["item"] ?? null;
+    if (($item["status"] ?? null) !== "waiting" || (int) ($item["revision"] ?? 0) !== 3) exit(1);
+' "$STATUS_BODY"
+STATUS_REPLAY_BODY="$TMP_DIR/status-replay.json"
+[[ "$(curl -sS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: revision-status-main' -X POST \
+    --data-urlencode "id=$TODO_ID" --data-urlencode 'status=waiting' --data-urlencode 'expected_revision=2' \
+    -w '%{http_code}' -o "$STATUS_REPLAY_BODY" "http://127.0.0.1:$PORT/api.php?action=status")" == "200" ]]
+grep -q '"idempotent_replay":1' "$STATUS_REPLAY_BODY" || { echo "Status-Replay wurde erneut ausgefuehrt." >&2; exit 1; }
+STATUS_SAME_BODY="$TMP_DIR/status-same.json"
+[[ "$(curl -sS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: revision-status-same' -X POST \
+    --data-urlencode "id=$TODO_ID" --data-urlencode 'status=waiting' --data-urlencode 'expected_revision=2' \
+    -w '%{http_code}' -o "$STATUS_SAME_BODY" "http://127.0.0.1:$PORT/api.php?action=status")" == "200" ]]
+grep -q '"revision":3' "$STATUS_SAME_BODY" || { echo "Status-Ziel erhoehte Revision erneut." >&2; exit 1; }
+STATUS_CONFLICT_BODY="$TMP_DIR/status-conflict.json"
+[[ "$(curl -sS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: revision-status-conflict' -X POST \
+    --data-urlencode "id=$TODO_ID" --data-urlencode 'status=' --data-urlencode 'expected_revision=2' \
+    -w '%{http_code}' -o "$STATUS_CONFLICT_BODY" "http://127.0.0.1:$PORT/api.php?action=status")" == "409" ]]
+grep -q '"current_revision":3' "$STATUS_CONFLICT_BODY" || { echo "Status-Konfliktpayload unvollstaendig." >&2; exit 1; }
+echo "Issue #65 Workflow-Status ok: CAS, idempotentes Ziel, abweichende Absicht"
+
+# Pin-Status: CAS + kanonisches Item + idempotentes Ziel.
+PIN_BODY="$TMP_DIR/pin-cas.json"
+[[ "$(curl -sS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: revision-pin-main' -X POST \
+    --data-urlencode "id=$ITEM_ID" --data-urlencode 'is_pinned=1' --data-urlencode 'expected_revision=6' \
+    -w '%{http_code}' -o "$PIN_BODY" "http://127.0.0.1:$PORT/api.php?action=pin")" == "200" ]]
+php -r '
+    $item = json_decode(file_get_contents($argv[1]), true)["item"] ?? null;
+    if ((int) ($item["is_pinned"] ?? 0) !== 1 || (int) ($item["revision"] ?? 0) !== 7) exit(1);
+' "$PIN_BODY"
+PIN_REPLAY_BODY="$TMP_DIR/pin-replay.json"
+[[ "$(curl -sS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: revision-pin-main' -X POST \
+    --data-urlencode "id=$ITEM_ID" --data-urlencode 'is_pinned=1' --data-urlencode 'expected_revision=6' \
+    -w '%{http_code}' -o "$PIN_REPLAY_BODY" "http://127.0.0.1:$PORT/api.php?action=pin")" == "200" ]]
+grep -q '"idempotent_replay":1' "$PIN_REPLAY_BODY" || { echo "Pin-Replay wurde erneut ausgefuehrt." >&2; exit 1; }
+PIN_SAME_BODY="$TMP_DIR/pin-same.json"
+[[ "$(curl -sS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: revision-pin-same' -X POST \
+    --data-urlencode "id=$ITEM_ID" --data-urlencode 'is_pinned=1' --data-urlencode 'expected_revision=6' \
+    -w '%{http_code}' -o "$PIN_SAME_BODY" "http://127.0.0.1:$PORT/api.php?action=pin")" == "200" ]]
+grep -q '"revision":7' "$PIN_SAME_BODY" || { echo "Pin-Ziel erhoehte Revision erneut." >&2; exit 1; }
+PIN_CONFLICT_BODY="$TMP_DIR/pin-conflict.json"
+[[ "$(curl -sS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: revision-pin-conflict' -X POST \
+    --data-urlencode "id=$ITEM_ID" --data-urlencode 'is_pinned=0' --data-urlencode 'expected_revision=6' \
+    -w '%{http_code}' -o "$PIN_CONFLICT_BODY" "http://127.0.0.1:$PORT/api.php?action=pin")" == "409" ]]
+echo "Issue #65 Pin-Status ok: CAS, idempotentes Ziel, Konfliktpayload"
+
+# Verschieben: gleiche Typen, atomarer Revisionsvergleich und kanonisches Item.
+MOVE_CATEGORY_BODY="$TMP_DIR/move-category.json"
+curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+    --data-urlencode 'name=Zweite Einkaufsliste' --data-urlencode 'type=list_quantity' \
+    -o "$MOVE_CATEGORY_BODY" "http://127.0.0.1:$PORT/api.php?action=categories_create" >/dev/null
+MOVE_CATEGORY_ID="$(php -r 'echo (int) (json_decode(file_get_contents($argv[1]), true)["category"]["id"] ?? json_decode(file_get_contents($argv[1]), true)["id"] ?? 0);' "$MOVE_CATEGORY_BODY")"
+[[ "$MOVE_CATEGORY_ID" -gt 0 ]] || { echo "Move-Testkategorie fehlt." >&2; exit 1; }
+MOVE_BODY="$TMP_DIR/move-cas.json"
+[[ "$(curl -sS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: revision-move-main' -X POST \
+    --data-urlencode "id=$ITEM_ID" --data-urlencode "target_category_id=$MOVE_CATEGORY_ID" --data-urlencode 'expected_revision=7' \
+    -w '%{http_code}' -o "$MOVE_BODY" "http://127.0.0.1:$PORT/api.php?action=move")" == "200" ]]
+php -r '
+    $item = json_decode(file_get_contents($argv[1]), true)["item"] ?? null;
+    if ((int) ($item["category_id"] ?? 0) !== (int) $argv[2] || (int) ($item["revision"] ?? 0) !== 8) exit(1);
+' "$MOVE_BODY" "$MOVE_CATEGORY_ID"
+MOVE_REPLAY_BODY="$TMP_DIR/move-replay.json"
+[[ "$(curl -sS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: revision-move-main' -X POST \
+    --data-urlencode "id=$ITEM_ID" --data-urlencode "target_category_id=$MOVE_CATEGORY_ID" --data-urlencode 'expected_revision=7' \
+    -w '%{http_code}' -o "$MOVE_REPLAY_BODY" "http://127.0.0.1:$PORT/api.php?action=move")" == "200" ]]
+grep -q '"idempotent_replay":1' "$MOVE_REPLAY_BODY" || { echo "Move-Replay wurde erneut ausgefuehrt." >&2; exit 1; }
+MOVE_SAME_BODY="$TMP_DIR/move-same.json"
+[[ "$(curl -sS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: revision-move-same' -X POST \
+    --data-urlencode "id=$ITEM_ID" --data-urlencode "target_category_id=$MOVE_CATEGORY_ID" --data-urlencode 'expected_revision=7' \
+    -w '%{http_code}' -o "$MOVE_SAME_BODY" "http://127.0.0.1:$PORT/api.php?action=move")" == "200" ]]
+grep -q '"revision":8' "$MOVE_SAME_BODY" || { echo "Move-Ziel erhoehte Revision erneut." >&2; exit 1; }
+MOVE_CONFLICT_BODY="$TMP_DIR/move-conflict.json"
+[[ "$(curl -sS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: revision-move-conflict' -X POST \
+    --data-urlencode "id=$ITEM_ID" --data-urlencode "target_category_id=$SHOPPING_CATEGORY_ID" --data-urlencode 'expected_revision=7' \
+    -w '%{http_code}' -o "$MOVE_CONFLICT_BODY" "http://127.0.0.1:$PORT/api.php?action=move")" == "409" ]]
+echo "Issue #65 Move ok: CAS, idempotentes Ziel, Konfliktpayload"
+
 echo "Alle Revisions-ACs (#61) bestanden."

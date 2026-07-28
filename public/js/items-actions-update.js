@@ -23,25 +23,85 @@ export function createUpdateActions(deps) {
         applyServerItem,
     } = deps;
 
-    async function handleToggle(id, done) {
+    function sameStatusValue(left, right) {
+        return String(left ?? '') === String(right ?? '');
+    }
+
+    async function mutateStatus(action, item, field, payload, base = item?.[field] ?? '', applyToState = true) {
+        const expectedRevision = Number(item?.revision);
+        if (expectedRevision < 1) {
+            setMessage(t('error.revision_required'), true);
+            return null;
+        }
+
+        payload.expected_revision = String(expectedRevision);
+        payload[`base_${field}`] = String(base);
+        const body = new URLSearchParams(payload);
+        const acceptCanonical = canonical => {
+            if (applyToState) applyServerItem(canonical);
+            else if (canonical) Object.assign(item, canonical);
+        };
+
+        try {
+            const result = await api(action, { method: 'POST', body });
+            acceptCanonical(result?.item);
+            return result;
+        } catch (error) {
+            const current = error?.payload?.item;
+            if (Number(error?.status) !== 409 || !current) throw error;
+
+            if (sameStatusValue(current[field], base)) {
+                body.set('expected_revision', String(current.revision));
+                try {
+                    const result = await api(action, {
+                        method: 'POST',
+                        body,
+                        idempotencyKey: error.idempotencyKey,
+                    });
+                    acceptCanonical(result?.item);
+                    return result;
+                } catch (retryError) {
+                    retryError.queuePayload = Object.fromEntries(body.entries());
+                    if (Number(retryError?.status) !== 409 || !retryError.payload?.item) throw retryError;
+                    acceptCanonical(retryError.payload.item);
+                }
+            } else {
+                acceptCanonical(current);
+            }
+
+            if (applyToState) renderItems();
+            setMessage(t('msg.status_conflict_retry'), true);
+            return null;
+        }
+    }
+
+    async function handleToggle(id, done, sourceItem = null) {
         // ponytail: coerce to 0/1 — callers from the journal pass a boolean which
         // would stringify to "true"/"false" and fail PHP FILTER_VALIDATE_INT with 422.
         const doneFlag = done ? 1 : 0;
-        const item = getItemById(id);
+        const stateItem = getItemById(id);
+        const item = stateItem || sourceItem;
+        if (!item) return;
         const previousDone = item?.done;
-        if (item) {
-            item.done = doneFlag;
+        item.done = doneFlag;
+        if (stateItem) {
             cacheCurrentCategoryItems();
             renderItems();
         }
         try {
-            await api('toggle', {
-                method: 'POST',
-                body: new URLSearchParams({ id: String(id), done: String(doneFlag) }),
-            });
+            const result = await mutateStatus('toggle', item, 'done', {
+                id: String(id),
+                done: String(doneFlag),
+            }, previousDone, Boolean(stateItem));
+            if (result) renderItems();
         } catch (error) {
             if (shouldQueueOffline(error)) {
-                enqueueAction('toggle', { id: String(id), done: String(doneFlag) });
+                enqueueAction('toggle', error.queuePayload || {
+                    id: String(id),
+                    done: String(doneFlag),
+                    expected_revision: String(item.revision),
+                    base_done: String(previousDone),
+                }, error.idempotencyKey);
                 setNetworkStatus();
                 // AC #63: Offline-Zustand muss sofort am Item sichtbar sein,
                 // nicht erst beim naechsten unabhaengigen Re-Render.
@@ -49,8 +109,8 @@ export function createUpdateActions(deps) {
                 return;
             }
             // 4xx or unexpected error: revert the optimistic state so UI and server agree.
-            if (item) {
-                item.done = previousDone;
+            item.done = previousDone;
+            if (stateItem) {
                 cacheCurrentCategoryItems();
                 renderItems();
             }
@@ -78,7 +138,7 @@ export function createUpdateActions(deps) {
                 invalidateCategoryCache(state.categoryId);
             } catch (error) {
                 if (shouldQueueOffline(error)) {
-                    enqueueAction('delete', { id: String(id) });
+                    enqueueAction('delete', { id: String(id) }, error.idempotencyKey);
                     setNetworkStatus();
                 } else {
                     // 4xx or unexpected error: restore the item to the UI
@@ -95,56 +155,53 @@ export function createUpdateActions(deps) {
 
     async function handleStatus(id, currentStatus, targetStatus) {
         const next = targetStatus !== undefined ? targetStatus : (currentStatus === '' ? 'in_progress' : currentStatus === 'in_progress' ? 'waiting' : '');
+        const item = getItemById(id);
+        if (!item) return;
         try {
-            await api('status', { method: 'POST', body: new URLSearchParams({ id: String(id), status: next }) });
-            const item = getItemById(id);
-            if (item) {
+            const result = await mutateStatus('status', item, 'status', { id: String(id), status: next });
+            if (result) renderItems();
+            return result;
+        } catch (error) {
+            if (shouldQueueOffline(error)) {
+                enqueueAction('status', error.queuePayload || {
+                    id: String(id),
+                    status: next,
+                    expected_revision: String(item.revision),
+                    base_status: String(item.status ?? ''),
+                }, error.idempotencyKey);
+                // Apply optimistically for offline
                 item.status = next;
                 cacheCurrentCategoryItems();
                 renderItems();
-            } else {
-                invalidateCategoryCache(state.categoryId);
-                await loadItems();
-            }
-        } catch (error) {
-            if (shouldQueueOffline(error)) {
-                enqueueAction('status', { id: String(id), status: next });
-                // Apply optimistically for offline
-                const item = getItemById(id);
-                if (item) {
-                    item.status = next;
-                    cacheCurrentCategoryItems();
-                    renderItems();
-                }
                 setNetworkStatus();
             } else {
                 setMessage(error instanceof Error ? error.message : t('error.server_error'), true);
             }
+            return null;
         }
     }
 
     async function handlePin(id, isPinned) {
+        const item = getItemById(id);
+        if (!item) return;
         try {
-            await api('pin', { method: 'POST', body: new URLSearchParams({ id: String(id), is_pinned: String(isPinned) }) });
-            const item = getItemById(id);
-            if (item) {
+            const result = await mutateStatus('pin', item, 'is_pinned', {
+                id: String(id),
+                is_pinned: String(isPinned),
+            });
+            if (result) renderItems();
+        } catch (error) {
+            if (shouldQueueOffline(error)) {
+                enqueueAction('pin', error.queuePayload || {
+                    id: String(id),
+                    is_pinned: String(isPinned),
+                    expected_revision: String(item.revision),
+                    base_is_pinned: String(item.is_pinned ?? 0),
+                }, error.idempotencyKey);
+                // Apply optimistically for offline
                 item.is_pinned = isPinned;
                 cacheCurrentCategoryItems();
                 renderItems();
-            } else {
-                invalidateCategoryCache(state.categoryId);
-                await loadItems();
-            }
-        } catch (error) {
-            if (shouldQueueOffline(error)) {
-                enqueueAction('pin', { id: String(id), is_pinned: String(isPinned) });
-                // Apply optimistically for offline
-                const item = getItemById(id);
-                if (item) {
-                    item.is_pinned = isPinned;
-                    cacheCurrentCategoryItems();
-                    renderItems();
-                }
                 setNetworkStatus();
             } else {
                 setMessage(error instanceof Error ? error.message : t('error.server_error'), true);
@@ -161,14 +218,34 @@ export function createUpdateActions(deps) {
         }
 
         try {
-            await api('move', {
-                method: 'POST',
-                body: new URLSearchParams({
+            const result = await mutateStatus('move', item, 'category_id', {
+                id: String(item.id),
+                target_category_id: String(targetId),
+            });
+            if (!result) {
+                const serverCategoryId = Number(item.category_id);
+                if (serverCategoryId !== sourceCategoryId) {
+                    invalidateCategoryCache(sourceCategoryId);
+                    invalidateCategoryCache(serverCategoryId);
+                    if (Number(state.categoryId) === sourceCategoryId) {
+                        state.items = state.items.filter(entry => entry.id !== item.id);
+                        cacheCurrentCategoryItems();
+                        renderItems();
+                    }
+                }
+                return;
+            }
+        } catch (error) {
+            if (shouldQueueOffline(error)) {
+                enqueueAction('move', error.queuePayload || {
                     id: String(item.id),
                     target_category_id: String(targetId),
-                }),
-            });
-        } catch (error) {
+                    expected_revision: String(item.revision),
+                    base_category_id: String(sourceCategoryId),
+                }, error.idempotencyKey);
+                setNetworkStatus();
+                return;
+            }
             setMessage(error instanceof Error ? error.message : 'Verschieben fehlgeschlagen.', true);
             return;
         }
@@ -287,7 +364,7 @@ export function createUpdateActions(deps) {
             if (await handleStaleCategory(error, category.id)) return;
 
             if (shouldQueueOffline(error)) {
-                enqueueAction('clear', { category_id: String(category.id) });
+                enqueueAction('clear', { category_id: String(category.id) }, error.idempotencyKey);
                 setNetworkStatus();
             } else {
                 // 4xx or unexpected error: restore all items

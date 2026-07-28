@@ -91,14 +91,17 @@ async function setVisibleItemStatuses(page, statusByName) {
     await page.evaluate(async entries => {
         const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
         const cards = Array.from(document.querySelectorAll('#list .item-card[data-item-id]'));
+        const list = await fetch('/api.php?action=list', { cache: 'no-store' }).then(response => response.json());
         for (const [name, status] of Object.entries(entries)) {
             const card = cards.find(node => node.textContent.includes(name));
             const id = card?.dataset.itemId;
             if (!id) continue;
-            const body = new URLSearchParams({ id, status });
+            const item = (list.items || []).find(entry => String(entry.id) === id);
+            if (!item) continue;
+            const body = new URLSearchParams({ id, status, expected_revision: String(item.revision) });
             await fetch('/api.php?action=status', {
                 method: 'POST',
-                headers: { 'X-CSRF-Token': csrf },
+                headers: { 'X-CSRF-Token': csrf, 'X-Idempotency-Key': crypto.randomUUID() },
                 body,
             });
         }
