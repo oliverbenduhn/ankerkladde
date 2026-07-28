@@ -5,6 +5,7 @@ import { normalizeBarcodeValue, sanitizeItemField, syncAutoHeight } from './util
 import { createLightboxController } from './lightbox.js';
 import { createItemMenuController } from './item-menu.js';
 import { getItemSyncState } from './item-sync-state.js';
+import { clearDraftSnapshot, loadDraftSnapshot, wrapDraftForPersistence } from './draft-persistence.js';
 
 let sketchEditorModulePromise = null;
 async function loadSketchEditor() {
@@ -59,7 +60,7 @@ export function createItemsViewController(deps) {
         },
         handleEditStart: (item) => {
             state.editingId = item.id;
-            state.editDraft = createEditDraft(item);
+            state.editDraft = wrapDraftForPersistence(createEditDraft(item), item.id);
             renderItems();
         },
     });
@@ -81,13 +82,31 @@ export function createItemsViewController(deps) {
     function resetEditDraft() {
         state.editingId = null;
         state.editDraft = createEditDraft({ id: null, category_id: null });
+        clearDraftSnapshot();
     }
 
     function getEditDraftForItem(item) {
         if (state.editDraft?.itemId !== item.id) {
-            state.editDraft = createEditDraft(item);
+            state.editDraft = wrapDraftForPersistence(createEditDraft(item), item.id);
         }
         return state.editDraft;
+    }
+
+    // AC #63: ein unbestaetigter Entwurf ueberlebt Reload/Navigation im
+    // selben Tab. Nur anwenden, wenn gerade nicht schon aktiv editiert wird
+    // und das Item nach dem Laden tatsaechlich noch existiert.
+    function restorePersistedDraft() {
+        if (state.editingId !== null) return false;
+        const snapshot = loadDraftSnapshot();
+        if (!snapshot) return false;
+        const item = state.items.find(entry => Number(entry.id) === Number(snapshot.editingId));
+        if (!item) {
+            clearDraftSnapshot();
+            return false;
+        }
+        state.editingId = item.id;
+        state.editDraft = wrapDraftForPersistence(snapshot.draft, item.id);
+        return true;
     }
 
     function getAttachmentTitle(item) {
@@ -769,5 +788,6 @@ export function createItemsViewController(deps) {
     return {
         buildItemNode,
         renderItems,
+        restorePersistedDraft,
     };
 }

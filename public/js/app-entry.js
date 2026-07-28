@@ -50,6 +50,7 @@ export function startApp(version) {
         renderCategoryTabs,
         renderItems,
         reorderController,
+        restorePersistedDraft,
         router,
         savePreferences,
         scheduleNoteSave,
@@ -133,7 +134,9 @@ export function startApp(version) {
             renderInitialError: error => {
                 setMessage(error instanceof Error ? error.message : 'App konnte nicht geladen werden.', true);
             },
+            renderItems,
             reorderController,
+            restorePersistedDraft,
             router,
             setNetworkStatus,
             swipeController,

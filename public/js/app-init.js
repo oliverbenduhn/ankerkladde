@@ -13,7 +13,9 @@ export async function initApp(deps) {
         navigation,
         prefetchAdjacentCategories,
         renderInitialError,
+        renderItems,
         reorderController,
+        restorePersistedDraft,
         router,
         setNetworkStatus,
         swipeController,
@@ -52,6 +54,11 @@ export async function initApp(deps) {
         await loadCategories();
         deps.updateHeaders();
         await loadItems();
+        // AC #63: einen ueber Reload/Navigation hinweg persistierten,
+        // unbestaetigten Entwurf desselben Tabs wieder aufnehmen.
+        if (restorePersistedDraft()) {
+            renderItems();
+        }
         // Pre-load today agenda so the app-badge stays current and the
         // journal view never blocks on its first request after navigation.
         try {

@@ -98,6 +98,7 @@ export function createAppRuntime(deps) {
             itemsViewController.renderItems();
         }
     };
+    const restorePersistedDraft = () => itemsViewController.restorePersistedDraft();
     const openNoteEditor = async item => { await editorController.openNoteEditor(item); };
     const openNoteEditorWithNavigation = async item => { await editorController.openNoteEditorWithNavigation(item); };
     const closeNoteEditor = async () => { await editorController.closeNoteEditor(); };
@@ -382,6 +383,7 @@ export function createAppRuntime(deps) {
         quickAdd: async (input, activeCategoryId) => { await itemsActionsController.quickAdd(input, activeCategoryId); },
         renderCategoryTabs,
         renderItems,
+        restorePersistedDraft,
         reorderController,
         router,
         savePreferences,

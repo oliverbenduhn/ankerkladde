@@ -3,6 +3,7 @@ import { api } from './api.js';
 import { getCurrentCategory, state } from './state.js';
 import { enqueueAction } from './offline-queue.js';
 import { isItemSaving, markItemSaving, clearItemSaving } from './item-sync-state.js';
+import { clearDraftSnapshot } from './draft-persistence.js';
 
 export function createUpdateActions(deps) {
     const {
@@ -189,6 +190,7 @@ export function createUpdateActions(deps) {
         if (state.editingId !== id || Number(draft.itemId) !== Number(id)) {
             state.editingId = null;
             state.editDraft = { itemId: null, categoryId: null, name: '', barcode: '', quantity: '', due_date: '', due_time: '', priority: '', content: '' };
+            clearDraftSnapshot();
             renderItems();
             setMessage(t('msg.edit_draft_stale'), true);
             return;
@@ -228,6 +230,7 @@ export function createUpdateActions(deps) {
                 setMessage(t('msg.item_conflict_remote_update'), true);
                 state.editingId = null;
                 state.editDraft = { itemId: null, categoryId: null, name: '', barcode: '', quantity: '', due_date: '', due_time: '', priority: '', content: '' };
+                clearDraftSnapshot();
                 return;
             }
             throw error;
@@ -236,6 +239,7 @@ export function createUpdateActions(deps) {
         }
         state.editingId = null;
         state.editDraft = { itemId: null, categoryId: null, name: '', barcode: '', quantity: '', due_date: '', due_time: '', priority: '', content: '' };
+        clearDraftSnapshot();
         // AC #61: Nach Erfolg direkt den kanonischen Serverzustand uebernehmen,
         // kein zusaetzlicher GET.
         applyServerItem(result?.item);
