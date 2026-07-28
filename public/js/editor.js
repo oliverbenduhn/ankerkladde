@@ -1,8 +1,8 @@
 import { t } from './i18n.js';
-import { api } from './api.js?v=5.3.9';
-import { NOTE_SAVE_DEBOUNCE_MS, state } from './state.js?v=5.3.9';
-import { appEl, noteEditorBody, noteEditorEl, noteSaveStatus, noteTitleInput, noteToolbar } from './ui.js?v=5.3.9';
-import { sanitizeItemField, sanitizeItemPayload } from './utils.js?v=5.3.9';
+import { api } from './api.js?v=5.3.12';
+import { NOTE_SAVE_DEBOUNCE_MS, state } from './state.js?v=5.3.12';
+import { appEl, noteEditorBody, noteEditorEl, noteSaveStatus, noteTitleInput, noteToolbar } from './ui.js?v=5.3.12';
+import { sanitizeItemField, sanitizeItemPayload } from './utils.js?v=5.3.12';
 
 export function createEditorController(deps) {
     const {
@@ -43,15 +43,27 @@ export function createEditorController(deps) {
     async function saveNoteContent(id, title, htmlContent) {
         const sanitizedTitle = sanitizeItemField('name', title || 'Ohne Titel') || 'Ohne Titel';
         const sanitizedContent = sanitizeItemField('content', htmlContent);
+        const existingItem = deps.getItemById(id);
+        const expectedRevision = existingItem ? Number(existingItem.revision) : 0;
+        if (expectedRevision < 1) {
+            setNoteSaveStatus(t('error.revision_required'));
+            return;
+        }
         try {
-            await api('update', {
+            const result = await api('update', {
                 method: 'POST',
-                body: new URLSearchParams(sanitizeItemPayload({ id: String(id), name: sanitizedTitle, content: sanitizedContent })),
+                body: new URLSearchParams(sanitizeItemPayload({
+                    id: String(id),
+                    expected_revision: String(expectedRevision),
+                    name: sanitizedTitle,
+                    content: sanitizedContent,
+                })),
             });
             const item = deps.getItemById(id);
             if (item) {
                 item.name = sanitizedTitle;
                 item.content = sanitizedContent;
+                item.revision = Number(result.item?.revision ?? expectedRevision + 1);
             }
             cacheCurrentCategoryItems();
             setNoteSaveStatus('Gespeichert');

@@ -1,5 +1,5 @@
 import { t } from './i18n.js';
-import { OFFLINE_QUEUE_ITEM_MAX_BYTES, OFFLINE_QUEUE_MAX_BYTES, sanitizeItemPayload } from './utils.js?v=5.3.9';
+import { OFFLINE_QUEUE_ITEM_MAX_BYTES, OFFLINE_QUEUE_MAX_BYTES, sanitizeItemPayload } from './utils.js?v=5.3.12';
 
 const QUEUE_KEY = 'ankerkladde-offline-queue';
 const CONFLICTS_KEY = 'ankerkladde-offline-conflicts';

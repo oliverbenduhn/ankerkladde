@@ -1,7 +1,7 @@
-import { basePath, state } from './state.js?v=5.3.9';
-import { applyViewState } from './router.js?v=5.3.9';
-import { appEl, updateBannerEl, updateViewportHeight } from './ui.js?v=5.3.9';
-import { loadAgenda, updateAppBadge } from './today-view.js?v=5.3.9';
+import { basePath, state } from './state.js?v=5.3.12';
+import { applyViewState } from './router.js?v=5.3.12';
+import { appEl, updateBannerEl, updateViewportHeight } from './ui.js?v=5.3.12';
+import { loadAgenda, updateAppBadge } from './today-view.js?v=5.3.12';
 
 export async function initApp(deps) {
     const {

@@ -1,7 +1,7 @@
 import { t } from './i18n.js';
-import { api } from './api.js?v=5.3.9';
-import { getCurrentCategory, state } from './state.js?v=5.3.9';
-import { enqueueAction } from './offline-queue.js?v=5.3.9';
+import { api } from './api.js?v=5.3.12';
+import { getCurrentCategory, state } from './state.js?v=5.3.12';
+import { enqueueAction } from './offline-queue.js?v=5.3.12';
 
 export function createUpdateActions(deps) {
     const {
@@ -192,8 +192,16 @@ export function createUpdateActions(deps) {
             return;
         }
 
+        const item = getItemById(id);
+        const expectedRevision = item ? Number(item.revision) : 0;
+        if (expectedRevision < 1) {
+            setMessage(t('error.revision_required'), true);
+            return;
+        }
+
         const body = itemParams({
             id: String(id),
+            expected_revision: String(expectedRevision),
             name: (draft.name || '').trim(),
             barcode: (draft.barcode || '').trim(),
             quantity: (draft.quantity || '').trim(),
@@ -203,7 +211,7 @@ export function createUpdateActions(deps) {
             content: (draft.content || '').trim(),
         });
 
-        await api('update', { method: 'POST', body });
+        const result = await api('update', { method: 'POST', body });
         state.editingId = null;
         state.editDraft = { itemId: null, categoryId: null, name: '', barcode: '', quantity: '', due_date: '', due_time: '', priority: '', content: '' };
         invalidateCategoryCache(state.categoryId);

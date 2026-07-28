@@ -5,7 +5,7 @@ import {
     scrollKey,
     flashStorageKey,
     openCategoryKey,
-} from './settings-state.js?v=5.3.9';
+} from './settings-state.js?v=5.3.12';
 
 export function renderFlash(message, type = 'ok', root = document) {
     if (!message) return;

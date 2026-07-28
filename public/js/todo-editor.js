@@ -1,6 +1,6 @@
-import { api } from './api.js?v=5.3.9';
-import { state } from './state.js?v=5.3.9';
-import { appEl, todoEditorEl, todoTitleInput, todoDateInput, todoTimeInput, todoPriorityInput, todoNoteInput } from './ui.js?v=5.3.9';
+import { api } from './api.js?v=5.3.12';
+import { state } from './state.js?v=5.3.12';
+import { appEl, todoEditorEl, todoTitleInput, todoDateInput, todoTimeInput, todoPriorityInput, todoNoteInput } from './ui.js?v=5.3.12';
 
 export function createTodoEditorController(deps) {
     const { invalidateCategoryCache, loadItems, handleToggle } = deps;
@@ -23,9 +23,14 @@ export function createTodoEditorController(deps) {
         const dueTime = dueDate ? (todoTimeInput?.value || '') : '';
         const priority = todoPriorityInput?.value || '';
         const content = todoNoteInput?.value || '';
+        const expectedRevision = Number(currentItem.revision);
+        if (expectedRevision < 1) {
+            throw new Error(t('error.revision_required'));
+        }
 
         const body = new URLSearchParams({
             id: String(currentItem.id),
+            expected_revision: String(expectedRevision),
             name,
             barcode: '',
             quantity: '',
@@ -35,7 +40,7 @@ export function createTodoEditorController(deps) {
             content,
             status: currentStatus,
         });
-        await api('update', { method: 'POST', body });
+        const result = await api('update', { method: 'POST', body });
 
         currentItem = {
             ...currentItem,
@@ -45,6 +50,7 @@ export function createTodoEditorController(deps) {
             priority,
             content,
             status: currentStatus,
+            revision: Number(result.item?.revision ?? expectedRevision + 1),
         };
         invalidateCategoryCache(state.categoryId);
         await loadItems();
