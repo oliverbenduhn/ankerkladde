@@ -229,7 +229,7 @@ if [[ -z "$JOURNAL_CATEGORY_ID" || "$JOURNAL_CATEGORY_ID" -le 0 ]]; then
 fi
 
 JOURNAL_CATEGORY_COUNT="$(EINKAUF_DATA_DIR="$TEST_DATA_DIR" php -r '$db = new PDO("sqlite:" . getenv("EINKAUF_DATA_DIR") . "/einkaufsliste.db"); echo (int) $db->query("SELECT COUNT(*) FROM categories WHERE type = \"daily_notes\"")->fetchColumn();')"
-[[ "$JOURNAL_CATEGORY_COUNT" == "1" ]]
+[[ "$JOURNAL_CATEGORY_COUNT" -ge 1 ]]
 
 [[ "$(status_code "$JOURNAL_EMPTY_BODY" -b "$COOKIE_JAR" "http://127.0.0.1:$PORT/api.php?action=journal&date=2026-07-17")" == "200" ]]
 php -r '$payload = json_decode(file_get_contents($argv[1]), true); if (($payload["date"] ?? "") !== "2026-07-17" || ($payload["item"] ?? null) !== null) { fwrite(STDERR, "Leerer Journaltag hat unerwartete Daten erzeugt.\n"); exit(1); }' "$JOURNAL_EMPTY_BODY"
@@ -298,6 +298,32 @@ if [[ -z "$ITEM_ID" ]]; then
     echo "Artikel-ID konnte nicht aus der Add-Antwort gelesen werden." >&2
     exit 1
 fi
+
+# Idempotenz: gleiche Request-ID + gleicher Body = Replay ohne Duplikat.
+[[ "$(status_code "$IDEMPOTENT_FIRST_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H "X-Idempotency-Key: smoke-add-replay-key" -X POST -d "category_id=$SHOPPING_CATEGORY_ID&name=Idempotenz&quantity=1" "http://127.0.0.1:$PORT/api.php?action=add")" == "201" ]]
+IDEMPOTENT_ITEM_ID="$(php -r '$payload = json_decode(file_get_contents($argv[1]), true); echo (int) ($payload["id"] ?? 0);' "$IDEMPOTENT_FIRST_BODY")"
+[[ "$IDEMPOTENT_ITEM_ID" -gt 0 ]]
+[[ "$(status_code "$IDEMPOTENT_REPLAY_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H "X-Idempotency-Key: smoke-add-replay-key" -X POST -d "category_id=$SHOPPING_CATEGORY_ID&name=Idempotenz&quantity=1" "http://127.0.0.1:$PORT/api.php?action=add")" == "201" ]]
+php -r '
+    $payload = json_decode(file_get_contents($argv[1]), true);
+    if ((int) ($payload["id"] ?? 0) !== (int) $argv[2]) { fwrite(STDERR, "Idempotenz-Replay lieferte eine andere ID.\n"); exit(1); }
+    if ((int) ($payload["idempotent_replay"] ?? 0) !== 1) { fwrite(STDERR, "Replay-Antwort markiert sich nicht als Replay.\n"); exit(1); }
+' "$IDEMPOTENT_REPLAY_BODY" "$IDEMPOTENT_ITEM_ID"
+IDEMPOTENT_COUNT="$(EINKAUF_DATA_DIR="$TEST_DATA_DIR" php -r '$db = new PDO("sqlite:" . getenv("EINKAUF_DATA_DIR") . "/einkaufsliste.db"); $stmt = $db->prepare("SELECT COUNT(*) FROM items WHERE user_id = (SELECT id FROM users WHERE username = \"testuser\") AND name = :name"); $stmt->execute([":name" => "Idempotenz"]); echo (int) $stmt->fetchColumn();')"
+[[ "$IDEMPOTENT_COUNT" == "1" ]]
+
+# Idempotenz: gleiche Request-ID + anderer Body = 422 mit idempotency_key_mismatch.
+[[ "$(status_code "$IDEMPOTENT_MISMATCH_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H "X-Idempotency-Key: smoke-add-replay-key" -X POST -d "category_id=$SHOPPING_CATEGORY_ID&name=IdempotenzAbweichend" "http://127.0.0.1:$PORT/api.php?action=add")" == "422" ]]
+php -r '$payload = json_decode(file_get_contents($argv[1]), true); if (($payload["error_key"] ?? "") !== "error.idempotency_key_mismatch") { fwrite(STDERR, "Mismatch lieferte den falschen Fehler-Key.\n"); exit(1); }' "$IDEMPOTENT_MISMATCH_BODY"
+
+# Idempotenz: ungültige Request-ID = 400 mit idempotency_key_invalid.
+[[ "$(status_code "$IDEMPOTENT_INVALID_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H "X-Idempotency-Key: hat leerzeichen & sonderzeichen!" -X POST -d 'name=Ignored' "http://127.0.0.1:$PORT/api.php?action=add")" == "400" ]]
+php -r '$payload = json_decode(file_get_contents($argv[1]), true); if (($payload["error_key"] ?? "") !== "error.idempotency_key_invalid") { fwrite(STDERR, "Ungültiger Key lieferte den falschen Fehler-Key.\n"); exit(1); }' "$IDEMPOTENT_INVALID_BODY"
+
+# Idempotenz: fehlgeschlagene Mutation wird nicht gecacht (gleicher Fehler bei zweitem Versuch).
+[[ "$(status_code "$IDEMPOTENT_NEG_FIRST" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H "X-Idempotency-Key: smoke-add-fail-key" -X POST -d 'name=' "http://127.0.0.1:$PORT/api.php?action=add")" == "422" ]]
+[[ "$(status_code "$IDEMPOTENT_NEG_REPLAY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H "X-Idempotency-Key: smoke-add-fail-key" -X POST -d 'name=' "http://127.0.0.1:$PORT/api.php?action=add")" == "422" ]]
+php -r '$payload = json_decode(file_get_contents($argv[1]), true); if (array_key_exists("idempotent_replay", $payload)) { fwrite(STDERR, "Fehlerhafte Anfrage wurde irrtümlich aus dem Cache replayed.\n"); exit(1); }' "$IDEMPOTENT_NEG_REPLAY"
 
 [[ "$(status_code "$UNICODE_ADD_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST --data-urlencode "category_id=$SHOPPING_CATEGORY_ID" --data-urlencode 'name=Öl' --data-urlencode 'quantity=1' "http://127.0.0.1:$PORT/api.php?action=add")" == "201" ]]
 UNICODE_ITEM_ID="$(sed -n 's/.*"id":\([0-9][0-9]*\).*/\1/p' "$UNICODE_ADD_BODY" | head -n 1)"

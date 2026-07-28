@@ -51,40 +51,45 @@ const REMOTE_FILE_IMPORT_TIMEOUT_SECONDS = 7200;
 
 function respond(int $status, array $payload): never
 {
-    if (in_array($_SERVER['REQUEST_METHOD'], ['POST', 'PUT', 'PATCH', 'DELETE']) && $status >= 200 && $status < 300) {
-        $wsUrl = getenv('WS_NOTIFY_URL') ?: 'http://127.0.0.1:3000/notify';
-        // Include user_id so the WebSocket server only broadcasts to that user's connections.
-        $notifyUserId = $GLOBALS['current_user_id'] ?? null;
-        $notifyPayload = ['action' => 'update'];
-        if ($notifyUserId !== null) {
-            $notifyPayload['user_id'] = $notifyUserId;
-        }
-        $notifyJson = (string) json_encode($notifyPayload);
-        if (function_exists('curl_init')) {
-            $ch = curl_init($wsUrl);
-            if ($ch !== false) {
-                curl_setopt_array($ch, [
-                    CURLOPT_CUSTOMREQUEST => 'POST',
-                    CURLOPT_POSTFIELDS => $notifyJson,
-                    CURLOPT_RETURNTRANSFER => true,
-                    CURLOPT_TIMEOUT_MS => 150,
-                    CURLOPT_NOSIGNAL => true,
-                    CURLOPT_HTTPHEADER => ['Content-Type: application/json']
-                ]);
-                curl_exec($ch);
+    if ($status >= 200 && $status < 300) {
+        storeIdempotentResponse($status, $payload);
+        if (in_array($_SERVER['REQUEST_METHOD'], ['POST', 'PUT', 'PATCH', 'DELETE'], true)) {
+            $wsUrl = getenv('WS_NOTIFY_URL') ?: 'http://127.0.0.1:3000/notify';
+            // Include user_id so the WebSocket server only broadcasts to that user's connections.
+            $notifyUserId = $GLOBALS['current_user_id'] ?? null;
+            $notifyPayload = ['action' => 'update'];
+            if ($notifyUserId !== null) {
+                $notifyPayload['user_id'] = $notifyUserId;
             }
-        } else {
-            $context = stream_context_create([
-                'http' => [
-                    'method' => 'POST',
-                    'header' => 'Content-Type: application/json',
-                    'content' => $notifyJson,
-                    'timeout' => 0.15,
-                    'ignore_errors' => true
-                ]
-            ]);
-            @file_get_contents($wsUrl, false, $context);
+            $notifyJson = (string) json_encode($notifyPayload);
+            if (function_exists('curl_init')) {
+                $ch = curl_init($wsUrl);
+                if ($ch !== false) {
+                    curl_setopt_array($ch, [
+                        CURLOPT_CUSTOMREQUEST => 'POST',
+                        CURLOPT_POSTFIELDS => $notifyJson,
+                        CURLOPT_RETURNTRANSFER => true,
+                        CURLOPT_TIMEOUT_MS => 150,
+                        CURLOPT_NOSIGNAL => true,
+                        CURLOPT_HTTPHEADER => ['Content-Type: application/json']
+                    ]);
+                    curl_exec($ch);
+                }
+            } else {
+                $context = stream_context_create([
+                    'http' => [
+                        'method' => 'POST',
+                        'header' => 'Content-Type: application/json',
+                        'content' => $notifyJson,
+                        'timeout' => 0.15,
+                        'ignore_errors' => true
+                    ]
+                ]);
+                @file_get_contents($wsUrl, false, $context);
+            }
         }
+    } elseif (getIdempotencyRequestId() !== '') {
+        $payload['error_key'] = $payload['error_key'] ?? 'error.idempotency_replay_blocked';
     }
 
     http_response_code($status);
@@ -109,7 +114,132 @@ function requireWriteRequest(): array
     if (!isApiKeyAuthRequest()) {
         requireCsrfToken($data);
     }
+    replayIdempotentIfKnown($data);
     return $data;
+}
+
+function getIdempotencyRequestId(): string
+{
+    return trim((string) ($_SERVER['HTTP_X_IDEMPOTENCY_KEY'] ?? ''));
+}
+
+function isValidIdempotencyRequestId(string $requestId): bool
+{
+    if ($requestId === '' || strlen($requestId) > 128) {
+        return false;
+    }
+    return preg_match('/^[A-Za-z0-9_-]+$/', $requestId) === 1;
+}
+
+function canonicalizeForHash(array $data): array
+{
+    foreach ($data as $key => $value) {
+        if (is_array($value)) {
+            $data[$key] = canonicalizeForHash($value);
+        }
+    }
+    ksort($data);
+    return $data;
+}
+
+function computeIdempotencyRequestHash(string $action, array $data): string
+{
+    $files = [];
+    foreach ($_FILES as $key => $info) {
+        if (!is_array($info)) {
+            continue;
+        }
+        $files[(string) $key] = [
+            'name' => (string) ($info['name'] ?? ''),
+            'size' => (int) ($info['size'] ?? 0),
+            'type' => (string) ($info['type'] ?? ''),
+            'error' => (int) ($info['error'] ?? 0),
+        ];
+    }
+    ksort($files);
+
+    $payload = [
+        'action' => $action,
+        'data' => canonicalizeForHash($data),
+        'files' => $files,
+    ];
+    return hash('sha256', json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+}
+
+function replayIdempotentIfKnown(array $data): void
+{
+    $requestId = getIdempotencyRequestId();
+    if ($requestId === '') {
+        return;
+    }
+    if (!isValidIdempotencyRequestId($requestId)) {
+        respond(400, ['error' => t('error.idempotency_key_invalid'), 'error_key' => 'error.idempotency_key_invalid']);
+    }
+
+    $db = $GLOBALS['db'] ?? null;
+    $userId = $GLOBALS['current_user_id'] ?? null;
+    $action = $GLOBALS['current_action'] ?? '';
+    if (!($db instanceof PDO) || !is_int($userId) || $action === '') {
+        return;
+    }
+
+    $requestHash = computeIdempotencyRequestHash($action, $data);
+
+    $stmt = $db->prepare('SELECT request_hash, response_status, response_body FROM idempotency_keys WHERE user_id = :user_id AND request_id = :request_id LIMIT 1');
+    $stmt->execute([':user_id' => $userId, ':request_id' => $requestId]);
+    $cached = $stmt->fetch();
+
+    if ($cached === false) {
+        return;
+    }
+
+    if (!hash_equals((string) ($cached['request_hash'] ?? ''), $requestHash)) {
+        respond(422, ['error' => t('error.idempotency_key_mismatch'), 'error_key' => 'error.idempotency_key_mismatch']);
+    }
+
+    $status = (int) ($cached['response_status'] ?? 200);
+    $decoded = json_decode((string) ($cached['response_body'] ?? '{}'), true);
+    $payload = is_array($decoded) ? $decoded : [];
+    $payload['idempotent_replay'] = 1;
+
+    respond($status, $payload);
+}
+
+function storeIdempotentResponse(int $status, array $payload): void
+{
+    $requestId = getIdempotencyRequestId();
+    if ($requestId === '') {
+        return;
+    }
+
+    $db = $GLOBALS['db'] ?? null;
+    $userId = $GLOBALS['current_user_id'] ?? null;
+    $action = $GLOBALS['current_action'] ?? '';
+    if (!($db instanceof PDO) || !is_int($userId) || $action === '') {
+        return;
+    }
+
+    $data = requestData();
+    $requestHash = computeIdempotencyRequestHash($action, $data);
+    $body = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+    $stmt = $db->prepare(
+        'INSERT INTO idempotency_keys (user_id, request_id, action, request_hash, response_status, response_body)
+         VALUES (:user_id, :request_id, :action, :request_hash, :response_status, :response_body)
+         ON CONFLICT(user_id, request_id) DO UPDATE SET
+            action = excluded.action,
+            request_hash = excluded.request_hash,
+            response_status = excluded.response_status,
+            response_body = excluded.response_body'
+    );
+    $stmt->execute([
+        ':user_id' => $userId,
+        ':request_id' => $requestId,
+        ':action' => $action,
+        ':request_hash' => $requestHash,
+        ':response_status' => $status,
+        ':response_body' => (string) $body,
+    ]);
 }
 
 function ensureUtf8(mixed $value): mixed
@@ -1858,7 +1988,9 @@ function normalizeItemFieldsForType(
 }
 
 $action = $_GET['action'] ?? 'list';
+$GLOBALS['current_action'] = $action;
 $db = getDatabase();
+$GLOBALS['db'] = $db;
 $userId = requireApiAuthWithKey($db);
 // Make userId available to respond() for user-scoped WS notifications.
 $GLOBALS['current_user_id'] = $userId;

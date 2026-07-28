@@ -90,6 +90,34 @@ function migrateItemRevisionSchema(PDO $db): void
     setSchemaVersion($db, $targetVersion);
 }
 
+// ponytail: idempotency_keys — proves a request was already applied to this user
+// so the next reply can be replayed verbatim when the client retries after a
+// lost response. Cascade on user delete; no automatic expiry (out-of-scope
+// until proven growth).
+function migrateIdempotencyKeysSchema(PDO $db): void
+{
+    $targetVersion = 4;
+    if (getSchemaVersion($db) >= $targetVersion) {
+        return;
+    }
+
+    $db->exec(
+        "CREATE TABLE IF NOT EXISTS idempotency_keys (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            request_id TEXT NOT NULL,
+            action TEXT NOT NULL,
+            request_hash TEXT NOT NULL,
+            response_status INTEGER NOT NULL,
+            response_body TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )"
+    );
+    $db->exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_idempotency_user_request ON idempotency_keys(user_id, request_id)');
+
+    setSchemaVersion($db, $targetVersion);
+}
+
 function migrateParchmentSchema(PDO $db): void
 {
     $targetVersion = 2;
@@ -632,6 +660,7 @@ function getDatabase(): PDO
 
     migrateParchmentSchema($db);
     migrateItemRevisionSchema($db);
+    migrateIdempotencyKeysSchema($db);
     $db->exec('CREATE INDEX IF NOT EXISTS idx_categories_user_id ON categories(user_id)');
     $db->exec('CREATE INDEX IF NOT EXISTS idx_categories_user_sort ON categories(user_id, sort_order)');
     $db->exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_categories_one_daily_notes_per_user ON categories(user_id) WHERE type = 'daily_notes'");
