@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="de">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>PROTOTYP – Konfliktauflösung Tagesnotiz</title>
+    <!-- Drei Varianten der Tagesnotiz-Konfliktauflösung, umschaltbar via ?variant=A|B|C. -->
+    <style>
+        :root {
+            color-scheme: light;
+            --paper: #f4efe4;
+            --surface: #fffdf8;
+            --ink: #28251f;
+            --muted: #6f685d;
+            --line: #d8cfbf;
+            --accent: #ca5b37;
+            --accent-dark: #984025;
+            --warning: #fff1c7;
+            --warning-line: #d49627;
+            --server: #eef3f6;
+            --shadow: 0 18px 50px rgb(47 39 28 / .18);
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            background: var(--paper);
+            color: var(--ink);
+            font: 16px/1.45 system-ui, sans-serif;
+        }
+        button { font: inherit; }
+        button:focus-visible { outline: 3px solid #236e94; outline-offset: 2px; }
+        .app { width: min(100%, 980px); min-height: 100vh; margin: auto; background: var(--surface); }
+        .topbar {
+            display: grid;
+            grid-template-columns: 44px 1fr 44px;
+            align-items: center;
+            min-height: 58px;
+            padding: 7px 12px;
+            border-bottom: 1px solid var(--line);
+            position: sticky;
+            top: 0;
+            background: rgb(255 253 248 / .96);
+            z-index: 5;
+        }
+        .icon-btn { min-width: 44px; min-height: 44px; border: 0; background: transparent; border-radius: 50%; }
+        .topbar h1 { margin: 0; text-align: center; font: 650 18px/1.2 Georgia, serif; }
+        .date-nav { display: flex; justify-content: center; gap: 6px; padding: 14px 12px 5px; }
+        .date-nav button, .outline-btn, .primary-btn, .danger-btn, .choice-btn {
+            min-height: 44px;
+            border-radius: 10px;
+            padding: 8px 14px;
+            border: 1px solid var(--line);
+            background: var(--surface);
+            color: var(--ink);
+            font-weight: 650;
+        }
+        .date-nav button[aria-pressed="true"] { background: var(--ink); color: #fff; border-color: var(--ink); }
+        .day-title { margin: 18px 18px 8px; font: 700 27px/1.15 Georgia, serif; }
+        .agenda {
+            margin: 0 18px 14px;
+            padding: 13px 15px;
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            background: #faf7f0;
+            color: var(--muted);
+        }
+        .agenda strong { color: var(--ink); }
+        .note-card { margin: 0 18px 120px; border-top: 1px solid var(--line); }
+        .note-heading { display: flex; align-items: center; justify-content: space-between; min-height: 54px; }
+        .note-heading h2 { margin: 0; font: 700 20px/1.2 Georgia, serif; }
+        .save-state { color: var(--muted); font-size: 14px; }
+        .save-state.is-paused { color: #8a5500; font-weight: 700; }
+        .editor {
+            min-height: 170px;
+            padding: 18px 4px;
+            border-top: 1px solid var(--line);
+            color: var(--ink);
+        }
+        .editor p:first-child { margin-top: 0; }
+        .sketch-thumb {
+            height: 92px;
+            margin-top: 12px;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: linear-gradient(135deg, transparent 48%, #b9aa94 49%, #b9aa94 51%, transparent 52%), #fbf8f1;
+            display: grid;
+            place-items: center;
+            color: var(--muted);
+        }
+        .conflict-banner {
+            margin: 0 0 14px;
+            padding: 12px 14px;
+            border: 1px solid var(--warning-line);
+            border-radius: 12px;
+            background: var(--warning);
+        }
+        .conflict-banner strong { display: block; }
+        .conflict-banner p { margin: 4px 0 0; }
+        .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .version {
+            min-width: 0;
+            padding: 14px;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: var(--surface);
+        }
+        .version.server { background: var(--server); }
+        .version h3 { margin: 0 0 3px; font-size: 16px; }
+        .version time { color: var(--muted); font-size: 13px; }
+        .version-content { min-height: 120px; margin: 12px 0; padding-top: 10px; border-top: 1px solid var(--line); }
+        .choice-btn { width: 100%; border-color: var(--ink); }
+        .primary-btn { color: #fff; background: var(--accent); border-color: var(--accent-dark); }
+        .danger-btn { color: #fff; background: var(--ink); border-color: var(--ink); }
+        .resolution { padding: 22px; border: 1px solid #67986d; border-radius: 12px; background: #edf7ed; text-align: center; }
+        .resolution strong { display: block; margin-bottom: 10px; }
+        .reset-btn { margin-top: 10px; background: transparent; border: 0; text-decoration: underline; }
+
+        /* B: konflikt als fokussierter, blockierender Dialog */
+        .variant-b .note-card { opacity: .48; filter: grayscale(.2); }
+        .modal-backdrop {
+            position: fixed;
+            inset: 0;
+            z-index: 10;
+            display: grid;
+            place-items: center;
+            padding: 18px 18px 96px;
+            background: rgb(32 28 23 / .58);
+        }
+        .modal {
+            width: min(760px, 100%);
+            max-height: calc(100vh - 130px);
+            overflow: auto;
+            padding: 20px;
+            border-radius: 18px;
+            background: var(--surface);
+            box-shadow: var(--shadow);
+        }
+        .modal h2 { margin: 0; font: 700 24px/1.2 Georgia, serif; }
+        .modal-intro { color: var(--muted); margin: 6px 0 16px; }
+        .segment-tabs { display: flex; gap: 8px; margin-bottom: 14px; }
+        .segment-tabs button { flex: 1; min-height: 44px; border: 1px solid var(--line); border-radius: 10px; background: transparent; }
+        .segment-tabs button[aria-selected="true"] { color: #fff; background: var(--ink); }
+
+        /* C: nichtmodaler Prüfbereich unter einer stabilen Warnleiste */
+        .sticky-warning {
+            position: sticky;
+            top: 58px;
+            z-index: 4;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 18px;
+            background: var(--warning);
+            border-bottom: 1px solid var(--warning-line);
+        }
+        .sticky-warning span { flex: 1; }
+        .review-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 18px; margin: 0 18px 120px; }
+        .review-layout .note-card { margin: 0; }
+        .review-panel { align-self: start; padding: 16px; border: 2px solid var(--warning-line); border-radius: 14px; background: #fffbeb; }
+        .review-panel h2 { margin: 0 0 4px; font: 700 19px/1.2 Georgia, serif; }
+        .review-panel p { margin: 0 0 14px; color: var(--muted); }
+        .version-select { display: grid; gap: 8px; }
+        .version-select label { display: block; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+        .version-select label:has(input:checked) { border: 2px solid var(--ink); padding: 11px; }
+        .version-select small { display: block; margin: 5px 0 0 24px; color: var(--muted); }
+        .review-panel .primary-btn { width: 100%; margin-top: 12px; }
+
+        .prototype-switcher {
+            position: fixed;
+            left: 50%;
+            bottom: 18px;
+            z-index: 30;
+            transform: translateX(-50%);
+            display: grid;
+            grid-template-columns: 48px minmax(170px, auto) 48px;
+            align-items: center;
+            overflow: hidden;
+            border: 2px solid #fff;
+            border-radius: 999px;
+            background: #171717;
+            color: #fff;
+            box-shadow: 0 8px 26px rgb(0 0 0 / .35);
+        }
+        .prototype-switcher button { min-height: 48px; border: 0; background: transparent; color: #fff; font-size: 22px; }
+        .prototype-switcher output { padding: 0 8px; text-align: center; font-size: 13px; font-weight: 700; }
+        .prototype-tag { position: fixed; right: 8px; top: 8px; z-index: 40; padding: 4px 7px; border-radius: 6px; background: #b82020; color: #fff; font: 700 11px/1 system-ui; }
+        [hidden] { display: none !important; }
+
+        @media (max-width: 680px) {
+            .day-title { font-size: 23px; }
+            .compare-grid { grid-template-columns: 1fr; }
+            .version-content { min-height: 75px; }
+            .modal { padding: 16px; }
+            .review-layout { grid-template-columns: 1fr; }
+            .review-panel { order: -1; }
+            .sticky-warning { align-items: flex-start; }
+        }
+    </style>
+</head>
+<body>
+<div class="prototype-tag">PROTOTYP</div>
+<main id="app" class="app"></main>
+<nav class="prototype-switcher" aria-label="Prototyp-Varianten">
+    <button id="previousVariant" type="button" aria-label="Vorherige Variante">←</button>
+    <output id="variantLabel"></output>
+    <button id="nextVariant" type="button" aria-label="Nächste Variante">→</button>
+</nav>
+<script>
+    const variants = {
+        A: 'Eingebetteter Vergleich',
+        B: 'Blockierender Dialog',
+        C: 'Prüfbereich',
+    };
+    const app = document.getElementById('app');
+    let resolved = false;
+
+    const shell = content => `
+        <header class="topbar">
+            <button class="icon-btn" aria-label="Zurück">←</button>
+            <h1>Journal</h1>
+            <button class="icon-btn" aria-label="Mehr">•••</button>
+        </header>
+        <nav class="date-nav" aria-label="Datum wählen">
+            <button>Gestern</button><button aria-pressed="true">Heute</button><button>Morgen</button>
+        </nav>
+        <h1 class="day-title">Dienstag, 28. Juli</h1>
+        <section class="agenda"><strong>Agenda</strong> · 09:30 Zahnarzt · Müll rausbringen</section>
+        ${content}`;
+
+    const normalNote = (extraClass = '') => `
+        <section class="note-card ${extraClass}">
+            <div class="note-heading"><h2>Tagesnotiz</h2><span class="save-state is-paused">Auto-Save pausiert</span></div>
+            <div class="editor"><p><strong>Workshop vorbereiten</strong></p><p>Folien kürzen und Beispiel für den Einstieg ergänzen.</p></div>
+            <div class="sketch-thumb">Tages-Skizze · unverändert</div>
+        </section>`;
+
+    const comparison = (compact = false) => `
+        <div class="compare-grid">
+            <article class="version">
+                <h3>Meine Version</h3><time>dieses Gerät · 14:07</time>
+                <div class="version-content"><strong>Workshop vorbereiten</strong><p>Folien kürzen und Beispiel für den Einstieg ergänzen.</p></div>
+                ${compact ? '' : '<button class="choice-btn" data-choice="mine">Meine behalten</button>'}
+            </article>
+            <article class="version server">
+                <h3>Server-Version</h3><time>anderes Gerät · 14:06</time>
+                <div class="version-content"><strong>Workshop vorbereiten</strong><p>Folien final prüfen und Handout ausdrucken.</p></div>
+                ${compact ? '' : '<button class="choice-btn" data-choice="server">Server-Version übernehmen</button>'}
+            </article>
+        </div>`;
+
+    const resolvedState = choice => `
+        <div class="resolution" role="status">
+            <strong>${choice === 'mine' ? 'Meine Textversion wurde übernommen.' : 'Die Server-Textversion wurde übernommen.'}</strong>
+            Auto-Save läuft wieder. Die Tages-Skizze blieb unverändert.
+            <br><button class="reset-btn" data-reset>Konflikt erneut anzeigen</button>
+        </div>`;
+
+    function variantA() {
+        return shell(`<section class="note-card">
+            <div class="note-heading"><h2>Tagesnotiz</h2><span class="save-state is-paused">Auto-Save pausiert</span></div>
+            <div class="conflict-banner"><strong>Text wurde auf einem anderen Gerät geändert.</strong><p>Wähle eine Version. Bis dahin wird diese Tagesnotiz nicht gespeichert.</p></div>
+            <div data-conflict>${comparison()}</div>
+            <div class="sketch-thumb">Tages-Skizze · unverändert und weiter gespeichert</div>
+        </section>`);
+    }
+
+    function variantB() {
+        return `<div class="variant-b">${shell(normalNote())}</div>
+            <div class="modal-backdrop">
+                <section class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+                    <h2 id="modalTitle">Änderungskonflikt lösen</h2>
+                    <p class="modal-intro">Auto-Save ist pausiert. Erst nach deiner Auswahl kann die Tagesnotiz weiter bearbeitet werden.</p>
+                    <div class="segment-tabs" role="tablist"><button role="tab" aria-selected="true">Text · Konflikt</button><button role="tab" aria-selected="false">Skizze · unverändert</button></div>
+                    <div data-conflict>${comparison()}</div>
+                </section>
+            </div>`;
+    }
+
+    function variantC() {
+        return shell(`
+            <aside class="sticky-warning"><strong>⚠</strong><span><strong>Auto-Save pausiert:</strong> Textänderung prüfen.</span><button class="outline-btn" type="button">Zum Konflikt</button></aside>
+            <div class="review-layout">
+                ${normalNote()}
+                <aside class="review-panel">
+                    <h2>Welche Textversion gilt?</h2>
+                    <p>Die Skizze ist nicht betroffen.</p>
+                    <div data-conflict>
+                        <div class="version-select">
+                            <label><input type="radio" name="version" value="mine" checked> <strong>Meine Version</strong><small>„Folien kürzen …“</small></label>
+                            <label><input type="radio" name="version" value="server"> <strong>Server-Version</strong><small>„Folien final prüfen …“</small></label>
+                        </div>
+                        <button class="primary-btn" data-apply>Auswahl übernehmen</button>
+                    </div>
+                </aside>
+            </div>`);
+    }
+
+    function currentVariant() {
+        const value = new URLSearchParams(location.search).get('variant')?.toUpperCase();
+        return variants[value] ? value : 'A';
+    }
+
+    function render() {
+        const variant = currentVariant();
+        resolved = false;
+        app.innerHTML = variant === 'A' ? variantA() : variant === 'B' ? variantB() : variantC();
+        document.getElementById('variantLabel').textContent = `${variant} — ${variants[variant]}`;
+        document.title = `PROTOTYP ${variant} – ${variants[variant]}`;
+    }
+
+    function chooseVariant(offset) {
+        const keys = Object.keys(variants);
+        const index = keys.indexOf(currentVariant());
+        const next = keys[(index + offset + keys.length) % keys.length];
+        const url = new URL(location.href);
+        url.searchParams.set('variant', next);
+        history.replaceState({}, '', url);
+        render();
+    }
+
+    document.getElementById('previousVariant').addEventListener('click', () => chooseVariant(-1));
+    document.getElementById('nextVariant').addEventListener('click', () => chooseVariant(1));
+    document.addEventListener('keydown', event => {
+        if (!['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+        if (event.target.matches('input, textarea, [contenteditable]')) return;
+        chooseVariant(event.key === 'ArrowLeft' ? -1 : 1);
+    });
+    app.addEventListener('click', event => {
+        const choiceButton = event.target.closest('[data-choice]');
+        const applyButton = event.target.closest('[data-apply]');
+        const resetButton = event.target.closest('[data-reset]');
+        if (resetButton) { render(); return; }
+        const choice = choiceButton?.dataset.choice || (applyButton ? app.querySelector('input[name="version"]:checked')?.value : '');
+        if (!choice || resolved) return;
+        resolved = true;
+        const target = event.target.closest('.modal')?.querySelector('[data-conflict]')
+            || event.target.closest('.review-panel')?.querySelector('[data-conflict]')
+            || app.querySelector('[data-conflict]');
+        target.innerHTML = resolvedState(choice);
+        app.querySelectorAll('.save-state').forEach(node => {
+            node.textContent = 'Gespeichert';
+            node.classList.remove('is-paused');
+        });
+        const warning = app.querySelector('.sticky-warning');
+        if (warning) warning.hidden = true;
+    });
+
+    render();
+</script>
+</body>
+</html>
