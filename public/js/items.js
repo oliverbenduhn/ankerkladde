@@ -172,6 +172,53 @@ export function createItemsController(deps) {
         updateUploadUi();
     }
 
+    let backgroundRefreshInFlight = false;
+
+    // AC #64: sichtbare Kategorie sparsam im Hintergrund aktualisieren.
+    // Schuetzt nur das gerade bearbeitete/gespeicherte Item (dessen
+    // Konflikteinheit); alle anderen sichtbaren Aenderungen werden
+    // uebernommen. Hoechstens ein Refresh gleichzeitig; ein fehlgeschlagener
+    // Abruf laesst sichtbaren und lokalen Zustand unveraendert und startet
+    // keinen eigenen Retry-Timer.
+    async function refreshVisibleCategory() {
+        if (document.hidden) return;
+        if (backgroundRefreshInFlight) return;
+        const categoryId = Number(state.categoryId);
+        const category = state.categories.find(entry => entry.id === categoryId) || null;
+        if (!category) return;
+
+        backgroundRefreshInFlight = true;
+        try {
+            const payload = await api(`list&category_id=${encodeURIComponent(categoryId)}`);
+            if (categoryId !== Number(state.categoryId)) {
+                // Kategorie wurde zwischenzeitlich gewechselt - nur cachen, nicht anzeigen.
+                cacheCategoryPayload(categoryId, payload);
+                return;
+            }
+
+            const freshItems = Array.isArray(payload.items) ? payload.items.map(normalizeItem) : [];
+            const protectedId = state.editingId !== null ? Number(state.editingId) : null;
+            const mergedItems = freshItems.map(freshItem => {
+                if (protectedId !== null && Number(freshItem.id) === protectedId) {
+                    const localItem = state.items.find(entry => Number(entry.id) === protectedId);
+                    if (localItem) return localItem;
+                }
+                return freshItem;
+            });
+
+            state.items = mergedItems;
+            state.diskFreeBytes = typeof payload.disk_free_bytes === 'number' ? payload.disk_free_bytes : null;
+            cacheCurrentCategoryItems();
+            renderItems();
+            updateUploadUi();
+        } catch {
+            // Fehlgeschlagener Hintergrund-Refresh darf weder sichtbaren noch
+            // lokal geaenderten Zustand veraendern; kein eigener Retry-Timer.
+        } finally {
+            backgroundRefreshInFlight = false;
+        }
+    }
+
     function prefetchAdjacentCategories() {
         const visibleCategories = getVisibleCategories();
         const currentIndex = visibleCategories.findIndex(category => category.id === state.categoryId);
@@ -252,6 +299,7 @@ export function createItemsController(deps) {
         openSearch,
         closeSearch,
         prefetchAdjacentCategories,
+        refreshVisibleCategory,
         savePreferences,
         setCategory,
     };

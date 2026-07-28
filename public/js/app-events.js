@@ -58,6 +58,7 @@ export function registerAppEventHandlers(deps) {
         openScanner,
         openSearch,
         openJournalWithNavigation,
+        refreshVisibleCategory,
         renderCategoryTabs,
         renderItems,
         router,
@@ -471,6 +472,34 @@ export function registerAppEventHandlers(deps) {
         if (navigator.onLine && getPendingCount() > 0) {
             void runOnlineSync();
         }
+    }, 30000);
+
+    // AC #64: sichtbare Kategorie sparsam im Hintergrund aktualisieren.
+    // App-Start zaehlt bereits als frischer Ladevorgang (loadItems in
+    // app-init.js), daher startet die Drosselung ab jetzt.
+    let lastVisibleRefreshAt = Date.now();
+    const runVisibleRefresh = () => {
+        lastVisibleRefreshAt = Date.now();
+        void refreshVisibleCategory();
+    };
+
+    window.addEventListener('online', () => {
+        runVisibleRefresh();
+    });
+
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) return;
+        // Rueckkehr in die App: gedrosselt auf mindestens 10s seit der
+        // letzten Pruefung, um unnoetige Requests zu vermeiden.
+        if (Date.now() - lastVisibleRefreshAt < 10000) return;
+        runVisibleRefresh();
+    });
+
+    // Waehrend sichtbarer Nutzung alle 30s pruefen; bei verborgener App
+    // laeuft kein periodischer Abruf (Guard in refreshVisibleCategory selbst
+    // sowie hier, damit gar kein Request-Versuch stattfindet).
+    setInterval(() => {
+        if (!document.hidden) runVisibleRefresh();
     }, 30000);
 
     document.addEventListener('keydown', event => {

@@ -86,6 +86,7 @@ export function createAppRuntime(deps) {
     const setCategory = async categoryId => { await itemsController.setCategory(categoryId); };
     const loadItems = async (categoryId = state.categoryId, options = {}) => { await itemsController.loadItems(categoryId, options); };
     const prefetchAdjacentCategories = () => itemsController.prefetchAdjacentCategories();
+    const refreshVisibleCategory = async () => { await itemsController.refreshVisibleCategory(); };
     const getVisibleItems = () => itemsController.getVisibleItems();
     const openSearch = () => itemsController.openSearch();
     const closeSearch = () => itemsController.closeSearch();
@@ -381,6 +382,7 @@ export function createAppRuntime(deps) {
         openJournalWithNavigation,
         prefetchAdjacentCategories,
         quickAdd: async (input, activeCategoryId) => { await itemsActionsController.quickAdd(input, activeCategoryId); },
+        refreshVisibleCategory,
         renderCategoryTabs,
         renderItems,
         restorePersistedDraft,
