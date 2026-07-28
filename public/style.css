@@ -1057,6 +1057,34 @@ button, input { font: inherit; }
 .item-status-chip--waiting .icon { stroke: #4c1d95; fill: none; }
 .item-card.done .item-status-chip { opacity: 0.4; pointer-events: none; }
 
+.item-sync-badge {
+    display: inline-flex;
+    align-items: center;
+    min-height: 20px;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    line-height: 1.4;
+    white-space: nowrap;
+}
+.item-sync-badge-dirty {
+    background: #e5e7eb;
+    color: #374151;
+}
+.item-sync-badge-saving {
+    background: #dbeafe;
+    color: #1e40af;
+}
+.item-sync-badge-offline {
+    background: #fef3c7;
+    color: #92400e;
+}
+.item-sync-badge-conflict {
+    background: color-mix(in srgb, var(--error) 20%, transparent);
+    color: var(--error);
+}
+
 .attachment-preview-link {
     display: block;
     flex-shrink: 0;

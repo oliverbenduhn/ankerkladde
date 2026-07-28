@@ -4,6 +4,7 @@ import { clearDoneBtn, listEl, progressEl, svgIcon } from './ui.js';
 import { normalizeBarcodeValue, sanitizeItemField, syncAutoHeight } from './utils.js';
 import { createLightboxController } from './lightbox.js';
 import { createItemMenuController } from './item-menu.js';
+import { getItemSyncState } from './item-sync-state.js';
 
 let sketchEditorModulePromise = null;
 async function loadSketchEditor() {
@@ -584,6 +585,22 @@ export function createItemsViewController(deps) {
         });
     }
 
+    const SYNC_STATE_LABELS = {
+        dirty: 'Lokal geändert',
+        saving: 'Wird gespeichert…',
+        offline: 'Offline vorgemerkt',
+        conflict: 'Konflikt',
+    };
+
+    function buildSyncStateBadge(item) {
+        const syncState = getItemSyncState(item.id, { isDirty: state.editingId === item.id });
+        if (syncState === 'synced') return null;
+        const badge = document.createElement('span');
+        badge.className = `item-sync-badge item-sync-badge-${syncState}`;
+        badge.textContent = SYNC_STATE_LABELS[syncState] ?? '';
+        return badge;
+    }
+
     function buildItemNode(item) {
         const li = document.createElement('li');
         li.className = `item-card item-type-${item.category_type} ${item.done === 1 ? 'done' : 'open'}${item.is_pinned ? ' is-pinned' : ''}${isOverdueItem(item) ? ' is-overdue' : ''}`;
@@ -605,6 +622,9 @@ export function createItemsViewController(deps) {
         } else {
             buildReadOnlyContent(item, content);
         }
+
+        const syncBadge = buildSyncStateBadge(item);
+        if (syncBadge) content.appendChild(syncBadge);
 
         const actions = document.createElement('div');
         actions.className = 'item-actions';

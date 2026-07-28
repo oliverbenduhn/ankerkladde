@@ -45,7 +45,14 @@ export function enqueueAction(type, payload) {
         throw new Error(t('error.offline_too_large'));
     }
 
-    const queue = getQueue();
+    let queue = getQueue();
+    // AC #63: mehrere ungesendete Aenderungen derselben Konflikteinheit
+    // (gleicher type + id) werden zum letzten Zielzustand zusammengefasst,
+    // statt eine unnoetige Aktionshistorie zu wiederholen. "delete" bleibt
+    // bewusst eine eigene Aktion und wird nie mit anderen Typen verschmolzen.
+    if (type !== 'delete' && sanitizedPayload.id !== undefined) {
+        queue = queue.filter(entry => !(entry.type === type && entry?.payload?.id === sanitizedPayload.id));
+    }
     queue.push(item);
     const queueJson = JSON.stringify(queue);
     if (storageBytes(queueJson) > OFFLINE_QUEUE_MAX_BYTES) {

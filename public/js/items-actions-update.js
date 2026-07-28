@@ -2,6 +2,7 @@ import { t } from './i18n.js';
 import { api } from './api.js';
 import { getCurrentCategory, state } from './state.js';
 import { enqueueAction } from './offline-queue.js';
+import { isItemSaving, markItemSaving, clearItemSaving } from './item-sync-state.js';
 
 export function createUpdateActions(deps) {
     const {
@@ -193,6 +194,9 @@ export function createUpdateActions(deps) {
             return;
         }
 
+        // AC #63: hoechstens ein Schreibversuch pro Item gleichzeitig.
+        if (isItemSaving(id)) return;
+
         const item = getItemById(id);
         const expectedRevision = item ? Number(item.revision) : 0;
         if (expectedRevision < 1) {
@@ -212,6 +216,8 @@ export function createUpdateActions(deps) {
             content: (draft.content || '').trim(),
         });
 
+        markItemSaving(id);
+        renderItems();
         let result;
         try {
             result = await api('update', { method: 'POST', body });
@@ -225,6 +231,8 @@ export function createUpdateActions(deps) {
                 return;
             }
             throw error;
+        } finally {
+            clearItemSaving(id);
         }
         state.editingId = null;
         state.editDraft = { itemId: null, categoryId: null, name: '', barcode: '', quantity: '', due_date: '', due_time: '', priority: '', content: '' };
