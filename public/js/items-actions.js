@@ -1,8 +1,8 @@
-import { createActionUtils } from './items-actions-utils.js?v=5.1.34';
-import { createShareActions } from './items-actions-share.js?v=5.1.34';
-import { createUploadActions } from './items-actions-upload.js?v=5.1.34';
-import { createAddActions } from './items-actions-add.js?v=5.1.34';
-import { createUpdateActions } from './items-actions-update.js?v=5.1.34';
+import { createActionUtils } from './items-actions-utils.js?v=5.3.9';
+import { createShareActions } from './items-actions-share.js?v=5.3.9';
+import { createUploadActions } from './items-actions-upload.js?v=5.3.9';
+import { createAddActions } from './items-actions-add.js?v=5.3.9';
+import { createUpdateActions } from './items-actions-update.js?v=5.3.9';
 
 export function createItemsActionsController(deps) {
     const utils = createActionUtils(deps);

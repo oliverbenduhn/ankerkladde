@@ -226,7 +226,10 @@ button, input { font: inherit; }
 .mode-chip {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 4px;
+    min-width: 44px;
+    min-height: 44px;
     padding: 3px 10px;
     border-radius: 12px;
     border: 1px solid var(--accent);
@@ -492,14 +495,19 @@ button, input { font: inherit; }
 
 .quick-add-feedback button {
     flex: 0 0 auto;
+    min-width: 44px;
+    min-height: 44px;
     border: 1px solid currentColor;
     border-radius: 999px;
-    padding: 6px 10px;
+    padding: 10px 14px;
     background: transparent;
     color: inherit;
     font: inherit;
     font-weight: 600;
     cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .btn-scan-input {
@@ -810,29 +818,48 @@ button, input { font: inherit; }
    CHECKBOX TOGGLE
    =========================================== */
 .toggle {
+    --toggle-visual-size: 24px;
     appearance: none;
     -webkit-appearance: none;
-    width: 24px;
-    height: 24px;
-    min-width: 24px;
-    border: 1.5px solid var(--accent);
-    border-radius: 12px;
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    border: none;
+    border-radius: 50%;
     background: transparent;
     cursor: pointer;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
+    position: relative;
     transition: background 0.15s ease, border-color 0.15s ease;
 }
 
-.toggle:checked { background: var(--accent); border-color: var(--accent); }
+.toggle::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: var(--toggle-visual-size);
+    height: var(--toggle-visual-size);
+    border: 1.5px solid var(--accent);
+    border-radius: 50%;
+    background: transparent;
+    transform: translate(-50%, -50%);
+}
+
+.toggle:checked::before { background: var(--accent); }
 
 .toggle:checked::after {
     content: "✓";
+    position: absolute;
+    left: 50%;
+    top: 50%;
     font-size: 11px;
     color: var(--surface);
     line-height: 1;
+    transform: translate(-50%, -50%);
 }
 
 .toggle:disabled {
@@ -841,10 +868,7 @@ button, input { font: inherit; }
 }
 
 [data-mode="view"] .toggle {
-    width: 26px;
-    height: 26px;
-    min-width: 26px;
-    border-radius: 14px;
+    --toggle-visual-size: 26px;
 }
 
 [data-mode="view"] .toggle:checked::after { font-size: 12px; }
@@ -1378,10 +1402,10 @@ button, input { font: inherit; }
 
 .btn-item-action,
 .btn-delete {
-    width: 36px;
-    height: 36px;
-    min-width: 36px;
-    min-height: 36px;
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
     padding: 0;
     background: none;
     border: none;
@@ -1403,10 +1427,10 @@ button, input { font: inherit; }
 }
 
 .btn-item-menu {
-    width: 32px;
-    height: 32px;
-    min-width: 32px;
-    min-height: 32px;
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
     padding: 0;
     background: none;
     border: none;
@@ -1944,6 +1968,7 @@ button, input { font: inherit; }
 .btn-clear {
     display: block;
     width: 100%;
+    min-height: 44px;
     margin-top: 10px;
     padding: 10px;
     background: none;
@@ -2026,8 +2051,8 @@ button, input { font: inherit; }
    HEADER ICON BUTTONS
    =========================================== */
 .header-icon-btn {
-    min-width: 38px;
-    min-height: 38px;
+    min-width: 44px;
+    min-height: 44px;
     padding: 0;
     background: var(--surface);
     border: 1.5px solid var(--border);
@@ -2157,22 +2182,22 @@ button, input { font: inherit; }
         min-height: 54px;
         align-items: flex-start;
         gap: 8px;
-        padding-left: 34px;
+        padding-left: 54px;
     }
 
     .app[data-layout="grid"] .item-card .item-actions {
         width: 100%;
         justify-content: flex-end;
         margin-left: 0;
-        min-height: 32px;
+        min-height: 44px;
     }
 
     .app[data-layout="grid"] .item-card .btn-item-menu,
     .app[data-layout="grid"] .item-card .btn-item-action {
-        width: 32px;
-        height: 32px;
-        min-width: 32px;
-        min-height: 32px;
+        width: 44px;
+        height: 44px;
+        min-width: 44px;
+        min-height: 44px;
     }
 
     .app[data-layout="grid"] .item-card .item-name {
@@ -2465,11 +2490,11 @@ button, input { font: inherit; }
     }
 
     .header-icon-btn {
-        width: 42px;
-        height: 42px;
-        min-width: 42px;
-        min-height: 42px;
-        flex: 0 0 42px;
+        width: 44px;
+        height: 44px;
+        min-width: 44px;
+        min-height: 44px;
+        flex: 0 0 44px;
         padding: 0;
         border-radius: 50px;
     }
@@ -2478,11 +2503,11 @@ button, input { font: inherit; }
         position: absolute;
         top: 14px;
         right: 12px;
-        width: 42px;
-        height: 42px;
-        min-width: 42px;
-        min-height: 42px;
-        flex: 0 0 42px;
+        width: 44px;
+        height: 44px;
+        min-width: 44px;
+        min-height: 44px;
+        flex: 0 0 44px;
         z-index: 2;
     }
 
@@ -3458,8 +3483,8 @@ body[data-theme*="dark"] .item-card.is-deep-link-highlight {
 .search-input:focus { border-color: var(--accent); }
 
 .btn-search-close {
-    min-width: 40px;
-    min-height: 40px;
+    min-width: 44px;
+    min-height: 44px;
     padding: 0;
     background: none;
     border: none;
@@ -3869,10 +3894,10 @@ body[data-theme*="dark"] .item-card.is-deep-link-highlight {
 
 .btn-magic-voice {
     position: absolute;
-    left: 4px;
-    top: 4px;
-    bottom: 4px;
-    width: 36px;
+    left: 2px;
+    top: 2px;
+    bottom: 2px;
+    width: 44px;
     background: transparent;
     color: var(--text-muted);
     border: none;
@@ -3908,10 +3933,10 @@ body[data-theme*="dark"] .item-card.is-deep-link-highlight {
 
 .btn-magic-submit {
     position: absolute;
-    right: 4px;
-    top: 4px;
-    bottom: 4px;
-    width: 40px;
+    right: 2px;
+    top: 2px;
+    bottom: 2px;
+    width: 44px;
     background: var(--accent);
     color: var(--accent-contrast, var(--text-primary));
     border: none;
@@ -5647,6 +5672,9 @@ details[open].settings-category-details > .settings-category-summary .settings-s
     color: inherit;
     text-decoration: underline;
     margin: 0 0.4rem;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
 }
 
 /* ===========================================
