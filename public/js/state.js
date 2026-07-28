@@ -1,10 +1,14 @@
 const csrfMeta = document.querySelector('meta[name="csrf-token"]');
 if (!csrfMeta) throw new Error('csrf-token meta tag missing');
 const appBasePathMeta = document.querySelector('meta[name="app-base-path"]');
+const userIdMeta = document.querySelector('meta[name="user-id"]');
 const userPreferencesScript = document.getElementById('userPreferences');
 
 export const basePath = appBasePathMeta?.content || '/';
 export const csrfToken = csrfMeta.content;
+// ponytail: unveraenderliche Benutzer-ID zum Namespacen von localStorage-Daten
+// (Offline-Queue, Konflikte), damit ein geteilter Browser Konten nicht mischt.
+export const userId = userIdMeta?.content || '';
 
 export const TYPE_CONFIG = {
     list_quantity: { icon: 'einkauf', title: name => name, shoppingTitle: name => name, placeholder: 'Artikel...', quantityMode: 'text' },
