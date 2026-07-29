@@ -1956,6 +1956,7 @@ function fetchItemForUser(PDO $db, int $userId, int $itemId): ?array
             items.is_pinned,
             items.status,
             items.content,
+            items.sketch_json,
             items.done,
             items.sort_order,
             items.created_at,
@@ -2342,6 +2343,8 @@ try {
 
             $date = normalizeJournalDate($data['date'] ?? null);
             $content = normalizeContent($data['content'] ?? null);
+            $baseContentProvided = array_key_exists('base_content', $data);
+            $baseContent = $baseContentProvided ? normalizeContent($data['base_content']) : '';
             $title = (new DateTimeImmutable($date, new DateTimeZone('Europe/Berlin')))->format('d.m.Y');
             $expectedRevision = requireExpectedCreateOrUpdateRevision($data);
             $created = false;
@@ -2387,18 +2390,20 @@ try {
                             'item' => formatJournalItem($item),
                         ]);
                     }
-                    if ($expectedRevision === 0 && $currentContent !== '') {
+                    $revisionMatches = $expectedRevision === $currentRevision;
+                    $componentUnchanged = $baseContentProvided && $currentContent === $baseContent;
+                    $parallelFirstCreate = $expectedRevision === 0 && $currentContent === '';
+                    if (!$revisionMatches && !$componentUnchanged && !$parallelFirstCreate) {
                         $db->exec('ROLLBACK');
                         $journalTransactionActive = false;
                         respond(409, [
                             'error' => t('error.item_revision_conflict'),
                             'error_key' => 'error.item_revision_conflict',
-                            'expected_revision' => 0,
+                            'expected_revision' => $expectedRevision,
                             'current_revision' => $currentRevision,
                             'item' => formatJournalItem($item),
                         ]);
                     }
-                    $casRevision = $expectedRevision === 0 ? $currentRevision : $expectedRevision;
                     $stmt = $db->prepare(
                         'UPDATE items
                          SET name = :name,
@@ -2412,7 +2417,7 @@ try {
                         ':content' => $content,
                         ':id' => $itemId,
                         ':user_id' => $userId,
-                        ':expected_revision' => $casRevision,
+                        ':expected_revision' => $currentRevision,
                     ]);
                     if ($stmt->rowCount() !== 1) {
                         $db->exec('ROLLBACK');
@@ -3752,21 +3757,17 @@ try {
 
         case 'sketch_save':
             $data = requireWriteRequest();
+            requireIdempotencyRequestId();
 
             $itemId = filter_var($data['item_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
             if (!is_int($itemId)) {
                 respond(422, ['error' => t('error.invalid_id'), 'error_key' => 'error.invalid_id']);
             }
+            $expectedRevision = requireExpectedItemRevision($data);
+            $normalized = normalizeSketchJson($data['scene'] ?? null);
 
-            $stmt = $db->prepare(
-                'SELECT items.id, items.sketch_json, categories.type AS category_type
-                 FROM items
-                 INNER JOIN categories ON categories.id = items.category_id
-                 WHERE items.id = :id AND items.user_id = :user_id'
-            );
-            $stmt->execute([':id' => $itemId, ':user_id' => $userId]);
-            $item = $stmt->fetch();
-            if (!is_array($item)) {
+            $item = fetchItemForUser($db, $userId, $itemId);
+            if ($item === null) {
                 respond(404, ['error' => t('error.item_not_found'), 'error_key' => 'error.item_not_found']);
             }
 
@@ -3775,29 +3776,78 @@ try {
                 respond(422, ['error' => t('error.sketch_category_unsupported'), 'error_key' => 'error.sketch_category_unsupported']);
             }
 
-            $normalized = normalizeSketchJson($data['scene'] ?? null);
+            if ((string) ($item['sketch_json'] ?? '') === $normalized) {
+                respond(200, [
+                    'message' => 'Skizze gespeichert.',
+                    'item_id' => $itemId,
+                    'has_sketch' => $normalized !== '' ? 1 : 0,
+                    'item' => formatListItem($item),
+                    'scene' => $normalized === '' ? null : json_decode($normalized, true),
+                ]);
+            }
 
-            $db->prepare(
-                'UPDATE items SET sketch_json = :sketch_json, updated_at = CURRENT_TIMESTAMP
-                 WHERE id = :id AND user_id = :user_id'
-            )->execute([
+            $stmt = $db->prepare(
+                'UPDATE items
+                 SET sketch_json = :sketch_json,
+                     revision = revision + 1,
+                     updated_at = CURRENT_TIMESTAMP
+                 WHERE id = :id AND user_id = :user_id AND revision = :expected_revision'
+            );
+            $stmt->execute([
                 ':sketch_json' => $normalized,
                 ':id' => $itemId,
                 ':user_id' => $userId,
+                ':expected_revision' => $expectedRevision,
             ]);
 
+            $saved = fetchItemForUser($db, $userId, $itemId);
+            if ($stmt->rowCount() !== 1) {
+                if ($saved === null) {
+                    respond(404, ['error' => t('error.item_not_found'), 'error_key' => 'error.item_not_found']);
+                }
+                if ((string) ($saved['sketch_json'] ?? '') === $normalized) {
+                    respond(200, [
+                        'message' => 'Skizze gespeichert.',
+                        'item_id' => $itemId,
+                        'has_sketch' => $normalized !== '' ? 1 : 0,
+                        'item' => formatListItem($saved),
+                        'scene' => $normalized === '' ? null : json_decode($normalized, true),
+                    ]);
+                }
+                $currentScene = (string) ($saved['sketch_json'] ?? '');
+                respond(409, [
+                    'error' => t('error.item_revision_conflict'),
+                    'error_key' => 'error.item_revision_conflict',
+                    'expected_revision' => $expectedRevision,
+                    'current_revision' => (int) $saved['revision'],
+                    'item' => formatListItem($saved),
+                    'scene' => $currentScene === '' ? null : json_decode($currentScene, true),
+                ]);
+            }
+
+            if ($saved === null) {
+                respond(404, ['error' => t('error.item_not_found'), 'error_key' => 'error.item_not_found']);
+            }
+            $savedScene = (string) ($saved['sketch_json'] ?? '');
             respond(200, [
                 'message' => 'Skizze gespeichert.',
                 'item_id' => $itemId,
-                'has_sketch' => $normalized !== '' ? 1 : 0,
+                'has_sketch' => $savedScene !== '' ? 1 : 0,
+                'item' => formatListItem($saved),
+                'scene' => $savedScene === '' ? null : json_decode($savedScene, true),
             ]);
 
         case 'sketch_save_daily':
             $data = requireWriteRequest();
+            requireIdempotencyRequestId();
 
             $date = normalizeJournalDate($data['date'] ?? null);
             $normalized = normalizeSketchJson($data['scene'] ?? null);
+            $baseSceneProvided = array_key_exists('base_scene', $data);
+            $baseScene = $baseSceneProvided ? normalizeSketchJson($data['base_scene']) : '';
+            $expectedRevision = requireExpectedCreateOrUpdateRevision($data);
             $title = (new DateTimeImmutable($date, new DateTimeZone('Europe/Berlin')))->format('d.m.Y');
+            $created = false;
 
             // Atomic read-or-insert: same pattern as journal_save so the
             // first sketch save creates the daily item even without text,
@@ -3810,17 +3860,29 @@ try {
                 $item = loadJournalItem($db, $userId, (int) $category['id'], $date);
 
                 if ($item === null && $normalized === '') {
+                    if ($expectedRevision !== 0) {
+                        $db->exec('ROLLBACK');
+                        $journalTransactionActive = false;
+                        respond(404, ['error' => t('error.item_not_found'), 'error_key' => 'error.item_not_found']);
+                    }
                     $db->exec('COMMIT');
                     $journalTransactionActive = false;
                     respond(200, [
                         'message' => 'Keine Skizze zu speichern.',
                         'item_id' => null,
-                        'date' => $date,
                         'has_sketch' => 0,
+                        'date' => $date,
+                        'item' => null,
+                        'scene' => null,
                     ]);
                 }
 
                 if ($item === null) {
+                    if ($expectedRevision !== 0) {
+                        $db->exec('ROLLBACK');
+                        $journalTransactionActive = false;
+                        respond(404, ['error' => t('error.item_not_found'), 'error_key' => 'error.item_not_found']);
+                    }
                     $sortOrder = prependItemSortOrder($db, $userId, (int) $category['id']);
                     $stmt = $db->prepare(
                         "INSERT INTO items (name, quantity, due_date, content, section, category_id, sort_order, sketch_json, user_id)
@@ -3835,17 +3897,56 @@ try {
                         ':user_id' => $userId,
                     ]);
                     $itemId = (int) $db->lastInsertId();
+                    $created = true;
                 } else {
                     $itemId = (int) $item['id'];
-                    $db->prepare(
+                    $currentRevision = (int) $item['revision'];
+                    $currentScene = (string) ($item['sketch_json'] ?? '');
+                    if ($currentScene === $normalized) {
+                        $db->exec('COMMIT');
+                        $journalTransactionActive = false;
+                        respond(200, [
+                            'message' => 'Skizze gespeichert.',
+                            'item_id' => $itemId,
+                            'has_sketch' => $currentScene !== '' ? 1 : 0,
+                            'date' => $date,
+                            'item' => formatJournalItem($item),
+                            'scene' => $currentScene === '' ? null : json_decode($currentScene, true),
+                        ]);
+                    }
+
+                    $revisionMatches = $expectedRevision === $currentRevision;
+                    $componentUnchanged = $baseSceneProvided && $currentScene === $baseScene;
+                    $parallelFirstCreate = $expectedRevision === 0 && $currentScene === '';
+                    if (!$revisionMatches && !$componentUnchanged && !$parallelFirstCreate) {
+                        $db->exec('ROLLBACK');
+                        $journalTransactionActive = false;
+                        respond(409, [
+                            'error' => t('error.item_revision_conflict'),
+                            'error_key' => 'error.item_revision_conflict',
+                            'expected_revision' => $expectedRevision,
+                            'current_revision' => $currentRevision,
+                            'item' => formatJournalItem($item),
+                            'scene' => $currentScene === '' ? null : json_decode($currentScene, true),
+                        ]);
+                    }
+
+                    $stmt = $db->prepare(
                         'UPDATE items
-                         SET sketch_json = :sketch_json, updated_at = CURRENT_TIMESTAMP
-                         WHERE id = :id AND user_id = :user_id'
-                    )->execute([
+                         SET sketch_json = :sketch_json,
+                             revision = revision + 1,
+                             updated_at = CURRENT_TIMESTAMP
+                         WHERE id = :id AND user_id = :user_id AND revision = :expected_revision'
+                    );
+                    $stmt->execute([
                         ':sketch_json' => $normalized,
                         ':id' => $itemId,
                         ':user_id' => $userId,
+                        ':expected_revision' => $currentRevision,
                     ]);
+                    if ($stmt->rowCount() !== 1) {
+                        throw new RuntimeException('Daily sketch CAS failed while holding the write lock.');
+                    }
                 }
 
                 $db->exec('COMMIT');
@@ -3857,11 +3958,15 @@ try {
                 throw $error;
             }
 
-            respond($item === null ? 201 : 200, [
+            $saved = loadJournalItem($db, $userId, (int) $category['id'], $date);
+            $savedScene = (string) ($saved['sketch_json'] ?? '');
+            respond($created ? 201 : 200, [
                 'message' => 'Skizze gespeichert.',
                 'item_id' => $itemId,
+                'has_sketch' => $savedScene !== '' ? 1 : 0,
                 'date' => $date,
-                'has_sketch' => $normalized !== '' ? 1 : 0,
+                'item' => formatJournalItem($saved),
+                'scene' => $savedScene === '' ? null : json_decode($savedScene, true),
             ]);
 
         case 'sketch':
@@ -3872,15 +3977,8 @@ try {
                 respond(422, ['error' => t('error.invalid_id'), 'error_key' => 'error.invalid_id']);
             }
 
-            $stmt = $db->prepare(
-                'SELECT items.sketch_json, categories.type AS category_type
-                 FROM items
-                 INNER JOIN categories ON categories.id = items.category_id
-                 WHERE items.id = :id AND items.user_id = :user_id'
-            );
-            $stmt->execute([':id' => $itemId, ':user_id' => $userId]);
-            $item = $stmt->fetch();
-            if (!is_array($item)) {
+            $item = fetchItemForUser($db, $userId, $itemId);
+            if ($item === null) {
                 respond(404, ['error' => t('error.item_not_found'), 'error_key' => 'error.item_not_found']);
             }
 
@@ -3893,8 +3991,9 @@ try {
             $decoded = $scene === '' ? null : json_decode($scene, true);
             respond(200, [
                 'item_id' => $itemId,
-                'scene' => is_array($decoded) ? $decoded : null,
                 'has_sketch' => $scene !== '' ? 1 : 0,
+                'item' => formatListItem($item),
+                'scene' => is_array($decoded) ? $decoded : null,
             ]);
 
         default:

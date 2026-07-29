@@ -109,6 +109,12 @@ LIST_BODY="$TMP_DIR/list.json"
 TODO_CATEGORIES_BODY="$TMP_DIR/todo-categories.json"
 ADD_BODY="$TMP_DIR/add.json"
 ADD_SECOND_BODY="$TMP_DIR/add-second.json"
+IDEMPOTENT_FIRST_BODY="$TMP_DIR/idempotent-first.json"
+IDEMPOTENT_REPLAY_BODY="$TMP_DIR/idempotent-replay.json"
+IDEMPOTENT_MISMATCH_BODY="$TMP_DIR/idempotent-mismatch.json"
+IDEMPOTENT_INVALID_BODY="$TMP_DIR/idempotent-invalid.json"
+IDEMPOTENT_NEG_FIRST="$TMP_DIR/idempotent-negative-first.json"
+IDEMPOTENT_NEG_REPLAY="$TMP_DIR/idempotent-negative-replay.json"
 UNICODE_ADD_BODY="$TMP_DIR/unicode-add.json"
 UNICODE_DELETE_BODY="$TMP_DIR/unicode-delete.json"
 UNICODE_LIST_BODY="$TMP_DIR/unicode-list.json"
@@ -237,11 +243,11 @@ php -r '$payload = json_decode(file_get_contents($argv[1]), true); if (($payload
 JOURNAL_ITEM_COUNT="$(EINKAUF_DATA_DIR="$TEST_DATA_DIR" php -r '$db = new PDO("sqlite:" . getenv("EINKAUF_DATA_DIR") . "/einkaufsliste.db"); echo (int) $db->query("SELECT COUNT(*) FROM items i INNER JOIN categories c ON c.id = i.category_id WHERE c.type = \"daily_notes\"")->fetchColumn();')"
 [[ "$JOURNAL_ITEM_COUNT" == "0" ]]
 
-[[ "$(status_code "$JOURNAL_CREATE_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST --data-urlencode 'date=2026-07-17' --data-urlencode 'content=<p>JournalFtsTreffer erster Stand</p>' "http://127.0.0.1:$PORT/api.php?action=journal_save")" == "201" ]]
+[[ "$(status_code "$JOURNAL_CREATE_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: smoke-journal-create' -X POST --data-urlencode 'date=2026-07-17' --data-urlencode 'content=<p>JournalFtsTreffer erster Stand</p>' --data-urlencode 'expected_revision=0' "http://127.0.0.1:$PORT/api.php?action=journal_save")" == "201" ]]
 JOURNAL_ITEM_ID="$(php -r '$payload = json_decode(file_get_contents($argv[1]), true); echo (int) ($payload["item"]["id"] ?? 0);' "$JOURNAL_CREATE_BODY")"
 [[ "$JOURNAL_ITEM_ID" -gt 0 ]]
 
-[[ "$(status_code "$JOURNAL_UPDATE_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST --data-urlencode 'date=2026-07-17' --data-urlencode 'content=<p>JournalFtsTreffer aktualisiert</p>' "http://127.0.0.1:$PORT/api.php?action=journal_save")" == "200" ]]
+[[ "$(status_code "$JOURNAL_UPDATE_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: smoke-journal-update' -X POST --data-urlencode 'date=2026-07-17' --data-urlencode 'content=<p>JournalFtsTreffer aktualisiert</p>' --data-urlencode 'expected_revision=1' "http://127.0.0.1:$PORT/api.php?action=journal_save")" == "200" ]]
 php -r '$payload = json_decode(file_get_contents($argv[1]), true); if ((int) ($payload["item"]["id"] ?? 0) !== (int) $argv[2] || !str_contains((string) ($payload["item"]["content"] ?? ""), "aktualisiert")) { fwrite(STDERR, "Journal-Upsert hat nicht dasselbe Item aktualisiert.\n"); exit(1); }' "$JOURNAL_UPDATE_BODY" "$JOURNAL_ITEM_ID"
 
 JOURNAL_ITEM_COUNT="$(EINKAUF_DATA_DIR="$TEST_DATA_DIR" php -r '$db = new PDO("sqlite:" . getenv("EINKAUF_DATA_DIR") . "/einkaufsliste.db"); echo (int) $db->query("SELECT COUNT(*) FROM items i INNER JOIN categories c ON c.id = i.category_id WHERE c.type = \"daily_notes\"")->fetchColumn();')"
@@ -251,9 +257,12 @@ JOURNAL_CONCURRENT_PIDS=()
 for request_number in 1 2 3 4; do
     curl -sS -o "$TMP_DIR/journal-concurrent-$request_number.json" -w '%{http_code}' \
         -H "Authorization: Bearer $JOURNAL_CONCURRENCY_API_KEY" \
+        -H "X-Idempotency-Key: smoke-journal-concurrent-$request_number" \
         -X POST \
         --data-urlencode "date=$JOURNAL_CONCURRENT_DATE" \
         --data-urlencode "content=<p>Parallel $request_number</p>" \
+        --data-urlencode 'base_content=' \
+        --data-urlencode 'expected_revision=0' \
         "http://127.0.0.1:$PORT/api.php?action=journal_save" \
         >"$TMP_DIR/journal-concurrent-$request_number.status" &
     JOURNAL_CONCURRENT_PIDS+=("$!")
@@ -262,7 +271,7 @@ for request_pid in "${JOURNAL_CONCURRENT_PIDS[@]}"; do
     wait "$request_pid"
 done
 for request_number in 1 2 3 4; do
-    grep -Eq '^(200|201)$' "$TMP_DIR/journal-concurrent-$request_number.status"
+    grep -Eq '^(201|409)$' "$TMP_DIR/journal-concurrent-$request_number.status"
 done
 JOURNAL_CONCURRENT_COUNT="$(EINKAUF_DATA_DIR="$TEST_DATA_DIR" php -r '$db = new PDO("sqlite:" . getenv("EINKAUF_DATA_DIR") . "/einkaufsliste.db"); $stmt = $db->prepare("SELECT COUNT(*) FROM items i INNER JOIN categories c ON c.id = i.category_id WHERE c.type = :type AND i.due_date = :due_date"); $stmt->execute([":type" => "daily_notes", ":due_date" => $argv[1]]); echo (int) $stmt->fetchColumn();' "$JOURNAL_CONCURRENT_DATE")"
 [[ "$JOURNAL_CONCURRENT_COUNT" == "1" ]]
@@ -525,8 +534,23 @@ if [[ -z "$SECOND_POS" || -z "$FIRST_POS" || "$SECOND_POS" -ge "$FIRST_POS" ]]; 
     exit 1
 fi
 
+ITEM_REVISION="$(php -r '
+    $items = json_decode(file_get_contents($argv[1]), true)["items"] ?? [];
+    foreach ($items as $item) {
+        if ((int) ($item["id"] ?? 0) === (int) $argv[2]) {
+            echo (int) ($item["revision"] ?? 0);
+            exit;
+        }
+    }
+' "$REORDERED_LIST_BODY" "$ITEM_ID")"
+if [[ -z "$ITEM_REVISION" || "$ITEM_REVISION" -le 0 ]]; then
+    echo "Aktuelle Artikel-Revision konnte nach dem Sortieren nicht gelesen werden." >&2
+    exit 1
+fi
+
 [[ "$(status_code "$UPDATE_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST -d "id=$ITEM_ID&name=Hafermilch&quantity=3x&expected_revision=$ITEM_REVISION" "http://127.0.0.1:$PORT/api.php?action=update")" == "200" ]]
 grep -q 'Artikel aktualisiert' "$UPDATE_BODY"
+ITEM_REVISION=$((ITEM_REVISION + 1))
 
 [[ "$(status_code "$TODO_UPDATE_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST --data-urlencode "id=$TODO_ITEM_ID" --data-urlencode 'name=Abgabe' --data-urlencode 'due_date=2026-05-01' --data-urlencode 'content=Unterlagen fertigstellen' --data-urlencode 'status=waiting' --data-urlencode "expected_revision=$TODO_ITEM_REVISION" "http://127.0.0.1:$PORT/api.php?action=update")" == "200" ]]
 grep -q 'Artikel aktualisiert' "$TODO_UPDATE_BODY"
@@ -557,15 +581,17 @@ php -r '
     $newRevision = (int) ($item["revision"] ?? 0);
     if ($newRevision !== (int) $argv[3] + 1) { fwrite(STDERR, sprintf("Update-Antwort hat revision=%d, erwartet wurde expected+1=%d.\n", $newRevision, (int) $argv[3] + 1)); exit(1); }
 ' "$REV_HAPPY_BODY" "$ITEM_ID" "$ITEM_REVISION"
+ITEM_REVISION=$((ITEM_REVISION + 1))
 
-# Erneutes Update mit erwarteter Revision = 2 (nach obigem Erfolg) muss wieder 200 liefern und auf 3 erhöhen.
-[[ "$(status_code "$REV_HAPPY_BODY2" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST -d "id=$ITEM_ID&name=Hafermilch+Rev2&quantity=2x&expected_revision=2" "http://127.0.0.1:$PORT/api.php?action=update")" == "200" ]]
+# Erneutes Update mit der neuen Revision muss wieder 200 liefern und exakt einmal erhöhen.
+[[ "$(status_code "$REV_HAPPY_BODY2" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST -d "id=$ITEM_ID&name=Hafermilch+Rev2&quantity=2x&expected_revision=$ITEM_REVISION" "http://127.0.0.1:$PORT/api.php?action=update")" == "200" ]]
 php -r '
     $payload = json_decode(file_get_contents($argv[1]), true);
     if (!is_array($payload)) { fwrite(STDERR, "Update-Antwort kein JSON.\n"); exit(1); }
     $newRevision = (int) ($payload["item"]["revision"] ?? 0);
-    if ($newRevision !== 3) { fwrite(STDERR, "Zweiter Update hat revision nicht auf 3 erhoeht ($newRevision).\n"); exit(1); }
-' "$REV_HAPPY_BODY2"
+    if ($newRevision !== (int) $argv[2] + 1) { fwrite(STDERR, "Zweiter Update hat revision nicht exakt einmal erhoeht ($newRevision).\n"); exit(1); }
+' "$REV_HAPPY_BODY2" "$ITEM_REVISION"
+ITEM_REVISION=$((ITEM_REVISION + 1))
 
 # 409 item_revision_conflict: veraltete expected_revision, kein Schreib-Effekt.
 BEFORE_REVISION_LIST_BODY="$TMP_DIR/before-revision-list.json"
@@ -573,7 +599,7 @@ curl -fsS -b "$COOKIE_JAR" -o "$BEFORE_REVISION_LIST_BODY" "http://127.0.0.1:$PO
 [[ "$(status_code "$REV_CONFLICT_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST -d "id=$ITEM_ID&name=Sollte-Nicht-Greifen&quantity=1&expected_revision=1" "http://127.0.0.1:$PORT/api.php?action=update")" == "409" ]]
 grep -q '"error_key":"error.item_revision_conflict"' "$REV_CONFLICT_BODY"
 grep -q '"expected_revision":1' "$REV_CONFLICT_BODY"
-grep -q '"current_revision":3' "$REV_CONFLICT_BODY"
+grep -q "\"current_revision\":$ITEM_REVISION" "$REV_CONFLICT_BODY"
 grep -q "\"id\":$ITEM_ID" "$REV_CONFLICT_BODY"
 grep -q '"item":{' "$REV_CONFLICT_BODY"
 # Konflikt darf nicht teilweise geschrieben haben: Server-Liste darf nicht "Sollte-Nicht-Greifen" enthalten.
@@ -590,28 +616,29 @@ php -r '
     $item = $payload["item"] ?? null;
     if (!is_array($item)) { fwrite(STDERR, "Konflikt-Antwort enthaelt kein item (Spec AC3+AC4).\n"); exit(1); }
     if ((int) ($item["id"] ?? 0) !== (int) $argv[2]) { fwrite(STDERR, "Konflikt-item hat falsche id.\n"); exit(1); }
-    if ((int) ($item["revision"] ?? 0) !== 3) { fwrite(STDERR, "Konflikt-item hat nicht die aktuelle Server-Revision 3.\n"); exit(1); }
-' "$REV_CONFLICT_BODY" "$ITEM_ID"
+    if ((int) ($item["revision"] ?? 0) !== (int) $argv[3]) { fwrite(STDERR, "Konflikt-item hat nicht die aktuelle Server-Revision.\n"); exit(1); }
+' "$REV_CONFLICT_BODY" "$ITEM_ID" "$ITEM_REVISION"
 
 # Gleicher Vertrag für API-Key-Clients (Spec AC5: kein Sonderweg).
-[[ "$(status_code "$REV_APIKEY_BODY" -H "X-Api-Key: $JOURNAL_CONCURRENCY_API_KEY" -X POST -d "id=$ITEM_ID&name=Via-ApiKey&quantity=2x&expected_revision=3" "http://127.0.0.1:$PORT/api.php?action=update")" == "200" ]]
+[[ "$(status_code "$REV_APIKEY_BODY" -H "X-Api-Key: $JOURNAL_CONCURRENCY_API_KEY" -X POST -d "id=$ITEM_ID&name=Via-ApiKey&quantity=2x&expected_revision=$ITEM_REVISION" "http://127.0.0.1:$PORT/api.php?action=update")" == "200" ]]
 grep -q '"message":"Artikel aktualisiert."' "$REV_APIKEY_BODY"
 php -r '
     $payload = json_decode(file_get_contents($argv[1]), true);
-    if ((int) ($payload["item"]["revision"] ?? 0) !== 4) { fwrite(STDERR, "API-Key-Update hat revision nicht auf 4 erhoeht.\n"); exit(1); }
-' "$REV_APIKEY_BODY"
+    if ((int) ($payload["item"]["revision"] ?? 0) !== (int) $argv[2] + 1) { fwrite(STDERR, "API-Key-Update hat revision nicht exakt einmal erhoeht.\n"); exit(1); }
+' "$REV_APIKEY_BODY" "$ITEM_REVISION"
+ITEM_REVISION=$((ITEM_REVISION + 1))
 [[ "$(status_code "$REV_APIKEY_CONFLICT_BODY" -H "X-Api-Key: $JOURNAL_CONCURRENCY_API_KEY" -X POST -d "id=$ITEM_ID&name=Auch-Nicht&expected_revision=2" "http://127.0.0.1:$PORT/api.php?action=update")" == "409" ]]
 grep -q '"error_key":"error.item_revision_conflict"' "$REV_APIKEY_CONFLICT_BODY"
 
 [[ "$(status_code "$REORDERED_LIST_BODY" -b "$COOKIE_JAR" "http://127.0.0.1:$PORT/api.php?action=list")" == "200" ]]
-grep -q "\"name\":\"Hafermilch\"" "$REORDERED_LIST_BODY"
-grep -q "\"quantity\":\"3x\"" "$REORDERED_LIST_BODY"
+grep -q "\"name\":\"Via-ApiKey\"" "$REORDERED_LIST_BODY"
+grep -q "\"quantity\":\"2x\"" "$REORDERED_LIST_BODY"
 [[ "$(status_code "$TODO_LIST_BODY" -b "$COOKIE_JAR" "http://127.0.0.1:$PORT/api.php?action=list&category_id=$TODO_CATEGORY_ID")" == "200" ]]
 grep -q "\"id\":$TODO_ITEM_ID" "$TODO_LIST_BODY"
 grep -q "\"status\":\"waiting\"" "$TODO_LIST_BODY"
 grep -q "\"content\":\"Unterlagen fertigstellen\"" "$TODO_LIST_BODY"
 
-[[ "$(status_code "$TOGGLE_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H "X-Idempotency-Key: smoke-toggle-main" -X POST -d "id=$ITEM_ID&done=1&expected_revision=4" "http://127.0.0.1:$PORT/api.php?action=toggle")" == "200" ]]
+[[ "$(status_code "$TOGGLE_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H "X-Idempotency-Key: smoke-toggle-main" -X POST -d "id=$ITEM_ID&done=1&expected_revision=$ITEM_REVISION" "http://127.0.0.1:$PORT/api.php?action=toggle")" == "200" ]]
 grep -q 'Status aktualisiert' "$TOGGLE_BODY"
 
 [[ "$(status_code "$POST_TOGGLE_LIST_BODY" -b "$COOKIE_JAR" "http://127.0.0.1:$PORT/api.php?action=list")" == "200" ]]
@@ -782,6 +809,18 @@ php scripts/test-ai-client.php
 # Sketch-API (Issue #41): Scene-Roundtrip, Validierung, Ownership
 # -----------------------------------------------------------------------------
 
+current_item_revision() {
+    curl -fsS -b "$COOKIE_JAR" \
+        "http://127.0.0.1:$PORT/api.php?action=sketch_load&item_id=$1" \
+        | php -r 'echo (int) (json_decode(stream_get_contents(STDIN), true)["item"]["revision"] ?? 0);'
+}
+
+current_journal_revision() {
+    curl -fsS -b "$COOKIE_JAR" \
+        "http://127.0.0.1:$PORT/api.php?action=journal&date=$1" \
+        | php -r 'echo (int) (json_decode(stream_get_contents(STDIN), true)["item"]["revision"] ?? 0);'
+}
+
 DRAWINGS_CATEGORY_BODY="$(curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
     --data-urlencode 'name=Skizzen' --data-urlencode 'type=drawings' \
     "http://127.0.0.1:$PORT/api.php?action=categories_create")"
@@ -796,9 +835,10 @@ DRAWING_ITEM_ID="$(echo "$DRAWING_ADD_BODY" | sed -n 's/.*"id":\([0-9]\+\).*/\1/
 
 # Roundtrip: gültige Vektor-Szene speichern und laden
 VALID_SCENE='{"elements":[{"type":"rectangle","x":1,"y":2,"width":3,"height":4}],"appState":{}}'
-SKETCH_SAVE_BODY="$(curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+SKETCH_SAVE_BODY="$(curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: smoke-sketch-save' -X POST \
     --data-urlencode "item_id=$DRAWING_ITEM_ID" \
     --data-urlencode "scene=$VALID_SCENE" \
+    --data-urlencode "expected_revision=$(current_item_revision "$DRAWING_ITEM_ID")" \
     "http://127.0.0.1:$PORT/api.php?action=sketch_save")"
 echo "$SKETCH_SAVE_BODY" | grep -q '"has_sketch":1' || { echo "sketch_save lieferte kein has_sketch=1: $SKETCH_SAVE_BODY"; exit 1; }
 
@@ -812,9 +852,10 @@ echo "$SKETCH_CANONICAL_LOAD_BODY" | grep -q '"type":"rectangle"' || { echo "Kan
 
 # Leere Szene: has_sketch muss 0 sein und Liste darf Scene-JSON nicht enthalten
 EMPTY_SCENE='{"elements":[]}'
-SKETCH_EMPTY_BODY="$(curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+SKETCH_EMPTY_BODY="$(curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: smoke-sketch-empty' -X POST \
     --data-urlencode "item_id=$DRAWING_ITEM_ID" \
     --data-urlencode "scene=$EMPTY_SCENE" \
+    --data-urlencode "expected_revision=$(current_item_revision "$DRAWING_ITEM_ID")" \
     "http://127.0.0.1:$PORT/api.php?action=sketch_save")"
 echo "$SKETCH_EMPTY_BODY" | grep -q '"has_sketch":0' || { echo "Leere Szene lieferte has_sketch != 0: $SKETCH_EMPTY_BODY"; exit 1; }
 
@@ -826,9 +867,10 @@ echo "$DRAWINGS_LIST_BODY" | grep -q '"elements"' && { echo "Liste enthält Scen
 
 # Sketch-Editor-Lifecycle (Issue #42):
 # Nachfolge-Save auf dasselbe Item muss funktionieren (kein hängender State).
-POST_EMPTY_RECOVER="$(curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+POST_EMPTY_RECOVER="$(curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: smoke-sketch-recover' -X POST \
     --data-urlencode "item_id=$DRAWING_ITEM_ID" \
     --data-urlencode "scene=$VALID_SCENE" \
+    --data-urlencode "expected_revision=$(current_item_revision "$DRAWING_ITEM_ID")" \
     "http://127.0.0.1:$PORT/api.php?action=sketch_save")"
 echo "$POST_EMPTY_RECOVER" | grep -q '"has_sketch":1' || { echo "Save nach leerer Szene lieferte has_sketch != 1: $POST_EMPTY_RECOVER"; exit 1; }
 
@@ -836,14 +878,16 @@ echo "$POST_EMPTY_RECOVER" | grep -q '"has_sketch":1' || { echo "Save nach leere
 # beide durchgehen (kein hängender Editor-State nach Server-Fehler).
 RACE_SCENE_A='{"elements":[{"type":"rectangle","id":"a"}]}'
 RACE_SCENE_B='{"elements":[{"type":"ellipse","id":"b"}]}'
-RACE_FIRST="$(curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+RACE_FIRST="$(curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: smoke-sketch-race-a' -X POST \
     --data-urlencode "item_id=$DRAWING_ITEM_ID" \
     --data-urlencode "scene=$RACE_SCENE_A" \
+    --data-urlencode "expected_revision=$(current_item_revision "$DRAWING_ITEM_ID")" \
     "http://127.0.0.1:$PORT/api.php?action=sketch_save")"
 echo "$RACE_FIRST" | grep -q '"has_sketch":1' || { echo "Race-Test: erster Save fehlgeschlagen: $RACE_FIRST"; exit 1; }
-RACE_SECOND="$(curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+RACE_SECOND="$(curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: smoke-sketch-race-b' -X POST \
     --data-urlencode "item_id=$DRAWING_ITEM_ID" \
     --data-urlencode "scene=$RACE_SCENE_B" \
+    --data-urlencode "expected_revision=$(current_item_revision "$DRAWING_ITEM_ID")" \
     "http://127.0.0.1:$PORT/api.php?action=sketch_save")"
 echo "$RACE_SECOND" | grep -q '"has_sketch":1' || { echo "Race-Test: zweiter Save fehlgeschlagen: $RACE_SECOND"; exit 1; }
 RACE_LOAD="$(curl -fsS -b "$COOKIE_JAR" \
@@ -852,23 +896,26 @@ echo "$RACE_LOAD" | grep -q '"has_sketch":1' || { echo "Race-Test: Item verlor h
 echo "$RACE_LOAD" | grep -q '"type":"ellipse"' || { echo "Race-Test: letzter Save wurde nicht persistiert: $RACE_LOAD"; exit 1; }
 
 # Ungültiges JSON: 422
-SKETCH_BAD_JSON_STATUS="$(curl -s -o /dev/null -w '%{http_code}' -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+SKETCH_BAD_JSON_STATUS="$(curl -s -o /dev/null -w '%{http_code}' -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: smoke-sketch-bad-json' -X POST \
     --data-urlencode "item_id=$DRAWING_ITEM_ID" \
+    --data-urlencode "expected_revision=$(current_item_revision "$DRAWING_ITEM_ID")" \
     --data-urlencode 'scene={kein json' \
     "http://127.0.0.1:$PORT/api.php?action=sketch_save")"
 [[ "$SKETCH_BAD_JSON_STATUS" == "422" ]] || { echo "Ungültiges JSON lieferte Status $SKETCH_BAD_JSON_STATUS statt 422."; exit 1; }
 
 # Fehlende elements: 422
-SKETCH_BAD_STRUCT_STATUS="$(curl -s -o /dev/null -w '%{http_code}' -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+SKETCH_BAD_STRUCT_STATUS="$(curl -s -o /dev/null -w '%{http_code}' -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: smoke-sketch-bad-struct' -X POST \
     --data-urlencode "item_id=$DRAWING_ITEM_ID" \
+    --data-urlencode "expected_revision=$(current_item_revision "$DRAWING_ITEM_ID")" \
     --data-urlencode 'scene={"appState":{}}' \
     "http://127.0.0.1:$PORT/api.php?action=sketch_save")"
 [[ "$SKETCH_BAD_STRUCT_STATUS" == "422" ]] || { echo "Fehlende elements lieferte Status $SKETCH_BAD_STRUCT_STATUS statt 422."; exit 1; }
 
 # Eingebettete Dateien sind verboten
 SCENE_WITH_FILES='{"elements":[{"type":"rectangle"}],"files":{"id":"abc"}}'
-SKETCH_FILES_STATUS="$(curl -s -o /dev/null -w '%{http_code}' -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+SKETCH_FILES_STATUS="$(curl -s -o /dev/null -w '%{http_code}' -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: smoke-sketch-files' -X POST \
     --data-urlencode "item_id=$DRAWING_ITEM_ID" \
+    --data-urlencode "expected_revision=$(current_item_revision "$DRAWING_ITEM_ID")" \
     --data-urlencode "scene=$SCENE_WITH_FILES" \
     "http://127.0.0.1:$PORT/api.php?action=sketch_save")"
 [[ "$SKETCH_FILES_STATUS" == "422" ]] || { echo "Szene mit files lieferte Status $SKETCH_FILES_STATUS statt 422."; exit 1; }
@@ -878,9 +925,10 @@ LARGE_SCENE_FILE="$(mktemp)"
 head -c $((3 * 1024 * 1024)) /dev/zero 2>/dev/null | tr '\0' 'A' >"$LARGE_SCENE_FILE" \
     || dd if=/dev/zero bs=1024 count=$((3 * 1024)) 2>/dev/null | tr '\0' 'A' >"$LARGE_SCENE_FILE"
 SKETCH_LARGE_BODY="$(mktemp)"
-printf 'item_id=%s&scene=' "$DRAWING_ITEM_ID" >"$SKETCH_LARGE_BODY"
+printf 'item_id=%s&expected_revision=%s&scene=' \
+    "$DRAWING_ITEM_ID" "$(current_item_revision "$DRAWING_ITEM_ID")" >"$SKETCH_LARGE_BODY"
 cat "$LARGE_SCENE_FILE" >>"$SKETCH_LARGE_BODY"
-SKETCH_LARGE_STATUS="$(curl -s -o /dev/null -w '%{http_code}' -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+SKETCH_LARGE_STATUS="$(curl -s -o /dev/null -w '%{http_code}' -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: smoke-sketch-large' -X POST \
     --data-binary "@$SKETCH_LARGE_BODY" \
     "http://127.0.0.1:$PORT/api.php?action=sketch_save")"
 rm -f "$LARGE_SCENE_FILE" "$SKETCH_LARGE_BODY"
@@ -906,8 +954,9 @@ if [[ -z "$OTHER_INDEX_CSRF" ]]; then
     OTHER_INDEX_CSRF="$(echo "$OTHER_INDEX_HTML" | sed -n 's/.*"csrf_token":"\([^"]*\)".*/\1/p' | head -n 1)"
 fi
 
-SKETCH_FOREIGN_SAVE_STATUS="$(curl -s -o /dev/null -w '%{http_code}' -b "$TMP_DIR/other-cookies.txt" -H "X-CSRF-Token: $OTHER_INDEX_CSRF" \
+SKETCH_FOREIGN_SAVE_STATUS="$(curl -s -o /dev/null -w '%{http_code}' -b "$TMP_DIR/other-cookies.txt" -H "X-CSRF-Token: $OTHER_INDEX_CSRF" -H 'X-Idempotency-Key: smoke-sketch-foreign' \
     --data-urlencode "item_id=$DRAWING_ITEM_ID" \
+    --data-urlencode 'expected_revision=1' \
     --data-urlencode "scene=$VALID_SCENE" \
     "http://127.0.0.1:$PORT/api.php?action=sketch_save")"
 [[ "$SKETCH_FOREIGN_SAVE_STATUS" == "404" ]] || { echo "Fremder sketch_save lieferte Status $SKETCH_FOREIGN_SAVE_STATUS statt 404."; exit 1; }
@@ -922,8 +971,9 @@ SHOPPING_ITEM_BODY="$(curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" 
     "http://127.0.0.1:$PORT/api.php?action=add")"
 SHOPPING_ITEM_ID="$(echo "$SHOPPING_ITEM_BODY" | sed -n 's/.*"id":\([0-9]\+\).*/\1/p' | head -n 1)"
 [[ -n "$SHOPPING_ITEM_ID" ]] || { echo "Shopping-Item konnte nicht angelegt werden."; exit 1; }
-SKETCH_WRONG_CAT_STATUS="$(curl -s -o /dev/null -w '%{http_code}' -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+SKETCH_WRONG_CAT_STATUS="$(curl -s -o /dev/null -w '%{http_code}' -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: smoke-sketch-wrong-category' -X POST \
     --data-urlencode "item_id=$SHOPPING_ITEM_ID" \
+    --data-urlencode 'expected_revision=1' \
     --data-urlencode "scene=$VALID_SCENE" \
     "http://127.0.0.1:$PORT/api.php?action=sketch_save")"
 [[ "$SKETCH_WRONG_CAT_STATUS" == "422" ]] || { echo "sketch_save auf list_quantity lieferte $SKETCH_WRONG_CAT_STATUS statt 422."; exit 1; }
@@ -936,9 +986,10 @@ SKETCH_DAILY_DATE="$(date -d 'today +2 days' +%Y-%m-%d 2>/dev/null || date -v+2d
 
 # Eine leere erste Szene darf noch keine leere Tagesnotiz erzeugen.
 SKETCH_EMPTY_DAILY_DATE="$(date -d 'today +9 days' +%Y-%m-%d 2>/dev/null || date -v+9d +%Y-%m-%d)"
-EMPTY_DAILY_BODY="$(curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+EMPTY_DAILY_BODY="$(curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: smoke-daily-empty-first' -X POST \
     --data-urlencode "date=$SKETCH_EMPTY_DAILY_DATE" \
     --data-urlencode 'scene={"elements":[]}' \
+    --data-urlencode 'expected_revision=0' \
     "http://127.0.0.1:$PORT/api.php?action=sketch_save_daily")"
 echo "$EMPTY_DAILY_BODY" | grep -q '"item_id":null' || { echo "Leere erste Tages-Skizze erzeugte ein Item: $EMPTY_DAILY_BODY"; exit 1; }
 EMPTY_DAILY_JOURNAL="$(curl -fsS -b "$COOKIE_JAR" \
@@ -946,9 +997,10 @@ EMPTY_DAILY_JOURNAL="$(curl -fsS -b "$COOKIE_JAR" \
 echo "$EMPTY_DAILY_JOURNAL" | grep -q '"item":null' || { echo "Leere erste Tages-Skizze hinterließ eine Tagesnotiz: $EMPTY_DAILY_JOURNAL"; exit 1; }
 
 # Erster Save ohne Text erzeugt die Tagesnotiz (201).
-DAILY_FIRST_BODY="$(curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+DAILY_FIRST_BODY="$(curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: smoke-daily-first' -X POST \
     --data-urlencode "date=$SKETCH_DAILY_DATE" \
     --data-urlencode "scene=$VALID_SCENE" \
+    --data-urlencode 'expected_revision=0' \
     -w '%{http_code}' \
     "http://127.0.0.1:$PORT/api.php?action=sketch_save_daily")"
 DAILY_FIRST_STATUS="${DAILY_FIRST_BODY: -3}"
@@ -959,9 +1011,10 @@ DAILY_ITEM_ID="$(echo "$DAILY_FIRST_JSON" | sed -n 's/.*"item_id":\([0-9]\+\).*/
 echo "$DAILY_FIRST_JSON" | grep -q '"has_sketch":1' || { echo "Erster sketch_save_daily lieferte has_sketch != 1: $DAILY_FIRST_JSON"; exit 1; }
 
 # Folgender Save auf gleichem Datum updated dieselbe Zeile (200, gleiche item_id).
-DAILY_SECOND_BODY="$(curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+DAILY_SECOND_BODY="$(curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: smoke-daily-second' -X POST \
     --data-urlencode "date=$SKETCH_DAILY_DATE" \
     --data-urlencode "scene={\"elements\":[{\"type\":\"ellipse\",\"id\":\"x\"}]}" \
+    --data-urlencode "expected_revision=$(current_journal_revision "$SKETCH_DAILY_DATE")" \
     -w '%{http_code}' \
     "http://127.0.0.1:$PORT/api.php?action=sketch_save_daily")"
 DAILY_SECOND_STATUS="${DAILY_SECOND_BODY: -3}"
@@ -971,9 +1024,10 @@ DAILY_ITEM_ID_2="$(echo "$DAILY_SECOND_JSON" | sed -n 's/.*"item_id":\([0-9]\+\)
 [[ "$DAILY_ITEM_ID_2" == "$DAILY_ITEM_ID" ]] || { echo "Zweiter Save erzeugte neue item_id ($DAILY_ITEM_ID_2 statt $DAILY_ITEM_ID)."; exit 1; }
 
 # Leere Szene: has_sketch=0, daily item bleibt.
-DAILY_EMPTY_STATUS="$(curl -s -o /dev/null -w '%{http_code}' -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+DAILY_EMPTY_STATUS="$(curl -s -o /dev/null -w '%{http_code}' -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: smoke-daily-clear' -X POST \
     --data-urlencode "date=$SKETCH_DAILY_DATE" \
     --data-urlencode 'scene={"elements":[]}' \
+    --data-urlencode "expected_revision=$(current_journal_revision "$SKETCH_DAILY_DATE")" \
     "http://127.0.0.1:$PORT/api.php?action=sketch_save_daily")"
 [[ "$DAILY_EMPTY_STATUS" == "200" ]] || { echo "Leere sketch_save_daily lieferte $DAILY_EMPTY_STATUS statt 200."; exit 1; }
 
@@ -985,13 +1039,15 @@ echo "$DAILY_JOURNAL_BODY" | grep -q '"has_sketch":0' || { echo "Journal antwort
 
 # Skizze + Text gemeinsam: getrennte Daten, atomar.
 DAILY_TEXT_DATE="$(date -d 'today +3 days' +%Y-%m-%d 2>/dev/null || date -v+3d +%Y-%m-%d)"
-curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: smoke-daily-text-create' -X POST \
     --data-urlencode "date=$DAILY_TEXT_DATE" \
     --data-urlencode 'content=<p>Hallo Tag</p>' \
+    --data-urlencode 'expected_revision=0' \
     "http://127.0.0.1:$PORT/api.php?action=journal_save" >/dev/null
-DAILY_TEXT_SKETCH="$(curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+DAILY_TEXT_SKETCH="$(curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: smoke-daily-text-sketch' -X POST \
     --data-urlencode "date=$DAILY_TEXT_DATE" \
     --data-urlencode "scene=$VALID_SCENE" \
+    --data-urlencode "expected_revision=$(current_journal_revision "$DAILY_TEXT_DATE")" \
     "http://127.0.0.1:$PORT/api.php?action=sketch_save_daily")"
 DAILY_TEXT_ITEM_ID="$(echo "$DAILY_TEXT_SKETCH" | sed -n 's/.*"item_id":\([0-9]\+\).*/\1/p' | head -n 1)"
 DAILY_TEXT_JOURNAL="$(curl -fsS -b "$COOKIE_JAR" \
@@ -1002,9 +1058,10 @@ echo "$DAILY_TEXT_JOURNAL" | grep -q '"has_sketch":1' || { echo "kombinierter Sa
 
 # Anderes Datum = eigene Skizze (Gestern, Morgen, freie Daten).
 DAILY_OTHER_DATE="$(date -d 'today +4 days' +%Y-%m-%d 2>/dev/null || date -v+4d +%Y-%m-%d)"
-curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: smoke-daily-other' -X POST \
     --data-urlencode "date=$DAILY_OTHER_DATE" \
     --data-urlencode "scene=$VALID_SCENE" \
+    --data-urlencode 'expected_revision=0' \
     "http://127.0.0.1:$PORT/api.php?action=sketch_save_daily" >/dev/null
 DAILY_OTHER_JOURNAL="$(curl -fsS -b "$COOKIE_JAR" \
     "http://127.0.0.1:$PORT/api.php?action=journal&date=$DAILY_OTHER_DATE")"
@@ -1016,18 +1073,21 @@ echo "$DAILY_NEXT_JOURNAL" | grep -q '"item":null\|"id":null' || { echo "Folgeda
 
 # Sketch-only-Loeschen leer: Tagesnotiz bleibt mit has_sketch:0.
 DAILY_KEEP_DATE="$(date -d 'today +5 days' +%Y-%m-%d 2>/dev/null || date -v+5d +%Y-%m-%d)"
-DAILY_KEEP_SKETCH="$(curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+DAILY_KEEP_SKETCH="$(curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: smoke-daily-keep-text' -X POST \
     --data-urlencode "date=$DAILY_KEEP_DATE" \
     --data-urlencode 'content=<p>Bleibt</p>' \
+    --data-urlencode 'expected_revision=0' \
     "http://127.0.0.1:$PORT/api.php?action=journal_save")"
 DAILY_KEEP_ITEM_ID="$(echo "$DAILY_KEEP_SKETCH" | sed -n 's/.*"item":{\"id":\([0-9]\+\).*/\1/p' | head -n 1)"
-curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: smoke-daily-keep-sketch' -X POST \
     --data-urlencode "date=$DAILY_KEEP_DATE" \
     --data-urlencode "scene=$VALID_SCENE" \
+    --data-urlencode "expected_revision=$(current_journal_revision "$DAILY_KEEP_DATE")" \
     "http://127.0.0.1:$PORT/api.php?action=sketch_save_daily" >/dev/null
-curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: smoke-daily-keep-clear' -X POST \
     --data-urlencode "date=$DAILY_KEEP_DATE" \
     --data-urlencode 'scene={"elements":[]}' \
+    --data-urlencode "expected_revision=$(current_journal_revision "$DAILY_KEEP_DATE")" \
     "http://127.0.0.1:$PORT/api.php?action=sketch_save_daily" >/dev/null
 DAILY_KEEP_AFTER="$(curl -fsS -b "$COOKIE_JAR" \
     "http://127.0.0.1:$PORT/api.php?action=journal&date=$DAILY_KEEP_DATE")"
@@ -1036,14 +1096,15 @@ echo "$DAILY_KEEP_AFTER" | grep -q '<p>Bleibt</p>' || { echo "Text ging beim Lee
 echo "$DAILY_KEEP_AFTER" | grep -q '"has_sketch":0' || { echo "has_sketch sollte 0 sein nach Leeren: $DAILY_KEEP_AFTER"; exit 1; }
 
 # 422 für ungültiges JSON.
-DAILY_BAD_STATUS="$(curl -s -o /dev/null -w '%{http_code}' -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+DAILY_BAD_STATUS="$(curl -s -o /dev/null -w '%{http_code}' -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: smoke-daily-bad-json' -X POST \
     --data-urlencode "date=$SKETCH_DAILY_DATE" \
+    --data-urlencode "expected_revision=$(current_journal_revision "$SKETCH_DAILY_DATE")" \
     --data-urlencode 'scene={kein json' \
     "http://127.0.0.1:$PORT/api.php?action=sketch_save_daily")"
 [[ "$DAILY_BAD_STATUS" == "422" ]] || { echo "Ungültiges JSON lieferte $DAILY_BAD_STATUS statt 422."; exit 1; }
 
 # 422 für ungültiges Datum.
-DAILY_BAD_DATE_STATUS="$(curl -s -o /dev/null -w '%{http_code}' -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+DAILY_BAD_DATE_STATUS="$(curl -s -o /dev/null -w '%{http_code}' -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: smoke-daily-bad-date' -X POST \
     --data-urlencode 'date=2026-13-99' \
     --data-urlencode "scene=$VALID_SCENE" \
     "http://127.0.0.1:$PORT/api.php?action=sketch_save_daily")"

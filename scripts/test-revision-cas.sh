@@ -713,4 +713,99 @@ grep -q '"current_revision":2' "$JOURNAL_STALE_BODY"
 grep -q 'Aktualisierte Tagesfassung' "$JOURNAL_STALE_BODY"
 
 echo "Issue #69 Tagesnotiz-API ok: Revision 0, identischer Create und CAS-Konflikt"
-echo "Alle Revisions-ACs (#61, #65, #66, #67, #69) bestanden."
+
+# Issue #70, Slice 1: Zeichnungen verwenden denselben atomaren
+# expected_revision-Vertrag und liefern Item plus kanonische Szene zurück.
+DRAWING_CATEGORY_BODY="$TMP_DIR/drawing-category.json"
+curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+    --data-urlencode 'name=Revisions-Zeichnungen' --data-urlencode 'type=drawings' --data-urlencode 'icon=notizen' \
+    -o "$DRAWING_CATEGORY_BODY" "http://127.0.0.1:$PORT/api.php?action=categories_create" >/dev/null
+DRAWING_CATEGORY_ID="$(php -r 'echo (int) (json_decode(file_get_contents($argv[1]), true)["category"]["id"] ?? 0);' "$DRAWING_CATEGORY_BODY")"
+DRAWING_ITEM_BODY="$TMP_DIR/drawing-item.json"
+curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+    --data-urlencode "category_id=$DRAWING_CATEGORY_ID" --data-urlencode 'name=Revisionszeichnung' \
+    -o "$DRAWING_ITEM_BODY" "http://127.0.0.1:$PORT/api.php?action=add" >/dev/null
+DRAWING_ITEM_ID="$(php -r 'echo (int) (json_decode(file_get_contents($argv[1]), true)["id"] ?? 0);' "$DRAWING_ITEM_BODY")"
+DRAWING_SCENE='{"elements":[{"id":"drawing-v1","type":"rectangle"}],"appState":{"viewBackgroundColor":"#ffffff"}}'
+DRAWING_SAVE_BODY="$TMP_DIR/drawing-save.json"
+[[ "$(curl -sS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: revision-drawing-save' -X POST \
+    --data-urlencode "item_id=$DRAWING_ITEM_ID" --data-urlencode "scene=$DRAWING_SCENE" --data-urlencode 'expected_revision=1' \
+    -w '%{http_code}' -o "$DRAWING_SAVE_BODY" "http://127.0.0.1:$PORT/api.php?action=sketch_save")" == "200" ]]
+grep -q '"revision":2' "$DRAWING_SAVE_BODY"
+grep -q '"id":"drawing-v1"' "$DRAWING_SAVE_BODY"
+grep -q "\"id\":$DRAWING_ITEM_ID" "$DRAWING_SAVE_BODY"
+
+echo "Issue #70 Zeichnungs-CAS ok: Revision und kanonischer Item-/Szenenstand"
+
+# Issue #70, Slice 2: Text und Tages-Skizze sind getrennte
+# Konflikteinheiten derselben Item-Revision. Unveraenderte Basiskomponenten
+# erlauben ein atomisches Rebase; nur eine abweichende Szene erzeugt 409.
+DAILY_SKETCH_DATE="2031-04-20"
+DAILY_TEXT_V1='<p>Text bleibt beim Skizzen-Save erhalten</p>'
+DAILY_TEXT_CREATE_BODY="$TMP_DIR/daily-sketch-text-create.json"
+[[ "$(curl -sS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: revision-daily-text-create' -X POST \
+    --data-urlencode "date=$DAILY_SKETCH_DATE" --data-urlencode "content=$DAILY_TEXT_V1" \
+    --data-urlencode 'base_content=' --data-urlencode 'expected_revision=0' \
+    -w '%{http_code}' -o "$DAILY_TEXT_CREATE_BODY" "http://127.0.0.1:$PORT/api.php?action=journal_save")" == "201" ]]
+
+DAILY_SCENE_V1='{"elements":[{"id":"daily-v1","type":"ellipse"}],"appState":{"viewBackgroundColor":"#ffffff"}}'
+DAILY_SKETCH_MERGE_BODY="$TMP_DIR/daily-sketch-merge.json"
+[[ "$(curl -sS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: revision-daily-sketch-merge' -X POST \
+    --data-urlencode "date=$DAILY_SKETCH_DATE" --data-urlencode "scene=$DAILY_SCENE_V1" \
+    --data-urlencode 'base_scene=' --data-urlencode 'expected_revision=0' \
+    -w '%{http_code}' -o "$DAILY_SKETCH_MERGE_BODY" "http://127.0.0.1:$PORT/api.php?action=sketch_save_daily")" == "200" ]]
+grep -q '"revision":2' "$DAILY_SKETCH_MERGE_BODY"
+grep -q 'Text bleibt beim Skizzen-Save erhalten' "$DAILY_SKETCH_MERGE_BODY"
+grep -q '"id":"daily-v1"' "$DAILY_SKETCH_MERGE_BODY"
+
+DAILY_TEXT_V2='<p>Text wurde unabhaengig aktualisiert</p>'
+DAILY_TEXT_REBASE_BODY="$TMP_DIR/daily-text-rebase.json"
+[[ "$(curl -sS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: revision-daily-text-rebase' -X POST \
+    --data-urlencode "date=$DAILY_SKETCH_DATE" --data-urlencode "content=$DAILY_TEXT_V2" \
+    --data-urlencode "base_content=$DAILY_TEXT_V1" --data-urlencode 'expected_revision=1' \
+    -w '%{http_code}' -o "$DAILY_TEXT_REBASE_BODY" "http://127.0.0.1:$PORT/api.php?action=journal_save")" == "200" ]]
+grep -q '"revision":3' "$DAILY_TEXT_REBASE_BODY"
+
+DAILY_SCENE_V2='{"elements":[{"id":"daily-v2","type":"diamond"}],"appState":{"viewBackgroundColor":"#ffffff"}}'
+DAILY_SKETCH_REBASE_BODY="$TMP_DIR/daily-sketch-rebase.json"
+[[ "$(curl -sS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: revision-daily-sketch-rebase' -X POST \
+    --data-urlencode "date=$DAILY_SKETCH_DATE" --data-urlencode "scene=$DAILY_SCENE_V2" \
+    --data-urlencode "base_scene=$DAILY_SCENE_V1" --data-urlencode 'expected_revision=2' \
+    -w '%{http_code}' -o "$DAILY_SKETCH_REBASE_BODY" "http://127.0.0.1:$PORT/api.php?action=sketch_save_daily")" == "200" ]]
+grep -q '"revision":4' "$DAILY_SKETCH_REBASE_BODY"
+grep -q 'Text wurde unabhaengig aktualisiert' "$DAILY_SKETCH_REBASE_BODY"
+
+DAILY_SCENE_CONFLICT='{"elements":[{"id":"daily-conflict","type":"line"}],"appState":{"viewBackgroundColor":"#ffffff"}}'
+DAILY_SKETCH_CONFLICT_BODY="$TMP_DIR/daily-sketch-conflict.json"
+[[ "$(curl -sS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: revision-daily-sketch-conflict' -X POST \
+    --data-urlencode "date=$DAILY_SKETCH_DATE" --data-urlencode "scene=$DAILY_SCENE_CONFLICT" \
+    --data-urlencode "base_scene=$DAILY_SCENE_V1" --data-urlencode 'expected_revision=2' \
+    -w '%{http_code}' -o "$DAILY_SKETCH_CONFLICT_BODY" "http://127.0.0.1:$PORT/api.php?action=sketch_save_daily")" == "409" ]]
+grep -q '"current_revision":4' "$DAILY_SKETCH_CONFLICT_BODY"
+grep -q '"id":"daily-v2"' "$DAILY_SKETCH_CONFLICT_BODY"
+
+DAILY_SKETCH_CLEAR_BODY="$TMP_DIR/daily-sketch-clear.json"
+[[ "$(curl -sS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: revision-daily-sketch-clear' -X POST \
+    --data-urlencode "date=$DAILY_SKETCH_DATE" --data-urlencode 'scene={"elements":[]}' \
+    --data-urlencode "base_scene=$DAILY_SCENE_V2" --data-urlencode 'expected_revision=4' \
+    -w '%{http_code}' -o "$DAILY_SKETCH_CLEAR_BODY" "http://127.0.0.1:$PORT/api.php?action=sketch_save_daily")" == "200" ]]
+grep -q '"revision":5' "$DAILY_SKETCH_CLEAR_BODY"
+grep -q '"has_sketch":0' "$DAILY_SKETCH_CLEAR_BODY"
+grep -q 'Text wurde unabhaengig aktualisiert' "$DAILY_SKETCH_CLEAR_BODY"
+
+DAILY_FIRST_SKETCH_DATE="2031-04-21"
+DAILY_FIRST_SKETCH_BODY="$TMP_DIR/daily-first-sketch.json"
+[[ "$(curl -sS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: revision-daily-first-sketch' -X POST \
+    --data-urlencode "date=$DAILY_FIRST_SKETCH_DATE" --data-urlencode "scene=$DAILY_SCENE_V1" \
+    --data-urlencode 'base_scene=' --data-urlencode 'expected_revision=0' \
+    -w '%{http_code}' -o "$DAILY_FIRST_SKETCH_BODY" "http://127.0.0.1:$PORT/api.php?action=sketch_save_daily")" == "201" ]]
+DAILY_AFTER_SKETCH_TEXT_BODY="$TMP_DIR/daily-after-sketch-text.json"
+[[ "$(curl -sS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: revision-daily-after-sketch-text' -X POST \
+    --data-urlencode "date=$DAILY_FIRST_SKETCH_DATE" --data-urlencode 'content=<p>Text nach paralleler Skizze</p>' \
+    --data-urlencode 'base_content=' --data-urlencode 'expected_revision=0' \
+    -w '%{http_code}' -o "$DAILY_AFTER_SKETCH_TEXT_BODY" "http://127.0.0.1:$PORT/api.php?action=journal_save")" == "200" ]]
+grep -q '"revision":2' "$DAILY_AFTER_SKETCH_TEXT_BODY"
+grep -q '"has_sketch":1' "$DAILY_AFTER_SKETCH_TEXT_BODY"
+
+echo "Issue #70 Tagesnotiz-Komponenten ok: paralleles Create, Rebase, Konflikt und Leeren"
+echo "Alle Revisions-ACs (#61, #65, #66, #67, #69, #70) bestanden."

@@ -265,6 +265,7 @@ export function createJournalController(deps) {
                     body: new URLSearchParams({
                         date,
                         content: html,
+                        base_content: journalDraft?.baseContent || '',
                         expected_revision: String(expectedRevision),
                     }),
                     ...(journalDraft?.requestId ? { idempotencyKey: journalDraft.requestId } : {}),
@@ -340,6 +341,7 @@ export function createJournalController(deps) {
                 body: new URLSearchParams({
                     date: journalDraft.date,
                     content: conflict.local.content,
+                    base_content: conflict.server.content,
                     expected_revision: String(conflict.server.revision),
                 }),
                 ...(journalDraft.requestId ? { idempotencyKey: journalDraft.requestId } : {}),

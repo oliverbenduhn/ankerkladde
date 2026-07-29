@@ -5850,6 +5850,65 @@ details[open].settings-category-details > .settings-category-summary .settings-s
     height: 100%;
 }
 
+.sketch-conflict {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 1rem;
+}
+
+.sketch-conflict-intro {
+    margin: 0 0 1rem;
+    color: var(--error);
+    font-weight: 600;
+}
+
+.sketch-conflict-versions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+}
+
+.sketch-conflict-version {
+    min-width: 0;
+    padding: 0.875rem;
+    border: 1.5px solid var(--border);
+    border-radius: 1rem;
+    background: var(--surface);
+}
+
+.sketch-conflict-version h3,
+.sketch-conflict-timestamp {
+    margin: 0 0 0.5rem;
+}
+
+.sketch-conflict-timestamp {
+    min-height: 1em;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+}
+
+.sketch-conflict-preview {
+    height: min(34vh, 300px);
+    min-height: 220px;
+    margin-bottom: 0.875rem;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    background: #fff;
+}
+
+.sketch-conflict-preview > div {
+    width: 100%;
+    height: 100%;
+}
+
+@media (max-width: 640px) {
+    .sketch-conflict-versions {
+        grid-template-columns: 1fr;
+    }
+}
+
 .sketch-editor-error {
     padding: 1.5rem;
     text-align: center;
