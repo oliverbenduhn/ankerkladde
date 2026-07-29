@@ -15,6 +15,11 @@ const REACT_DOM_MODULE = 'https://esm.sh/react-dom@18.2.0/client';
 const EXCALIDRAW_ASSET_PATH = 'https://unpkg.com/@excalidraw/excalidraw@0.17.3/dist/';
 
 let excalidrawPromise = null;
+let activeSketchRefresh = null;
+
+export async function refreshOpenSketchEditor() {
+    return activeSketchRefresh ? activeSketchRefresh() : false;
+}
 
 async function ensureExcalidraw() {
     if (excalidrawPromise) return excalidrawPromise;
@@ -192,6 +197,7 @@ async function openSketchEditorImpl({ item, date, mode }) {
     let draftKey = '';
     let bundle = null;
     let userInteracted = false;
+    let excalidrawApi = null;
 
     const isOpen = () => !unmounted && document.body.contains(refs.overlay);
 
@@ -206,6 +212,7 @@ async function openSketchEditorImpl({ item, date, mode }) {
         if (unmounted) return;
         unmounted = true;
         if (saveTimer) clearTimeout(saveTimer);
+        if (activeSketchRefresh === refreshFromServer) activeSketchRefresh = null;
         unmountRoots();
         refs.overlay.remove();
         resolveClosed();
@@ -449,6 +456,70 @@ async function openSketchEditorImpl({ item, date, mode }) {
         safeUnmount();
     };
 
+    const refreshFromServer = async () => {
+        if (!draft || !bundle || !isOpen()) return false;
+        if (saveInFlight) {
+            try { await saveInFlight; } catch {}
+        }
+        const canonical = isDaily
+            ? await loadDailyScene(date)
+            : await loadItemScene(itemId);
+        if (!isOpen()) return false;
+        const serverScene = asScene(canonical.scene);
+        const serverItem = canonical.item || null;
+
+        if (draft.conflict) {
+            draft.conflict.server = {
+                scene: serverScene,
+                updatedAt: serverItem?.updated_at || '',
+                revision: Number(serverItem?.revision) || 0,
+                item: serverItem,
+            };
+            persistDraft();
+            renderConflict();
+            return true;
+        }
+
+        if (draft.dirty) {
+            if (scenesEqual(serverScene, draft.scene)) {
+                acceptCanonical(canonical, serverScene);
+            } else if (scenesEqual(serverScene, draft.baseScene)) {
+                draft.baseRevision = Number(serverItem?.revision) || 0;
+                draft.baseUpdatedAt = serverItem?.updated_at || '';
+                persistDraft();
+            } else {
+                draft.conflict = {
+                    local: {
+                        scene: asScene(draft.scene),
+                        updatedAt: draft.localUpdatedAt || new Date().toISOString(),
+                    },
+                    server: {
+                        scene: serverScene,
+                        updatedAt: serverItem?.updated_at || '',
+                        revision: Number(serverItem?.revision) || 0,
+                        item: serverItem,
+                    },
+                };
+                persistDraft();
+                renderConflict();
+            }
+            return true;
+        }
+
+        draft.itemId = Number(serverItem?.id) || draft.itemId;
+        draft.baseRevision = Number(serverItem?.revision) || 0;
+        draft.baseScene = serverScene;
+        draft.baseUpdatedAt = serverItem?.updated_at || '';
+        draft.scene = serverScene;
+        pendingScene = null;
+        clearSketchDraft(draftKey);
+        excalidrawApi?.updateScene({
+            elements: serverScene.elements,
+            appState: serverScene.appState,
+        });
+        return true;
+    };
+
     refs.closeBtn.addEventListener('click', () => void handleClose());
 
     try {
@@ -466,6 +537,7 @@ async function openSketchEditorImpl({ item, date, mode }) {
             item: canonical.item,
             scene: canonical.scene,
         });
+        activeSketchRefresh = refreshFromServer;
 
         if (persisted?.conflict) {
             draft.conflict.server = {
@@ -495,6 +567,7 @@ async function openSketchEditorImpl({ item, date, mode }) {
         }, { capture: true });
         root.render(bundle.React.createElement(bundle.Excalidraw, {
             initialData: initialScene,
+            excalidrawAPI: apiInstance => { excalidrawApi = apiInstance; },
             onChange: (elements, appState) => {
                 if (!userInteracted) return;
                 queueSave({ elements: elements ?? [], appState: appState ?? {} });

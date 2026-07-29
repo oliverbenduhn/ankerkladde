@@ -4,6 +4,12 @@ import { getCurrentCategory, state } from './state.js';
 import { addConflict, enqueueAction, getConflicts, setConflicts } from './offline-queue.js';
 import { isItemSaving, markItemSaving, clearItemSaving } from './item-sync-state.js';
 import { clearDraftSnapshot, markDraftServerDeleted } from './draft-persistence.js';
+import {
+    itemContentSnapshot,
+    rebaseItemDraft,
+    serverContentMatchesDraft,
+    serverContentMatchesDraftBase,
+} from './item-content-conflict.js';
 
 export function createUpdateActions(deps) {
     const {
@@ -337,37 +343,67 @@ export function createUpdateActions(deps) {
         if (isItemSaving(id)) return;
 
         const item = getItemById(id);
-        const expectedRevision = item ? Number(item.revision) : 0;
+        const expectedRevision = Number(draft.baseRevision) || (item ? Number(item.revision) : 0);
         if (expectedRevision < 1) {
             setMessage(t('error.revision_required'), true);
             return;
         }
 
-        const body = itemParams({
-            id: String(id),
-            expected_revision: String(expectedRevision),
-            name: (draft.name || '').trim(),
-            barcode: (draft.barcode || '').trim(),
-            quantity: (draft.quantity || '').trim(),
-            due_date: (draft.due_date || '').trim(),
-            due_time: (draft.due_time || '').trim(),
-            priority: (draft.priority || '').trim(),
-            content: (draft.content || '').trim(),
-        });
-
         markItemSaving(id);
         renderItems();
-        let result;
         try {
-            result = await api('update', { method: 'POST', body });
+            const body = itemParams({
+                id: String(id),
+                expected_revision: String(expectedRevision),
+                name: (draft.name || '').trim(),
+                barcode: (draft.barcode || '').trim(),
+                quantity: (draft.quantity || '').trim(),
+                due_date: (draft.due_date || '').trim(),
+                due_time: (draft.due_time || '').trim(),
+                priority: (draft.priority || '').trim(),
+                content: (draft.content || '').trim(),
+            });
+            const result = await api('update', {
+                method: 'POST',
+                body,
+                ...(draft.requestId ? { idempotencyKey: draft.requestId } : {}),
+            });
+            state.editingId = null;
+            state.editDraft = { itemId: null, categoryId: null, name: '', barcode: '', quantity: '', due_date: '', due_time: '', priority: '', content: '' };
+            clearDraftSnapshot();
+            applyServerItem(result?.item);
+            renderItems();
+            setMessage(t('msg.item_saved'));
         } catch (error) {
+            draft.requestId = error?.idempotencyKey || draft.requestId || '';
             if (Number(error?.status) === 409 && error.payload?.item) {
-                applyServerItem(error.payload.item);
-                await loadItems();
+                const serverItem = error.payload.item;
+                applyServerItem(serverItem);
+                if (serverContentMatchesDraft(serverItem, draft)) {
+                    state.editingId = null;
+                    state.editDraft = { itemId: null, categoryId: null, name: '', barcode: '', quantity: '', due_date: '', due_time: '', priority: '', content: '' };
+                    clearDraftSnapshot();
+                    renderItems();
+                    setMessage(t('msg.item_saved'));
+                    return;
+                }
+                if (serverContentMatchesDraftBase(serverItem, draft)) {
+                    rebaseItemDraft(draft, serverItem);
+                    renderItems();
+                    window.setTimeout(() => void handleEditSave(id), 0);
+                    return;
+                }
+                draft.conflict = {
+                    local: itemContentSnapshot(draft),
+                    server: {
+                        ...itemContentSnapshot(serverItem),
+                        revision: Number(serverItem.revision),
+                        updatedAt: serverItem.updated_at || '',
+                        item: serverItem,
+                    },
+                };
+                renderItems();
                 setMessage(t('msg.item_conflict_remote_update'), true);
-                state.editingId = null;
-                state.editDraft = { itemId: null, categoryId: null, name: '', barcode: '', quantity: '', due_date: '', due_time: '', priority: '', content: '' };
-                clearDraftSnapshot();
                 return;
             }
             if (Number(error?.status) === 404) {
@@ -377,18 +413,35 @@ export function createUpdateActions(deps) {
                 setMessage(t('msg.server_delete_detected'), true);
                 return;
             }
-            throw error;
+            renderItems();
+            setMessage(error instanceof Error ? error.message : t('error.server_error'), true);
         } finally {
             clearItemSaving(id);
+            renderItems();
         }
+    }
+
+    async function keepLocalItemContent(id) {
+        const draft = state.editDraft;
+        const conflict = draft?.conflict;
+        if (Number(state.editingId) !== Number(id) || !conflict?.server?.item) return;
+        applyServerItem(conflict.server.item);
+        rebaseItemDraft(draft, conflict.server.item);
+        draft.conflict = null;
+        renderItems();
+        await handleEditSave(id);
+    }
+
+    function acceptServerItemContent(id) {
+        const draft = state.editDraft;
+        const conflict = draft?.conflict;
+        if (Number(state.editingId) !== Number(id) || !conflict?.server?.item) return;
+        applyServerItem(conflict.server.item);
         state.editingId = null;
         state.editDraft = { itemId: null, categoryId: null, name: '', barcode: '', quantity: '', due_date: '', due_time: '', priority: '', content: '' };
         clearDraftSnapshot();
-        // AC #61: Nach Erfolg direkt den kanonischen Serverzustand uebernehmen,
-        // kein zusaetzlicher GET.
-        applyServerItem(result?.item);
         renderItems();
-        setMessage(t('msg.item_saved'));
+        setMessage('Server-Version übernommen.');
     }
 
     async function clearDone() {
@@ -459,6 +512,8 @@ export function createUpdateActions(deps) {
         handlePin,
         handleMove,
         handleEditSave,
+        keepLocalItemContent,
+        acceptServerItemContent,
         clearDone,
     };
 }

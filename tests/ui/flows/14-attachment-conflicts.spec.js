@@ -203,4 +203,44 @@ test.describe('FLOW 14 — Attachment-Ersetzungen revisionssicher (Issue #71)', 
 
     await context.close();
   });
+
+  test('Datei, Konflikt und Request-ID überstehen einen Reload', async ({ page, browser }, testInfo) => {
+    test.skip(testInfo.project.name !== 'mobile', 'Der geforderte Reload-Nachweis läuft im mobilen Projekt.');
+    await login(page);
+    const { category, itemId } = await createAttachment(page);
+    const { context, page: pageB } = await secondContext(browser, page);
+    await openCategory(page, category);
+    await openCategory(pageB, category);
+
+    await startEdit(page, itemId);
+    await itemCard(page, itemId).getByLabel('Anhang ersetzen').setInputFiles({
+      name: 'reload-lokal.txt',
+      mimeType: 'text/plain',
+      buffer: Buffer.from('Reloadfeste lokale Datei'),
+    });
+    await startEdit(pageB, itemId);
+    await replaceFile(pageB, itemId, 'reload-server.txt', 'Server vor Reload');
+
+    let originalRequestId = '';
+    page.on('request', request => {
+      if (request.url().includes('action=upload')) {
+        originalRequestId ||= request.headers()['x-idempotency-key'];
+      }
+    });
+    await itemCard(page, itemId).getByRole('button', { name: /speichern$/ }).click();
+    await expect(itemCard(page, itemId).locator('.attachment-content-conflict')).toBeVisible();
+    expect(originalRequestId).not.toBe('');
+
+    await page.reload();
+    await expect(itemCard(page, itemId).locator('.attachment-content-conflict')).toBeVisible();
+    await expect(itemCard(page, itemId).locator('.attachment-conflict-version-local')).toContainText('reload-lokal.txt');
+    await expect(itemCard(page, itemId).locator('.attachment-conflict-version-server')).toContainText('reload-server.txt');
+
+    const retryRequest = page.waitForRequest(request => request.url().includes('action=upload'));
+    await itemCard(page, itemId).getByRole('button', { name: 'Meine Datei behalten', exact: true }).click();
+    expect((await retryRequest).headers()['x-idempotency-key']).toBe(originalRequestId);
+    await expect(itemCard(page, itemId).locator('.item-edit-fields')).toHaveCount(0);
+    expect(await downloadText(page, itemId)).toBe('Reloadfeste lokale Datei');
+    await context.close();
+  });
 });

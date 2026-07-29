@@ -6,6 +6,11 @@ import { createLightboxController } from './lightbox.js';
 import { createItemMenuController } from './item-menu.js';
 import { getItemSyncState } from './item-sync-state.js';
 import { clearDraftSnapshot, loadDraftSnapshot, wrapDraftForPersistence } from './draft-persistence.js';
+import {
+    ITEM_CONTENT_FIELDS,
+    itemContentSnapshot,
+    itemDraftHasLocalChanges,
+} from './item-content-conflict.js';
 
 let sketchEditorModulePromise = null;
 async function loadSketchEditor() {
@@ -43,6 +48,8 @@ export function createItemsViewController(deps) {
         getAttachmentReplacement,
         keepLocalAttachment,
         selectAttachmentReplacement,
+        acceptServerItemContent,
+        keepLocalItemContent,
     } = deps;
 
     const lightbox = createLightboxController();
@@ -68,7 +75,7 @@ export function createItemsViewController(deps) {
         },
         handleEditStart: (item) => {
             state.editingId = item.id;
-            state.editDraft = wrapDraftForPersistence(createEditDraft(item), item.id, item);
+            state.editDraft = wrapEditDraft(createEditDraft(item), item);
             renderItems();
         },
     });
@@ -84,7 +91,46 @@ export function createItemsViewController(deps) {
             due_time: item.due_time || '',
             priority: item.priority || '',
             content: item.content || '',
+            baseRevision: Number(item.revision) || 0,
+            baseContent: itemContentSnapshot(item),
+            baseUpdatedAt: item.updated_at || '',
+            requestId: '',
+            conflict: null,
         };
+    }
+
+    function updateInlineDraftBadge(itemId, draft) {
+        const content = listEl.querySelector(`.item-card[data-item-id="${Number(itemId)}"] .item-content`);
+        if (!content) return;
+        const existing = content.querySelector('.item-sync-badge-dirty');
+        if (!itemDraftHasLocalChanges(draft)) {
+            existing?.remove();
+            return;
+        }
+        if (existing) return;
+        const badge = document.createElement('span');
+        badge.className = 'item-sync-badge item-sync-badge-dirty';
+        badge.textContent = SYNC_STATE_LABELS.dirty;
+        content.appendChild(badge);
+    }
+
+    function wrapEditDraft(draft, item) {
+        return wrapDraftForPersistence(
+            draft,
+            item.id,
+            item,
+            changedDraft => updateInlineDraftBadge(item.id, changedDraft)
+        );
+    }
+
+    function ensureEditDraftBase(draft, item) {
+        if (!draft.baseContent || typeof draft.baseContent !== 'object') {
+            draft.baseContent = itemContentSnapshot(item);
+        }
+        if (!Number(draft.baseRevision)) draft.baseRevision = Number(item.revision) || 0;
+        if (!('requestId' in draft)) draft.requestId = '';
+        if (!('conflict' in draft)) draft.conflict = null;
+        return draft;
     }
 
     function resetEditDraft() {
@@ -96,9 +142,9 @@ export function createItemsViewController(deps) {
 
     function getEditDraftForItem(item) {
         if (state.editDraft?.itemId !== item.id) {
-            state.editDraft = wrapDraftForPersistence(createEditDraft(item), item.id, item);
+            state.editDraft = wrapEditDraft(createEditDraft(item), item);
         }
-        return state.editDraft;
+        return ensureEditDraftBase(state.editDraft, item);
     }
 
     // AC #63: ein unbestaetigter Entwurf ueberlebt Reload/Navigation im
@@ -118,7 +164,8 @@ export function createItemsViewController(deps) {
             state.items.push(item);
         }
         state.editingId = item.id;
-        state.editDraft = wrapDraftForPersistence(snapshot.draft, item.id, snapshot.item || item);
+        const draftItem = snapshot.item || item;
+        state.editDraft = wrapEditDraft(ensureEditDraftBase(snapshot.draft, draftItem), draftItem);
         cacheCurrentCategoryItems();
         return true;
     }
@@ -497,6 +544,62 @@ export function createItemsViewController(deps) {
         const fields = document.createElement('div');
         fields.className = 'item-edit-fields';
 
+        if (draft.conflict) {
+            const conflict = document.createElement('section');
+            conflict.className = 'item-content-conflict';
+            const heading = document.createElement('p');
+            heading.textContent = 'Dieser Eintrag wurde parallel geändert. Wähle bewusst eine Fassung.';
+            const versions = document.createElement('div');
+            versions.className = 'item-content-conflict-versions';
+
+            const buildVersion = (className, title, source) => {
+                const version = document.createElement('section');
+                version.className = `item-content-conflict-version ${className}`;
+                const versionTitle = document.createElement('strong');
+                versionTitle.textContent = title;
+                const values = document.createElement('dl');
+                ITEM_CONTENT_FIELDS.forEach(field => {
+                    const fieldValue = String(source?.[field] ?? '');
+                    if (!fieldValue) return;
+                    const term = document.createElement('dt');
+                    term.textContent = field === 'name' ? 'Titel' : field;
+                    const description = document.createElement('dd');
+                    description.textContent = fieldValue;
+                    values.append(term, description);
+                });
+                version.append(versionTitle, values);
+                return version;
+            };
+
+            versions.append(
+                buildVersion('item-content-conflict-version-local', 'Meine Fassung', draft.conflict.local),
+                buildVersion('item-content-conflict-version-server', 'Server-Version', draft.conflict.server)
+            );
+            const actions = document.createElement('div');
+            actions.className = 'item-content-conflict-actions';
+            const acceptServer = document.createElement('button');
+            acceptServer.type = 'button';
+            acceptServer.className = 'btn-clear';
+            acceptServer.textContent = 'Server-Version übernehmen';
+            acceptServer.addEventListener('click', event => {
+                event.stopPropagation();
+                acceptServerItemContent?.(item.id);
+            });
+            const keepLocal = document.createElement('button');
+            keepLocal.type = 'button';
+            keepLocal.className = 'btn-add';
+            keepLocal.textContent = 'Meine Fassung behalten';
+            keepLocal.addEventListener('click', event => {
+                event.stopPropagation();
+                void keepLocalItemContent?.(item.id);
+            });
+            actions.append(acceptServer, keepLocal);
+            conflict.append(heading, versions, actions);
+            fields.appendChild(conflict);
+            content.appendChild(fields);
+            return;
+        }
+
         const nameInput = document.createElement('textarea');
         nameInput.className = 'item-edit-input item-edit-textarea edit-name-input';
         nameInput.rows = 5;
@@ -733,7 +836,10 @@ export function createItemsViewController(deps) {
     };
 
     function buildSyncStateBadge(item) {
-        const syncState = getItemSyncState(item.id, { isDirty: state.editingId === item.id });
+        const replacement = getAttachmentReplacement?.(item.id);
+        const isDirty = state.editingId === item.id
+            && (itemDraftHasLocalChanges(state.editDraft) || Boolean(replacement) || Boolean(state.editDraft?.conflict));
+        const syncState = getItemSyncState(item.id, { isDirty });
         if (syncState === 'synced') return null;
         const badge = document.createElement('span');
         badge.className = `item-sync-badge item-sync-badge-${syncState}`;

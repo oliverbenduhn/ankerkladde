@@ -596,6 +596,67 @@ export function createJournalController(deps) {
         }
     }
 
+    async function refreshCurrentDay() {
+        const date = state.journalDate;
+        if (state.screen !== 'journal' || !date || !journalDraft) return false;
+        try {
+            const [payload, agenda] = await Promise.all([
+                api(`journal&date=${encodeURIComponent(date)}`),
+                loadAgenda(date),
+            ]);
+            if (state.screen !== 'journal' || state.journalDate !== date) return false;
+            renderAgenda(Array.isArray(agenda.items) ? agenda.items : []);
+            captureJournalDraft(false);
+
+            const server = payload.item || null;
+            currentItem = server;
+            state.journalItemId = Number(server?.id) || null;
+            const serverContent = server?.content || '';
+            const serverRevision = Number(server?.revision) || 0;
+
+            if (journalDraft.conflict) {
+                journalDraft.conflict.server = {
+                    content: serverContent,
+                    updatedAt: server?.updated_at || '',
+                    revision: serverRevision,
+                    item: server,
+                };
+            } else if (!journalDraft.dirty) {
+                journalDraft = createJournalDraft(date, server);
+                dirty = false;
+                setJournalEditorContent(serverContent);
+                clearJournalDraft(date);
+                setSaveStatus('');
+            } else if (server && serverContent === journalDraft.content) {
+                acceptJournalSave(server, journalDraft.content);
+            } else if (serverContent === journalDraft.baseContent) {
+                journalDraft.baseRevision = serverRevision;
+                journalDraft.baseUpdatedAt = server?.updated_at || '';
+                saveJournalDraft(journalDraft);
+            } else {
+                journalDraft.conflict = {
+                    local: {
+                        content: journalDraft.content,
+                        updatedAt: new Date().toISOString(),
+                    },
+                    server: {
+                        content: serverContent,
+                        updatedAt: server?.updated_at || '',
+                        revision: serverRevision,
+                        item: server,
+                    },
+                };
+                saveJournalDraft(journalDraft);
+                setSaveStatus('Konflikt');
+            }
+            renderJournalConflict();
+            renderSketchCard();
+            return true;
+        } catch {
+            return false;
+        }
+    }
+
     async function navigateTo(date) {
         if (!date || date === state.journalDate) return;
         await openDay(date);
@@ -700,5 +761,5 @@ export function createJournalController(deps) {
         if (dirty && !journalDraft?.conflict) void saveCurrentContent();
     });
 
-    return { closeJournal, openDay, reloadAgenda, setToggleHandler };
+    return { closeJournal, openDay, refreshCurrentDay, reloadAgenda, setToggleHandler };
 }

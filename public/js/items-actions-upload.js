@@ -5,8 +5,29 @@ import { fileInput, itemInput, urlImportInput } from './ui.js';
 import { sanitizeItemField } from './utils.js';
 import { clearDraftSnapshot, markDraftServerDeleted } from './draft-persistence.js';
 import { clearItemSaving, isItemSaving, markItemSaving } from './item-sync-state.js';
+import {
+    clearAttachmentReplacementDraft,
+    loadAttachmentReplacementDrafts,
+    saveAttachmentReplacementDraft,
+} from './attachment-draft-persistence.js';
 
 const replacementDrafts = new Map();
+
+function attachmentSnapshot(item) {
+    return {
+        hasAttachment: Number(item?.has_attachment ?? item?.hasAttachment ?? 0),
+        originalName: String(item?.attachment_original_name ?? item?.attachmentOriginalName ?? ''),
+        updatedAt: String(item?.attachment_updated_at ?? item?.attachmentUpdatedAt ?? ''),
+    };
+}
+
+function sameAttachment(left, right) {
+    const a = attachmentSnapshot(left);
+    const b = right || {};
+    return a.hasAttachment === Number(b.hasAttachment || 0)
+        && a.originalName === String(b.originalName || '')
+        && a.updatedAt === String(b.updatedAt || '');
+}
 
 export function createUploadActions(deps) {
     const {
@@ -21,6 +42,21 @@ export function createUploadActions(deps) {
         renderItems,
         applyServerItem,
     } = deps;
+
+    void loadAttachmentReplacementDrafts().then(drafts => {
+        drafts.forEach(draft => {
+            if (draft?.file instanceof File && Number.isInteger(Number(draft.itemId))) {
+                replacementDrafts.set(Number(draft.itemId), {
+                    file: draft.file,
+                    requestId: draft.requestId || '',
+                    conflictItem: draft.conflictItem || null,
+                    baseRevision: Number(draft.baseRevision) || 0,
+                    baseAttachment: draft.baseAttachment || null,
+                });
+            }
+        });
+        if (drafts.length > 0) renderItems();
+    });
 
     function resetInlineEdit() {
         state.editingId = null;
@@ -46,19 +82,26 @@ export function createUploadActions(deps) {
         const id = Number(itemId);
         if (!(file instanceof File)) {
             replacementDrafts.delete(id);
+            void clearAttachmentReplacementDraft(id);
             renderItems();
             return;
         }
-        replacementDrafts.set(id, {
+        const draft = {
             file,
             requestId: '',
             conflictItem: null,
-        });
+            baseRevision: Number(getItemById(id)?.revision) || 0,
+            baseAttachment: attachmentSnapshot(getItemById(id)),
+        };
+        replacementDrafts.set(id, draft);
+        void saveAttachmentReplacementDraft(id, draft);
         renderItems();
     }
 
     function clearAttachmentReplacement(itemId) {
-        replacementDrafts.delete(Number(itemId));
+        const id = Number(itemId);
+        replacementDrafts.delete(id);
+        void clearAttachmentReplacementDraft(id);
     }
 
     async function replaceAttachment(itemId) {
@@ -68,12 +111,15 @@ export function createUploadActions(deps) {
         if (isItemSaving(id)) return true;
 
         const item = getItemById(id);
-        const expectedRevision = Number(item?.revision);
+        const expectedRevision = Number(pending.baseRevision) || Number(item?.revision);
         if (!item || expectedRevision < 1) {
             setMessage(t('error.revision_required'), true);
             return true;
         }
-        if (!pending.requestId) pending.requestId = await buildIdempotencyKey();
+        if (!pending.requestId) {
+            pending.requestId = await buildIdempotencyKey();
+            await saveAttachmentReplacementDraft(id, pending);
+        }
 
         const requestId = pending.requestId;
         const formData = new FormData();
@@ -99,10 +145,19 @@ export function createUploadActions(deps) {
             setMessage('Anhang ersetzt.');
         } catch (error) {
             if (Number(error?.status) === 409 && error.payload?.item) {
-                applyServerItem(error.payload.item);
+                const serverItem = error.payload.item;
+                applyServerItem(serverItem);
                 const currentPending = getAttachmentReplacement(id);
                 if (currentPending?.requestId === requestId) {
-                    currentPending.conflictItem = error.payload.item;
+                    if (sameAttachment(serverItem, currentPending.baseAttachment)) {
+                        currentPending.baseRevision = Number(serverItem.revision);
+                        currentPending.baseAttachment = attachmentSnapshot(serverItem);
+                        await saveAttachmentReplacementDraft(id, currentPending);
+                        window.setTimeout(() => void replaceAttachment(id), 0);
+                        return true;
+                    }
+                    currentPending.conflictItem = serverItem;
+                    await saveAttachmentReplacementDraft(id, currentPending);
                 }
                 renderItems();
                 setMessage('Der Anhang wurde parallel geändert. Bitte wähle eine Fassung.', true);
@@ -128,7 +183,10 @@ export function createUploadActions(deps) {
         const pending = getAttachmentReplacement(itemId);
         if (!pending?.conflictItem) return;
         applyServerItem(pending.conflictItem);
+        pending.baseRevision = Number(pending.conflictItem.revision);
+        pending.baseAttachment = attachmentSnapshot(pending.conflictItem);
         pending.conflictItem = null;
+        await saveAttachmentReplacementDraft(itemId, pending);
         await replaceAttachment(itemId);
     }
 
@@ -147,7 +205,10 @@ export function createUploadActions(deps) {
         if (!pending) return false;
         const item = getItemById(id);
         if (!item) return false;
-        if (!pending.requestId) pending.requestId = await buildIdempotencyKey();
+        if (!pending.requestId) {
+            pending.requestId = await buildIdempotencyKey();
+            await saveAttachmentReplacementDraft(id, pending);
+        }
 
         const formData = new FormData();
         formData.append('category_id', String(item.category_id));

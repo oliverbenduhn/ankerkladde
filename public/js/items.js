@@ -2,6 +2,13 @@ import { api, normalizeItem, persistPreferences } from './api.js';
 import { LOCAL_PREF_KEYS, state } from './state.js';
 import { appEl, searchBar, searchBtn, searchInput } from './ui.js';
 import { markDraftServerDeleted } from './draft-persistence.js';
+import {
+    itemContentSnapshot,
+    itemDraftHasLocalChanges,
+    rebaseItemDraft,
+    serverContentMatchesDraft,
+    serverContentMatchesDraftBase,
+} from './item-content-conflict.js';
 
 export function createItemsController(deps) {
     /**
@@ -36,6 +43,9 @@ export function createItemsController(deps) {
         normalizePreferences,
         renderCategoryTabs,
         renderItems,
+        reconcileOpenNoteItem,
+        refreshOpenJournal,
+        refreshOpenSketch,
         scannerState,
         setMessage,
         setUserPreferences,
@@ -206,29 +216,61 @@ export function createItemsController(deps) {
             }
 
             const freshItems = Array.isArray(payload.items) ? payload.items.map(normalizeItem) : [];
-            const protectedId = state.editingId !== null
-                ? Number(state.editingId)
-                : (state.noteEditorId !== null ? Number(state.noteEditorId) : null);
-            const mergedItems = freshItems.map(freshItem => {
-                if (protectedId !== null && Number(freshItem.id) === protectedId) {
-                    const localItem = state.items.find(entry => Number(entry.id) === protectedId);
-                    if (localItem) return localItem;
+            const editingId = state.editingId !== null ? Number(state.editingId) : null;
+            const noteEditorId = state.noteEditorId !== null ? Number(state.noteEditorId) : null;
+
+            freshItems.forEach(freshItem => {
+                if (Number(freshItem.id) === editingId && state.editDraft) {
+                    const draft = state.editDraft;
+                    if (!draft.conflict) {
+                        if (!itemDraftHasLocalChanges(draft)) {
+                            rebaseItemDraft(draft, freshItem, { replaceLocal: true });
+                            draft.requestId = '';
+                        } else if (serverContentMatchesDraft(freshItem, draft)) {
+                            rebaseItemDraft(draft, freshItem);
+                            draft.requestId = '';
+                        } else if (serverContentMatchesDraftBase(freshItem, draft)) {
+                            // Status, Reihenfolge oder Attachment änderten sich,
+                            // der lokal bearbeitete Inhaltsbaustein jedoch nicht.
+                            rebaseItemDraft(draft, freshItem);
+                        } else {
+                            draft.conflict = {
+                                local: itemContentSnapshot(draft),
+                                server: {
+                                    ...itemContentSnapshot(freshItem),
+                                    revision: Number(freshItem.revision),
+                                    updatedAt: freshItem.updated_at || '',
+                                    item: freshItem,
+                                },
+                            };
+                        }
+                    }
                 }
-                return freshItem;
+                if (Number(freshItem.id) === noteEditorId) {
+                    reconcileOpenNoteItem?.(freshItem);
+                }
             });
-            if (protectedId !== null && !freshItems.some(item => Number(item.id) === protectedId)) {
+
+            const protectedIds = [editingId, noteEditorId].filter(id => id !== null);
+            const mergedItems = [...freshItems];
+            protectedIds.forEach(protectedId => {
+                if (freshItems.some(item => Number(item.id) === protectedId)) return;
                 const localItem = state.items.find(entry => Number(entry.id) === protectedId);
                 if (localItem) {
                     mergedItems.push({ ...localItem, server_deleted: 1 });
                     markDraftServerDeleted();
                 }
-            }
+            });
 
             state.items = mergedItems;
             state.diskFreeBytes = typeof payload.disk_free_bytes === 'number' ? payload.disk_free_bytes : null;
             cacheCurrentCategoryItems();
             renderItems();
             updateUploadUi();
+            await Promise.all([
+                refreshOpenJournal?.(),
+                refreshOpenSketch?.(),
+            ]);
         } catch {
             // Fehlgeschlagener Hintergrund-Refresh darf weder sichtbaren noch
             // lokal geaenderten Zustand veraendern; kein eigener Retry-Timer.

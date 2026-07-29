@@ -1,12 +1,16 @@
 import { t } from './i18n.js';
 import { userId } from './state.js';
 import { OFFLINE_QUEUE_ITEM_MAX_BYTES, OFFLINE_QUEUE_MAX_BYTES, sanitizeItemPayload } from './utils.js';
+import { getTabId } from './tab-context.js';
 
 // ponytail: Namespace nach unveraenderlicher Benutzer-ID, damit ein geteilter
 // Browser (mehrere Konten) Offline-Queue/Konflikte nicht zwischen Konten
 // mischt oder sichtbar macht (Spec AC #63).
-const QUEUE_KEY = `ankerkladde-offline-queue:${userId}`;
-const CONFLICTS_KEY = `ankerkladde-offline-conflicts:${userId}`;
+const tabId = getTabId();
+const QUEUE_KEY = `ankerkladde-offline-queue:${userId}:${tabId}`;
+const CONFLICTS_KEY = `ankerkladde-offline-conflicts:${userId}:${tabId}`;
+const USER_QUEUE_KEY = `ankerkladde-offline-queue:${userId}`;
+const USER_CONFLICTS_KEY = `ankerkladde-offline-conflicts:${userId}`;
 const LEGACY_QUEUE_KEY = 'ankerkladde-offline-queue';
 const LEGACY_CONFLICTS_KEY = 'ankerkladde-offline-conflicts';
 const textEncoder = typeof TextEncoder === 'function' ? new TextEncoder() : null;
@@ -26,8 +30,10 @@ function migrateLegacyKey(legacyKey, namespacedKey) {
     localStorage.setItem(namespacedKey, legacyValue);
     localStorage.removeItem(legacyKey);
 }
-migrateLegacyKey(LEGACY_QUEUE_KEY, QUEUE_KEY);
-migrateLegacyKey(LEGACY_CONFLICTS_KEY, CONFLICTS_KEY);
+migrateLegacyKey(LEGACY_QUEUE_KEY, USER_QUEUE_KEY);
+migrateLegacyKey(LEGACY_CONFLICTS_KEY, USER_CONFLICTS_KEY);
+migrateLegacyKey(USER_QUEUE_KEY, QUEUE_KEY);
+migrateLegacyKey(USER_CONFLICTS_KEY, CONFLICTS_KEY);
 
 export function getQueue() {
     try {

@@ -312,6 +312,67 @@ export function createEditorController(deps) {
         renderConflict();
     }
 
+    function reconcileServerItem(item) {
+        if (!activeDraft || Number(activeDraft.itemId) !== Number(item?.id)) return;
+        captureActiveDraft(false);
+        updateCanonicalItem(item);
+
+        if (activeDraft.conflict) {
+            activeDraft.conflict.server = {
+                title: item.name || '',
+                content: item.content || '',
+                updatedAt: item.updated_at || '',
+                revision: Number(item.revision),
+                item,
+            };
+            saveNoteDraft(activeDraft);
+            renderConflict();
+            return;
+        }
+
+        if (!activeDraft.dirty) {
+            activeDraft = createDraft(item);
+            setEditorContent(activeDraft.title, activeDraft.content);
+            clearNoteDraft(activeDraft.itemId);
+            setNoteSaveStatus('');
+            return;
+        }
+
+        if ((item.name || '') === activeDraft.title && (item.content || '') === activeDraft.content) {
+            activeDraft = createDraft(item);
+            clearNoteDraft(activeDraft.itemId);
+            setNoteSaveStatus('Gespeichert');
+            return;
+        }
+
+        const serverContentUnchanged = (item.name || '') === activeDraft.baseName
+            && (item.content || '') === activeDraft.baseContent;
+        if (serverContentUnchanged) {
+            activeDraft.baseRevision = Number(item.revision);
+            activeDraft.baseUpdatedAt = item.updated_at || '';
+            saveNoteDraft(activeDraft);
+            return;
+        }
+
+        activeDraft.conflict = {
+            local: {
+                title: activeDraft.title,
+                content: activeDraft.content,
+                updatedAt: new Date().toISOString(),
+            },
+            server: {
+                title: item.name || '',
+                content: item.content || '',
+                updatedAt: item.updated_at || '',
+                revision: Number(item.revision),
+                item,
+            },
+        };
+        saveNoteDraft(activeDraft);
+        setNoteSaveStatus('Konflikt');
+        renderConflict();
+    }
+
     function updateNoteToolbar() {
         const editor = getTiptapEditor();
         if (!editor || !noteToolbar) return;
@@ -428,6 +489,7 @@ export function createEditorController(deps) {
         handleToolbarClick,
         openNoteEditor,
         openNoteEditorWithNavigation,
+        reconcileServerItem,
         scheduleNoteSave,
     };
 }

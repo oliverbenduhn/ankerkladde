@@ -43,13 +43,14 @@ export function markDraftServerDeleted() {
 
 // Jede Feldaenderung am Entwurf persistiert sofort - Schutz ab der ersten
 // Eingabe, ohne dass jeder einzelne input-Handler explizit speichern muss.
-export function wrapDraftForPersistence(draft, editingId, item = null) {
+export function wrapDraftForPersistence(draft, editingId, item = null, onChange = null) {
     saveDraftSnapshot(editingId, draft, item);
     return new Proxy(draft, {
         set(target, prop, value) {
             target[prop] = value;
             const snapshot = loadDraftSnapshot();
             saveDraftSnapshot(editingId, target, item || snapshot?.item, snapshot?.serverDeleted === true);
+            onChange?.(target);
             return true;
         },
     });

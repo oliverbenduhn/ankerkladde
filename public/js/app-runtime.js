@@ -6,6 +6,7 @@ import { createItemsViewController } from './items-view.js';
 import { createNavigation } from './navigation.js';
 import { createEditorController } from './editor.js';
 import { createTodoEditorController } from './todo-editor.js';
+import { refreshOpenSketchEditor } from './sketch-editor.js';
 import { createReorderController } from './reorder.js';
 import { createRouter } from './router.js';
 import { createScannerController } from './scanner.js';
@@ -258,6 +259,8 @@ export function createAppRuntime(deps) {
         getAttachmentReplacement: id => itemsActionsController.getAttachmentReplacement(id),
         keepLocalAttachment: async id => { await itemsActionsController.keepLocalAttachment(id); },
         selectAttachmentReplacement: (id, file) => itemsActionsController.selectAttachmentReplacement(id, file),
+        acceptServerItemContent: id => itemsActionsController.acceptServerItemContent(id),
+        keepLocalItemContent: async id => { await itemsActionsController.keepLocalItemContent(id); },
         isOverdueItem,
         openNoteEditorWithNavigation,
         openJournalWithNavigation,
@@ -298,6 +301,9 @@ export function createAppRuntime(deps) {
         normalizePreferences,
         renderCategoryTabs,
         renderItems,
+        reconcileOpenNoteItem: item => editorController?.reconcileServerItem(item),
+        refreshOpenJournal: () => journalController?.refreshCurrentDay?.(),
+        refreshOpenSketch: () => refreshOpenSketchEditor(),
         scannerState,
         setMessage,
         setUserPreferences,
