@@ -808,4 +808,75 @@ grep -q '"revision":2' "$DAILY_AFTER_SKETCH_TEXT_BODY"
 grep -q '"has_sketch":1' "$DAILY_AFTER_SKETCH_TEXT_BODY"
 
 echo "Issue #70 Tagesnotiz-Komponenten ok: paralleles Create, Rebase, Konflikt und Leeren"
-echo "Alle Revisions-ACs (#61, #65, #66, #67, #69, #70) bestanden."
+
+# Issue #71: Attachment-Ersetzungen verwenden Revision und stabile Request-ID.
+ATTACHMENT_CATEGORY_BODY="$TMP_DIR/attachment-category.json"
+curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+    --data-urlencode 'name=Revisions-Dateien' --data-urlencode 'type=files' --data-urlencode 'icon=dateien' \
+    -o "$ATTACHMENT_CATEGORY_BODY" "http://127.0.0.1:$PORT/api.php?action=categories_create" >/dev/null
+ATTACHMENT_CATEGORY_ID="$(php -r 'echo (int) (json_decode(file_get_contents($argv[1]), true)["category"]["id"] ?? 0);' "$ATTACHMENT_CATEGORY_BODY")"
+printf 'Attachment Ausgangsfassung\n' >"$TMP_DIR/attachment-v1.txt"
+printf 'Attachment Ersatzfassung\n' >"$TMP_DIR/attachment-v2.txt"
+printf 'Attachment Konfliktfassung\n' >"$TMP_DIR/attachment-conflict.txt"
+
+ATTACHMENT_CREATE_BODY="$TMP_DIR/attachment-create.json"
+[[ "$(curl -sS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+    -F "category_id=$ATTACHMENT_CATEGORY_ID" -F 'name=Revisions-Anhang' \
+    -F "attachment=@$TMP_DIR/attachment-v1.txt;type=text/plain" \
+    -w '%{http_code}' -o "$ATTACHMENT_CREATE_BODY" "http://127.0.0.1:$PORT/api.php?action=upload")" == "201" ]]
+ATTACHMENT_ITEM_ID="$(php -r 'echo (int) (json_decode(file_get_contents($argv[1]), true)["id"] ?? 0);' "$ATTACHMENT_CREATE_BODY")"
+
+ATTACHMENT_REPLACE_BODY="$TMP_DIR/attachment-replace.json"
+[[ "$(curl -sS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: revision-attachment-replace' -X POST \
+    -F "category_id=$ATTACHMENT_CATEGORY_ID" -F "item_id=$ATTACHMENT_ITEM_ID" \
+    -F 'name=Revisions-Anhang ersetzt' -F 'expected_revision=1' \
+    -F "attachment=@$TMP_DIR/attachment-v2.txt;type=text/plain" \
+    -w '%{http_code}' -o "$ATTACHMENT_REPLACE_BODY" "http://127.0.0.1:$PORT/api.php?action=upload")" == "200" ]]
+php -r '
+    $payload = json_decode(file_get_contents($argv[1]), true);
+    $item = $payload["item"] ?? null;
+    if (!is_array($item)
+        || (int) ($item["id"] ?? 0) !== (int) $argv[2]
+        || (int) ($item["revision"] ?? 0) !== 2
+        || ($item["attachment_original_name"] ?? "") !== "attachment-v2.txt") {
+        fwrite(STDERR, "Attachment-CAS liefert kein vollstaendiges kanonisches Item mit Revision 2.\n");
+        exit(1);
+    }
+' "$ATTACHMENT_REPLACE_BODY" "$ATTACHMENT_ITEM_ID"
+
+ATTACHMENT_REPLAY_BODY="$TMP_DIR/attachment-replay.json"
+[[ "$(curl -sS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: revision-attachment-replace' -X POST \
+    -F "category_id=$ATTACHMENT_CATEGORY_ID" -F "item_id=$ATTACHMENT_ITEM_ID" \
+    -F 'name=Revisions-Anhang ersetzt' -F 'expected_revision=1' \
+    -F "attachment=@$TMP_DIR/attachment-v2.txt;type=text/plain" \
+    -w '%{http_code}' -o "$ATTACHMENT_REPLAY_BODY" "http://127.0.0.1:$PORT/api.php?action=upload")" == "200" ]]
+grep -q '"idempotent_replay":1' "$ATTACHMENT_REPLAY_BODY"
+grep -q '"revision":2' "$ATTACHMENT_REPLAY_BODY"
+
+ATTACHMENT_CONFLICT_BODY="$TMP_DIR/attachment-conflict.json"
+[[ "$(curl -sS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: revision-attachment-conflict' -X POST \
+    -F "category_id=$ATTACHMENT_CATEGORY_ID" -F "item_id=$ATTACHMENT_ITEM_ID" \
+    -F 'name=Nicht speichern' -F 'expected_revision=1' \
+    -F "attachment=@$TMP_DIR/attachment-conflict.txt;type=text/plain" \
+    -w '%{http_code}' -o "$ATTACHMENT_CONFLICT_BODY" "http://127.0.0.1:$PORT/api.php?action=upload")" == "409" ]]
+php -r '
+    $payload = json_decode(file_get_contents($argv[1]), true);
+    $item = $payload["item"] ?? null;
+    if (($payload["error_key"] ?? "") !== "error.item_revision_conflict"
+        || (int) ($item["revision"] ?? 0) !== 2
+        || ($item["attachment_original_name"] ?? "") !== "attachment-v2.txt") {
+        fwrite(STDERR, "Attachment-Konflikt liefert nicht die unveraenderte Serverfassung.\n");
+        exit(1);
+    }
+' "$ATTACHMENT_CONFLICT_BODY"
+curl -fsS -b "$COOKIE_JAR" "http://127.0.0.1:$PORT/media.php?item_id=$ATTACHMENT_ITEM_ID&download=1" \
+    | grep -q 'Attachment Ersatzfassung'
+
+ATTACHMENT_FILE_COUNT="$(find "$TEST_DATA_DIR/uploads/files" -maxdepth 1 -type f | wc -l | tr -d ' ')"
+[[ "$ATTACHMENT_FILE_COUNT" == "1" ]] || {
+    echo "Attachment-Replay/Konflikt hinterliess $ATTACHMENT_FILE_COUNT statt einer gespeicherten Datei." >&2
+    exit 1
+}
+
+echo "Issue #71 Attachment-API ok: CAS, kanonisches Item, Replay und konfliktfreie Dateihaltung"
+echo "Alle Revisions-ACs (#61, #65, #66, #67, #69, #70, #71) bestanden."

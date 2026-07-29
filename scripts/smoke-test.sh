@@ -457,13 +457,15 @@ fi
 
 # Ein-Attachment-Regel: zweiten Upload auf dasselbe Item ersetzt das erste Attachment.
 REPLACE_UPLOAD_BODY="$TMP_DIR/replace-upload.json"
-[[ "$(status_code "$REPLACE_UPLOAD_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+[[ "$(status_code "$REPLACE_UPLOAD_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: smoke-replace-image' -X POST \
     -F "section=images" \
     -F "item_id=$IMAGE_ITEM_ID" \
+    -F "expected_revision=1" \
     -F "name=Ersatzbild" \
     -F "file=@$IMAGE_UPLOAD_SOURCE;type=image/png" \
     "http://127.0.0.1:$PORT/api.php?action=upload")" == "200" ]]
 grep -q 'Anhang ersetzt' "$REPLACE_UPLOAD_BODY"
+grep -q '"revision":2' "$REPLACE_UPLOAD_BODY"
 
 ATTACH_COUNT="$(find "$TEST_DATA_DIR/uploads/images" -maxdepth 1 -type f | wc -l | tr -d ' ')"
 if [[ "$ATTACH_COUNT" -lt "1" || "$ATTACH_COUNT" -gt "2" ]]; then

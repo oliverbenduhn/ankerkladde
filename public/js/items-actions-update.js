@@ -21,6 +21,9 @@ export function createUpdateActions(deps) {
         itemParams,
         handleStaleCategory,
         applyServerItem,
+        replaceAttachment,
+        restoreDeletedAttachment,
+        clearAttachmentReplacement,
     } = deps;
 
     function sameStatusValue(left, right) {
@@ -172,6 +175,7 @@ export function createUpdateActions(deps) {
     }
 
     async function restoreDeletedDraft(id) {
+        if (await restoreDeletedAttachment?.(id)) return;
         const draft = state.editDraft || {};
         if (Number(state.editingId) !== Number(id) || Number(draft.itemId) !== Number(id)) return;
 
@@ -195,6 +199,7 @@ export function createUpdateActions(deps) {
     }
 
     function discardDeletedDraft(id) {
+        clearAttachmentReplacement?.(id);
         if (Number(state.editingId) !== Number(id)) return;
         state.editingId = null;
         state.editDraft = { itemId: null, categoryId: null, name: '', barcode: '', quantity: '', due_date: '', due_time: '', priority: '', content: '' };
@@ -317,6 +322,7 @@ export function createUpdateActions(deps) {
     }
 
     async function handleEditSave(id) {
+        if (await replaceAttachment?.(id)) return;
         const draft = state.editDraft || {};
         if (state.editingId !== id || Number(draft.itemId) !== Number(id)) {
             state.editingId = null;

@@ -15,7 +15,7 @@ export function createItemsActionsController(deps) {
     const depsWithUpload = { ...extendedDeps, ...uploadActions };
     
     const addActions = createAddActions(depsWithUpload);
-    const updateActions = createUpdateActions(extendedDeps);
+    const updateActions = createUpdateActions(depsWithUpload);
 
     return {
         ...shareActions,

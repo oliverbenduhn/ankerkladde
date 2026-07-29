@@ -38,6 +38,11 @@ export function createItemsViewController(deps) {
         openTodoEditor,
         setCategory,
         setMessage,
+        acceptServerAttachment,
+        clearAttachmentReplacement,
+        getAttachmentReplacement,
+        keepLocalAttachment,
+        selectAttachmentReplacement,
     } = deps;
 
     const lightbox = createLightboxController();
@@ -83,6 +88,7 @@ export function createItemsViewController(deps) {
     }
 
     function resetEditDraft() {
+        if (state.editingId !== null) clearAttachmentReplacement?.(state.editingId);
         state.editingId = null;
         state.editDraft = createEditDraft({ id: null, category_id: null });
         clearDraftSnapshot();
@@ -487,6 +493,7 @@ export function createItemsViewController(deps) {
 
     function buildEditContent(item, content) {
         const draft = getEditDraftForItem(item);
+        const replacement = getAttachmentReplacement?.(item.id);
         const fields = document.createElement('div');
         fields.className = 'item-edit-fields';
 
@@ -507,6 +514,82 @@ export function createItemsViewController(deps) {
         });
         syncAutoHeight(nameInput);
         fields.appendChild(nameInput);
+
+        if (['images', 'files'].includes(item.category_type)) {
+            const replaceRow = document.createElement('div');
+            replaceRow.className = 'item-edit-replace-row';
+
+            const filePicker = document.createElement('input');
+            filePicker.type = 'file';
+            filePicker.className = 'visually-hidden';
+            filePicker.id = `attachment-replacement-${item.id}`;
+            filePicker.setAttribute('aria-label', 'Anhang ersetzen');
+            if (item.category_type === 'images') filePicker.accept = 'image/jpeg,image/png,image/webp,image/gif';
+            filePicker.addEventListener('change', event => {
+                selectAttachmentReplacement?.(item.id, event.target.files?.[0] || null);
+            });
+
+            const pickerButton = document.createElement('label');
+            pickerButton.className = 'btn-replace-attachment';
+            pickerButton.htmlFor = filePicker.id;
+            pickerButton.textContent = 'Anhang ersetzen';
+
+            const selection = document.createElement('span');
+            selection.className = 'item-edit-replace-label';
+            selection.textContent = replacement?.file?.name || item.attachmentOriginalName || 'Keine Datei ausgewählt';
+            replaceRow.append(filePicker, pickerButton, selection);
+            fields.appendChild(replaceRow);
+
+            if (replacement?.conflictItem) {
+                const conflict = document.createElement('section');
+                conflict.className = 'attachment-content-conflict';
+                const heading = document.createElement('p');
+                heading.textContent = 'Der Anhang wurde parallel geändert. Beide Fassungen bleiben verfügbar.';
+
+                const versions = document.createElement('div');
+                versions.className = 'attachment-conflict-versions';
+                const localVersion = document.createElement('div');
+                localVersion.className = 'attachment-conflict-version attachment-conflict-version-local';
+                const localTitle = document.createElement('strong');
+                localTitle.textContent = 'Meine Datei';
+                const localName = document.createElement('span');
+                localName.textContent = replacement.file.name;
+                localVersion.append(localTitle, localName);
+
+                const serverVersion = document.createElement('div');
+                serverVersion.className = 'attachment-conflict-version attachment-conflict-version-server';
+                const serverTitle = document.createElement('strong');
+                serverTitle.textContent = 'Server-Datei';
+                const serverName = document.createElement('span');
+                serverName.textContent = replacement.conflictItem.attachment_original_name
+                    || replacement.conflictItem.attachmentOriginalName
+                    || 'Anhang';
+                serverVersion.append(serverTitle, serverName);
+                versions.append(localVersion, serverVersion);
+
+                const actions = document.createElement('div');
+                actions.className = 'attachment-conflict-actions';
+                const acceptServer = document.createElement('button');
+                acceptServer.type = 'button';
+                acceptServer.className = 'btn-clear';
+                acceptServer.textContent = 'Server-Datei übernehmen';
+                acceptServer.addEventListener('click', event => {
+                    event.stopPropagation();
+                    acceptServerAttachment?.(item.id);
+                });
+                const keepLocal = document.createElement('button');
+                keepLocal.type = 'button';
+                keepLocal.className = 'btn-add';
+                keepLocal.textContent = 'Meine Datei behalten';
+                keepLocal.addEventListener('click', event => {
+                    event.stopPropagation();
+                    void keepLocalAttachment?.(item.id);
+                });
+                actions.append(acceptServer, keepLocal);
+                conflict.append(heading, versions, actions);
+                fields.appendChild(conflict);
+            }
+        }
 
         if (item.category_type === 'list_quantity') {
             const barcodeInput = document.createElement('input');

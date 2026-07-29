@@ -167,6 +167,9 @@ function computeIdempotencyRequestHash(string $action, array $data): string
             'size' => (int) ($info['size'] ?? 0),
             'type' => (string) ($info['type'] ?? ''),
             'error' => (int) ($info['error'] ?? 0),
+            'sha256' => is_string($info['tmp_name'] ?? null) && is_file((string) $info['tmp_name'])
+                ? (hash_file('sha256', (string) $info['tmp_name']) ?: '')
+                : '',
         ];
     }
     ksort($files);
@@ -197,6 +200,7 @@ function replayIdempotentIfKnown(array $data): void
     }
 
     $requestHash = computeIdempotencyRequestHash($action, $data);
+    $GLOBALS['current_idempotency_request_hash'] = $requestHash;
 
     $stmt = $db->prepare('SELECT request_hash, response_status, response_body FROM idempotency_keys WHERE user_id = :user_id AND request_id = :request_id LIMIT 1');
     $stmt->execute([':user_id' => $userId, ':request_id' => $requestId]);
@@ -233,7 +237,10 @@ function storeIdempotentResponse(int $status, array $payload): void
     }
 
     $data = requestData();
-    $requestHash = computeIdempotencyRequestHash($action, $data);
+    $requestHash = (string) ($GLOBALS['current_idempotency_request_hash'] ?? '');
+    if ($requestHash === '') {
+        $requestHash = computeIdempotencyRequestHash($action, $data);
+    }
     $body = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
     $stmt = $db->prepare(
@@ -2680,6 +2687,8 @@ try {
             $replaceItemId = filter_var($data['item_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
 
             if (is_int($replaceItemId)) {
+                requireIdempotencyRequestId();
+                $expectedRevision = requireExpectedItemRevision($data);
                 $existingItem = fetchItemForUser($db, $userId, $replaceItemId);
                 if ($existingItem === null || (int) $existingItem['category_id'] !== (int) $category['id']) {
                     respond(404, ['error' => t('error.item_not_found'), 'error_key' => 'error.item_not_found']);
@@ -2688,27 +2697,67 @@ try {
                 $storedName = buildStoredFilename((string) $category['type'], (string) $uploadMeta['stored_extension']);
                 $targetPath = getAttachmentStorageDirectory((string) $category['type']) . '/' . $storedName;
                 $storedFileMoved = false;
+                $newAttachment = [
+                    'storage_section' => (string) $category['type'],
+                    'stored_name' => $storedName,
+                ];
+                $immediateTransaction = false;
 
-                $db->beginTransaction();
                 try {
-                    if ($name !== '') {
-                        $db->prepare('UPDATE items SET name = :name, updated_at = CURRENT_TIMESTAMP WHERE id = :id')
-                            ->execute([':name' => $name, ':id' => $replaceItemId]);
-                    }
-
                     if (!move_uploaded_file((string) $uploadedFile['tmp_name'], $targetPath)) {
                         throw new RuntimeException('Upload-Datei konnte nicht verschoben werden.');
                     }
                     $storedFileMoved = true;
 
                     if ((string) $category['type'] === 'images') {
-                        @generateImageThumbnailFile($targetPath, getAttachmentThumbnailAbsolutePath([
-                            'storage_section' => (string) $category['type'],
-                            'stored_name' => $storedName,
-                        ]));
+                        @generateImageThumbnailFile($targetPath, getAttachmentThumbnailAbsolutePath($newAttachment));
+                    }
+
+                    $db->exec('BEGIN IMMEDIATE');
+                    $immediateTransaction = true;
+                    $currentItem = fetchItemForUser($db, $userId, $replaceItemId);
+                    if ($currentItem === null || (int) $currentItem['category_id'] !== (int) $category['id']) {
+                        $db->exec('ROLLBACK');
+                        $immediateTransaction = false;
+                        deleteAttachmentStorageFile($newAttachment);
+                        respond(404, ['error' => t('error.item_not_found'), 'error_key' => 'error.item_not_found']);
                     }
 
                     $oldAttachment = findAttachmentByItemId($db, $replaceItemId);
+                    $updated = $db->prepare(
+                        'UPDATE items
+                         SET name = :name,
+                             revision = revision + 1,
+                             updated_at = CURRENT_TIMESTAMP
+                         WHERE id = :id
+                           AND user_id = :user_id
+                           AND category_id = :category_id
+                           AND revision = :expected_revision'
+                    );
+                    $updated->execute([
+                        ':name' => $name,
+                        ':id' => $replaceItemId,
+                        ':user_id' => $userId,
+                        ':category_id' => (int) $category['id'],
+                        ':expected_revision' => $expectedRevision,
+                    ]);
+                    if ($updated->rowCount() !== 1) {
+                        $db->exec('ROLLBACK');
+                        $immediateTransaction = false;
+                        deleteAttachmentStorageFile($newAttachment);
+                        $currentItem = fetchItemForUser($db, $userId, $replaceItemId);
+                        if ($currentItem === null) {
+                            respond(404, ['error' => t('error.item_not_found'), 'error_key' => 'error.item_not_found']);
+                        }
+                        respond(409, [
+                            'error' => t('error.item_revision_conflict'),
+                            'error_key' => 'error.item_revision_conflict',
+                            'expected_revision' => $expectedRevision,
+                            'current_revision' => (int) $currentItem['revision'],
+                            'item' => formatListItem($currentItem),
+                        ]);
+                    }
+
                     $db->prepare(
                         'INSERT INTO attachments (item_id, storage_section, stored_name, original_name, media_type, size_bytes)
                          VALUES (:item_id, :storage_section, :stored_name, :original_name, :media_type, :size_bytes)
@@ -2728,7 +2777,9 @@ try {
                         ':size_bytes' => (int) $uploadedFile['size_bytes'],
                     ]);
 
-                    $db->commit();
+                    $canonicalItem = fetchItemForUser($db, $userId, $replaceItemId);
+                    $db->exec('COMMIT');
+                    $immediateTransaction = false;
 
                     if ($oldAttachment !== null) {
                         try {
@@ -2738,16 +2789,24 @@ try {
                         }
                     }
                 } catch (Throwable $exception) {
-                    if ($db->inTransaction()) {
-                        $db->rollBack();
+                    if ($immediateTransaction) {
+                        $db->exec('ROLLBACK');
                     }
-                    if ($storedFileMoved && is_file($targetPath)) {
-                        @unlink($targetPath);
+                    if ($storedFileMoved) {
+                        try {
+                            deleteAttachmentStorageFile($newAttachment);
+                        } catch (Throwable) {
+                            @unlink($targetPath);
+                        }
                     }
                     throw $exception;
                 }
 
-                respond(200, ['message' => 'Anhang ersetzt.', 'id' => $replaceItemId]);
+                respond(200, [
+                    'message' => 'Anhang ersetzt.',
+                    'id' => $replaceItemId,
+                    'item' => formatListItem(is_array($canonicalItem) ? $canonicalItem : fetchItemForUser($db, $userId, $replaceItemId)),
+                ]);
             }
 
             if ($name === '') {
