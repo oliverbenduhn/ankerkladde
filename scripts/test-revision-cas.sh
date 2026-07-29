@@ -528,4 +528,189 @@ MOVE_CONFLICT_BODY="$TMP_DIR/move-conflict.json"
     -w '%{http_code}' -o "$MOVE_CONFLICT_BODY" "http://127.0.0.1:$PORT/api.php?action=move")" == "409" ]]
 echo "Issue #65 Move ok: CAS, idempotentes Ziel, Konfliktpayload"
 
-echo "Alle Revisions-ACs (#61) bestanden."
+# Issue #66: Loeschen ist CAS-geschuetzt, liefert die terminale Revision und
+# kann nach einer 409-Serveraenderung bewusst gegen den kanonischen Stand
+# wiederholt werden. Ein verlorener Erfolg wird per stabiler Request-ID replayt.
+DELETE_ADD_BODY="$TMP_DIR/delete-add.json"
+curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+    --data-urlencode "category_id=$SHOPPING_CATEGORY_ID" --data-urlencode 'name=Delete-CAS-Test' \
+    -o "$DELETE_ADD_BODY" "http://127.0.0.1:$PORT/api.php?action=add" >/dev/null
+DELETE_ID="$(php -r 'echo (int) (json_decode(file_get_contents($argv[1]), true)["id"] ?? 0);' "$DELETE_ADD_BODY")"
+
+curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+    --data-urlencode "id=$DELETE_ID" --data-urlencode 'name=Parallel geaendert' --data-urlencode 'expected_revision=1' \
+    -o "$TMP_DIR/delete-update.json" "http://127.0.0.1:$PORT/api.php?action=update" >/dev/null
+
+DELETE_CONFLICT_BODY="$TMP_DIR/delete-conflict.json"
+[[ "$(curl -sS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: revision-delete-main' -X POST \
+    --data-urlencode "id=$DELETE_ID" --data-urlencode 'expected_revision=1' \
+    -w '%{http_code}' -o "$DELETE_CONFLICT_BODY" "http://127.0.0.1:$PORT/api.php?action=delete")" == "409" ]]
+php -r '
+    $payload = json_decode(file_get_contents($argv[1]), true);
+    $item = $payload["item"] ?? null;
+    if (($payload["error_key"] ?? "") !== "error.item_revision_conflict"
+        || (int) ($payload["expected_revision"] ?? 0) !== 1
+        || (int) ($payload["current_revision"] ?? 0) !== 2
+        || !is_array($item)
+        || ($item["name"] ?? "") !== "Parallel geaendert") {
+        fwrite(STDERR, "Delete-Konflikt liefert nicht die kanonische Serverfassung.\n"); exit(1);
+    }
+' "$DELETE_CONFLICT_BODY"
+
+DELETE_BODY="$TMP_DIR/delete.json"
+[[ "$(curl -sS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: revision-delete-main' -X POST \
+    --data-urlencode "id=$DELETE_ID" --data-urlencode 'expected_revision=2' \
+    -w '%{http_code}' -o "$DELETE_BODY" "http://127.0.0.1:$PORT/api.php?action=delete")" == "200" ]]
+php -r '
+    $payload = json_decode(file_get_contents($argv[1]), true);
+    if ((int) ($payload["deleted_id"] ?? 0) !== (int) $argv[2]
+        || (int) ($payload["terminal_revision"] ?? 0) !== 3) {
+        fwrite(STDERR, "Delete-Erfolg liefert ID/terminale Revision nicht.\n"); exit(1);
+    }
+' "$DELETE_BODY" "$DELETE_ID"
+
+DELETE_REPLAY_BODY="$TMP_DIR/delete-replay.json"
+[[ "$(curl -sS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: revision-delete-main' -X POST \
+    --data-urlencode "id=$DELETE_ID" --data-urlencode 'expected_revision=2' \
+    -w '%{http_code}' -o "$DELETE_REPLAY_BODY" "http://127.0.0.1:$PORT/api.php?action=delete")" == "200" ]]
+grep -q '"idempotent_replay":1' "$DELETE_REPLAY_BODY" || { echo "Delete-Replay wurde erneut ausgefuehrt." >&2; exit 1; }
+grep -q '"terminal_revision":3' "$DELETE_REPLAY_BODY" || { echo "Delete-Replay verlor terminale Revision." >&2; exit 1; }
+echo "Issue #66 Delete-API ok: Konflikt, bewusste Loeschung, terminale Revision und Replay"
+
+# Issue #67: Reorder arbeitet auf einer exakten Item-Menge samt Revisionen.
+BULK_CATEGORY_BODY="$TMP_DIR/bulk-category.json"
+curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+    --data-urlencode 'name=Bulk-CAS-Liste' --data-urlencode 'type=list_quantity' \
+    -o "$BULK_CATEGORY_BODY" "http://127.0.0.1:$PORT/api.php?action=categories_create" >/dev/null
+BULK_CATEGORY_ID="$(php -r 'echo (int) (json_decode(file_get_contents($argv[1]), true)["category"]["id"] ?? 0);' "$BULK_CATEGORY_BODY")"
+
+for name in Alpha Bravo Charlie; do
+    curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+        --data-urlencode "category_id=$BULK_CATEGORY_ID" --data-urlencode "name=$name" \
+        -o "$TMP_DIR/bulk-add-$name.json" "http://127.0.0.1:$PORT/api.php?action=add" >/dev/null
+done
+BULK_ALPHA_ID="$(php -r 'echo (int) (json_decode(file_get_contents($argv[1]), true)["id"] ?? 0);' "$TMP_DIR/bulk-add-Alpha.json")"
+BULK_BRAVO_ID="$(php -r 'echo (int) (json_decode(file_get_contents($argv[1]), true)["id"] ?? 0);' "$TMP_DIR/bulk-add-Bravo.json")"
+BULK_CHARLIE_ID="$(php -r 'echo (int) (json_decode(file_get_contents($argv[1]), true)["id"] ?? 0);' "$TMP_DIR/bulk-add-Charlie.json")"
+BULK_REORDER_ITEMS="[{\"id\":$BULK_CHARLIE_ID,\"expected_revision\":1},{\"id\":$BULK_ALPHA_ID,\"expected_revision\":1},{\"id\":$BULK_BRAVO_ID,\"expected_revision\":1}]"
+
+BULK_REORDER_BODY="$TMP_DIR/bulk-reorder.json"
+[[ "$(curl -sS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: revision-reorder-main' -X POST \
+    --data-urlencode "category_id=$BULK_CATEGORY_ID" --data-urlencode "items=$BULK_REORDER_ITEMS" \
+    -w '%{http_code}' -o "$BULK_REORDER_BODY" "http://127.0.0.1:$PORT/api.php?action=reorder")" == "200" ]]
+php -r '
+    $items = json_decode(file_get_contents($argv[1]), true)["items"] ?? [];
+    if (count($items) !== 3) exit(1);
+    foreach ($items as $index => $item) {
+        if ((int) ($item["revision"] ?? 0) !== 2 || (int) ($item["sort_order"] ?? 0) !== $index + 1) exit(1);
+    }
+' "$BULK_REORDER_BODY"
+
+# Eine parallele Inhaltsaenderung macht die Reorder-Revision veraltet. Keine
+# andere Position oder Revision darf dabei teilweise geschrieben werden.
+curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+    --data-urlencode "id=$BULK_ALPHA_ID" --data-urlencode 'name=Alpha parallel' --data-urlencode 'expected_revision=2' \
+    -o "$TMP_DIR/bulk-alpha-update.json" "http://127.0.0.1:$PORT/api.php?action=update" >/dev/null
+BULK_STALE_ITEMS="[{\"id\":$BULK_BRAVO_ID,\"expected_revision\":2},{\"id\":$BULK_CHARLIE_ID,\"expected_revision\":2},{\"id\":$BULK_ALPHA_ID,\"expected_revision\":2}]"
+BULK_STALE_BODY="$TMP_DIR/bulk-stale.json"
+[[ "$(curl -sS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: revision-reorder-stale' -X POST \
+    --data-urlencode "category_id=$BULK_CATEGORY_ID" --data-urlencode "items=$BULK_STALE_ITEMS" \
+    -w '%{http_code}' -o "$BULK_STALE_BODY" "http://127.0.0.1:$PORT/api.php?action=reorder")" == "409" ]]
+curl -fsS -b "$COOKIE_JAR" \
+    -o "$TMP_DIR/bulk-after-stale.json" "http://127.0.0.1:$PORT/api.php?action=list&category_id=$BULK_CATEGORY_ID"
+php -r '
+    $items = json_decode(file_get_contents($argv[1]), true)["items"] ?? [];
+    $expected = [(int) $argv[2], (int) $argv[3], (int) $argv[4]];
+    if (array_map(static fn($item) => (int) $item["id"], $items) !== $expected) exit(1);
+    $revisions = array_column($items, "revision", "id");
+    if ((int) $revisions[$expected[0]] !== 2 || (int) $revisions[$expected[1]] !== 3 || (int) $revisions[$expected[2]] !== 2) exit(1);
+' "$TMP_DIR/bulk-after-stale.json" "$BULK_CHARLIE_ID" "$BULK_ALPHA_ID" "$BULK_BRAVO_ID"
+
+# Eine nach dem Snapshot hinzugefuegte Zeile verwirft die gesamte Sortierung.
+curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+    --data-urlencode "category_id=$BULK_CATEGORY_ID" --data-urlencode 'name=Delta' \
+    -o "$TMP_DIR/bulk-add-Delta.json" "http://127.0.0.1:$PORT/api.php?action=add" >/dev/null
+BULK_SET_BODY="$TMP_DIR/bulk-set-mismatch.json"
+[[ "$(curl -sS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: revision-reorder-set' -X POST \
+    --data-urlencode "category_id=$BULK_CATEGORY_ID" --data-urlencode "items=$BULK_STALE_ITEMS" \
+    -w '%{http_code}' -o "$BULK_SET_BODY" "http://127.0.0.1:$PORT/api.php?action=reorder")" == "409" ]]
+
+# Clear arbeitet nur auf der beim Klick festgehaltenen erledigten Menge.
+CLEAR_CATEGORY_BODY="$TMP_DIR/clear-category.json"
+curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+    --data-urlencode 'name=Clear-CAS-Liste' --data-urlencode 'type=list_quantity' \
+    -o "$CLEAR_CATEGORY_BODY" "http://127.0.0.1:$PORT/api.php?action=categories_create" >/dev/null
+CLEAR_CATEGORY_ID="$(php -r 'echo (int) (json_decode(file_get_contents($argv[1]), true)["category"]["id"] ?? 0);' "$CLEAR_CATEGORY_BODY")"
+for name in Erledigt-A Erledigt-B; do
+    curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+        --data-urlencode "category_id=$CLEAR_CATEGORY_ID" --data-urlencode "name=$name" \
+        -o "$TMP_DIR/clear-add-$name.json" "http://127.0.0.1:$PORT/api.php?action=add" >/dev/null
+    clear_id="$(php -r 'echo (int) (json_decode(file_get_contents($argv[1]), true)["id"] ?? 0);' "$TMP_DIR/clear-add-$name.json")"
+    curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H "X-Idempotency-Key: revision-clear-toggle-$clear_id" -X POST \
+        --data-urlencode "id=$clear_id" --data-urlencode 'done=1' --data-urlencode 'expected_revision=1' \
+        -o "$TMP_DIR/clear-toggle-$name.json" "http://127.0.0.1:$PORT/api.php?action=toggle" >/dev/null
+done
+CLEAR_A_ID="$(php -r 'echo (int) (json_decode(file_get_contents($argv[1]), true)["id"] ?? 0);' "$TMP_DIR/clear-add-Erledigt-A.json")"
+CLEAR_B_ID="$(php -r 'echo (int) (json_decode(file_get_contents($argv[1]), true)["id"] ?? 0);' "$TMP_DIR/clear-add-Erledigt-B.json")"
+CLEAR_ITEMS="[{\"id\":$CLEAR_A_ID,\"expected_revision\":2},{\"id\":$CLEAR_B_ID,\"expected_revision\":2}]"
+CLEAR_BODY="$TMP_DIR/clear-cas.json"
+[[ "$(curl -sS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: revision-clear-main' -X POST \
+    --data-urlencode "category_id=$CLEAR_CATEGORY_ID" --data-urlencode "items=$CLEAR_ITEMS" \
+    -w '%{http_code}' -o "$CLEAR_BODY" "http://127.0.0.1:$PORT/api.php?action=clear")" == "200" ]]
+grep -q '"deleted":2' "$CLEAR_BODY"
+
+curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+    --data-urlencode "category_id=$CLEAR_CATEGORY_ID" --data-urlencode 'name=Spaeter erledigt' \
+    -o "$TMP_DIR/clear-later-add.json" "http://127.0.0.1:$PORT/api.php?action=add" >/dev/null
+CLEAR_LATER_ID="$(php -r 'echo (int) (json_decode(file_get_contents($argv[1]), true)["id"] ?? 0);' "$TMP_DIR/clear-later-add.json")"
+curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: revision-clear-later-toggle' -X POST \
+    --data-urlencode "id=$CLEAR_LATER_ID" --data-urlencode 'done=1' --data-urlencode 'expected_revision=1' \
+    -o "$TMP_DIR/clear-later-toggle.json" "http://127.0.0.1:$PORT/api.php?action=toggle" >/dev/null
+CLEAR_REPLAY_BODY="$TMP_DIR/clear-replay.json"
+[[ "$(curl -sS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: revision-clear-main' -X POST \
+    --data-urlencode "category_id=$CLEAR_CATEGORY_ID" --data-urlencode "items=$CLEAR_ITEMS" \
+    -w '%{http_code}' -o "$CLEAR_REPLAY_BODY" "http://127.0.0.1:$PORT/api.php?action=clear")" == "200" ]]
+grep -q '"idempotent_replay":1' "$CLEAR_REPLAY_BODY"
+curl -fsS -b "$COOKIE_JAR" \
+    -o "$TMP_DIR/clear-after-replay.json" "http://127.0.0.1:$PORT/api.php?action=list&category_id=$CLEAR_CATEGORY_ID"
+grep -q "\"id\":$CLEAR_LATER_ID" "$TMP_DIR/clear-after-replay.json" || { echo "Clear-Replay loeschte spaeter erledigtes Item." >&2; exit 1; }
+
+echo "Issue #67 Bulk-API ok: Reorder/Clear pruefen Menge und Revisionen atomar, Replay ist wirkungslos"
+
+# Issue #69: Tagesnotiz-Text verwendet Revision 0 beim noch nicht gesehenen
+# natuerlichen Schluessel und danach denselben CAS-Vertrag wie andere Inhalte.
+JOURNAL_DATE="2031-04-19"
+JOURNAL_CREATE_BODY="$TMP_DIR/journal-revision-create.json"
+[[ "$(curl -sS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: revision-journal-create' -X POST \
+    --data-urlencode "date=$JOURNAL_DATE" --data-urlencode 'content=<p>Erste Tagesfassung</p>' --data-urlencode 'expected_revision=0' \
+    -w '%{http_code}' -o "$JOURNAL_CREATE_BODY" "http://127.0.0.1:$PORT/api.php?action=journal_save")" == "201" ]]
+grep -q '"revision":1' "$JOURNAL_CREATE_BODY"
+
+JOURNAL_IDENTICAL_BODY="$TMP_DIR/journal-revision-identical.json"
+[[ "$(curl -sS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: revision-journal-identical' -X POST \
+    --data-urlencode "date=$JOURNAL_DATE" --data-urlencode 'content=<p>Erste Tagesfassung</p>' --data-urlencode 'expected_revision=0' \
+    -w '%{http_code}' -o "$JOURNAL_IDENTICAL_BODY" "http://127.0.0.1:$PORT/api.php?action=journal_save")" == "200" ]]
+grep -q '"revision":1' "$JOURNAL_IDENTICAL_BODY" || { echo "Identische parallele Tagesnotiz erhoehte Revision." >&2; exit 1; }
+
+JOURNAL_CREATE_CONFLICT_BODY="$TMP_DIR/journal-revision-create-conflict.json"
+[[ "$(curl -sS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: revision-journal-create-conflict' -X POST \
+    --data-urlencode "date=$JOURNAL_DATE" --data-urlencode 'content=<p>Abweichende zweite Fassung</p>' --data-urlencode 'expected_revision=0' \
+    -w '%{http_code}' -o "$JOURNAL_CREATE_CONFLICT_BODY" "http://127.0.0.1:$PORT/api.php?action=journal_save")" == "409" ]]
+grep -q '"current_revision":1' "$JOURNAL_CREATE_CONFLICT_BODY"
+grep -q 'Erste Tagesfassung' "$JOURNAL_CREATE_CONFLICT_BODY"
+
+JOURNAL_UPDATE_CAS_BODY="$TMP_DIR/journal-revision-update.json"
+[[ "$(curl -sS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: revision-journal-update' -X POST \
+    --data-urlencode "date=$JOURNAL_DATE" --data-urlencode 'content=<p>Aktualisierte Tagesfassung</p>' --data-urlencode 'expected_revision=1' \
+    -w '%{http_code}' -o "$JOURNAL_UPDATE_CAS_BODY" "http://127.0.0.1:$PORT/api.php?action=journal_save")" == "200" ]]
+grep -q '"revision":2' "$JOURNAL_UPDATE_CAS_BODY"
+
+JOURNAL_STALE_BODY="$TMP_DIR/journal-revision-stale.json"
+[[ "$(curl -sS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: revision-journal-stale' -X POST \
+    --data-urlencode "date=$JOURNAL_DATE" --data-urlencode 'content=<p>Veraltete Tagesfassung</p>' --data-urlencode 'expected_revision=1' \
+    -w '%{http_code}' -o "$JOURNAL_STALE_BODY" "http://127.0.0.1:$PORT/api.php?action=journal_save")" == "409" ]]
+grep -q '"current_revision":2' "$JOURNAL_STALE_BODY"
+grep -q 'Aktualisierte Tagesfassung' "$JOURNAL_STALE_BODY"
+
+echo "Issue #69 Tagesnotiz-API ok: Revision 0, identischer Create und CAS-Konflikt"
+echo "Alle Revisions-ACs (#61, #65, #66, #67, #69) bestanden."

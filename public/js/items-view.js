@@ -17,6 +17,7 @@ async function loadSketchEditor() {
 
 export function createItemsViewController(deps) {
     const {
+        cacheCurrentCategoryItems,
         closeSearch,
         formatBytes,
         formatDate,
@@ -25,6 +26,8 @@ export function createItemsViewController(deps) {
         getVisibleItems,
         handleDelete,
         handleEditSave,
+        restoreDeletedDraft,
+        discardDeletedDraft,
         handleMove,
         handlePin,
         handleStatus,
@@ -60,7 +63,7 @@ export function createItemsViewController(deps) {
         },
         handleEditStart: (item) => {
             state.editingId = item.id;
-            state.editDraft = wrapDraftForPersistence(createEditDraft(item), item.id);
+            state.editDraft = wrapDraftForPersistence(createEditDraft(item), item.id, item);
             renderItems();
         },
     });
@@ -87,7 +90,7 @@ export function createItemsViewController(deps) {
 
     function getEditDraftForItem(item) {
         if (state.editDraft?.itemId !== item.id) {
-            state.editDraft = wrapDraftForPersistence(createEditDraft(item), item.id);
+            state.editDraft = wrapDraftForPersistence(createEditDraft(item), item.id, item);
         }
         return state.editDraft;
     }
@@ -99,14 +102,49 @@ export function createItemsViewController(deps) {
         if (state.editingId !== null) return false;
         const snapshot = loadDraftSnapshot();
         if (!snapshot) return false;
-        const item = state.items.find(entry => Number(entry.id) === Number(snapshot.editingId));
+        let item = state.items.find(entry => Number(entry.id) === Number(snapshot.editingId));
         if (!item) {
-            clearDraftSnapshot();
-            return false;
+            if (!snapshot.item || Number(snapshot.item.category_id) !== Number(state.categoryId)) {
+                clearDraftSnapshot();
+                return false;
+            }
+            item = { ...snapshot.item, server_deleted: 1 };
+            state.items.push(item);
         }
         state.editingId = item.id;
-        state.editDraft = wrapDraftForPersistence(snapshot.draft, item.id);
+        state.editDraft = wrapDraftForPersistence(snapshot.draft, item.id, snapshot.item || item);
+        cacheCurrentCategoryItems();
         return true;
+    }
+
+    function appendDeletedDraftConflict(item, content) {
+        const conflict = document.createElement('section');
+        conflict.className = 'item-delete-conflict';
+
+        const text = document.createElement('p');
+        text.textContent = t('msg.server_delete_detected');
+
+        const actions = document.createElement('div');
+        actions.className = 'item-delete-conflict-actions';
+        const restore = document.createElement('button');
+        restore.type = 'button';
+        restore.className = 'btn-add';
+        restore.textContent = t('ui.restore_as_new');
+        restore.addEventListener('click', event => {
+            event.stopPropagation();
+            void restoreDeletedDraft(item.id);
+        });
+        const discard = document.createElement('button');
+        discard.type = 'button';
+        discard.className = 'btn-clear';
+        discard.textContent = t('ui.accept_deletion');
+        discard.addEventListener('click', event => {
+            event.stopPropagation();
+            discardDeletedDraft(item.id);
+        });
+        actions.append(discard, restore);
+        conflict.append(text, actions);
+        content.appendChild(conflict);
     }
 
     function getAttachmentTitle(item) {
@@ -638,6 +676,7 @@ export function createItemsViewController(deps) {
 
         if (state.editingId === item.id && item.category_type !== 'list_due_date') {
             buildEditContent(item, content);
+            if (item.server_deleted) appendDeletedDraftConflict(item, content);
         } else {
             buildReadOnlyContent(item, content);
         }
@@ -648,7 +687,7 @@ export function createItemsViewController(deps) {
         const actions = document.createElement('div');
         actions.className = 'item-actions';
 
-        if (state.editingId === item.id) {
+        if (state.editingId === item.id && !item.server_deleted) {
             actions.appendChild(buildActionButton('check', `${item.name} speichern`, () => void handleEditSave(item.id)));
             actions.appendChild(buildActionButton('rotate-ccw', `${item.name} abbrechen`, () => {
                 resetEditDraft();

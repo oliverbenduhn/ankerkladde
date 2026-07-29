@@ -1095,6 +1095,43 @@ function normalizeIdList(mixed $ids): array
     return $normalized;
 }
 
+/**
+ * @return list<array{id: int, expected_revision: int}>
+ */
+function normalizeRevisionItemList(mixed $items): array
+{
+    if (is_string($items)) {
+        $items = json_decode($items, true);
+    }
+    if (!is_array($items) || $items === []) {
+        return [];
+    }
+
+    $normalized = [];
+    foreach ($items as $item) {
+        if (!is_array($item)) {
+            return [];
+        }
+        $id = filter_var($item['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+        $revision = filter_var(
+            $item['expected_revision'] ?? null,
+            FILTER_VALIDATE_INT,
+            ['options' => ['min_range' => 1]]
+        );
+        if (!is_int($id) || !is_int($revision)) {
+            return [];
+        }
+        $normalized[] = ['id' => $id, 'expected_revision' => $revision];
+    }
+
+    $ids = array_column($normalized, 'id');
+    if (count(array_unique($ids)) !== count($ids)) {
+        return [];
+    }
+
+    return $normalized;
+}
+
 function sanitizeFtsQuery(string $q): string
 {
     $q = truncateText($q, 256);
@@ -1959,6 +1996,21 @@ function requireExpectedItemRevision(array $data): int
     return $revision;
 }
 
+function requireExpectedCreateOrUpdateRevision(array $data): int
+{
+    $expectedRevision = array_key_exists('expected_revision', $data) ? $data['expected_revision'] : null;
+    if ($expectedRevision === null || $expectedRevision === '') {
+        respond(428, ['error' => t('error.revision_required'), 'error_key' => 'error.revision_required']);
+    }
+
+    $revision = filter_var($expectedRevision, FILTER_VALIDATE_INT, ['options' => ['min_range' => 0]]);
+    if (!is_int($revision)) {
+        respond(422, ['error' => t('error.revision_invalid'), 'error_key' => 'error.revision_invalid']);
+    }
+
+    return $revision;
+}
+
 function respondStatusMutationMiss(
     PDO $db,
     int $userId,
@@ -2286,10 +2338,13 @@ try {
 
         case 'journal_save':
             $data = requireWriteRequest();
+            requireIdempotencyRequestId();
 
             $date = normalizeJournalDate($data['date'] ?? null);
             $content = normalizeContent($data['content'] ?? null);
             $title = (new DateTimeImmutable($date, new DateTimeZone('Europe/Berlin')))->format('d.m.Y');
+            $expectedRevision = requireExpectedCreateOrUpdateRevision($data);
+            $created = false;
 
             // Acquire the SQLite write lock before the read-or-insert decision so
             // concurrent first saves for the same day cannot both observe no item.
@@ -2300,6 +2355,11 @@ try {
                 $item = loadJournalItem($db, $userId, (int) $category['id'], $date);
 
                 if ($item === null) {
+                    if ($expectedRevision !== 0) {
+                        $db->exec('ROLLBACK');
+                        $journalTransactionActive = false;
+                        respond(404, ['error' => t('error.item_not_found'), 'error_key' => 'error.item_not_found']);
+                    }
                     $sortOrder = prependItemSortOrder($db, $userId, (int) $category['id']);
                     $stmt = $db->prepare(
                         "INSERT INTO items (name, quantity, due_date, content, section, category_id, sort_order, user_id)
@@ -2314,19 +2374,58 @@ try {
                         ':user_id' => $userId,
                     ]);
                     $itemId = (int) $db->lastInsertId();
+                    $created = true;
                 } else {
                     $itemId = (int) $item['id'];
+                    $currentRevision = (int) $item['revision'];
+                    $currentContent = (string) $item['content'];
+                    if ($currentContent === $content) {
+                        $db->exec('COMMIT');
+                        $journalTransactionActive = false;
+                        respond(200, [
+                            'message' => 'Journal gespeichert.',
+                            'item' => formatJournalItem($item),
+                        ]);
+                    }
+                    if ($expectedRevision === 0 && $currentContent !== '') {
+                        $db->exec('ROLLBACK');
+                        $journalTransactionActive = false;
+                        respond(409, [
+                            'error' => t('error.item_revision_conflict'),
+                            'error_key' => 'error.item_revision_conflict',
+                            'expected_revision' => 0,
+                            'current_revision' => $currentRevision,
+                            'item' => formatJournalItem($item),
+                        ]);
+                    }
+                    $casRevision = $expectedRevision === 0 ? $currentRevision : $expectedRevision;
                     $stmt = $db->prepare(
                         'UPDATE items
-                         SET name = :name, content = :content, updated_at = CURRENT_TIMESTAMP
-                         WHERE id = :id AND user_id = :user_id'
+                         SET name = :name,
+                             content = :content,
+                             revision = revision + 1,
+                             updated_at = CURRENT_TIMESTAMP
+                         WHERE id = :id AND user_id = :user_id AND revision = :expected_revision'
                     );
                     $stmt->execute([
                         ':name' => $title,
                         ':content' => $content,
                         ':id' => $itemId,
                         ':user_id' => $userId,
+                        ':expected_revision' => $casRevision,
                     ]);
+                    if ($stmt->rowCount() !== 1) {
+                        $db->exec('ROLLBACK');
+                        $journalTransactionActive = false;
+                        $current = loadJournalItem($db, $userId, (int) $category['id'], $date);
+                        respond(409, [
+                            'error' => t('error.item_revision_conflict'),
+                            'error_key' => 'error.item_revision_conflict',
+                            'expected_revision' => $expectedRevision,
+                            'current_revision' => $current !== null ? (int) $current['revision'] : null,
+                            'item' => formatJournalItem($current),
+                        ]);
+                    }
                 }
 
                 $db->exec('COMMIT');
@@ -2339,7 +2438,7 @@ try {
             }
 
             $saved = loadJournalItem($db, $userId, (int) $category['id'], $date);
-            respond($item === null ? 201 : 200, [
+            respond($created ? 201 : 200, [
                 'message' => 'Journal gespeichert.',
                 'item' => formatJournalItem($saved),
             ]);
@@ -2965,20 +3064,39 @@ try {
 
         case 'delete':
             $data = requireWriteRequest();
+            requireIdempotencyRequestId();
 
             $id = filter_var($data['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
             if (!is_int($id)) {
                 respond(422, ['error' => t('error.invalid_id'), 'error_key' => 'error.invalid_id']);
             }
+            $expectedRevision = requireExpectedItemRevision($data);
 
             $attachment = findAttachmentByItemId($db, $id);
             $db->beginTransaction();
-            $stmt = $db->prepare('DELETE FROM items WHERE id = :id AND user_id = :user_id');
-            $stmt->execute([':id' => $id, ':user_id' => $userId]);
+            $stmt = $db->prepare(
+                'DELETE FROM items
+                 WHERE id = :id AND user_id = :user_id AND revision = :expected_revision'
+            );
+            $stmt->execute([
+                ':id' => $id,
+                ':user_id' => $userId,
+                ':expected_revision' => $expectedRevision,
+            ]);
 
             if ($stmt->rowCount() === 0) {
                 $db->rollBack();
-                respond(404, ['error' => t('error.item_not_found'), 'error_key' => 'error.item_not_found']);
+                $current = fetchItemForUser($db, $userId, $id);
+                if ($current === null) {
+                    respond(404, ['error' => t('error.item_not_found'), 'error_key' => 'error.item_not_found']);
+                }
+                respond(409, [
+                    'error' => t('error.item_revision_conflict'),
+                    'error_key' => 'error.item_revision_conflict',
+                    'expected_revision' => $expectedRevision,
+                    'current_revision' => (int) $current['revision'],
+                    'item' => formatListItem($current),
+                ]);
             }
             $db->commit();
 
@@ -2990,7 +3108,11 @@ try {
                 }
             }
 
-            respond(200, ['message' => 'Artikel gelöscht.']);
+            respond(200, [
+                'message' => 'Artikel gelöscht.',
+                'deleted_id' => $id,
+                'terminal_revision' => $expectedRevision + 1,
+            ]);
 
         case 'move':
             $data = requireWriteRequest();
@@ -3075,70 +3197,52 @@ try {
 
         case 'clear':
             $data = requireWriteRequest();
+            requireIdempotencyRequestId();
 
             $category = requireCategory($data, $db, $userId);
-
-            $attachmentStmt = $db->prepare(
-                'SELECT attachments.id, attachments.item_id, attachments.storage_section, attachments.stored_name
-                 FROM attachments
-                 INNER JOIN items ON items.id = attachments.item_id
-                 WHERE items.done = 1 AND items.category_id = :category_id AND items.user_id = :user_id'
-            );
-            $attachmentStmt->execute([':category_id' => (int) $category['id'], ':user_id' => $userId]);
-            $attachments = $attachmentStmt->fetchAll();
-
-            $db->beginTransaction();
-            $stmt = $db->prepare('DELETE FROM items WHERE done = 1 AND category_id = :category_id AND user_id = :user_id');
-            $stmt->execute([':category_id' => (int) $category['id'], ':user_id' => $userId]);
-            $deletedCount = (int) $stmt->rowCount();
-            $db->commit();
-
-            foreach ($attachments as $attachment) {
-                try {
-                    deleteAttachmentStorageFile($attachment);
-                } catch (Throwable $cleanupException) {
-                    error_log(sprintf('Einkauf attachment cleanup error [clear:%d:%d]: %s', (int) $category['id'], (int) ($attachment['item_id'] ?? 0), $cleanupException->getMessage()));
-                }
+            $capturedItems = normalizeRevisionItemList($data['items'] ?? null);
+            if ($capturedItems === []) {
+                respond(422, ['error' => t('error.invalid_params'), 'error_key' => 'error.invalid_params']);
             }
 
-            respond(200, ['message' => 'Erledigte Artikel gelöscht.', 'deleted' => $deletedCount]);
-
-        case 'reorder':
-            $data = requireWriteRequest();
-
-            $category = requireCategory($data, $db, $userId);
-            $orderedIds = normalizeIdList($data['ids'] ?? ($data['ids[]'] ?? null));
-            if ($orderedIds === []) {
-                respond(422, ['error' => t('error.invalid_order'), 'error_key' => 'error.invalid_order']);
-            }
-
-            $existingStmt = $db->prepare(
-                'SELECT id FROM items WHERE category_id = :category_id AND user_id = :user_id ORDER BY sort_order ASC, id ASC'
-            );
-            $existingStmt->execute([':category_id' => (int) $category['id'], ':user_id' => $userId]);
-            $existingIds = array_map(static fn(mixed $id): int => (int) $id, $existingStmt->fetchAll(PDO::FETCH_COLUMN));
-
-            $sortedIds = $orderedIds;
-            sort($sortedIds);
-            $sortedExistingIds = $existingIds;
-            sort($sortedExistingIds);
-
-            if ($sortedIds !== $sortedExistingIds) {
-                respond(422, ['error' => t('error.order_mismatch_items'), 'error_key' => 'error.order_mismatch_items']);
-            }
-
-            $stmt = $db->prepare(
-                'UPDATE items SET sort_order = :sort_order, updated_at = CURRENT_TIMESTAMP WHERE id = :id AND user_id = :user_id'
-            );
-
+            $attachments = [];
+            $deletedItems = [];
             $db->beginTransaction();
             try {
-                foreach ($orderedIds as $index => $id) {
-                    $stmt->execute([
-                        ':sort_order' => $index + 1,
-                        ':id' => $id,
+                $deleteStmt = $db->prepare(
+                    'DELETE FROM items
+                     WHERE id = :id
+                       AND category_id = :category_id
+                       AND user_id = :user_id
+                       AND done = 1
+                       AND revision = :expected_revision'
+                );
+                foreach ($capturedItems as $capturedItem) {
+                    $attachment = findAttachmentByItemId($db, $capturedItem['id']);
+                    if ($attachment !== null) {
+                        $attachments[] = $attachment;
+                    }
+                    $deleteStmt->execute([
+                        ':id' => $capturedItem['id'],
+                        ':category_id' => (int) $category['id'],
                         ':user_id' => $userId,
+                        ':expected_revision' => $capturedItem['expected_revision'],
                     ]);
+                    if ($deleteStmt->rowCount() !== 1) {
+                        $db->rollBack();
+                        $current = fetchItemForUser($db, $userId, $capturedItem['id']);
+                        respond(409, [
+                            'error' => t('error.item_revision_conflict'),
+                            'error_key' => 'error.item_revision_conflict',
+                            'expected_revision' => $capturedItem['expected_revision'],
+                            'current_revision' => $current !== null ? (int) $current['revision'] : null,
+                            'item' => $current !== null ? formatListItem($current) : null,
+                        ]);
+                    }
+                    $deletedItems[] = [
+                        'deleted_id' => $capturedItem['id'],
+                        'terminal_revision' => $capturedItem['expected_revision'] + 1,
+                    ];
                 }
                 $db->commit();
             } catch (Throwable $exception) {
@@ -3148,7 +3252,97 @@ try {
                 throw $exception;
             }
 
-            respond(200, ['message' => 'Reihenfolge aktualisiert.']);
+            foreach ($attachments as $attachment) {
+                try {
+                    deleteAttachmentStorageFile($attachment);
+                } catch (Throwable $cleanupException) {
+                    error_log(sprintf('Einkauf attachment cleanup error [clear:%d:%d]: %s', (int) $category['id'], (int) ($attachment['item_id'] ?? 0), $cleanupException->getMessage()));
+                }
+            }
+
+            respond(200, [
+                'message' => 'Erledigte Artikel gelöscht.',
+                'deleted' => count($deletedItems),
+                'deleted_items' => $deletedItems,
+            ]);
+
+        case 'reorder':
+            $data = requireWriteRequest();
+            requireIdempotencyRequestId();
+
+            $category = requireCategory($data, $db, $userId);
+            $orderedItems = normalizeRevisionItemList($data['items'] ?? null);
+            if ($orderedItems === []) {
+                respond(422, ['error' => t('error.invalid_order'), 'error_key' => 'error.invalid_order']);
+            }
+
+            $db->beginTransaction();
+            try {
+                $existingStmt = $db->prepare(
+                    'SELECT id, revision
+                     FROM items
+                     WHERE category_id = :category_id AND user_id = :user_id
+                     ORDER BY sort_order ASC, id ASC'
+                );
+                $existingStmt->execute([':category_id' => (int) $category['id'], ':user_id' => $userId]);
+                $existingItems = $existingStmt->fetchAll();
+                $orderedIds = array_column($orderedItems, 'id');
+                $existingIds = array_map(static fn(array $item): int => (int) $item['id'], $existingItems);
+                $sortedIds = $orderedIds;
+                $sortedExistingIds = $existingIds;
+                sort($sortedIds);
+                sort($sortedExistingIds);
+
+                if ($sortedIds !== $sortedExistingIds) {
+                    $db->rollBack();
+                    respond(409, [
+                        'error' => t('error.order_mismatch_items'),
+                        'error_key' => 'error.order_mismatch_items',
+                    ]);
+                }
+
+                $stmt = $db->prepare(
+                    'UPDATE items
+                     SET sort_order = :sort_order,
+                         revision = revision + 1,
+                         updated_at = CURRENT_TIMESTAMP
+                     WHERE id = :id
+                       AND category_id = :category_id
+                       AND user_id = :user_id
+                       AND revision = :expected_revision'
+                );
+                foreach ($orderedItems as $index => $orderedItem) {
+                    $stmt->execute([
+                        ':sort_order' => $index + 1,
+                        ':id' => $orderedItem['id'],
+                        ':category_id' => (int) $category['id'],
+                        ':user_id' => $userId,
+                        ':expected_revision' => $orderedItem['expected_revision'],
+                    ]);
+                    if ($stmt->rowCount() !== 1) {
+                        $db->rollBack();
+                        respond(409, [
+                            'error' => t('error.item_revision_conflict'),
+                            'error_key' => 'error.item_revision_conflict',
+                            'expected_revision' => $orderedItem['expected_revision'],
+                        ]);
+                    }
+                }
+                $db->commit();
+            } catch (Throwable $exception) {
+                if ($db->inTransaction()) {
+                    $db->rollBack();
+                }
+                throw $exception;
+            }
+
+            $canonicalItems = array_map(
+                static fn(array $orderedItem): array => formatListItem(
+                    fetchItemForUser($db, $userId, $orderedItem['id']) ?? []
+                ),
+                $orderedItems
+            );
+            respond(200, ['message' => 'Reihenfolge aktualisiert.', 'items' => $canonicalItems]);
 
         case 'pin':
             $data = requireWriteRequest();

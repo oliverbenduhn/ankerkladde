@@ -80,7 +80,7 @@ export function getConflictCount() {
     return getConflicts().length;
 }
 
-function addConflict(type, payload, error) {
+export function addConflict(type, payload, error) {
     const conflicts = getConflicts().slice(-49);
     conflicts.push({
         type,

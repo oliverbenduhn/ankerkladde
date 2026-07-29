@@ -1,6 +1,7 @@
 import { api, normalizeItem, persistPreferences } from './api.js';
 import { LOCAL_PREF_KEYS, state } from './state.js';
 import { appEl, searchBar, searchBtn, searchInput } from './ui.js';
+import { markDraftServerDeleted } from './draft-persistence.js';
 
 export function createItemsController(deps) {
     /**
@@ -78,8 +79,16 @@ export function createItemsController(deps) {
 
     function applyCategoryPayload(categoryId, payload) {
         const normalized = cacheCategoryPayload(categoryId, payload);
+        const protectedId = state.editingId !== null
+            ? Number(state.editingId)
+            : (state.noteEditorId !== null ? Number(state.noteEditorId) : null);
+        if (protectedId !== null && !normalized.items.some(item => Number(item.id) === protectedId)) {
+            const localItem = state.items.find(item => Number(item.id) === protectedId && item.server_deleted);
+            if (localItem) normalized.items.push(localItem);
+        }
         state.items = normalized.items;
         state.diskFreeBytes = normalized.diskFreeBytes;
+        cacheCurrentCategoryItems();
     }
 
     async function loadCategories() {
@@ -197,7 +206,9 @@ export function createItemsController(deps) {
             }
 
             const freshItems = Array.isArray(payload.items) ? payload.items.map(normalizeItem) : [];
-            const protectedId = state.editingId !== null ? Number(state.editingId) : null;
+            const protectedId = state.editingId !== null
+                ? Number(state.editingId)
+                : (state.noteEditorId !== null ? Number(state.noteEditorId) : null);
             const mergedItems = freshItems.map(freshItem => {
                 if (protectedId !== null && Number(freshItem.id) === protectedId) {
                     const localItem = state.items.find(entry => Number(entry.id) === protectedId);
@@ -205,6 +216,13 @@ export function createItemsController(deps) {
                 }
                 return freshItem;
             });
+            if (protectedId !== null && !freshItems.some(item => Number(item.id) === protectedId)) {
+                const localItem = state.items.find(entry => Number(entry.id) === protectedId);
+                if (localItem) {
+                    mergedItems.push({ ...localItem, server_deleted: 1 });
+                    markDraftServerDeleted();
+                }
+            }
 
             state.items = mergedItems;
             state.diskFreeBytes = typeof payload.disk_free_bytes === 'number' ? payload.disk_free_bytes : null;

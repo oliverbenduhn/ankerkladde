@@ -1,5 +1,6 @@
 import { t } from './i18n.js';
 import { api } from './api.js';
+import { clearNoteDraft, loadNoteDraft, saveNoteDraft } from './note-draft-persistence.js';
 import { NOTE_SAVE_DEBOUNCE_MS, state } from './state.js';
 import { appEl, noteEditorBody, noteEditorEl, noteSaveStatus, noteTitleInput, noteToolbar } from './ui.js';
 import { sanitizeItemField, sanitizeItemPayload } from './utils.js';
@@ -14,8 +15,10 @@ export function createEditorController(deps) {
         getTiptapEditor,
     } = deps;
 
-    let ydoc = null;
-    let provider = null;
+    let activeDraft = null;
+    let saveInFlight = false;
+    let applyingContent = false;
+    let conflictElement = null;
 
     async function waitForTipTap() {
         return new Promise(resolve => {
@@ -23,7 +26,6 @@ export function createEditorController(deps) {
                 resolve(window.TipTap);
                 return;
             }
-
             window.addEventListener('tiptap-ready', () => resolve(window.TipTap), { once: true });
         });
     }
@@ -40,72 +42,283 @@ export function createEditorController(deps) {
         if (noteSaveStatus) noteSaveStatus.textContent = text;
     }
 
-    async function saveNoteContent(id, title, htmlContent) {
-        const sanitizedTitle = sanitizeItemField('name', title || 'Ohne Titel') || 'Ohne Titel';
-        const sanitizedContent = sanitizeItemField('content', htmlContent);
-        const existingItem = deps.getItemById(id);
-        const expectedRevision = existingItem ? Number(existingItem.revision) : 0;
+    function createDraft(item) {
+        return {
+            itemId: Number(item.id),
+            baseRevision: Number(item.revision),
+            baseName: item.name || '',
+            baseContent: item.content || '',
+            baseUpdatedAt: item.updated_at || '',
+            title: item.name || '',
+            content: item.content || '',
+            dirty: false,
+            requestId: '',
+            conflict: null,
+        };
+    }
+
+    function captureActiveDraft(markDirty = true) {
+        if (!activeDraft) return;
+        const editor = getTiptapEditor();
+        activeDraft.title = sanitizeItemField('name', noteTitleInput?.value || 'Ohne Titel') || 'Ohne Titel';
+        activeDraft.content = sanitizeItemField('content', editor?.getHTML() || activeDraft.content || '');
+        if (markDirty) activeDraft.dirty = true;
+        saveNoteDraft(activeDraft);
+    }
+
+    function updateCanonicalItem(item) {
+        const localItem = deps.getItemById(item.id);
+        if (localItem) Object.assign(localItem, item);
+        cacheCurrentCategoryItems();
+    }
+
+    function setEditorContent(title, content) {
+        if (noteTitleInput) noteTitleInput.value = title || '';
+        const editor = getTiptapEditor();
+        if (!editor) return;
+        applyingContent = true;
+        editor.commands.setContent(content || '', false);
+        applyingContent = false;
+    }
+
+    function formatConflictTime(value) {
+        if (!value) return '';
+        const parsed = new Date(value);
+        return Number.isNaN(parsed.getTime()) ? '' : parsed.toLocaleString();
+    }
+
+    function buildConflictVersion(className, label, version, actionLabel, onAction) {
+        const section = document.createElement('section');
+        section.className = `note-conflict-version ${className}`;
+
+        const heading = document.createElement('h3');
+        heading.textContent = label;
+        const timestamp = document.createElement('p');
+        timestamp.className = 'note-conflict-timestamp';
+        timestamp.textContent = formatConflictTime(version.updatedAt);
+        const title = document.createElement('div');
+        title.className = 'note-conflict-title';
+        title.textContent = version.title || 'Ohne Titel';
+        const content = document.createElement('div');
+        content.className = 'note-conflict-content';
+        content.innerHTML = version.content || '';
+        const action = document.createElement('button');
+        action.type = 'button';
+        action.className = 'btn-add';
+        action.textContent = actionLabel;
+        action.addEventListener('click', () => void onAction());
+
+        section.append(heading, timestamp, title, content, action);
+        return section;
+    }
+
+    function ensureConflictElement() {
+        if (conflictElement || !noteEditorEl) return conflictElement;
+        conflictElement = document.createElement('section');
+        conflictElement.className = 'note-content-conflict';
+        conflictElement.hidden = true;
+        noteEditorEl.appendChild(conflictElement);
+        return conflictElement;
+    }
+
+    function renderConflict() {
+        const element = ensureConflictElement();
+        if (!element) return;
+        const conflict = activeDraft?.conflict;
+        element.replaceChildren();
+        element.hidden = !conflict;
+        if (noteEditorBody) noteEditorBody.hidden = Boolean(conflict);
+        if (noteToolbar) noteToolbar.hidden = Boolean(conflict);
+        if (noteTitleInput) noteTitleInput.disabled = Boolean(conflict);
+        if (!conflict) return;
+
+        const intro = document.createElement('p');
+        intro.className = 'note-conflict-intro';
+        intro.textContent = 'Diese Notiz wurde parallel geändert. Wähle bewusst eine Fassung.';
+        const versions = document.createElement('div');
+        versions.className = 'note-conflict-versions';
+        versions.append(
+            buildConflictVersion(
+                'note-conflict-version-local',
+                'Meine Fassung',
+                conflict.local,
+                'Meine behalten',
+                resolveWithLocalVersion
+            ),
+            buildConflictVersion(
+                'note-conflict-version-server',
+                'Server-Version',
+                conflict.server,
+                'Server-Version übernehmen',
+                acceptServerVersion
+            )
+        );
+        element.append(intro, versions);
+    }
+
+    function acceptSuccessfulSave(item, sentTitle, sentContent) {
+        updateCanonicalItem(item);
+        if (!activeDraft) return;
+        activeDraft.baseRevision = Number(item.revision);
+        activeDraft.baseName = item.name || sentTitle;
+        activeDraft.baseContent = item.content || sentContent;
+        activeDraft.baseUpdatedAt = item.updated_at || '';
+        activeDraft.requestId = '';
+        const changedWhileSaving = activeDraft.title !== sentTitle || activeDraft.content !== sentContent;
+        activeDraft.dirty = changedWhileSaving;
+        activeDraft.conflict = null;
+        if (changedWhileSaving) {
+            saveNoteDraft(activeDraft);
+            scheduleNoteSave();
+        } else {
+            clearNoteDraft(activeDraft.itemId);
+        }
+        setNoteSaveStatus('Gespeichert');
+        renderConflict();
+    }
+
+    async function performSave() {
+        if (!activeDraft || activeDraft.conflict || !activeDraft.dirty || saveInFlight) return;
+        const itemId = activeDraft.itemId;
+        const sentTitle = activeDraft.title;
+        const sentContent = activeDraft.content;
+        const expectedRevision = Number(activeDraft.baseRevision);
         if (expectedRevision < 1) {
             setNoteSaveStatus(t('error.revision_required'));
             return;
         }
+
+        saveInFlight = true;
         try {
             const result = await api('update', {
                 method: 'POST',
                 body: new URLSearchParams(sanitizeItemPayload({
-                    id: String(id),
+                    id: String(itemId),
                     expected_revision: String(expectedRevision),
-                    name: sanitizedTitle,
-                    content: sanitizedContent,
+                    name: sentTitle,
+                    content: sentContent,
                 })),
+                ...(activeDraft.requestId ? { idempotencyKey: activeDraft.requestId } : {}),
             });
-            const item = deps.getItemById(id);
-            if (item) {
-                item.name = sanitizedTitle;
-                item.content = sanitizedContent;
-                item.revision = Number(result.item?.revision ?? expectedRevision + 1);
-            }
-            cacheCurrentCategoryItems();
-            setNoteSaveStatus('Gespeichert');
+            acceptSuccessfulSave(result.item, sentTitle, sentContent);
         } catch (error) {
-            // Konflikt: kanonische Server-Fassung in den lokalen Item-Cache uebernehmen.
-            if (Number(error?.status) === 409 && error.payload?.item) {
-                const conflictedItem = deps.getItemById(id);
-                if (conflictedItem) {
-                    Object.assign(conflictedItem, error.payload.item);
-                    cacheCurrentCategoryItems();
+            if (!activeDraft || activeDraft.itemId !== itemId) return;
+            activeDraft.requestId = error.idempotencyKey || activeDraft.requestId || '';
+            const current = error?.payload?.item;
+            if (Number(error?.status) === 409 && current) {
+                updateCanonicalItem(current);
+                if ((current.name || '') === sentTitle && (current.content || '') === sentContent) {
+                    acceptSuccessfulSave(current, sentTitle, sentContent);
+                    return;
                 }
+
+                const serverContentUnchanged = (current.name || '') === activeDraft.baseName
+                    && (current.content || '') === activeDraft.baseContent;
+                if (serverContentUnchanged) {
+                    activeDraft.baseRevision = Number(current.revision);
+                    activeDraft.baseUpdatedAt = current.updated_at || '';
+                    saveNoteDraft(activeDraft);
+                    window.setTimeout(() => void performSave(), 0);
+                    return;
+                }
+
+                activeDraft.requestId = '';
+                activeDraft.conflict = {
+                    local: {
+                        title: sentTitle,
+                        content: sentContent,
+                        updatedAt: new Date().toISOString(),
+                    },
+                    server: {
+                        title: current.name || '',
+                        content: current.content || '',
+                        updatedAt: current.updated_at || '',
+                        revision: Number(current.revision),
+                        item: current,
+                    },
+                };
+                saveNoteDraft(activeDraft);
+                setNoteSaveStatus('Konflikt');
+                renderConflict();
+                return;
             }
-            if (error.message.includes('Artikel nicht gefunden')) {
-                setNoteSaveStatus(t('msg.note_deleted'));
-                console.log('[Note] Item was deleted by another user, closing editor');
-                await closeNoteEditor();
-            } else {
-                setNoteSaveStatus('❌ Fehler beim Speichern');
-                console.error('[Note] Save failed:', error);
-            }
+
+            saveNoteDraft(activeDraft);
+            setNoteSaveStatus(error?.isNetworkError ? 'Offline vorgemerkt' : '❌ Fehler beim Speichern');
+        } finally {
+            saveInFlight = false;
+        }
+
+        if (activeDraft?.dirty && !activeDraft.conflict && Number(activeDraft.baseRevision) !== expectedRevision) {
+            await performSave();
         }
     }
 
     function scheduleNoteSave() {
+        if (!activeDraft || activeDraft.conflict) return;
+        captureActiveDraft(true);
         clearTimeout(getNoteSaveTimer());
         setNoteSaveStatus('...');
-        setNoteSaveTimer(setTimeout(() => {
-            const editor = getTiptapEditor();
-            if (state.noteEditorId === null || !editor) return;
-            void saveNoteContent(state.noteEditorId, noteTitleInput?.value || '', editor.getHTML());
-        }, NOTE_SAVE_DEBOUNCE_MS));
+        setNoteSaveTimer(setTimeout(() => void performSave(), NOTE_SAVE_DEBOUNCE_MS));
+    }
+
+    async function resolveWithLocalVersion() {
+        const conflict = activeDraft?.conflict;
+        if (!activeDraft || !conflict) return;
+        setNoteSaveStatus('...');
+        try {
+            const result = await api('update', {
+                method: 'POST',
+                body: new URLSearchParams(sanitizeItemPayload({
+                    id: String(activeDraft.itemId),
+                    expected_revision: String(conflict.server.revision),
+                    name: conflict.local.title,
+                    content: conflict.local.content,
+                })),
+                ...(activeDraft.requestId ? { idempotencyKey: activeDraft.requestId } : {}),
+            });
+            setEditorContent(conflict.local.title, conflict.local.content);
+            activeDraft.title = conflict.local.title;
+            activeDraft.content = conflict.local.content;
+            acceptSuccessfulSave(result.item, conflict.local.title, conflict.local.content);
+        } catch (error) {
+            activeDraft.requestId = error.idempotencyKey || activeDraft.requestId || '';
+            if (Number(error?.status) === 409 && error.payload?.item) {
+                const current = error.payload.item;
+                updateCanonicalItem(current);
+                activeDraft.conflict.server = {
+                    title: current.name || '',
+                    content: current.content || '',
+                    updatedAt: current.updated_at || '',
+                    revision: Number(current.revision),
+                    item: current,
+                };
+            }
+            saveNoteDraft(activeDraft);
+            setNoteSaveStatus(error?.isNetworkError ? 'Offline vorgemerkt' : '❌ Konflikt bleibt bestehen');
+            renderConflict();
+        }
+    }
+
+    function acceptServerVersion() {
+        const conflict = activeDraft?.conflict;
+        if (!activeDraft || !conflict) return;
+        const server = conflict.server;
+        updateCanonicalItem(server.item);
+        setEditorContent(server.title, server.content);
+        activeDraft = createDraft(server.item);
+        clearNoteDraft(server.item.id);
+        setNoteSaveStatus('Gespeichert');
+        renderConflict();
     }
 
     function updateNoteToolbar() {
         const editor = getTiptapEditor();
         if (!editor || !noteToolbar) return;
-
         noteToolbar.querySelectorAll('button[data-cmd]').forEach(button => {
             const cmd = button.dataset.cmd;
             const level = button.dataset.level ? Number(button.dataset.level) : undefined;
             let active = false;
-
             if (cmd === 'heading' && level) {
                 active = editor.isActive('heading', { level });
             } else if (cmd === 'link') {
@@ -113,67 +326,38 @@ export function createEditorController(deps) {
             } else if (cmd !== 'undo' && cmd !== 'redo') {
                 active = editor.isActive(cmd);
             }
-
             button.classList.toggle('is-active', active);
         });
     }
 
-    function editorIsEmpty(editor) {
-        const html = editor.getHTML();
-        return html === '' || html === '<p></p>';
-    }
-
     async function openNoteEditor(item) {
         await closeNoteEditor();
-
         state.noteEditorId = item.id;
-        if (noteTitleInput) noteTitleInput.value = item.name || '';
+        activeDraft = loadNoteDraft(item.id) || createDraft(item);
+        if (noteTitleInput) noteTitleInput.value = activeDraft.title;
         if (noteEditorEl) noteEditorEl.hidden = false;
         appEl.classList.add('note-editor-open');
 
-        const { Editor, StarterKit, Link, Y, WebsocketProvider, Collaboration, CollaborationCursor } = await waitForTipTap();
+        const { Editor, StarterKit, Link } = await waitForTipTap();
         if (noteEditorBody) noteEditorBody.innerHTML = '';
-
-        ydoc = new Y.Doc();
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const configuredWsUrl = document.querySelector('meta[name="websocket-url"]')?.content?.replace(/\/+$/, '');
-        const wsUrl = configuredWsUrl || `${protocol}//${window.location.host}/ws`;
-
-        provider = new WebsocketProvider(wsUrl, `yjs/note/${item.id}`, ydoc);
-
         const editor = new Editor({
             element: noteEditorBody,
+            content: activeDraft.content || '',
             extensions: [
-                StarterKit.configure({
-                    history: false,
-                }),
+                StarterKit.configure({}),
                 Link.configure({ openOnClick: false }),
-                Collaboration.configure({
-                    document: ydoc,
-                }),
             ],
             onUpdate: () => {
                 updateNoteToolbar();
-                scheduleNoteSave();
+                if (!applyingContent) scheduleNoteSave();
             },
             onSelectionUpdate: updateNoteToolbar,
         });
-
-        let seededStoredContent = false;
-        const seedStoredContentIfEmpty = () => {
-            const activeEditor = getTiptapEditor();
-            if (state.noteEditorId !== item.id || (activeEditor && activeEditor !== editor)) return;
-            if (seededStoredContent || !item.content || !editorIsEmpty(editor)) return;
-            seededStoredContent = true;
-            editor.commands.setContent(item.content, false);
-        };
-
-        provider.on('synced', seedStoredContentIfEmpty);
-        window.setTimeout(seedStoredContentIfEmpty, 1200);
-
         setTiptapEditor(editor);
         updateNoteToolbar();
-        setNoteSaveStatus('');
+        renderConflict();
+        setNoteSaveStatus(activeDraft.conflict ? 'Konflikt' : (activeDraft.dirty ? 'Lokal geändert' : ''));
+        if (activeDraft.dirty && !activeDraft.conflict) scheduleNoteSave();
     }
 
     async function openNoteEditorWithNavigation(item) {
@@ -190,37 +374,28 @@ export function createEditorController(deps) {
     async function closeNoteEditor() {
         clearTimeout(getNoteSaveTimer());
         setNoteSaveTimer(null);
-
-        const editor = getTiptapEditor();
-        if (editor && state.noteEditorId !== null) {
-            await saveNoteContent(state.noteEditorId, noteTitleInput?.value || '', editor.getHTML());
+        if (activeDraft && !activeDraft.conflict) {
+            captureActiveDraft(false);
+            if (activeDraft.dirty) await performSave();
         }
-
         destroyTipTap();
-
-        if (provider) {
-            provider.destroy();
-            provider = null;
-        }
-        if (ydoc) {
-            ydoc.destroy();
-            ydoc = null;
-        }
-
+        activeDraft = null;
         state.noteEditorId = null;
         appEl.classList.remove('note-editor-open');
         if (noteEditorEl) noteEditorEl.hidden = true;
+        if (conflictElement) conflictElement.hidden = true;
+        if (noteEditorBody) noteEditorBody.hidden = false;
+        if (noteToolbar) noteToolbar.hidden = false;
+        if (noteTitleInput) noteTitleInput.disabled = false;
     }
 
     function handleToolbarClick(event) {
         const button = event.target.closest('button[data-cmd]');
         const editor = getTiptapEditor();
-        if (!button || !editor) return;
-
+        if (!button || !editor || activeDraft?.conflict) return;
         const cmd = button.dataset.cmd;
         const level = button.dataset.level ? Number(button.dataset.level) : undefined;
         const chain = editor.chain().focus();
-
         switch (cmd) {
             case 'heading': chain.toggleHeading({ level }).run(); break;
             case 'bold': chain.toggleBold().run(); break;
@@ -236,17 +411,17 @@ export function createEditorController(deps) {
                 const previous = editor.isActive('link') ? editor.getAttributes('link').href : '';
                 const url = prompt('URL:', previous);
                 if (url === null) break;
-                if (url === '') {
-                    chain.unsetLink().run();
-                    break;
-                }
-                chain.setLink({ href: url }).run();
+                if (url === '') chain.unsetLink().run();
+                else chain.setLink({ href: url }).run();
                 break;
             }
         }
-
         updateNoteToolbar();
     }
+
+    window.addEventListener('online', () => {
+        if (activeDraft?.dirty && !activeDraft.conflict) void performSave();
+    });
 
     return {
         closeNoteEditor,

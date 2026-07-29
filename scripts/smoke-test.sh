@@ -327,13 +327,14 @@ php -r '$payload = json_decode(file_get_contents($argv[1]), true); if (array_key
 
 [[ "$(status_code "$UNICODE_ADD_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST --data-urlencode "category_id=$SHOPPING_CATEGORY_ID" --data-urlencode 'name=Öl' --data-urlencode 'quantity=1' "http://127.0.0.1:$PORT/api.php?action=add")" == "201" ]]
 UNICODE_ITEM_ID="$(sed -n 's/.*"id":\([0-9][0-9]*\).*/\1/p' "$UNICODE_ADD_BODY" | head -n 1)"
+UNICODE_ITEM_REVISION="$(sed -n 's/.*"revision":\([0-9][0-9]*\).*/\1/p' "$UNICODE_ADD_BODY" | head -n 1)"
 if [[ -z "$UNICODE_ITEM_ID" ]]; then
     echo "Unicode-Artikel-ID konnte nicht aus der Add-Antwort gelesen werden." >&2
     exit 1
 fi
 [[ "$(status_code "$UNICODE_LIST_BODY" -b "$COOKIE_JAR" "http://127.0.0.1:$PORT/api.php?action=list&category_id=$SHOPPING_CATEGORY_ID")" == "200" ]]
 php -r '$payload = json_decode(file_get_contents($argv[1]), true); foreach (($payload["items"] ?? []) as $item) { if (($item["name"] ?? "") === "Öl") { exit(0); } } fwrite(STDERR, "Unicode-Artikel wurde nicht korrekt gespeichert.\n"); exit(1);' "$UNICODE_LIST_BODY"
-[[ "$(status_code "$UNICODE_DELETE_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST -d "id=$UNICODE_ITEM_ID" "http://127.0.0.1:$PORT/api.php?action=delete")" == "200" ]]
+[[ "$(status_code "$UNICODE_DELETE_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: smoke-delete-unicode' -X POST -d "id=$UNICODE_ITEM_ID&expected_revision=$UNICODE_ITEM_REVISION" "http://127.0.0.1:$PORT/api.php?action=delete")" == "200" ]]
 
 [[ "$(status_code "$NOTE_UNICODE_ADD_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST --data-urlencode "category_id=$NOTES_CATEGORY_ID" --data-urlencode 'name=Umlaut Notiz' --data-urlencode 'content=<p>Ä Ü Ö ü ö ä</p>' "http://127.0.0.1:$PORT/api.php?action=add")" == "201" ]]
 [[ "$(status_code "$NOTE_UNICODE_LIST_BODY" -b "$COOKIE_JAR" "http://127.0.0.1:$PORT/api.php?action=list&category_id=$NOTES_CATEGORY_ID")" == "200" ]]
@@ -353,6 +354,9 @@ fi
     -F "file=@$FILE_UPLOAD_SOURCE;type=text/plain" \
     "http://127.0.0.1:$PORT/api.php?action=upload")" == "201" ]]
 FILE_ITEM_ID="$(sed -n 's/.*"id":\([0-9][0-9]*\).*/\1/p' "$FILES_ADD_BODY" | head -n 1)"
+# Upload-Neuanlagen beginnen laut Item-Schema bei Revision 1; der Upload-
+# Response wird erst im eigenen Attachment-Slice #71 erweitert.
+FILE_ITEM_REVISION=1
 
 if [[ -z "$FILE_ITEM_ID" ]]; then
     echo "Datei-Artikel-ID konnte nicht aus der Upload-Antwort gelesen werden." >&2
@@ -473,7 +477,7 @@ rm -f "$IMAGE_ATTACHMENT_PATH"
 [[ "$(status_code "$MISSING_MEDIA_BODY" -b "$COOKIE_JAR" "http://127.0.0.1:$PORT/media.php?item_id=$IMAGE_ITEM_ID")" == "404" ]]
 grep -q 'Datei nicht gefunden' "$MISSING_MEDIA_BODY"
 
-[[ "$(status_code "$FILES_DELETE_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST -d "id=$FILE_ITEM_ID" "http://127.0.0.1:$PORT/api.php?action=delete")" == "200" ]]
+[[ "$(status_code "$FILES_DELETE_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: smoke-delete-file' -X POST -d "id=$FILE_ITEM_ID&expected_revision=$FILE_ITEM_REVISION" "http://127.0.0.1:$PORT/api.php?action=delete")" == "200" ]]
 grep -q 'Artikel gelöscht' "$FILES_DELETE_BODY"
 if [[ -e "$ATTACHMENT_PATH" ]]; then
     echo "Attachment-Datei wurde beim Delete nicht entfernt." >&2
@@ -488,13 +492,27 @@ if [[ -z "$SECOND_ITEM_ID" ]]; then
     exit 1
 fi
 
-[[ "$(status_code "$REORDER_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST -d "ids[]=$SECOND_ITEM_ID&ids[]=$ITEM_ID" "http://127.0.0.1:$PORT/api.php?action=reorder")" == "200" ]]
+curl -fsS -b "$COOKIE_JAR" -o "$TMP_DIR/pre-reorder-list.json" "http://127.0.0.1:$PORT/api.php?action=list"
+REORDER_ITEMS="$(php -r '
+    $items = json_decode(file_get_contents($argv[1]), true)["items"] ?? [];
+    usort($items, static function (array $a, array $b) use ($argv): int {
+        $rank = [(int) $argv[2] => 0, (int) $argv[3] => 1];
+        return ($rank[(int) $a["id"]] ?? 99) <=> ($rank[(int) $b["id"]] ?? 99);
+    });
+    echo json_encode(array_map(static fn(array $item): array => [
+        "id" => (int) $item["id"],
+        "expected_revision" => (int) $item["revision"],
+    ], $items));
+' "$TMP_DIR/pre-reorder-list.json" "$SECOND_ITEM_ID" "$ITEM_ID")"
+[[ "$(status_code "$REORDER_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: smoke-reorder-main' -X POST --data-urlencode "items=$REORDER_ITEMS" "http://127.0.0.1:$PORT/api.php?action=reorder")" == "200" ]]
 grep -q 'Reihenfolge aktualisiert' "$REORDER_BODY"
 
-[[ "$(status_code "$INVALID_REORDER_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST -d "ids[]=$SECOND_ITEM_ID" "http://127.0.0.1:$PORT/api.php?action=reorder")" == "422" ]]
+INVALID_REORDER_ITEMS="[{\"id\":$SECOND_ITEM_ID,\"expected_revision\":2}]"
+[[ "$(status_code "$INVALID_REORDER_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: smoke-reorder-invalid' -X POST --data-urlencode "items=$INVALID_REORDER_ITEMS" "http://127.0.0.1:$PORT/api.php?action=reorder")" == "409" ]]
 grep -q 'Reihenfolge passt nicht zur aktuellen Liste' "$INVALID_REORDER_BODY"
 
-[[ "$(status_code "$DUPLICATE_REORDER_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST -d "ids[]=$SECOND_ITEM_ID&ids[]=$SECOND_ITEM_ID" "http://127.0.0.1:$PORT/api.php?action=reorder")" == "422" ]]
+DUPLICATE_REORDER_ITEMS="[{\"id\":$SECOND_ITEM_ID,\"expected_revision\":2},{\"id\":$SECOND_ITEM_ID,\"expected_revision\":2}]"
+[[ "$(status_code "$DUPLICATE_REORDER_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: smoke-reorder-duplicate' -X POST --data-urlencode "items=$DUPLICATE_REORDER_ITEMS" "http://127.0.0.1:$PORT/api.php?action=reorder")" == "422" ]]
 grep -q 'Ungültige Reihenfolge' "$DUPLICATE_REORDER_BODY"
 
 [[ "$(status_code "$REORDERED_LIST_BODY" -b "$COOKIE_JAR" "http://127.0.0.1:$PORT/api.php?action=list")" == "200" ]]
@@ -605,7 +623,15 @@ if [[ -z "$SECOND_POS" || -z "$FIRST_POS" || "$SECOND_POS" -ge "$FIRST_POS" ]]; 
     exit 1
 fi
 
-[[ "$(status_code "$CLEAR_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST "http://127.0.0.1:$PORT/api.php?action=clear")" == "200" ]]
+CLEAR_ITEMS="$(php -r '
+    $items = json_decode(file_get_contents($argv[1]), true)["items"] ?? [];
+    $done = array_values(array_filter($items, static fn(array $item): bool => (int) ($item["done"] ?? 0) === 1));
+    echo json_encode(array_map(static fn(array $item): array => [
+        "id" => (int) $item["id"],
+        "expected_revision" => (int) $item["revision"],
+    ], $done));
+' "$POST_TOGGLE_LIST_BODY")"
+[[ "$(status_code "$CLEAR_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: smoke-clear-main' -X POST --data-urlencode "items=$CLEAR_ITEMS" "http://127.0.0.1:$PORT/api.php?action=clear")" == "200" ]]
 grep -q '"deleted":1' "$CLEAR_BODY"
 
 [[ "$(status_code "$POST_CLEAR_LIST_BODY" -b "$COOKIE_JAR" "http://127.0.0.1:$PORT/api.php?action=list")" == "200" ]]
