@@ -1,5 +1,6 @@
 import { t } from './i18n.js';
 import { api } from './api.js';
+import { buildNoteConflictVersion } from './conflict-ui.js';
 import { clearNoteDraft, loadNoteDraft, saveNoteDraft } from './note-draft-persistence.js';
 import { NOTE_SAVE_DEBOUNCE_MS, state } from './state.js';
 import { appEl, noteEditorBody, noteEditorEl, noteSaveStatus, noteTitleInput, noteToolbar } from './ui.js';
@@ -81,37 +82,6 @@ export function createEditorController(deps) {
         applyingContent = false;
     }
 
-    function formatConflictTime(value) {
-        if (!value) return '';
-        const parsed = new Date(value);
-        return Number.isNaN(parsed.getTime()) ? '' : parsed.toLocaleString();
-    }
-
-    function buildConflictVersion(className, label, version, actionLabel, onAction) {
-        const section = document.createElement('section');
-        section.className = `note-conflict-version ${className}`;
-
-        const heading = document.createElement('h3');
-        heading.textContent = label;
-        const timestamp = document.createElement('p');
-        timestamp.className = 'note-conflict-timestamp';
-        timestamp.textContent = formatConflictTime(version.updatedAt);
-        const title = document.createElement('div');
-        title.className = 'note-conflict-title';
-        title.textContent = version.title || 'Ohne Titel';
-        const content = document.createElement('div');
-        content.className = 'note-conflict-content';
-        content.innerHTML = version.content || '';
-        const action = document.createElement('button');
-        action.type = 'button';
-        action.className = 'btn-add';
-        action.textContent = actionLabel;
-        action.addEventListener('click', () => void onAction());
-
-        section.append(heading, timestamp, title, content, action);
-        return section;
-    }
-
     function ensureConflictElement() {
         if (conflictElement || !noteEditorEl) return conflictElement;
         conflictElement = document.createElement('section');
@@ -138,20 +108,22 @@ export function createEditorController(deps) {
         const versions = document.createElement('div');
         versions.className = 'note-conflict-versions';
         versions.append(
-            buildConflictVersion(
-                'note-conflict-version-local',
-                'Meine Fassung',
-                conflict.local,
-                'Meine behalten',
-                resolveWithLocalVersion
-            ),
-            buildConflictVersion(
-                'note-conflict-version-server',
-                'Server-Version',
-                conflict.server,
-                'Server-Version übernehmen',
-                acceptServerVersion
-            )
+            buildNoteConflictVersion({
+                className: 'note-conflict-version-local',
+                label: 'Meine Fassung',
+                version: conflict.local,
+                actionLabel: 'Meine behalten',
+                onAction: resolveWithLocalVersion,
+                includeTitle: true,
+            }),
+            buildNoteConflictVersion({
+                className: 'note-conflict-version-server',
+                label: 'Server-Version',
+                version: conflict.server,
+                actionLabel: 'Server-Version übernehmen',
+                onAction: acceptServerVersion,
+                includeTitle: true,
+            })
         );
         element.append(intro, versions);
     }

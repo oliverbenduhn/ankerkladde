@@ -1,5 +1,6 @@
 import { api, normalizeItem } from './api.js';
 import { buildAgendaItem, loadAgenda } from './today-view.js';
+import { buildNoteConflictVersion } from './conflict-ui.js';
 import { NOTE_SAVE_DEBOUNCE_MS, state } from './state.js';
 import {
     agendaAddBtn,
@@ -163,27 +164,6 @@ export function createJournalController(deps) {
         applyingContent = false;
     }
 
-    function buildJournalConflictVersion(className, label, version, actionLabel, action) {
-        const section = document.createElement('section');
-        section.className = `note-conflict-version ${className}`;
-        const heading = document.createElement('h4');
-        heading.textContent = label;
-        const timestamp = document.createElement('p');
-        timestamp.className = 'note-conflict-timestamp';
-        const parsed = new Date(version.updatedAt || '');
-        timestamp.textContent = Number.isNaN(parsed.getTime()) ? '' : parsed.toLocaleString();
-        const content = document.createElement('div');
-        content.className = 'note-conflict-content';
-        content.innerHTML = version.content || '';
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'btn-add';
-        button.textContent = actionLabel;
-        button.addEventListener('click', () => void action());
-        section.append(heading, timestamp, content, button);
-        return section;
-    }
-
     function ensureJournalConflictElement() {
         if (conflictElement || !journalEditorBody) return conflictElement;
         conflictElement = document.createElement('section');
@@ -209,20 +189,22 @@ export function createJournalController(deps) {
         const versions = document.createElement('div');
         versions.className = 'note-conflict-versions';
         versions.append(
-            buildJournalConflictVersion(
-                'journal-conflict-version-local',
-                'Meine Fassung',
-                conflict.local,
-                'Meine behalten',
-                resolveJournalWithLocal
-            ),
-            buildJournalConflictVersion(
-                'journal-conflict-version-server',
-                'Server-Version',
-                conflict.server,
-                'Server-Version übernehmen',
-                acceptJournalServer
-            )
+            buildNoteConflictVersion({
+                className: 'journal-conflict-version-local',
+                label: 'Meine Fassung',
+                version: conflict.local,
+                actionLabel: 'Meine behalten',
+                onAction: resolveJournalWithLocal,
+                headingTag: 'h4',
+            }),
+            buildNoteConflictVersion({
+                className: 'journal-conflict-version-server',
+                label: 'Server-Version',
+                version: conflict.server,
+                actionLabel: 'Server-Version übernehmen',
+                onAction: acceptJournalServer,
+                headingTag: 'h4',
+            })
         );
         element.append(intro, versions);
     }
