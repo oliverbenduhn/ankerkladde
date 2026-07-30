@@ -32,7 +32,10 @@ async function withStore(mode, operation) {
         const request = operation(transaction.objectStore(STORE_NAME));
         request.onsuccess = () => resolve(request.result);
         request.onerror = () => reject(request.error);
-        transaction.oncomplete = () => database.close();
+        const close = () => database.close();
+        transaction.oncomplete = close;
+        transaction.onerror = close;
+        transaction.onabort = close;
     });
 }
 
