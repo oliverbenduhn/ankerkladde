@@ -1883,7 +1883,7 @@ function formatListItem(array $item): array
         'updated_at' => (string) ($item['updated_at'] ?? ''),
         'revision' => (int) ($item['revision'] ?? 1),
         'has_attachment' => $attachment !== null ? 1 : 0,
-        'has_sketch' => ((string) ($item['sketch_json'] ?? '') !== '') ? 1 : 0,
+        'has_sketch' => isset($item['has_sketch']) ? (int) $item['has_sketch'] : (((string) ($item['sketch_json'] ?? '') !== '') ? 1 : 0),
         'attachment' => $attachment,
         'attachment_storage_section' => $attachment !== null ? (string) ($item['attachment_storage_section'] ?? '') : null,
         'attachment_original_name' => $attachment['original_name'] ?? null,
