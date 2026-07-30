@@ -1,21 +1,25 @@
-// Sketch-Editor: lazy Excalidraw-Loader für Zeichnungen (Issue #41, #42).
-// Wird erst geöffnet, wenn der Nutzer aktiv eine Skizze öffnet.
-// Beim App-Start oder Tagesansicht-Öffnen wird Excalidraw NICHT geladen.
-// Editor-Fehler bleiben auf das Overlay begrenzt; App-Navigation bleibt
-// unabhängig lauffähig (AC #4).
+// Lazy Excalidraw editor with revision-safe, tab-local scene drafts.
 
 import { api } from './api.js';
 import { t } from './i18n.js';
+import {
+    clearSketchDraft,
+    loadSketchDraft,
+    saveSketchDraft,
+    sketchDraftKey,
+} from './sketch-draft-persistence.js';
 
 const EXCALIDRAW_MODULE = 'https://esm.sh/@excalidraw/excalidraw@0.17.3?deps=react@18.2.0,react-dom@18.2.0';
 const REACT_MODULE = 'https://esm.sh/react@18.2.0';
 const REACT_DOM_MODULE = 'https://esm.sh/react-dom@18.2.0/client';
-// The esm.sh module still uses Excalidraw's webpack runtime for its lazy
-// vendor chunk. Static package assets are not exposed by esm.sh, so point the
-// runtime at the version-pinned files published with the npm package.
 const EXCALIDRAW_ASSET_PATH = 'https://unpkg.com/@excalidraw/excalidraw@0.17.3/dist/';
 
 let excalidrawPromise = null;
+let activeSketchRefresh = null;
+
+export async function refreshOpenSketchEditor() {
+    return activeSketchRefresh ? activeSketchRefresh() : false;
+}
 
 async function ensureExcalidraw() {
     if (excalidrawPromise) return excalidrawPromise;
@@ -38,6 +42,28 @@ async function ensureExcalidraw() {
     return excalidrawPromise;
 }
 
+function emptyScene() {
+    return { elements: [], appState: {} };
+}
+
+function asScene(scene) {
+    return scene && typeof scene === 'object' && Array.isArray(scene.elements)
+        ? scene
+        : emptyScene();
+}
+
+function sceneFingerprint(scene) {
+    const normalized = asScene(scene);
+    return JSON.stringify({
+        elements: normalized.elements,
+        viewBackgroundColor: normalized.appState?.viewBackgroundColor || '',
+    });
+}
+
+function scenesEqual(left, right) {
+    return sceneFingerprint(left) === sceneFingerprint(right);
+}
+
 function buildOverlay() {
     const overlay = document.createElement('div');
     overlay.className = 'sketch-editor-overlay';
@@ -47,204 +73,347 @@ function buildOverlay() {
 
     const shell = document.createElement('div');
     shell.className = 'sketch-editor-shell';
-
     const header = document.createElement('header');
     header.className = 'sketch-editor-header';
-
     const status = document.createElement('span');
     status.className = 'sketch-editor-status';
-    status.textContent = '';
-    header.appendChild(status);
-
     const closeBtn = document.createElement('button');
     closeBtn.type = 'button';
     closeBtn.className = 'sketch-editor-close';
     closeBtn.setAttribute('aria-label', t('sketch.close'));
     closeBtn.textContent = '\u00d7';
-    header.appendChild(closeBtn);
+    header.append(status, closeBtn);
 
     const host = document.createElement('div');
     host.className = 'sketch-editor-host';
-
     const footer = document.createElement('div');
     footer.className = 'sketch-editor-footer';
     footer.hidden = true;
-
     shell.append(header, host, footer);
     overlay.appendChild(shell);
     document.body.appendChild(overlay);
-    return { overlay, shell, header, status, closeBtn, host, footer };
+    return { overlay, shell, status, closeBtn, host, footer };
 }
 
-function showFatal(footer, message, retryHandler, discardHandler) {
+function showSaveError(footer, retryHandler, discardHandler) {
     footer.replaceChildren();
     footer.hidden = false;
-
     const note = document.createElement('p');
     note.className = 'sketch-editor-error';
-    note.textContent = message;
-    footer.appendChild(note);
-
-    if (typeof retryHandler === 'function') {
-        const retryBtn = document.createElement('button');
-        retryBtn.type = 'button';
-        retryBtn.className = 'sketch-editor-btn sketch-editor-btn-retry';
-        retryBtn.textContent = t('sketch.retry_save');
-        retryBtn.addEventListener('click', () => {
-            footer.hidden = true;
-            retryHandler();
-        });
-        footer.appendChild(retryBtn);
-    }
-
-    if (typeof discardHandler === 'function') {
-        const discardBtn = document.createElement('button');
-        discardBtn.type = 'button';
-        discardBtn.className = 'sketch-editor-btn sketch-editor-btn-discard';
-        discardBtn.textContent = t('sketch.discard_changes');
-        discardBtn.addEventListener('click', () => {
-            footer.hidden = true;
-            discardHandler();
-        });
-        footer.appendChild(discardBtn);
-    }
-}
-
-async function saveScene(itemId, scene, onStatus) {
-    onStatus(t('editor.saving'));
-    await api('sketch_save', {
-        method: 'POST',
-        body: new URLSearchParams({ item_id: String(itemId), scene: JSON.stringify(scene) }),
+    note.textContent = t('editor.save_error');
+    const retryBtn = document.createElement('button');
+    retryBtn.type = 'button';
+    retryBtn.className = 'sketch-editor-btn sketch-editor-btn-retry';
+    retryBtn.textContent = t('sketch.retry_save');
+    retryBtn.addEventListener('click', () => {
+        footer.hidden = true;
+        retryHandler();
     });
-    onStatus(t('editor.saved'));
+    const discardBtn = document.createElement('button');
+    discardBtn.type = 'button';
+    discardBtn.className = 'sketch-editor-btn sketch-editor-btn-discard';
+    discardBtn.textContent = t('sketch.discard_changes');
+    discardBtn.addEventListener('click', discardHandler);
+    footer.append(note, retryBtn, discardBtn);
 }
 
-async function saveSceneDaily(date, scene, onStatus) {
-    onStatus(t('editor.saving'));
-    const payload = await api('sketch_save_daily', {
-        method: 'POST',
-        body: new URLSearchParams({ date, scene: JSON.stringify(scene) }),
-    });
-    onStatus(t('editor.saved'));
-    return payload;
+function formatTimestamp(value) {
+    const parsed = new Date(value || '');
+    return Number.isNaN(parsed.getTime()) ? '' : parsed.toLocaleString();
 }
 
-async function loadScene(itemId) {
+async function loadItemScene(itemId) {
     const payload = await api(`sketch_load&item_id=${encodeURIComponent(itemId)}`);
-    if (payload && payload.scene && typeof payload.scene === 'object') {
-        return payload.scene;
-    }
-    return { elements: [], appState: {} };
+    return {
+        item: payload.item,
+        scene: asScene(payload.scene),
+    };
 }
 
-// Daily-mode save: emits the new item id once the row exists; subsequent
-// saves reuse that item via `saveScene(itemId, …)`. The caller (journal.js)
-// re-reads the journal payload after the editor closes to refresh `has_sketch`.
-async function loadSceneDaily(date) {
-    const payload = await api(
-        `journal&date=${encodeURIComponent(date)}`
-    );
-    const item = payload.item;
-    if (item && Number.isInteger(Number(item.id)) && Number(item.has_sketch) === 1) {
-        const scenePayload = await api(
-            `sketch_load&item_id=${encodeURIComponent(Number(item.id))}`
-        );
-        if (scenePayload && scenePayload.scene && typeof scenePayload.scene === 'object') {
-            return { itemId: Number(item.id), scene: scenePayload.scene };
-        }
+async function loadDailyScene(date) {
+    const payload = await api(`journal&date=${encodeURIComponent(date)}`);
+    const item = payload.item || null;
+    if (!item || Number(item.has_sketch) !== 1) {
+        return { item, scene: emptyScene() };
     }
-    const itemId = item && Number.isInteger(Number(item.id)) ? Number(item.id) : 0;
-    return { itemId, scene: { elements: [], appState: {} } };
+    const scenePayload = await api(`sketch_load&item_id=${encodeURIComponent(Number(item.id))}`);
+    return { item, scene: asScene(scenePayload.scene) };
 }
 
-// Each openSketchEditor call gets its own state via closure (Issue #42:
-// prevent cross-item race when opening the editor twice in quick succession).
-// `mode === 'daily'` swaps save/load to sketch_save_daily/journal; otherwise
-// the editor operates on an existing item via sketch_save/sketch_load.
+async function saveDraftScene(draft) {
+    const body = new URLSearchParams({
+        scene: JSON.stringify(draft.scene),
+        base_scene: draft.baseScene?.elements?.length ? JSON.stringify(draft.baseScene) : '',
+        expected_revision: String(draft.baseRevision),
+    });
+    if (draft.mode === 'daily') {
+        body.set('date', draft.date);
+        return api('sketch_save_daily', {
+            method: 'POST',
+            body,
+            ...(draft.requestId ? { idempotencyKey: draft.requestId } : {}),
+        });
+    }
+    body.set('item_id', String(draft.itemId));
+    return api('sketch_save', {
+        method: 'POST',
+        body,
+        ...(draft.requestId ? { idempotencyKey: draft.requestId } : {}),
+    });
+}
+
+function createDraft({ mode, itemId, date, item, scene }) {
+    return {
+        mode,
+        itemId: Number(item?.id) || Number(itemId) || null,
+        date: date || '',
+        baseRevision: Number(item?.revision) || 0,
+        baseScene: asScene(scene),
+        baseUpdatedAt: item?.updated_at || '',
+        scene: asScene(scene),
+        localUpdatedAt: '',
+        dirty: false,
+        requestId: '',
+        conflict: null,
+    };
+}
+
 async function openSketchEditorImpl({ item, date, mode }) {
     let itemId = Number(item?.id);
     const isDaily = mode === 'daily';
-    if (!isDaily && (!Number.isInteger(itemId) || itemId <= 0)) {
-        return;
-    }
-
-    const doSave = async (targetItemId, scene, onStatus) => {
-        if (isDaily) {
-            return saveSceneDaily(date, scene, onStatus);
-        }
-        return saveScene(targetItemId, scene, onStatus);
-    };
-
-    const doLoad = async () => {
-        if (isDaily) {
-            const { itemId: resolvedId, scene } = await loadSceneDaily(date);
-            if (resolvedId > 0) itemId = resolvedId;
-            return scene;
-        }
-        return loadScene(itemId);
-    };
+    if (!isDaily && (!Number.isInteger(itemId) || itemId <= 0)) return;
 
     const refs = buildOverlay();
     refs.status.textContent = t('editor.loading');
     let resolveClosed;
     const closed = new Promise(resolve => { resolveClosed = resolve; });
-
-    // Closure-scoped editor state.
-    let root = null;
+    let roots = [];
     let pendingScene = null;
     let saveTimer = null;
     let saveInFlight = null;
     let unmounted = false;
-    let blockingError = false; // true while Retry/Discard footer is shown for a save failure
+    let blockingSaveError = false;
+    let draft = null;
+    let draftKey = '';
+    let bundle = null;
+    let userInteracted = false;
+    let excalidrawApi = null;
 
     const isOpen = () => !unmounted && document.body.contains(refs.overlay);
 
-    const safeUnmount = (finish = true) => {
+    const unmountRoots = () => {
+        roots.forEach(root => {
+            try { root.unmount(); } catch {}
+        });
+        roots = [];
+    };
+
+    const safeUnmount = () => {
         if (unmounted) return;
         unmounted = true;
-        if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
-        try { root?.unmount(); } catch (_e) { /* root might not exist yet */ }
+        if (saveTimer) clearTimeout(saveTimer);
+        if (activeSketchRefresh === refreshFromServer) activeSketchRefresh = null;
+        unmountRoots();
         refs.overlay.remove();
-        if (finish) resolveClosed();
+        resolveClosed();
     };
 
-    const reportFatal = (message, retryHandler, discardHandler) => {
-        if (!isOpen()) return;
-        refs.status.textContent = '';
-        showFatal(refs.footer, message, retryHandler, discardHandler);
+    const persistDraft = () => {
+        if (draftKey && draft) saveSketchDraft(draftKey, draft);
     };
 
-    // Show retry/discard for a failed save. `retrySave` flushes again, `discard`
-    // throws away the unsaved scene and closes the editor.
-    const onSaveError = () => {
-        if (!isOpen()) return;
-        blockingError = true;
-        refs.status.textContent = t('editor.save_error');
-        showFatal(
+    const acceptCanonical = (payload, sentScene) => {
+        const canonicalItem = payload?.item || draft?.conflict?.server?.item || null;
+        const canonicalScene = asScene(payload?.scene ?? sentScene);
+        draft.itemId = Number(canonicalItem?.id) || draft.itemId;
+        draft.baseRevision = Number(canonicalItem?.revision) || draft.baseRevision;
+        draft.baseScene = canonicalScene;
+        draft.baseUpdatedAt = canonicalItem?.updated_at || '';
+        draft.requestId = '';
+        draft.conflict = null;
+        const hasNewerLocalScene = pendingScene && !scenesEqual(pendingScene, sentScene);
+        if (hasNewerLocalScene) {
+            draft.scene = pendingScene;
+            draft.dirty = true;
+            persistDraft();
+        } else {
+            draft.scene = canonicalScene;
+            draft.dirty = false;
+            pendingScene = null;
+            clearSketchDraft(draftKey);
+        }
+        refs.status.textContent = t('editor.saved');
+    };
+
+    const renderPreview = (host, scene) => {
+        const root = bundle.ReactDOM.createRoot(host);
+        roots.push(root);
+        root.render(bundle.React.createElement(bundle.Excalidraw, {
+            initialData: asScene(scene),
+            viewModeEnabled: true,
+            zenModeEnabled: true,
+            UIOptions: {
+                canvasActions: {
+                    changeViewBackgroundColor: false,
+                    clearCanvas: false,
+                    export: false,
+                    loadScene: false,
+                    saveAsImage: false,
+                    saveToActiveFile: false,
+                    toggleTheme: false,
+                },
+            },
+        }));
+    };
+
+    const buildConflictVersion = (className, label, version, actionLabel, action) => {
+        const section = document.createElement('section');
+        section.className = `sketch-conflict-version ${className}`;
+        const heading = document.createElement('h3');
+        heading.textContent = label;
+        const timestamp = document.createElement('p');
+        timestamp.className = 'sketch-conflict-timestamp';
+        timestamp.textContent = formatTimestamp(version.updatedAt);
+        const preview = document.createElement('div');
+        preview.className = 'sketch-conflict-preview';
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'sketch-editor-btn sketch-editor-btn-retry';
+        button.textContent = actionLabel;
+        button.addEventListener('click', () => void action());
+        section.append(heading, timestamp, preview, button);
+        window.setTimeout(() => {
+            if (isOpen()) renderPreview(preview, version.scene);
+        }, 0);
+        return section;
+    };
+
+    const renderConflict = () => {
+        if (!draft?.conflict || !bundle || !isOpen()) return;
+        blockingSaveError = false;
+        unmountRoots();
+        refs.host.hidden = true;
+        refs.footer.hidden = true;
+        refs.shell.querySelector('.sketch-conflict')?.remove();
+        const conflict = document.createElement('section');
+        conflict.className = 'sketch-conflict';
+        const intro = document.createElement('p');
+        intro.className = 'sketch-conflict-intro';
+        intro.textContent = t('sketch.conflict_intro');
+        const versions = document.createElement('div');
+        versions.className = 'sketch-conflict-versions';
+        versions.append(
+            buildConflictVersion(
+                'sketch-conflict-version-local',
+                t('sketch.conflict_local'),
+                draft.conflict.local,
+                t('sketch.conflict_keep_local'),
+                async () => {
+                    const conflictSnapshot = draft.conflict;
+                    draft.baseRevision = Number(conflictSnapshot.server.revision);
+                    draft.baseScene = asScene(conflictSnapshot.server.scene);
+                    draft.baseUpdatedAt = conflictSnapshot.server.updatedAt || '';
+                    draft.scene = asScene(conflictSnapshot.local.scene);
+                    draft.conflict = null;
+                    draft.dirty = true;
+                    draft.requestId = '';
+                    persistDraft();
+                    try {
+                        const payload = await saveDraftScene(draft);
+                        acceptCanonical(payload, draft.scene);
+                        safeUnmount();
+                    } catch (error) {
+                        handleSaveFailure(error, draft.scene);
+                    }
+                }
+            ),
+            buildConflictVersion(
+                'sketch-conflict-version-server',
+                t('sketch.conflict_server'),
+                draft.conflict.server,
+                t('sketch.conflict_accept_server'),
+                () => {
+                    clearSketchDraft(draftKey);
+                    safeUnmount();
+                }
+            )
+        );
+        conflict.append(intro, versions);
+        refs.shell.insertBefore(conflict, refs.footer);
+        refs.status.textContent = t('sketch.conflict_status');
+    };
+
+    const handleSaveFailure = (error, sentScene) => {
+        draft.requestId = error?.idempotencyKey || draft.requestId || '';
+        const serverItem = error?.payload?.item;
+        if (Number(error?.status) === 409 && serverItem) {
+            const serverScene = asScene(error.payload.scene);
+            if (scenesEqual(serverScene, sentScene)) {
+                acceptCanonical(error.payload, serverScene);
+                return;
+            }
+            draft.requestId = '';
+            draft.dirty = true;
+            draft.conflict = {
+                local: {
+                    scene: asScene(sentScene),
+                    updatedAt: draft.localUpdatedAt || new Date().toISOString(),
+                },
+                server: {
+                    scene: serverScene,
+                    updatedAt: serverItem.updated_at || '',
+                    revision: Number(serverItem.revision),
+                    item: serverItem,
+                },
+            };
+            persistDraft();
+            renderConflict();
+            return;
+        }
+        draft.dirty = true;
+        persistDraft();
+        blockingSaveError = true;
+        refs.status.textContent = error?.isNetworkError
+            ? t('sketch.offline_queued')
+            : t('editor.save_error');
+        showSaveError(
             refs.footer,
-            t('editor.save_error'),
-            () => { blockingError = false; void flushSave(); },
-            () => { pendingScene = null; safeUnmount(); }
+            () => {
+                blockingSaveError = false;
+                void flushSave();
+            },
+            () => {
+                clearSketchDraft(draftKey);
+                safeUnmount();
+            }
         );
     };
 
     const flushSave = async () => {
-        if (!pendingScene) return;
-        const scene = pendingScene;
+        if (saveInFlight) {
+            try {
+                await saveInFlight;
+            } catch {
+                return;
+            }
+        }
+        if (!draft?.dirty || draft.conflict || !pendingScene) return;
+        const sentScene = asScene(pendingScene);
         pendingScene = null;
-        if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+        if (saveTimer) {
+            clearTimeout(saveTimer);
+            saveTimer = null;
+        }
+        refs.status.textContent = t('editor.saving');
         saveInFlight = (async () => {
             try {
-                await doSave(itemId, scene, text => {
-                    if (isOpen()) refs.status.textContent = text;
-                });
-                blockingError = false;
-                if (isOpen()) refs.footer.hidden = true;
-            } catch (_error) {
-                // Surface in UI, then rethrow so handleClose knows to block.
-                pendingScene = scene;
-                onSaveError();
-                throw _error;
+                const payload = await saveDraftScene({ ...draft, scene: sentScene });
+                acceptCanonical(payload, sentScene);
+            } catch (error) {
+                const latestLocalScene = pendingScene || sentScene;
+                pendingScene = latestLocalScene;
+                handleSaveFailure(error, latestLocalScene);
+                throw error;
             } finally {
                 saveInFlight = null;
             }
@@ -253,102 +422,174 @@ async function openSketchEditorImpl({ item, date, mode }) {
     };
 
     const queueSave = scene => {
-        pendingScene = scene;
+        const candidate = asScene(scene);
+        if (!draft || scenesEqual(candidate, draft.scene)) return;
+        draft.scene = candidate;
+        draft.localUpdatedAt = new Date().toISOString();
+        draft.dirty = true;
+        draft.requestId = '';
+        draft.conflict = null;
+        pendingScene = candidate;
+        persistDraft();
         if (saveTimer) clearTimeout(saveTimer);
-        saveTimer = setTimeout(() => {
-            flushSave().catch(() => { /* error already surfaced via onSaveError */ });
+        saveTimer = window.setTimeout(() => {
+            void flushSave().catch(() => {});
         }, 800);
     };
 
-    const onChange = (elements, appState) => {
-        queueSave({ elements: elements ?? [], appState: appState ?? {} });
-    };
-
     const handleClose = async () => {
-        if (blockingError) {
-            // Save failed: require Retry/Discard to leave the editor (AC #3).
+        if (draft?.conflict) {
+            safeUnmount();
             return;
         }
-        if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
-        if (saveInFlight) {
-            try { await saveInFlight; } catch (_e) { /* surfaced below */ }
-        }
-        try {
-            await flushSave();
-        } catch (_error) {
-            // flushSave already rendered Retry/Discard buttons. Keep overlay.
-            return;
+        if (blockingSaveError) return;
+        if (saveTimer) {
+            clearTimeout(saveTimer);
+            saveTimer = null;
         }
         if (saveInFlight) {
-            // Edge case: a new save started between flushSave and this check.
-            // Wait for it so the server reflects the final state.
-            try { await saveInFlight; } catch (_e) {
-                onSaveError();
-                return;
-            }
+            try { await saveInFlight; } catch { return; }
+        }
+        if (draft?.dirty && pendingScene) {
+            try { await flushSave(); } catch { return; }
         }
         safeUnmount();
     };
 
-    // ---- Async setup ----
-    let bundle;
+    const refreshFromServer = async () => {
+        if (!draft || !bundle || !isOpen()) return false;
+        if (saveInFlight) {
+            try { await saveInFlight; } catch {}
+        }
+        const canonical = isDaily
+            ? await loadDailyScene(date)
+            : await loadItemScene(itemId);
+        if (!isOpen()) return false;
+        const serverScene = asScene(canonical.scene);
+        const serverItem = canonical.item || null;
+
+        if (draft.conflict) {
+            draft.conflict.server = {
+                scene: serverScene,
+                updatedAt: serverItem?.updated_at || '',
+                revision: Number(serverItem?.revision) || 0,
+                item: serverItem,
+            };
+            persistDraft();
+            renderConflict();
+            return true;
+        }
+
+        if (draft.dirty) {
+            if (scenesEqual(serverScene, draft.scene)) {
+                acceptCanonical(canonical, serverScene);
+            } else if (scenesEqual(serverScene, draft.baseScene)) {
+                draft.baseRevision = Number(serverItem?.revision) || 0;
+                draft.baseUpdatedAt = serverItem?.updated_at || '';
+                persistDraft();
+            } else {
+                draft.conflict = {
+                    local: {
+                        scene: asScene(draft.scene),
+                        updatedAt: draft.localUpdatedAt || new Date().toISOString(),
+                    },
+                    server: {
+                        scene: serverScene,
+                        updatedAt: serverItem?.updated_at || '',
+                        revision: Number(serverItem?.revision) || 0,
+                        item: serverItem,
+                    },
+                };
+                persistDraft();
+                renderConflict();
+            }
+            return true;
+        }
+
+        draft.itemId = Number(serverItem?.id) || draft.itemId;
+        draft.baseRevision = Number(serverItem?.revision) || 0;
+        draft.baseScene = serverScene;
+        draft.baseUpdatedAt = serverItem?.updated_at || '';
+        draft.scene = serverScene;
+        pendingScene = null;
+        clearSketchDraft(draftKey);
+        excalidrawApi?.updateScene({
+            elements: serverScene.elements,
+            appState: serverScene.appState,
+        });
+        return true;
+    };
+
+    refs.closeBtn.addEventListener('click', () => void handleClose());
+
     try {
         bundle = await ensureExcalidraw();
-    } catch (_error) {
-        reportFatal(
-            t('sketch.editor_load_failed'),
-            async () => {
-                excalidrawPromise = null;
-                safeUnmount(false);
-                await openSketchEditorImpl({ item, date, mode });
-                resolveClosed();
-            },
-            () => { safeUnmount(); }
-        );
-        return closed;
-    }
+        const canonical = isDaily
+            ? await loadDailyScene(date)
+            : await loadItemScene(itemId);
+        itemId = Number(canonical.item?.id) || itemId;
+        draftKey = sketchDraftKey({ mode, itemId, date });
+        const persisted = loadSketchDraft(draftKey);
+        draft = persisted || createDraft({
+            mode,
+            itemId,
+            date,
+            item: canonical.item,
+            scene: canonical.scene,
+        });
+        activeSketchRefresh = refreshFromServer;
 
-    let initialScene;
-    try {
-        initialScene = await doLoad();
+        if (persisted?.conflict) {
+            draft.conflict.server = {
+                scene: canonical.scene,
+                updatedAt: canonical.item?.updated_at || '',
+                revision: Number(canonical.item?.revision) || 0,
+                item: canonical.item,
+            };
+            persistDraft();
+            renderConflict();
+            return closed;
+        }
+
+        if (persisted?.dirty) {
+            pendingScene = asScene(persisted.scene);
+        } else {
+            draft = createDraft({ mode, itemId, date, item: canonical.item, scene: canonical.scene });
+        }
+        const initialScene = asScene(draft.scene);
+        const root = bundle.ReactDOM.createRoot(refs.host);
+        roots.push(root);
+        refs.host.addEventListener('pointerdown', () => {
+            userInteracted = true;
+        }, { capture: true });
+        refs.host.addEventListener('keydown', () => {
+            userInteracted = true;
+        }, { capture: true });
+        root.render(bundle.React.createElement(bundle.Excalidraw, {
+            initialData: initialScene,
+            excalidrawAPI: apiInstance => { excalidrawApi = apiInstance; },
+            onChange: (elements, appState) => {
+                if (!userInteracted) return;
+                queueSave({ elements: elements ?? [], appState: appState ?? {} });
+            },
+            UIOptions: { canvasActions: { loadScene: false, saveToActiveFile: false } },
+        }));
+        refs.status.textContent = draft.dirty ? t('sketch.local_changed') : '';
+        if (draft.dirty && pendingScene) {
+            saveTimer = window.setTimeout(() => {
+                void flushSave().catch(() => {});
+            }, 0);
+        }
     } catch (error) {
-        reportFatal(
-            error?.message || t('sketch.editor_load_failed'),
-            async () => {
-                safeUnmount(false);
-                await openSketchEditorImpl({ item, date, mode });
-                resolveClosed();
-            },
-            () => { safeUnmount(); }
-        );
-        return closed;
+        refs.status.textContent = '';
+        refs.footer.replaceChildren();
+        refs.footer.hidden = false;
+        const note = document.createElement('p');
+        note.className = 'sketch-editor-error';
+        note.textContent = error?.message || t('sketch.editor_load_failed');
+        refs.footer.appendChild(note);
     }
 
-    const { React, ReactDOM, Excalidraw } = bundle;
-    try {
-        root = ReactDOM.createRoot(refs.host);
-        root.render(
-            React.createElement(Excalidraw, {
-                initialData: initialScene,
-                onChange,
-                UIOptions: { canvasActions: { loadScene: false, saveToActiveFile: false } },
-            })
-        );
-    } catch (_error) {
-        reportFatal(
-            t('sketch.editor_load_failed'),
-            async () => {
-                safeUnmount(false);
-                await openSketchEditorImpl({ item, date, mode });
-                resolveClosed();
-            },
-            () => { safeUnmount(); }
-        );
-        return closed;
-    }
-
-    refs.closeBtn.addEventListener('click', handleClose);
-    refs.status.textContent = '';
     return closed;
 }
 

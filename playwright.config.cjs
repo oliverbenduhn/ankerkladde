@@ -14,6 +14,10 @@ module.exports = defineConfig({
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {
     baseURL,
+    // Die Flow-Tests prüfen die App-UI, nicht den Service-Worker-Lebenszyklus.
+    // controllerchange lädt produktiv bewusst die Seite neu und würde laufende
+    // Interaktionen dadurch zufällig abbrechen.
+    serviceWorkers: 'block',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',

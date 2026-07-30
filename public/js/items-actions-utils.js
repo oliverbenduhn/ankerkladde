@@ -1,4 +1,5 @@
 import { t } from './i18n.js';
+import { normalizeItem } from './api.js';
 import { state } from './state.js';
 import { sanitizeItemPayload } from './utils.js';
 
@@ -27,10 +28,11 @@ export function createActionUtils(deps) {
     function applyServerItem(item) {
         if (!item || Number(item.id) <= 0) return;
         const idx = state.items.findIndex(entry => Number(entry.id) === Number(item.id));
+        const canonical = normalizeItem(item);
         if (idx >= 0) {
-            state.items[idx] = { ...state.items[idx], ...item };
+            state.items[idx] = { ...state.items[idx], ...canonical };
         } else {
-            state.items.push(item);
+            state.items.push(canonical);
         }
         cacheCurrentCategoryItems();
     }

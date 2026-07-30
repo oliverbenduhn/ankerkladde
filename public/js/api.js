@@ -114,7 +114,7 @@ function requestPayloadForHash(body) {
     return {};
 }
 
-export function apiUpload(action, formData, onProgress) {
+export function apiUpload(action, formData, onProgress, options = {}) {
     return new Promise((resolve, reject) => {
         const run = (idempotencyKey) => {
             const xhr = new XMLHttpRequest();
@@ -149,10 +149,20 @@ export function apiUpload(action, formData, onProgress) {
                     return;
                 }
 
-                reject(new Error(payload.error || 'Unbekannter Fehler'));
+                const error = new Error(payload.error || 'Unbekannter Fehler');
+                error.status = xhr.status;
+                error.payload = payload;
+                error.errorKey = payload.error_key || '';
+                error.idempotencyKey = idempotencyKey || '';
+                reject(error);
             });
 
-            xhr.addEventListener('error', () => reject(new Error('Failed to fetch')));
+            xhr.addEventListener('error', () => {
+                const error = new Error('Offline oder Netzwerkfehler');
+                error.isNetworkError = true;
+                error.idempotencyKey = idempotencyKey || '';
+                reject(error);
+            });
             xhr.send(formData);
         };
 
@@ -161,7 +171,12 @@ export function apiUpload(action, formData, onProgress) {
             return;
         }
 
-        buildIdempotencyKey(action, requestPayloadForHash(formData), formData)
+        const explicit = typeof options.idempotencyKey === 'string' ? options.idempotencyKey : '';
+        if (explicit !== '') {
+            run(explicit);
+            return;
+        }
+        buildIdempotencyKey()
             .then(run)
             .catch(() => run(''));
     });

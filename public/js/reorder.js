@@ -18,6 +18,19 @@ export function createReorderController(deps) {
         const orderedIds = Array.from(listEl.querySelectorAll('li.item-card'))
             .map(li => Number(li.dataset.itemId))
             .filter(id => Number.isInteger(id) && id > 0);
+        const orderedItems = orderedIds.map(id => {
+            const item = getItemById(id);
+            return {
+                id,
+                expected_revision: Number(item?.revision),
+            };
+        });
+        if (orderedItems.some(item => !Number.isInteger(item.expected_revision) || item.expected_revision < 1)) {
+            setMessage('Reihenfolge konnte ohne aktuelle Revision nicht gespeichert werden.', true);
+            invalidateCategoryCache(state.categoryId);
+            await loadItems();
+            return;
+        }
 
         orderedIds.forEach((id, index) => {
             const item = getItemById(id);
@@ -25,11 +38,18 @@ export function createReorderController(deps) {
         });
         cacheCurrentCategoryItems();
 
-        const body = new URLSearchParams({ category_id: String(state.categoryId) });
-        orderedIds.forEach(id => body.append('ids[]', String(id)));
+        const body = new URLSearchParams({
+            category_id: String(state.categoryId),
+            items: JSON.stringify(orderedItems),
+        });
 
         try {
-            await api('reorder', { method: 'POST', body });
+            const result = await api('reorder', { method: 'POST', body });
+            for (const canonicalItem of result.items || []) {
+                const item = getItemById(canonicalItem.id);
+                if (item) Object.assign(item, canonicalItem);
+            }
+            cacheCurrentCategoryItems();
         } catch (error) {
             setMessage(error instanceof Error ? error.message : 'Reihenfolge konnte nicht gespeichert werden.', true);
             invalidateCategoryCache(state.categoryId);

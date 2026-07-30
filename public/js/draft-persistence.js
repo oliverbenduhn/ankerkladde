@@ -6,9 +6,9 @@ import { userId } from './state.js';
 // Schutzumfang, den Spec AC #63 fuer unbestaetigte Entwuerfe fordert.
 const DRAFT_KEY = `ankerkladde-edit-draft:${userId}`;
 
-export function saveDraftSnapshot(editingId, draft) {
+export function saveDraftSnapshot(editingId, draft, item = null, serverDeleted = false) {
     try {
-        sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ editingId, draft }));
+        sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ editingId, draft, item, serverDeleted }));
     } catch {
         // sessionStorage kann in seltenen Faellen (privater Modus, voll) fehlschlagen;
         // der Entwurf bleibt dann nur im Speicher erhalten, kein Absturz.
@@ -35,14 +35,22 @@ export function clearDraftSnapshot() {
     }
 }
 
+export function markDraftServerDeleted() {
+    const snapshot = loadDraftSnapshot();
+    if (!snapshot) return;
+    saveDraftSnapshot(snapshot.editingId, snapshot.draft, snapshot.item, true);
+}
+
 // Jede Feldaenderung am Entwurf persistiert sofort - Schutz ab der ersten
 // Eingabe, ohne dass jeder einzelne input-Handler explizit speichern muss.
-export function wrapDraftForPersistence(draft, editingId) {
-    saveDraftSnapshot(editingId, draft);
+export function wrapDraftForPersistence(draft, editingId, item = null, onChange = null) {
+    saveDraftSnapshot(editingId, draft, item);
     return new Proxy(draft, {
         set(target, prop, value) {
             target[prop] = value;
-            saveDraftSnapshot(editingId, target);
+            const snapshot = loadDraftSnapshot();
+            saveDraftSnapshot(editingId, target, item || snapshot?.item, snapshot?.serverDeleted === true);
+            onChange?.(target);
             return true;
         },
     });

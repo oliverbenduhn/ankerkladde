@@ -167,6 +167,9 @@ function computeIdempotencyRequestHash(string $action, array $data): string
             'size' => (int) ($info['size'] ?? 0),
             'type' => (string) ($info['type'] ?? ''),
             'error' => (int) ($info['error'] ?? 0),
+            'sha256' => is_string($info['tmp_name'] ?? null) && is_file((string) $info['tmp_name'])
+                ? (hash_file('sha256', (string) $info['tmp_name']) ?: '')
+                : '',
         ];
     }
     ksort($files);
@@ -197,6 +200,7 @@ function replayIdempotentIfKnown(array $data): void
     }
 
     $requestHash = computeIdempotencyRequestHash($action, $data);
+    $GLOBALS['current_idempotency_request_hash'] = $requestHash;
 
     $stmt = $db->prepare('SELECT request_hash, response_status, response_body FROM idempotency_keys WHERE user_id = :user_id AND request_id = :request_id LIMIT 1');
     $stmt->execute([':user_id' => $userId, ':request_id' => $requestId]);
@@ -233,7 +237,10 @@ function storeIdempotentResponse(int $status, array $payload): void
     }
 
     $data = requestData();
-    $requestHash = computeIdempotencyRequestHash($action, $data);
+    $requestHash = (string) ($GLOBALS['current_idempotency_request_hash'] ?? '');
+    if ($requestHash === '') {
+        $requestHash = computeIdempotencyRequestHash($action, $data);
+    }
     $body = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
     $stmt = $db->prepare(
@@ -1095,6 +1102,43 @@ function normalizeIdList(mixed $ids): array
     return $normalized;
 }
 
+/**
+ * @return list<array{id: int, expected_revision: int}>
+ */
+function normalizeRevisionItemList(mixed $items): array
+{
+    if (is_string($items)) {
+        $items = json_decode($items, true);
+    }
+    if (!is_array($items) || $items === []) {
+        return [];
+    }
+
+    $normalized = [];
+    foreach ($items as $item) {
+        if (!is_array($item)) {
+            return [];
+        }
+        $id = filter_var($item['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+        $revision = filter_var(
+            $item['expected_revision'] ?? null,
+            FILTER_VALIDATE_INT,
+            ['options' => ['min_range' => 1]]
+        );
+        if (!is_int($id) || !is_int($revision)) {
+            return [];
+        }
+        $normalized[] = ['id' => $id, 'expected_revision' => $revision];
+    }
+
+    $ids = array_column($normalized, 'id');
+    if (count(array_unique($ids)) !== count($ids)) {
+        return [];
+    }
+
+    return $normalized;
+}
+
 function sanitizeFtsQuery(string $q): string
 {
     $q = truncateText($q, 256);
@@ -1919,6 +1963,7 @@ function fetchItemForUser(PDO $db, int $userId, int $itemId): ?array
             items.is_pinned,
             items.status,
             items.content,
+            items.sketch_json,
             items.done,
             items.sort_order,
             items.created_at,
@@ -1952,6 +1997,21 @@ function requireExpectedItemRevision(array $data): int
     }
 
     $revision = filter_var($expectedRevision, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+    if (!is_int($revision)) {
+        respond(422, ['error' => t('error.revision_invalid'), 'error_key' => 'error.revision_invalid']);
+    }
+
+    return $revision;
+}
+
+function requireExpectedCreateOrUpdateRevision(array $data): int
+{
+    $expectedRevision = array_key_exists('expected_revision', $data) ? $data['expected_revision'] : null;
+    if ($expectedRevision === null || $expectedRevision === '') {
+        respond(428, ['error' => t('error.revision_required'), 'error_key' => 'error.revision_required']);
+    }
+
+    $revision = filter_var($expectedRevision, FILTER_VALIDATE_INT, ['options' => ['min_range' => 0]]);
     if (!is_int($revision)) {
         respond(422, ['error' => t('error.revision_invalid'), 'error_key' => 'error.revision_invalid']);
     }
@@ -2286,10 +2346,15 @@ try {
 
         case 'journal_save':
             $data = requireWriteRequest();
+            requireIdempotencyRequestId();
 
             $date = normalizeJournalDate($data['date'] ?? null);
             $content = normalizeContent($data['content'] ?? null);
+            $baseContentProvided = array_key_exists('base_content', $data);
+            $baseContent = $baseContentProvided ? normalizeContent($data['base_content']) : '';
             $title = (new DateTimeImmutable($date, new DateTimeZone('Europe/Berlin')))->format('d.m.Y');
+            $expectedRevision = requireExpectedCreateOrUpdateRevision($data);
+            $created = false;
 
             // Acquire the SQLite write lock before the read-or-insert decision so
             // concurrent first saves for the same day cannot both observe no item.
@@ -2300,6 +2365,11 @@ try {
                 $item = loadJournalItem($db, $userId, (int) $category['id'], $date);
 
                 if ($item === null) {
+                    if ($expectedRevision !== 0) {
+                        $db->exec('ROLLBACK');
+                        $journalTransactionActive = false;
+                        respond(404, ['error' => t('error.item_not_found'), 'error_key' => 'error.item_not_found']);
+                    }
                     $sortOrder = prependItemSortOrder($db, $userId, (int) $category['id']);
                     $stmt = $db->prepare(
                         "INSERT INTO items (name, quantity, due_date, content, section, category_id, sort_order, user_id)
@@ -2314,19 +2384,60 @@ try {
                         ':user_id' => $userId,
                     ]);
                     $itemId = (int) $db->lastInsertId();
+                    $created = true;
                 } else {
                     $itemId = (int) $item['id'];
+                    $currentRevision = (int) $item['revision'];
+                    $currentContent = (string) $item['content'];
+                    if ($currentContent === $content) {
+                        $db->exec('COMMIT');
+                        $journalTransactionActive = false;
+                        respond(200, [
+                            'message' => 'Journal gespeichert.',
+                            'item' => formatJournalItem($item),
+                        ]);
+                    }
+                    $revisionMatches = $expectedRevision === $currentRevision;
+                    $componentUnchanged = $baseContentProvided && $currentContent === $baseContent;
+                    $parallelFirstCreate = $expectedRevision === 0 && $currentContent === '';
+                    if (!$revisionMatches && !$componentUnchanged && !$parallelFirstCreate) {
+                        $db->exec('ROLLBACK');
+                        $journalTransactionActive = false;
+                        respond(409, [
+                            'error' => t('error.item_revision_conflict'),
+                            'error_key' => 'error.item_revision_conflict',
+                            'expected_revision' => $expectedRevision,
+                            'current_revision' => $currentRevision,
+                            'item' => formatJournalItem($item),
+                        ]);
+                    }
                     $stmt = $db->prepare(
                         'UPDATE items
-                         SET name = :name, content = :content, updated_at = CURRENT_TIMESTAMP
-                         WHERE id = :id AND user_id = :user_id'
+                         SET name = :name,
+                             content = :content,
+                             revision = revision + 1,
+                             updated_at = CURRENT_TIMESTAMP
+                         WHERE id = :id AND user_id = :user_id AND revision = :expected_revision'
                     );
                     $stmt->execute([
                         ':name' => $title,
                         ':content' => $content,
                         ':id' => $itemId,
                         ':user_id' => $userId,
+                        ':expected_revision' => $currentRevision,
                     ]);
+                    if ($stmt->rowCount() !== 1) {
+                        $db->exec('ROLLBACK');
+                        $journalTransactionActive = false;
+                        $current = loadJournalItem($db, $userId, (int) $category['id'], $date);
+                        respond(409, [
+                            'error' => t('error.item_revision_conflict'),
+                            'error_key' => 'error.item_revision_conflict',
+                            'expected_revision' => $expectedRevision,
+                            'current_revision' => $current !== null ? (int) $current['revision'] : null,
+                            'item' => formatJournalItem($current),
+                        ]);
+                    }
                 }
 
                 $db->exec('COMMIT');
@@ -2339,7 +2450,7 @@ try {
             }
 
             $saved = loadJournalItem($db, $userId, (int) $category['id'], $date);
-            respond($item === null ? 201 : 200, [
+            respond($created ? 201 : 200, [
                 'message' => 'Journal gespeichert.',
                 'item' => formatJournalItem($saved),
             ]);
@@ -2576,6 +2687,8 @@ try {
             $replaceItemId = filter_var($data['item_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
 
             if (is_int($replaceItemId)) {
+                requireIdempotencyRequestId();
+                $expectedRevision = requireExpectedItemRevision($data);
                 $existingItem = fetchItemForUser($db, $userId, $replaceItemId);
                 if ($existingItem === null || (int) $existingItem['category_id'] !== (int) $category['id']) {
                     respond(404, ['error' => t('error.item_not_found'), 'error_key' => 'error.item_not_found']);
@@ -2584,27 +2697,67 @@ try {
                 $storedName = buildStoredFilename((string) $category['type'], (string) $uploadMeta['stored_extension']);
                 $targetPath = getAttachmentStorageDirectory((string) $category['type']) . '/' . $storedName;
                 $storedFileMoved = false;
+                $newAttachment = [
+                    'storage_section' => (string) $category['type'],
+                    'stored_name' => $storedName,
+                ];
+                $immediateTransaction = false;
 
-                $db->beginTransaction();
                 try {
-                    if ($name !== '') {
-                        $db->prepare('UPDATE items SET name = :name, updated_at = CURRENT_TIMESTAMP WHERE id = :id')
-                            ->execute([':name' => $name, ':id' => $replaceItemId]);
-                    }
-
                     if (!move_uploaded_file((string) $uploadedFile['tmp_name'], $targetPath)) {
                         throw new RuntimeException('Upload-Datei konnte nicht verschoben werden.');
                     }
                     $storedFileMoved = true;
 
                     if ((string) $category['type'] === 'images') {
-                        @generateImageThumbnailFile($targetPath, getAttachmentThumbnailAbsolutePath([
-                            'storage_section' => (string) $category['type'],
-                            'stored_name' => $storedName,
-                        ]));
+                        @generateImageThumbnailFile($targetPath, getAttachmentThumbnailAbsolutePath($newAttachment));
+                    }
+
+                    $db->exec('BEGIN IMMEDIATE');
+                    $immediateTransaction = true;
+                    $currentItem = fetchItemForUser($db, $userId, $replaceItemId);
+                    if ($currentItem === null || (int) $currentItem['category_id'] !== (int) $category['id']) {
+                        $db->exec('ROLLBACK');
+                        $immediateTransaction = false;
+                        deleteAttachmentStorageFile($newAttachment);
+                        respond(404, ['error' => t('error.item_not_found'), 'error_key' => 'error.item_not_found']);
                     }
 
                     $oldAttachment = findAttachmentByItemId($db, $replaceItemId);
+                    $updated = $db->prepare(
+                        'UPDATE items
+                         SET name = :name,
+                             revision = revision + 1,
+                             updated_at = CURRENT_TIMESTAMP
+                         WHERE id = :id
+                           AND user_id = :user_id
+                           AND category_id = :category_id
+                           AND revision = :expected_revision'
+                    );
+                    $updated->execute([
+                        ':name' => $name,
+                        ':id' => $replaceItemId,
+                        ':user_id' => $userId,
+                        ':category_id' => (int) $category['id'],
+                        ':expected_revision' => $expectedRevision,
+                    ]);
+                    if ($updated->rowCount() !== 1) {
+                        $db->exec('ROLLBACK');
+                        $immediateTransaction = false;
+                        deleteAttachmentStorageFile($newAttachment);
+                        $currentItem = fetchItemForUser($db, $userId, $replaceItemId);
+                        if ($currentItem === null) {
+                            respond(404, ['error' => t('error.item_not_found'), 'error_key' => 'error.item_not_found']);
+                        }
+                        respond(409, [
+                            'error' => t('error.item_revision_conflict'),
+                            'error_key' => 'error.item_revision_conflict',
+                            'expected_revision' => $expectedRevision,
+                            'current_revision' => (int) $currentItem['revision'],
+                            'item' => formatListItem($currentItem),
+                        ]);
+                    }
+
                     $db->prepare(
                         'INSERT INTO attachments (item_id, storage_section, stored_name, original_name, media_type, size_bytes)
                          VALUES (:item_id, :storage_section, :stored_name, :original_name, :media_type, :size_bytes)
@@ -2624,7 +2777,9 @@ try {
                         ':size_bytes' => (int) $uploadedFile['size_bytes'],
                     ]);
 
-                    $db->commit();
+                    $canonicalItem = fetchItemForUser($db, $userId, $replaceItemId);
+                    $db->exec('COMMIT');
+                    $immediateTransaction = false;
 
                     if ($oldAttachment !== null) {
                         try {
@@ -2634,16 +2789,24 @@ try {
                         }
                     }
                 } catch (Throwable $exception) {
-                    if ($db->inTransaction()) {
-                        $db->rollBack();
+                    if ($immediateTransaction) {
+                        $db->exec('ROLLBACK');
                     }
-                    if ($storedFileMoved && is_file($targetPath)) {
-                        @unlink($targetPath);
+                    if ($storedFileMoved) {
+                        try {
+                            deleteAttachmentStorageFile($newAttachment);
+                        } catch (Throwable) {
+                            @unlink($targetPath);
+                        }
                     }
                     throw $exception;
                 }
 
-                respond(200, ['message' => 'Anhang ersetzt.', 'id' => $replaceItemId]);
+                respond(200, [
+                    'message' => 'Anhang ersetzt.',
+                    'id' => $replaceItemId,
+                    'item' => formatListItem(is_array($canonicalItem) ? $canonicalItem : fetchItemForUser($db, $userId, $replaceItemId)),
+                ]);
             }
 
             if ($name === '') {
@@ -2965,20 +3128,39 @@ try {
 
         case 'delete':
             $data = requireWriteRequest();
+            requireIdempotencyRequestId();
 
             $id = filter_var($data['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
             if (!is_int($id)) {
                 respond(422, ['error' => t('error.invalid_id'), 'error_key' => 'error.invalid_id']);
             }
+            $expectedRevision = requireExpectedItemRevision($data);
 
             $attachment = findAttachmentByItemId($db, $id);
             $db->beginTransaction();
-            $stmt = $db->prepare('DELETE FROM items WHERE id = :id AND user_id = :user_id');
-            $stmt->execute([':id' => $id, ':user_id' => $userId]);
+            $stmt = $db->prepare(
+                'DELETE FROM items
+                 WHERE id = :id AND user_id = :user_id AND revision = :expected_revision'
+            );
+            $stmt->execute([
+                ':id' => $id,
+                ':user_id' => $userId,
+                ':expected_revision' => $expectedRevision,
+            ]);
 
             if ($stmt->rowCount() === 0) {
                 $db->rollBack();
-                respond(404, ['error' => t('error.item_not_found'), 'error_key' => 'error.item_not_found']);
+                $current = fetchItemForUser($db, $userId, $id);
+                if ($current === null) {
+                    respond(404, ['error' => t('error.item_not_found'), 'error_key' => 'error.item_not_found']);
+                }
+                respond(409, [
+                    'error' => t('error.item_revision_conflict'),
+                    'error_key' => 'error.item_revision_conflict',
+                    'expected_revision' => $expectedRevision,
+                    'current_revision' => (int) $current['revision'],
+                    'item' => formatListItem($current),
+                ]);
             }
             $db->commit();
 
@@ -2990,7 +3172,11 @@ try {
                 }
             }
 
-            respond(200, ['message' => 'Artikel gelöscht.']);
+            respond(200, [
+                'message' => 'Artikel gelöscht.',
+                'deleted_id' => $id,
+                'terminal_revision' => $expectedRevision + 1,
+            ]);
 
         case 'move':
             $data = requireWriteRequest();
@@ -3075,70 +3261,52 @@ try {
 
         case 'clear':
             $data = requireWriteRequest();
+            requireIdempotencyRequestId();
 
             $category = requireCategory($data, $db, $userId);
-
-            $attachmentStmt = $db->prepare(
-                'SELECT attachments.id, attachments.item_id, attachments.storage_section, attachments.stored_name
-                 FROM attachments
-                 INNER JOIN items ON items.id = attachments.item_id
-                 WHERE items.done = 1 AND items.category_id = :category_id AND items.user_id = :user_id'
-            );
-            $attachmentStmt->execute([':category_id' => (int) $category['id'], ':user_id' => $userId]);
-            $attachments = $attachmentStmt->fetchAll();
-
-            $db->beginTransaction();
-            $stmt = $db->prepare('DELETE FROM items WHERE done = 1 AND category_id = :category_id AND user_id = :user_id');
-            $stmt->execute([':category_id' => (int) $category['id'], ':user_id' => $userId]);
-            $deletedCount = (int) $stmt->rowCount();
-            $db->commit();
-
-            foreach ($attachments as $attachment) {
-                try {
-                    deleteAttachmentStorageFile($attachment);
-                } catch (Throwable $cleanupException) {
-                    error_log(sprintf('Einkauf attachment cleanup error [clear:%d:%d]: %s', (int) $category['id'], (int) ($attachment['item_id'] ?? 0), $cleanupException->getMessage()));
-                }
+            $capturedItems = normalizeRevisionItemList($data['items'] ?? null);
+            if ($capturedItems === []) {
+                respond(422, ['error' => t('error.invalid_params'), 'error_key' => 'error.invalid_params']);
             }
 
-            respond(200, ['message' => 'Erledigte Artikel gelöscht.', 'deleted' => $deletedCount]);
-
-        case 'reorder':
-            $data = requireWriteRequest();
-
-            $category = requireCategory($data, $db, $userId);
-            $orderedIds = normalizeIdList($data['ids'] ?? ($data['ids[]'] ?? null));
-            if ($orderedIds === []) {
-                respond(422, ['error' => t('error.invalid_order'), 'error_key' => 'error.invalid_order']);
-            }
-
-            $existingStmt = $db->prepare(
-                'SELECT id FROM items WHERE category_id = :category_id AND user_id = :user_id ORDER BY sort_order ASC, id ASC'
-            );
-            $existingStmt->execute([':category_id' => (int) $category['id'], ':user_id' => $userId]);
-            $existingIds = array_map(static fn(mixed $id): int => (int) $id, $existingStmt->fetchAll(PDO::FETCH_COLUMN));
-
-            $sortedIds = $orderedIds;
-            sort($sortedIds);
-            $sortedExistingIds = $existingIds;
-            sort($sortedExistingIds);
-
-            if ($sortedIds !== $sortedExistingIds) {
-                respond(422, ['error' => t('error.order_mismatch_items'), 'error_key' => 'error.order_mismatch_items']);
-            }
-
-            $stmt = $db->prepare(
-                'UPDATE items SET sort_order = :sort_order, updated_at = CURRENT_TIMESTAMP WHERE id = :id AND user_id = :user_id'
-            );
-
+            $attachments = [];
+            $deletedItems = [];
             $db->beginTransaction();
             try {
-                foreach ($orderedIds as $index => $id) {
-                    $stmt->execute([
-                        ':sort_order' => $index + 1,
-                        ':id' => $id,
+                $deleteStmt = $db->prepare(
+                    'DELETE FROM items
+                     WHERE id = :id
+                       AND category_id = :category_id
+                       AND user_id = :user_id
+                       AND done = 1
+                       AND revision = :expected_revision'
+                );
+                foreach ($capturedItems as $capturedItem) {
+                    $attachment = findAttachmentByItemId($db, $capturedItem['id']);
+                    if ($attachment !== null) {
+                        $attachments[] = $attachment;
+                    }
+                    $deleteStmt->execute([
+                        ':id' => $capturedItem['id'],
+                        ':category_id' => (int) $category['id'],
                         ':user_id' => $userId,
+                        ':expected_revision' => $capturedItem['expected_revision'],
                     ]);
+                    if ($deleteStmt->rowCount() !== 1) {
+                        $db->rollBack();
+                        $current = fetchItemForUser($db, $userId, $capturedItem['id']);
+                        respond(409, [
+                            'error' => t('error.item_revision_conflict'),
+                            'error_key' => 'error.item_revision_conflict',
+                            'expected_revision' => $capturedItem['expected_revision'],
+                            'current_revision' => $current !== null ? (int) $current['revision'] : null,
+                            'item' => $current !== null ? formatListItem($current) : null,
+                        ]);
+                    }
+                    $deletedItems[] = [
+                        'deleted_id' => $capturedItem['id'],
+                        'terminal_revision' => $capturedItem['expected_revision'] + 1,
+                    ];
                 }
                 $db->commit();
             } catch (Throwable $exception) {
@@ -3148,7 +3316,97 @@ try {
                 throw $exception;
             }
 
-            respond(200, ['message' => 'Reihenfolge aktualisiert.']);
+            foreach ($attachments as $attachment) {
+                try {
+                    deleteAttachmentStorageFile($attachment);
+                } catch (Throwable $cleanupException) {
+                    error_log(sprintf('Einkauf attachment cleanup error [clear:%d:%d]: %s', (int) $category['id'], (int) ($attachment['item_id'] ?? 0), $cleanupException->getMessage()));
+                }
+            }
+
+            respond(200, [
+                'message' => 'Erledigte Artikel gelöscht.',
+                'deleted' => count($deletedItems),
+                'deleted_items' => $deletedItems,
+            ]);
+
+        case 'reorder':
+            $data = requireWriteRequest();
+            requireIdempotencyRequestId();
+
+            $category = requireCategory($data, $db, $userId);
+            $orderedItems = normalizeRevisionItemList($data['items'] ?? null);
+            if ($orderedItems === []) {
+                respond(422, ['error' => t('error.invalid_order'), 'error_key' => 'error.invalid_order']);
+            }
+
+            $db->beginTransaction();
+            try {
+                $existingStmt = $db->prepare(
+                    'SELECT id, revision
+                     FROM items
+                     WHERE category_id = :category_id AND user_id = :user_id
+                     ORDER BY sort_order ASC, id ASC'
+                );
+                $existingStmt->execute([':category_id' => (int) $category['id'], ':user_id' => $userId]);
+                $existingItems = $existingStmt->fetchAll();
+                $orderedIds = array_column($orderedItems, 'id');
+                $existingIds = array_map(static fn(array $item): int => (int) $item['id'], $existingItems);
+                $sortedIds = $orderedIds;
+                $sortedExistingIds = $existingIds;
+                sort($sortedIds);
+                sort($sortedExistingIds);
+
+                if ($sortedIds !== $sortedExistingIds) {
+                    $db->rollBack();
+                    respond(409, [
+                        'error' => t('error.order_mismatch_items'),
+                        'error_key' => 'error.order_mismatch_items',
+                    ]);
+                }
+
+                $stmt = $db->prepare(
+                    'UPDATE items
+                     SET sort_order = :sort_order,
+                         revision = revision + 1,
+                         updated_at = CURRENT_TIMESTAMP
+                     WHERE id = :id
+                       AND category_id = :category_id
+                       AND user_id = :user_id
+                       AND revision = :expected_revision'
+                );
+                foreach ($orderedItems as $index => $orderedItem) {
+                    $stmt->execute([
+                        ':sort_order' => $index + 1,
+                        ':id' => $orderedItem['id'],
+                        ':category_id' => (int) $category['id'],
+                        ':user_id' => $userId,
+                        ':expected_revision' => $orderedItem['expected_revision'],
+                    ]);
+                    if ($stmt->rowCount() !== 1) {
+                        $db->rollBack();
+                        respond(409, [
+                            'error' => t('error.item_revision_conflict'),
+                            'error_key' => 'error.item_revision_conflict',
+                            'expected_revision' => $orderedItem['expected_revision'],
+                        ]);
+                    }
+                }
+                $db->commit();
+            } catch (Throwable $exception) {
+                if ($db->inTransaction()) {
+                    $db->rollBack();
+                }
+                throw $exception;
+            }
+
+            $canonicalItems = array_map(
+                static fn(array $orderedItem): array => formatListItem(
+                    fetchItemForUser($db, $userId, $orderedItem['id']) ?? []
+                ),
+                $orderedItems
+            );
+            respond(200, ['message' => 'Reihenfolge aktualisiert.', 'items' => $canonicalItems]);
 
         case 'pin':
             $data = requireWriteRequest();
@@ -3558,21 +3816,17 @@ try {
 
         case 'sketch_save':
             $data = requireWriteRequest();
+            requireIdempotencyRequestId();
 
             $itemId = filter_var($data['item_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
             if (!is_int($itemId)) {
                 respond(422, ['error' => t('error.invalid_id'), 'error_key' => 'error.invalid_id']);
             }
+            $expectedRevision = requireExpectedItemRevision($data);
+            $normalized = normalizeSketchJson($data['scene'] ?? null);
 
-            $stmt = $db->prepare(
-                'SELECT items.id, items.sketch_json, categories.type AS category_type
-                 FROM items
-                 INNER JOIN categories ON categories.id = items.category_id
-                 WHERE items.id = :id AND items.user_id = :user_id'
-            );
-            $stmt->execute([':id' => $itemId, ':user_id' => $userId]);
-            $item = $stmt->fetch();
-            if (!is_array($item)) {
+            $item = fetchItemForUser($db, $userId, $itemId);
+            if ($item === null) {
                 respond(404, ['error' => t('error.item_not_found'), 'error_key' => 'error.item_not_found']);
             }
 
@@ -3581,29 +3835,78 @@ try {
                 respond(422, ['error' => t('error.sketch_category_unsupported'), 'error_key' => 'error.sketch_category_unsupported']);
             }
 
-            $normalized = normalizeSketchJson($data['scene'] ?? null);
+            if ((string) ($item['sketch_json'] ?? '') === $normalized) {
+                respond(200, [
+                    'message' => 'Skizze gespeichert.',
+                    'item_id' => $itemId,
+                    'has_sketch' => $normalized !== '' ? 1 : 0,
+                    'item' => formatListItem($item),
+                    'scene' => $normalized === '' ? null : json_decode($normalized, true),
+                ]);
+            }
 
-            $db->prepare(
-                'UPDATE items SET sketch_json = :sketch_json, updated_at = CURRENT_TIMESTAMP
-                 WHERE id = :id AND user_id = :user_id'
-            )->execute([
+            $stmt = $db->prepare(
+                'UPDATE items
+                 SET sketch_json = :sketch_json,
+                     revision = revision + 1,
+                     updated_at = CURRENT_TIMESTAMP
+                 WHERE id = :id AND user_id = :user_id AND revision = :expected_revision'
+            );
+            $stmt->execute([
                 ':sketch_json' => $normalized,
                 ':id' => $itemId,
                 ':user_id' => $userId,
+                ':expected_revision' => $expectedRevision,
             ]);
 
+            $saved = fetchItemForUser($db, $userId, $itemId);
+            if ($stmt->rowCount() !== 1) {
+                if ($saved === null) {
+                    respond(404, ['error' => t('error.item_not_found'), 'error_key' => 'error.item_not_found']);
+                }
+                if ((string) ($saved['sketch_json'] ?? '') === $normalized) {
+                    respond(200, [
+                        'message' => 'Skizze gespeichert.',
+                        'item_id' => $itemId,
+                        'has_sketch' => $normalized !== '' ? 1 : 0,
+                        'item' => formatListItem($saved),
+                        'scene' => $normalized === '' ? null : json_decode($normalized, true),
+                    ]);
+                }
+                $currentScene = (string) ($saved['sketch_json'] ?? '');
+                respond(409, [
+                    'error' => t('error.item_revision_conflict'),
+                    'error_key' => 'error.item_revision_conflict',
+                    'expected_revision' => $expectedRevision,
+                    'current_revision' => (int) $saved['revision'],
+                    'item' => formatListItem($saved),
+                    'scene' => $currentScene === '' ? null : json_decode($currentScene, true),
+                ]);
+            }
+
+            if ($saved === null) {
+                respond(404, ['error' => t('error.item_not_found'), 'error_key' => 'error.item_not_found']);
+            }
+            $savedScene = (string) ($saved['sketch_json'] ?? '');
             respond(200, [
                 'message' => 'Skizze gespeichert.',
                 'item_id' => $itemId,
-                'has_sketch' => $normalized !== '' ? 1 : 0,
+                'has_sketch' => $savedScene !== '' ? 1 : 0,
+                'item' => formatListItem($saved),
+                'scene' => $savedScene === '' ? null : json_decode($savedScene, true),
             ]);
 
         case 'sketch_save_daily':
             $data = requireWriteRequest();
+            requireIdempotencyRequestId();
 
             $date = normalizeJournalDate($data['date'] ?? null);
             $normalized = normalizeSketchJson($data['scene'] ?? null);
+            $baseSceneProvided = array_key_exists('base_scene', $data);
+            $baseScene = $baseSceneProvided ? normalizeSketchJson($data['base_scene']) : '';
+            $expectedRevision = requireExpectedCreateOrUpdateRevision($data);
             $title = (new DateTimeImmutable($date, new DateTimeZone('Europe/Berlin')))->format('d.m.Y');
+            $created = false;
 
             // Atomic read-or-insert: same pattern as journal_save so the
             // first sketch save creates the daily item even without text,
@@ -3616,17 +3919,29 @@ try {
                 $item = loadJournalItem($db, $userId, (int) $category['id'], $date);
 
                 if ($item === null && $normalized === '') {
+                    if ($expectedRevision !== 0) {
+                        $db->exec('ROLLBACK');
+                        $journalTransactionActive = false;
+                        respond(404, ['error' => t('error.item_not_found'), 'error_key' => 'error.item_not_found']);
+                    }
                     $db->exec('COMMIT');
                     $journalTransactionActive = false;
                     respond(200, [
                         'message' => 'Keine Skizze zu speichern.',
                         'item_id' => null,
-                        'date' => $date,
                         'has_sketch' => 0,
+                        'date' => $date,
+                        'item' => null,
+                        'scene' => null,
                     ]);
                 }
 
                 if ($item === null) {
+                    if ($expectedRevision !== 0) {
+                        $db->exec('ROLLBACK');
+                        $journalTransactionActive = false;
+                        respond(404, ['error' => t('error.item_not_found'), 'error_key' => 'error.item_not_found']);
+                    }
                     $sortOrder = prependItemSortOrder($db, $userId, (int) $category['id']);
                     $stmt = $db->prepare(
                         "INSERT INTO items (name, quantity, due_date, content, section, category_id, sort_order, sketch_json, user_id)
@@ -3641,17 +3956,56 @@ try {
                         ':user_id' => $userId,
                     ]);
                     $itemId = (int) $db->lastInsertId();
+                    $created = true;
                 } else {
                     $itemId = (int) $item['id'];
-                    $db->prepare(
+                    $currentRevision = (int) $item['revision'];
+                    $currentScene = (string) ($item['sketch_json'] ?? '');
+                    if ($currentScene === $normalized) {
+                        $db->exec('COMMIT');
+                        $journalTransactionActive = false;
+                        respond(200, [
+                            'message' => 'Skizze gespeichert.',
+                            'item_id' => $itemId,
+                            'has_sketch' => $currentScene !== '' ? 1 : 0,
+                            'date' => $date,
+                            'item' => formatJournalItem($item),
+                            'scene' => $currentScene === '' ? null : json_decode($currentScene, true),
+                        ]);
+                    }
+
+                    $revisionMatches = $expectedRevision === $currentRevision;
+                    $componentUnchanged = $baseSceneProvided && $currentScene === $baseScene;
+                    $parallelFirstCreate = $expectedRevision === 0 && $currentScene === '';
+                    if (!$revisionMatches && !$componentUnchanged && !$parallelFirstCreate) {
+                        $db->exec('ROLLBACK');
+                        $journalTransactionActive = false;
+                        respond(409, [
+                            'error' => t('error.item_revision_conflict'),
+                            'error_key' => 'error.item_revision_conflict',
+                            'expected_revision' => $expectedRevision,
+                            'current_revision' => $currentRevision,
+                            'item' => formatJournalItem($item),
+                            'scene' => $currentScene === '' ? null : json_decode($currentScene, true),
+                        ]);
+                    }
+
+                    $stmt = $db->prepare(
                         'UPDATE items
-                         SET sketch_json = :sketch_json, updated_at = CURRENT_TIMESTAMP
-                         WHERE id = :id AND user_id = :user_id'
-                    )->execute([
+                         SET sketch_json = :sketch_json,
+                             revision = revision + 1,
+                             updated_at = CURRENT_TIMESTAMP
+                         WHERE id = :id AND user_id = :user_id AND revision = :expected_revision'
+                    );
+                    $stmt->execute([
                         ':sketch_json' => $normalized,
                         ':id' => $itemId,
                         ':user_id' => $userId,
+                        ':expected_revision' => $currentRevision,
                     ]);
+                    if ($stmt->rowCount() !== 1) {
+                        throw new RuntimeException('Daily sketch CAS failed while holding the write lock.');
+                    }
                 }
 
                 $db->exec('COMMIT');
@@ -3663,11 +4017,15 @@ try {
                 throw $error;
             }
 
-            respond($item === null ? 201 : 200, [
+            $saved = loadJournalItem($db, $userId, (int) $category['id'], $date);
+            $savedScene = (string) ($saved['sketch_json'] ?? '');
+            respond($created ? 201 : 200, [
                 'message' => 'Skizze gespeichert.',
                 'item_id' => $itemId,
+                'has_sketch' => $savedScene !== '' ? 1 : 0,
                 'date' => $date,
-                'has_sketch' => $normalized !== '' ? 1 : 0,
+                'item' => formatJournalItem($saved),
+                'scene' => $savedScene === '' ? null : json_decode($savedScene, true),
             ]);
 
         case 'sketch':
@@ -3678,15 +4036,8 @@ try {
                 respond(422, ['error' => t('error.invalid_id'), 'error_key' => 'error.invalid_id']);
             }
 
-            $stmt = $db->prepare(
-                'SELECT items.sketch_json, categories.type AS category_type
-                 FROM items
-                 INNER JOIN categories ON categories.id = items.category_id
-                 WHERE items.id = :id AND items.user_id = :user_id'
-            );
-            $stmt->execute([':id' => $itemId, ':user_id' => $userId]);
-            $item = $stmt->fetch();
-            if (!is_array($item)) {
+            $item = fetchItemForUser($db, $userId, $itemId);
+            if ($item === null) {
                 respond(404, ['error' => t('error.item_not_found'), 'error_key' => 'error.item_not_found']);
             }
 
@@ -3699,8 +4050,9 @@ try {
             $decoded = $scene === '' ? null : json_decode($scene, true);
             respond(200, [
                 'item_id' => $itemId,
-                'scene' => is_array($decoded) ? $decoded : null,
                 'has_sketch' => $scene !== '' ? 1 : 0,
+                'item' => formatListItem($item),
+                'scene' => is_array($decoded) ? $decoded : null,
             ]);
 
         default:

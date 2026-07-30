@@ -29,6 +29,7 @@ async function login(page, { username = 'playwright-user', password = 'playwrigh
   await page.getByLabel('Passwort').fill(password);
   await page.getByRole('button', { name: 'Anmelden' }).click();
   await page.waitForURL(/index\.php/);
+  await page.waitForLoadState('load');
   await page.locator('#sectionTabs .section-tab').first().waitFor({ state: 'visible' });
 }
 

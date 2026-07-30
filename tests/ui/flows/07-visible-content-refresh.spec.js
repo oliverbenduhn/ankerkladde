@@ -12,7 +12,10 @@ function itemCard(page, id) {
 async function quickAdd(page, name) {
   const input = page.locator('#itemInput');
   await expect(input).toBeVisible();
-  const respPromise = page.waitForResponse(r => r.url().includes('action=quick_add') && r.status() === 201);
+  const respPromise = page.waitForResponse(
+    r => r.url().includes('action=quick_add') && r.status() === 201,
+    { timeout: 30_000 }
+  );
   await input.fill(name);
   await input.press('Enter');
   const resp = await respPromise;
@@ -55,7 +58,10 @@ test.describe('FLOW 7 — Sichtbare Inhalte automatisch aktualisieren (Issue #64
     // waehrend in dieser Testumgebung kein echter Push (WebSocket) laeuft —
     // die Aenderung ist also zunaechst ein "verlorener Push-Hinweis".
     const pageB = await context.newPage();
-    await pageB.goto('/index.php');
+    await pageB.goto('/index.php', {
+      waitUntil: 'domcontentloaded',
+      timeout: 30_000,
+    });
     await pageB.locator('#sectionTabs .section-tab').first().waitFor({ state: 'visible' });
     await goToEinkauf(pageB);
     await itemCard(pageB, idY).locator('input.toggle').click();
@@ -112,5 +118,37 @@ test.describe('FLOW 7 — Sichtbare Inhalte automatisch aktualisieren (Issue #64
     });
     await page.waitForTimeout(500);
     expect(listRequests).toBe(countAfterFirst);
+  });
+
+  test('Geöffneter Editor ohne lokale Eingabe übernimmt Inhalt und Status komponentenbezogen', async ({ context }) => {
+    const pageA = await context.newPage();
+    await login(pageA);
+    await goToEinkauf(pageA);
+    const originalName = `QA Flow7 Clean Editor ${Date.now()}`;
+    const { id } = await quickAdd(pageA, originalName);
+    await pageA.locator(`.item-card[data-item-id="${id}"] .btn-item-menu`).click();
+    await pageA.getByRole('button', { name: 'Bearbeiten' }).click();
+    await expect(itemCard(pageA, id).locator('.item-sync-badge-dirty')).toHaveCount(0);
+
+    const pageB = await context.newPage();
+    await pageB.goto('/index.php', {
+      waitUntil: 'domcontentloaded',
+      timeout: 30_000,
+    });
+    await pageB.locator('#sectionTabs .section-tab').first().waitFor({ state: 'visible' });
+    await goToEinkauf(pageB);
+    await pageB.locator(`.item-card[data-item-id="${id}"] .btn-item-menu`).click();
+    await pageB.getByRole('button', { name: 'Bearbeiten' }).click();
+    const serverName = `${originalName} vom Server`;
+    await itemCard(pageB, id).locator('.edit-name-input').fill(serverName);
+    await itemCard(pageB, id).getByRole('button', { name: `${originalName} speichern` }).click();
+    await itemCard(pageB, id).locator('input.toggle').click();
+
+    await triggerOnlineRefresh(pageA);
+    await expect(itemCard(pageA, id).locator('.edit-name-input')).toHaveValue(serverName);
+    await expect(itemCard(pageA, id).locator('input.toggle')).toBeChecked();
+    await expect(itemCard(pageA, id).locator('.item-sync-badge-dirty')).toHaveCount(0);
+    await pageA.close();
+    await pageB.close();
   });
 });

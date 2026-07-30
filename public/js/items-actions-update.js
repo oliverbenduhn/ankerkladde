@@ -1,9 +1,15 @@
 import { t } from './i18n.js';
 import { api } from './api.js';
 import { getCurrentCategory, state } from './state.js';
-import { enqueueAction } from './offline-queue.js';
+import { addConflict, enqueueAction, getConflicts, setConflicts } from './offline-queue.js';
 import { isItemSaving, markItemSaving, clearItemSaving } from './item-sync-state.js';
-import { clearDraftSnapshot } from './draft-persistence.js';
+import { clearDraftSnapshot, markDraftServerDeleted } from './draft-persistence.js';
+import {
+    itemContentSnapshot,
+    rebaseItemDraft,
+    serverContentMatchesDraft,
+    serverContentMatchesDraftBase,
+} from './item-content-conflict.js';
 
 export function createUpdateActions(deps) {
     const {
@@ -21,6 +27,9 @@ export function createUpdateActions(deps) {
         itemParams,
         handleStaleCategory,
         applyServerItem,
+        replaceAttachment,
+        restoreDeletedAttachment,
+        clearAttachmentReplacement,
     } = deps;
 
     function sameStatusValue(left, right) {
@@ -119,8 +128,15 @@ export function createUpdateActions(deps) {
     }
 
     async function handleDelete(id) {
-        // Snapshot for rollback in case of non-network (4xx) API errors.
+        const item = getItemById(id);
+        const expectedRevision = Number(item?.revision);
+        if (!item || expectedRevision < 1) {
+            setMessage(t('error.revision_required'), true);
+            return;
+        }
+
         const snapshot = [...state.items];
+        const body = new URLSearchParams({ id: String(id), expected_revision: String(expectedRevision) });
         try {
             removeItemById(id);
             if (state.noteEditorId === id) {
@@ -131,17 +147,28 @@ export function createUpdateActions(deps) {
                 }
             }
             renderItems();
-            setMessage(t('msg.item_deleted'));
 
             try {
-                await api('delete', { method: 'POST', body: new URLSearchParams({ id: String(id) }) });
+                await api('delete', { method: 'POST', body });
+                setConflicts(getConflicts().filter(conflict => conflict.type !== 'delete' || Number(conflict?.payload?.id) !== Number(id)));
                 invalidateCategoryCache(state.categoryId);
+                setMessage(t('msg.item_deleted'));
             } catch (error) {
                 if (shouldQueueOffline(error)) {
-                    enqueueAction('delete', { id: String(id) }, error.idempotencyKey);
+                    enqueueAction('delete', Object.fromEntries(body.entries()), error.idempotencyKey);
                     setNetworkStatus();
+                } else if (Number(error?.status) === 409 && error.payload?.item) {
+                    applyServerItem(error.payload.item);
+                    addConflict('delete', {
+                        id: String(id),
+                        expected_revision: String(error.payload.item.revision),
+                    }, error);
+                    renderItems();
+                    setMessage(t('msg.delete_conflict'), true);
+                } else if (Number(error?.status) === 404) {
+                    setConflicts(getConflicts().filter(conflict => conflict.type !== 'delete' || Number(conflict?.payload?.id) !== Number(id)));
+                    setMessage(t('msg.item_deleted'));
                 } else {
-                    // 4xx or unexpected error: restore the item to the UI
                     state.items = snapshot;
                     cacheCurrentCategoryItems();
                     renderItems();
@@ -151,6 +178,41 @@ export function createUpdateActions(deps) {
         } catch (error) {
             setMessage(error instanceof Error ? error.message : t('msg.delete_failed'), true);
         }
+    }
+
+    async function restoreDeletedDraft(id) {
+        if (await restoreDeletedAttachment?.(id)) return;
+        const draft = state.editDraft || {};
+        if (Number(state.editingId) !== Number(id) || Number(draft.itemId) !== Number(id)) return;
+
+        const body = itemParams({
+            category_id: String(draft.categoryId),
+            name: (draft.name || '').trim(),
+            barcode: (draft.barcode || '').trim(),
+            quantity: (draft.quantity || '').trim(),
+            due_date: (draft.due_date || '').trim(),
+            due_time: (draft.due_time || '').trim(),
+            priority: (draft.priority || '').trim(),
+            content: (draft.content || '').trim(),
+        });
+        await api('add', { method: 'POST', body });
+        state.editingId = null;
+        state.editDraft = { itemId: null, categoryId: null, name: '', barcode: '', quantity: '', due_date: '', due_time: '', priority: '', content: '' };
+        clearDraftSnapshot();
+        invalidateCategoryCache(draft.categoryId);
+        await loadItems(undefined, { useCache: false });
+        setMessage(t('msg.deleted_draft_restored'));
+    }
+
+    function discardDeletedDraft(id) {
+        clearAttachmentReplacement?.(id);
+        if (Number(state.editingId) !== Number(id)) return;
+        state.editingId = null;
+        state.editDraft = { itemId: null, categoryId: null, name: '', barcode: '', quantity: '', due_date: '', due_time: '', priority: '', content: '' };
+        clearDraftSnapshot();
+        removeItemById(id);
+        renderItems();
+        setMessage(t('msg.deleted_draft_discarded'));
     }
 
     async function handleStatus(id, currentStatus, targetStatus) {
@@ -266,6 +328,7 @@ export function createUpdateActions(deps) {
     }
 
     async function handleEditSave(id) {
+        if (await replaceAttachment?.(id)) return;
         const draft = state.editDraft || {};
         if (state.editingId !== id || Number(draft.itemId) !== Number(id)) {
             state.editingId = null;
@@ -280,62 +343,126 @@ export function createUpdateActions(deps) {
         if (isItemSaving(id)) return;
 
         const item = getItemById(id);
-        const expectedRevision = item ? Number(item.revision) : 0;
+        const expectedRevision = Number(draft.baseRevision) || (item ? Number(item.revision) : 0);
         if (expectedRevision < 1) {
             setMessage(t('error.revision_required'), true);
             return;
         }
 
-        const body = itemParams({
-            id: String(id),
-            expected_revision: String(expectedRevision),
-            name: (draft.name || '').trim(),
-            barcode: (draft.barcode || '').trim(),
-            quantity: (draft.quantity || '').trim(),
-            due_date: (draft.due_date || '').trim(),
-            due_time: (draft.due_time || '').trim(),
-            priority: (draft.priority || '').trim(),
-            content: (draft.content || '').trim(),
-        });
-
         markItemSaving(id);
         renderItems();
-        let result;
         try {
-            result = await api('update', { method: 'POST', body });
+            const body = itemParams({
+                id: String(id),
+                expected_revision: String(expectedRevision),
+                name: (draft.name || '').trim(),
+                barcode: (draft.barcode || '').trim(),
+                quantity: (draft.quantity || '').trim(),
+                due_date: (draft.due_date || '').trim(),
+                due_time: (draft.due_time || '').trim(),
+                priority: (draft.priority || '').trim(),
+                content: (draft.content || '').trim(),
+            });
+            const result = await api('update', {
+                method: 'POST',
+                body,
+                ...(draft.requestId ? { idempotencyKey: draft.requestId } : {}),
+            });
+            state.editingId = null;
+            state.editDraft = { itemId: null, categoryId: null, name: '', barcode: '', quantity: '', due_date: '', due_time: '', priority: '', content: '' };
+            clearDraftSnapshot();
+            applyServerItem(result?.item);
+            renderItems();
+            setMessage(t('msg.item_saved'));
         } catch (error) {
+            draft.requestId = error?.idempotencyKey || draft.requestId || '';
             if (Number(error?.status) === 409 && error.payload?.item) {
-                applyServerItem(error.payload.item);
-                await loadItems();
+                const serverItem = error.payload.item;
+                applyServerItem(serverItem);
+                if (serverContentMatchesDraft(serverItem, draft)) {
+                    state.editingId = null;
+                    state.editDraft = { itemId: null, categoryId: null, name: '', barcode: '', quantity: '', due_date: '', due_time: '', priority: '', content: '' };
+                    clearDraftSnapshot();
+                    renderItems();
+                    setMessage(t('msg.item_saved'));
+                    return;
+                }
+                if (serverContentMatchesDraftBase(serverItem, draft)) {
+                    rebaseItemDraft(draft, serverItem);
+                    renderItems();
+                    window.setTimeout(() => void handleEditSave(id), 0);
+                    return;
+                }
+                draft.conflict = {
+                    local: itemContentSnapshot(draft),
+                    server: {
+                        ...itemContentSnapshot(serverItem),
+                        revision: Number(serverItem.revision),
+                        updatedAt: serverItem.updated_at || '',
+                        item: serverItem,
+                    },
+                };
+                renderItems();
                 setMessage(t('msg.item_conflict_remote_update'), true);
-                state.editingId = null;
-                state.editDraft = { itemId: null, categoryId: null, name: '', barcode: '', quantity: '', due_date: '', due_time: '', priority: '', content: '' };
-                clearDraftSnapshot();
                 return;
             }
-            throw error;
+            if (Number(error?.status) === 404) {
+                item.server_deleted = 1;
+                markDraftServerDeleted();
+                renderItems();
+                setMessage(t('msg.server_delete_detected'), true);
+                return;
+            }
+            renderItems();
+            setMessage(error instanceof Error ? error.message : t('error.server_error'), true);
         } finally {
             clearItemSaving(id);
+            renderItems();
         }
+    }
+
+    async function keepLocalItemContent(id) {
+        const draft = state.editDraft;
+        const conflict = draft?.conflict;
+        if (Number(state.editingId) !== Number(id) || !conflict?.server?.item) return;
+        applyServerItem(conflict.server.item);
+        rebaseItemDraft(draft, conflict.server.item);
+        draft.conflict = null;
+        renderItems();
+        await handleEditSave(id);
+    }
+
+    function acceptServerItemContent(id) {
+        const draft = state.editDraft;
+        const conflict = draft?.conflict;
+        if (Number(state.editingId) !== Number(id) || !conflict?.server?.item) return;
+        applyServerItem(conflict.server.item);
         state.editingId = null;
         state.editDraft = { itemId: null, categoryId: null, name: '', barcode: '', quantity: '', due_date: '', due_time: '', priority: '', content: '' };
         clearDraftSnapshot();
-        // AC #61: Nach Erfolg direkt den kanonischen Serverzustand uebernehmen,
-        // kein zusaetzlicher GET.
-        applyServerItem(result?.item);
         renderItems();
-        setMessage(t('msg.item_saved'));
+        setMessage('Server-Version übernommen.');
     }
 
     async function clearDone() {
         const category = getCurrentCategory();
         if (!category) return;
 
-        const removedItemIds = state.items
-            .filter(item => item.done === 1)
-            .map(item => item.id);
+        const removedItems = state.items.filter(item => item.done === 1);
+        const removedItemIds = removedItems.map(item => item.id);
 
         if (removedItemIds.length === 0) return;
+        if (removedItems.some(item => !Number.isInteger(Number(item.revision)) || Number(item.revision) < 1)) {
+            setMessage(t('error.revision_required'), true);
+            return;
+        }
+        const body = new URLSearchParams({
+            category_id: String(category.id),
+            items: JSON.stringify(removedItems.map(item => ({
+                id: Number(item.id),
+                expected_revision: Number(item.revision),
+            }))),
+        });
 
         // Snapshot for rollback on non-network errors.
         const snapshot = [...state.items];
@@ -357,14 +484,14 @@ export function createUpdateActions(deps) {
         try {
             await api('clear', {
                 method: 'POST',
-                body: new URLSearchParams({ category_id: String(category.id) }),
+                body,
             });
             invalidateCategoryCache(category.id);
         } catch (error) {
             if (await handleStaleCategory(error, category.id)) return;
 
             if (shouldQueueOffline(error)) {
-                enqueueAction('clear', { category_id: String(category.id) }, error.idempotencyKey);
+                enqueueAction('clear', Object.fromEntries(body.entries()), error.idempotencyKey);
                 setNetworkStatus();
             } else {
                 // 4xx or unexpected error: restore all items
@@ -379,10 +506,14 @@ export function createUpdateActions(deps) {
     return {
         handleToggle,
         handleDelete,
+        restoreDeletedDraft,
+        discardDeletedDraft,
         handleStatus,
         handlePin,
         handleMove,
         handleEditSave,
+        keepLocalItemContent,
+        acceptServerItemContent,
         clearDone,
     };
 }

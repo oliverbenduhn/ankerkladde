@@ -15,7 +15,10 @@ function itemCard(page, id) {
 async function quickAdd(page, name) {
   const input = page.locator('#itemInput');
   await expect(input).toBeVisible();
-  const respPromise = page.waitForResponse(r => r.url().includes('action=quick_add') && r.status() === 201);
+  const respPromise = page.waitForResponse(
+    r => r.url().includes('action=quick_add') && r.status() === 201,
+    { timeout: 30_000 }
+  );
   await input.fill(name);
   await input.press('Enter');
   const resp = await respPromise;
@@ -106,7 +109,10 @@ test.describe('FLOW 6 — Item-Sync-Zustand & Entwurf-Persistenz (Issue #63)', (
     // Tab B: gleiche eingeloggte Session (Cookies werden vom Context geteilt),
     // aber sessionStorage ist pro Tab isoliert — kein fremder Entwurf sichtbar.
     const pageB = await context.newPage();
-    await pageB.goto('/index.php');
+    await pageB.goto('/index.php', {
+      waitUntil: 'domcontentloaded',
+      timeout: 30_000,
+    });
     await pageB.locator('#sectionTabs .section-tab').first().waitFor({ state: 'visible' });
     await goToEinkauf(pageB);
 

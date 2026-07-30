@@ -6,6 +6,11 @@ import { createLightboxController } from './lightbox.js';
 import { createItemMenuController } from './item-menu.js';
 import { getItemSyncState } from './item-sync-state.js';
 import { clearDraftSnapshot, loadDraftSnapshot, wrapDraftForPersistence } from './draft-persistence.js';
+import {
+    ITEM_CONTENT_FIELDS,
+    itemContentSnapshot,
+    itemDraftHasLocalChanges,
+} from './item-content-conflict.js';
 
 let sketchEditorModulePromise = null;
 async function loadSketchEditor() {
@@ -17,6 +22,7 @@ async function loadSketchEditor() {
 
 export function createItemsViewController(deps) {
     const {
+        cacheCurrentCategoryItems,
         closeSearch,
         formatBytes,
         formatDate,
@@ -25,6 +31,8 @@ export function createItemsViewController(deps) {
         getVisibleItems,
         handleDelete,
         handleEditSave,
+        restoreDeletedDraft,
+        discardDeletedDraft,
         handleMove,
         handlePin,
         handleStatus,
@@ -35,6 +43,13 @@ export function createItemsViewController(deps) {
         openTodoEditor,
         setCategory,
         setMessage,
+        acceptServerAttachment,
+        clearAttachmentReplacement,
+        getAttachmentReplacement,
+        keepLocalAttachment,
+        selectAttachmentReplacement,
+        acceptServerItemContent,
+        keepLocalItemContent,
     } = deps;
 
     const lightbox = createLightboxController();
@@ -60,7 +75,7 @@ export function createItemsViewController(deps) {
         },
         handleEditStart: (item) => {
             state.editingId = item.id;
-            state.editDraft = wrapDraftForPersistence(createEditDraft(item), item.id);
+            state.editDraft = wrapEditDraft(createEditDraft(item), item);
             renderItems();
         },
     });
@@ -76,10 +91,50 @@ export function createItemsViewController(deps) {
             due_time: item.due_time || '',
             priority: item.priority || '',
             content: item.content || '',
+            baseRevision: Number(item.revision) || 0,
+            baseContent: itemContentSnapshot(item),
+            baseUpdatedAt: item.updated_at || '',
+            requestId: '',
+            conflict: null,
         };
     }
 
+    function updateInlineDraftBadge(itemId, draft) {
+        const content = listEl.querySelector(`.item-card[data-item-id="${Number(itemId)}"] .item-content`);
+        if (!content) return;
+        const existing = content.querySelector('.item-sync-badge-dirty');
+        if (!itemDraftHasLocalChanges(draft)) {
+            existing?.remove();
+            return;
+        }
+        if (existing) return;
+        const badge = document.createElement('span');
+        badge.className = 'item-sync-badge item-sync-badge-dirty';
+        badge.textContent = SYNC_STATE_LABELS.dirty;
+        content.appendChild(badge);
+    }
+
+    function wrapEditDraft(draft, item) {
+        return wrapDraftForPersistence(
+            draft,
+            item.id,
+            item,
+            changedDraft => updateInlineDraftBadge(item.id, changedDraft)
+        );
+    }
+
+    function ensureEditDraftBase(draft, item) {
+        if (!draft.baseContent || typeof draft.baseContent !== 'object') {
+            draft.baseContent = itemContentSnapshot(item);
+        }
+        if (!Number(draft.baseRevision)) draft.baseRevision = Number(item.revision) || 0;
+        if (!('requestId' in draft)) draft.requestId = '';
+        if (!('conflict' in draft)) draft.conflict = null;
+        return draft;
+    }
+
     function resetEditDraft() {
+        if (state.editingId !== null) clearAttachmentReplacement?.(state.editingId);
         state.editingId = null;
         state.editDraft = createEditDraft({ id: null, category_id: null });
         clearDraftSnapshot();
@@ -87,9 +142,9 @@ export function createItemsViewController(deps) {
 
     function getEditDraftForItem(item) {
         if (state.editDraft?.itemId !== item.id) {
-            state.editDraft = wrapDraftForPersistence(createEditDraft(item), item.id);
+            state.editDraft = wrapEditDraft(createEditDraft(item), item);
         }
-        return state.editDraft;
+        return ensureEditDraftBase(state.editDraft, item);
     }
 
     // AC #63: ein unbestaetigter Entwurf ueberlebt Reload/Navigation im
@@ -99,14 +154,50 @@ export function createItemsViewController(deps) {
         if (state.editingId !== null) return false;
         const snapshot = loadDraftSnapshot();
         if (!snapshot) return false;
-        const item = state.items.find(entry => Number(entry.id) === Number(snapshot.editingId));
+        let item = state.items.find(entry => Number(entry.id) === Number(snapshot.editingId));
         if (!item) {
-            clearDraftSnapshot();
-            return false;
+            if (!snapshot.item || Number(snapshot.item.category_id) !== Number(state.categoryId)) {
+                clearDraftSnapshot();
+                return false;
+            }
+            item = { ...snapshot.item, server_deleted: 1 };
+            state.items.push(item);
         }
         state.editingId = item.id;
-        state.editDraft = wrapDraftForPersistence(snapshot.draft, item.id);
+        const draftItem = snapshot.item || item;
+        state.editDraft = wrapEditDraft(ensureEditDraftBase(snapshot.draft, draftItem), draftItem);
+        cacheCurrentCategoryItems();
         return true;
+    }
+
+    function appendDeletedDraftConflict(item, content) {
+        const conflict = document.createElement('section');
+        conflict.className = 'item-delete-conflict';
+
+        const text = document.createElement('p');
+        text.textContent = t('msg.server_delete_detected');
+
+        const actions = document.createElement('div');
+        actions.className = 'item-delete-conflict-actions';
+        const restore = document.createElement('button');
+        restore.type = 'button';
+        restore.className = 'btn-add';
+        restore.textContent = t('ui.restore_as_new');
+        restore.addEventListener('click', event => {
+            event.stopPropagation();
+            void restoreDeletedDraft(item.id);
+        });
+        const discard = document.createElement('button');
+        discard.type = 'button';
+        discard.className = 'btn-clear';
+        discard.textContent = t('ui.accept_deletion');
+        discard.addEventListener('click', event => {
+            event.stopPropagation();
+            discardDeletedDraft(item.id);
+        });
+        actions.append(discard, restore);
+        conflict.append(text, actions);
+        content.appendChild(conflict);
     }
 
     function getAttachmentTitle(item) {
@@ -449,8 +540,65 @@ export function createItemsViewController(deps) {
 
     function buildEditContent(item, content) {
         const draft = getEditDraftForItem(item);
+        const replacement = getAttachmentReplacement?.(item.id);
         const fields = document.createElement('div');
         fields.className = 'item-edit-fields';
+
+        if (draft.conflict) {
+            const conflict = document.createElement('section');
+            conflict.className = 'item-content-conflict';
+            const heading = document.createElement('p');
+            heading.textContent = 'Dieser Eintrag wurde parallel geändert. Wähle bewusst eine Fassung.';
+            const versions = document.createElement('div');
+            versions.className = 'item-content-conflict-versions';
+
+            const buildVersion = (className, title, source) => {
+                const version = document.createElement('section');
+                version.className = `item-content-conflict-version ${className}`;
+                const versionTitle = document.createElement('strong');
+                versionTitle.textContent = title;
+                const values = document.createElement('dl');
+                ITEM_CONTENT_FIELDS.forEach(field => {
+                    const fieldValue = String(source?.[field] ?? '');
+                    if (!fieldValue) return;
+                    const term = document.createElement('dt');
+                    term.textContent = field === 'name' ? 'Titel' : field;
+                    const description = document.createElement('dd');
+                    description.textContent = fieldValue;
+                    values.append(term, description);
+                });
+                version.append(versionTitle, values);
+                return version;
+            };
+
+            versions.append(
+                buildVersion('item-content-conflict-version-local', 'Meine Fassung', draft.conflict.local),
+                buildVersion('item-content-conflict-version-server', 'Server-Version', draft.conflict.server)
+            );
+            const actions = document.createElement('div');
+            actions.className = 'item-content-conflict-actions';
+            const acceptServer = document.createElement('button');
+            acceptServer.type = 'button';
+            acceptServer.className = 'btn-clear';
+            acceptServer.textContent = 'Server-Version übernehmen';
+            acceptServer.addEventListener('click', event => {
+                event.stopPropagation();
+                acceptServerItemContent?.(item.id);
+            });
+            const keepLocal = document.createElement('button');
+            keepLocal.type = 'button';
+            keepLocal.className = 'btn-add';
+            keepLocal.textContent = 'Meine Fassung behalten';
+            keepLocal.addEventListener('click', event => {
+                event.stopPropagation();
+                void keepLocalItemContent?.(item.id);
+            });
+            actions.append(acceptServer, keepLocal);
+            conflict.append(heading, versions, actions);
+            fields.appendChild(conflict);
+            content.appendChild(fields);
+            return;
+        }
 
         const nameInput = document.createElement('textarea');
         nameInput.className = 'item-edit-input item-edit-textarea edit-name-input';
@@ -469,6 +617,82 @@ export function createItemsViewController(deps) {
         });
         syncAutoHeight(nameInput);
         fields.appendChild(nameInput);
+
+        if (['images', 'files'].includes(item.category_type)) {
+            const replaceRow = document.createElement('div');
+            replaceRow.className = 'item-edit-replace-row';
+
+            const filePicker = document.createElement('input');
+            filePicker.type = 'file';
+            filePicker.className = 'visually-hidden';
+            filePicker.id = `attachment-replacement-${item.id}`;
+            filePicker.setAttribute('aria-label', 'Anhang ersetzen');
+            if (item.category_type === 'images') filePicker.accept = 'image/jpeg,image/png,image/webp,image/gif';
+            filePicker.addEventListener('change', event => {
+                selectAttachmentReplacement?.(item.id, event.target.files?.[0] || null);
+            });
+
+            const pickerButton = document.createElement('label');
+            pickerButton.className = 'btn-replace-attachment';
+            pickerButton.htmlFor = filePicker.id;
+            pickerButton.textContent = 'Anhang ersetzen';
+
+            const selection = document.createElement('span');
+            selection.className = 'item-edit-replace-label';
+            selection.textContent = replacement?.file?.name || item.attachmentOriginalName || 'Keine Datei ausgewählt';
+            replaceRow.append(filePicker, pickerButton, selection);
+            fields.appendChild(replaceRow);
+
+            if (replacement?.conflictItem) {
+                const conflict = document.createElement('section');
+                conflict.className = 'attachment-content-conflict';
+                const heading = document.createElement('p');
+                heading.textContent = 'Der Anhang wurde parallel geändert. Beide Fassungen bleiben verfügbar.';
+
+                const versions = document.createElement('div');
+                versions.className = 'attachment-conflict-versions';
+                const localVersion = document.createElement('div');
+                localVersion.className = 'attachment-conflict-version attachment-conflict-version-local';
+                const localTitle = document.createElement('strong');
+                localTitle.textContent = 'Meine Datei';
+                const localName = document.createElement('span');
+                localName.textContent = replacement.file.name;
+                localVersion.append(localTitle, localName);
+
+                const serverVersion = document.createElement('div');
+                serverVersion.className = 'attachment-conflict-version attachment-conflict-version-server';
+                const serverTitle = document.createElement('strong');
+                serverTitle.textContent = 'Server-Datei';
+                const serverName = document.createElement('span');
+                serverName.textContent = replacement.conflictItem.attachment_original_name
+                    || replacement.conflictItem.attachmentOriginalName
+                    || 'Anhang';
+                serverVersion.append(serverTitle, serverName);
+                versions.append(localVersion, serverVersion);
+
+                const actions = document.createElement('div');
+                actions.className = 'attachment-conflict-actions';
+                const acceptServer = document.createElement('button');
+                acceptServer.type = 'button';
+                acceptServer.className = 'btn-clear';
+                acceptServer.textContent = 'Server-Datei übernehmen';
+                acceptServer.addEventListener('click', event => {
+                    event.stopPropagation();
+                    acceptServerAttachment?.(item.id);
+                });
+                const keepLocal = document.createElement('button');
+                keepLocal.type = 'button';
+                keepLocal.className = 'btn-add';
+                keepLocal.textContent = 'Meine Datei behalten';
+                keepLocal.addEventListener('click', event => {
+                    event.stopPropagation();
+                    void keepLocalAttachment?.(item.id);
+                });
+                actions.append(acceptServer, keepLocal);
+                conflict.append(heading, versions, actions);
+                fields.appendChild(conflict);
+            }
+        }
 
         if (item.category_type === 'list_quantity') {
             const barcodeInput = document.createElement('input');
@@ -612,7 +836,10 @@ export function createItemsViewController(deps) {
     };
 
     function buildSyncStateBadge(item) {
-        const syncState = getItemSyncState(item.id, { isDirty: state.editingId === item.id });
+        const replacement = getAttachmentReplacement?.(item.id);
+        const isDirty = state.editingId === item.id
+            && (itemDraftHasLocalChanges(state.editDraft) || Boolean(replacement) || Boolean(state.editDraft?.conflict));
+        const syncState = getItemSyncState(item.id, { isDirty });
         if (syncState === 'synced') return null;
         const badge = document.createElement('span');
         badge.className = `item-sync-badge item-sync-badge-${syncState}`;
@@ -638,6 +865,7 @@ export function createItemsViewController(deps) {
 
         if (state.editingId === item.id && item.category_type !== 'list_due_date') {
             buildEditContent(item, content);
+            if (item.server_deleted) appendDeletedDraftConflict(item, content);
         } else {
             buildReadOnlyContent(item, content);
         }
@@ -648,7 +876,7 @@ export function createItemsViewController(deps) {
         const actions = document.createElement('div');
         actions.className = 'item-actions';
 
-        if (state.editingId === item.id) {
+        if (state.editingId === item.id && !item.server_deleted) {
             actions.appendChild(buildActionButton('check', `${item.name} speichern`, () => void handleEditSave(item.id)));
             actions.appendChild(buildActionButton('rotate-ccw', `${item.name} abbrechen`, () => {
                 resetEditDraft();
