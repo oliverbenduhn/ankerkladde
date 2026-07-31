@@ -5,7 +5,7 @@ import { createItemsController } from './items.js';
 import { createItemsViewController } from './items-view.js';
 import { createNavigation } from './navigation.js';
 import { createEditorController } from './editor.js';
-import { createTodoEditorController } from './todo-editor.js';
+import { createItemEditorController } from './item-editor.js';
 import { refreshOpenSketchEditor } from './sketch-editor.js';
 import { createReorderController } from './reorder.js';
 import { createRouter } from './router.js';
@@ -62,7 +62,7 @@ export function createAppRuntime(deps) {
     let itemsActionsController = null;
     let scannerController = null;
     let editorController = null;
-    let todoEditorController = null;
+    let itemEditorController = null;
     let reorderController = null;
     let swipeController = null;
     let tabsViewController = null;
@@ -110,17 +110,17 @@ export function createAppRuntime(deps) {
     const closeNoteEditor = async () => { await editorController.closeNoteEditor(); };
     const closeJournal = async () => { await journalController?.closeJournal(); };
     const openJournalDay = async (date, options = {}) => { await journalController.openDay(date || state.serverToday || 'today', options); };
-    const openTodoEditor = item => { todoEditorController.openTodoEditor(item); };
-    const openTodoCreate = () => {
+    const openItemEdit = item => { itemEditorController.openItemEdit(item); };
+    const openItemCreate = () => {
         const journalOpen = state.screen === 'journal';
         const categoryId = journalOpen
             ? journalController?.getReturnCategoryId?.()
             : state.categoryId;
         const dueDate = journalOpen ? (state.journalDate || state.serverToday || '') : '';
         if (journalOpen) journalController?.closeQuickAdd?.({ reset: true });
-        todoEditorController.openTodoCreate({ categoryId, dueDate });
+        itemEditorController.openItemCreate({ categoryId, dueDate });
     };
-    const closeTodoEditor = async () => { await todoEditorController.closeTodoEditor(); };
+    const closeItemEditor = async () => { await itemEditorController.closeItemEditor(); };
     const scheduleNoteSave = () => editorController.scheduleNoteSave();
     const resetItemForm = () => helpersController.resetItemForm();
 
@@ -181,6 +181,7 @@ export function createAppRuntime(deps) {
 
     router = createRouter({
         closeNoteEditor,
+        closeItemEditor,
         closeMagic: () => magicController?.closeMagic(),
         closeScanner,
         closeSearch,
@@ -277,7 +278,7 @@ export function createAppRuntime(deps) {
         isOverdueItem,
         openNoteEditorWithNavigation,
         openJournalWithNavigation,
-        openTodoEditor,
+        openItemEdit,
         setCategory,
         setMessage,
     });
@@ -350,7 +351,7 @@ export function createAppRuntime(deps) {
         getTiptapEditor,
     });
 
-    todoEditorController = createTodoEditorController({
+    itemEditorController = createItemEditorController({
         getVisibleCategories,
         invalidateCategoryCache,
         loadItems,
@@ -402,7 +403,7 @@ export function createAppRuntime(deps) {
         closeScanner,
         closeSearch,
         doSearch,
-        closeTodoEditor,
+        closeItemEditor,
         editorController,
         flushOfflineQueue,
         handleIncomingShare: async () => { await itemsActionsController.handleIncomingShare(); },
@@ -414,7 +415,7 @@ export function createAppRuntime(deps) {
         openScanner,
         openSearch,
         openJournalWithNavigation,
-        openTodoCreate,
+        openItemCreate,
         prefetchAdjacentCategories,
         quickAdd: async (input, activeCategoryId) => { await itemsActionsController.quickAdd(input, activeCategoryId); },
         refreshVisibleCategory,

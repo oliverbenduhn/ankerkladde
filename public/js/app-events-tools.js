@@ -27,7 +27,7 @@ export function registerToolsEvents(deps) {
     const {
         openScanner, closeScanner, setScannerStatus, navigation, handleScannedBarcode,
         router, loadCategories, loadItems, updateHeaders, setUserPreferences,
-        openSearch, closeSearch, doSearch, magicController, scheduleNoteSave, editorController, closeTodoEditor
+        openSearch, closeSearch, doSearch, magicController, scheduleNoteSave, editorController, closeItemEditor
     } = deps;
 
     scanAddBtn?.addEventListener('click', () => {
@@ -151,7 +151,7 @@ export function registerToolsEvents(deps) {
     });
 
     itemEditorBack?.addEventListener('click', () => {
-        void closeTodoEditor();
+        void closeItemEditor();
     });
 
     noteTitleInput?.addEventListener('input', scheduleNoteSave);

@@ -6,7 +6,7 @@ export function createItemMenuController(deps) {
         getAttachmentTitle,
         getMoveTargetCategories,
         openNoteEditorWithNavigation,
-        openTodoEditor,
+        openItemEdit,
         handlePin,
         handleDelete,
         handleEditStart,
@@ -84,7 +84,7 @@ export function createItemMenuController(deps) {
             if (item.category_type === 'notes') {
                 appendAction(t('ui.open_note'), () => openNoteEditorWithNavigation(item));
             } else if (item.category_type === 'list_due_date') {
-                appendAction(t('ui.edit'), () => openTodoEditor(item));
+                appendAction(t('ui.edit'), () => openItemEdit(item));
             } else if (item.category_type === 'drawings' || item.has_sketch) {
                 appendAction(t('sketch.open'), () => openSketchEditor(item));
             } else {

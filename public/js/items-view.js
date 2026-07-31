@@ -40,7 +40,7 @@ export function createItemsViewController(deps) {
         isOverdueItem,
         openNoteEditorWithNavigation,
         openJournalWithNavigation,
-        openTodoEditor,
+        openItemEdit,
         setCategory,
         setMessage,
         acceptServerAttachment,
@@ -59,7 +59,7 @@ export function createItemsViewController(deps) {
         getAttachmentTitle: (item) => item.name || item.attachmentOriginalName || 'Anhang',
         getMoveTargetCategories,
         openNoteEditorWithNavigation,
-        openTodoEditor,
+        openItemEdit,
         handlePin,
         handleDelete,
         handleMove,
@@ -471,7 +471,7 @@ export function createItemsViewController(deps) {
                 nameEl.setAttribute('aria-label', `${item.name} bearbeiten`);
                 nameEl.addEventListener('click', event => {
                     event.stopPropagation();
-                    openTodoEditor(item);
+                    openItemEdit(item);
                 });
             }
             content.appendChild(nameEl);
@@ -967,7 +967,7 @@ export function createItemsViewController(deps) {
                 } else if (item.category_type === 'list_due_date') {
                     const current = getItemById(item.id);
                     if (current) {
-                        openTodoEditor(current);
+                        openItemEdit(current);
                     }
                 }
             });

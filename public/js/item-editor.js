@@ -15,7 +15,7 @@ import {
     itemTitleInput,
 } from './ui.js';
 
-export function createTodoEditorController(deps) {
+export function createItemEditorController(deps) {
     const {
         getVisibleCategories,
         invalidateCategoryCache,
@@ -141,7 +141,7 @@ export function createTodoEditorController(deps) {
         }
     }
 
-    function openTodoCreate({ categoryId = null, dueDate = '' } = {}) {
+    function openItemCreate({ categoryId = null, dueDate = '' } = {}) {
         const dueCategories = getVisibleCategories().filter(category => category.type === 'list_due_date');
         if (dueCategories.length === 0) {
             setMessage(t('quick_add.no_due_category'), true);
@@ -174,7 +174,7 @@ export function createTodoEditorController(deps) {
         itemTitleInput?.focus();
     }
 
-    function openTodoEditor(item) {
+    function openItemEdit(item) {
         isCreating = false;
         currentItem = item;
         currentStatus = item.status || '';
@@ -225,7 +225,7 @@ export function createTodoEditorController(deps) {
         itemTitleInput?.focus();
     }
 
-    async function closeTodoEditor() {
+    async function closeItemEditor() {
         if (isCreating) {
             hideEditor();
             return;
@@ -240,5 +240,5 @@ export function createTodoEditorController(deps) {
 
     itemCreateBtn?.addEventListener('click', () => void createTodo());
 
-    return { openTodoCreate, openTodoEditor, closeTodoEditor };
+    return { openItemCreate, openItemEdit, closeItemEditor };
 }

@@ -59,7 +59,7 @@ export function registerAppEventHandlers(deps) {
         openScanner,
         openSearch,
         openJournalWithNavigation,
-        openTodoCreate,
+        openItemCreate,
         refreshVisibleCategory,
         renderCategoryTabs,
         renderItems,
@@ -79,7 +79,7 @@ export function registerAppEventHandlers(deps) {
         updateUploadUi,
         userPreferencesRef,
         editorController,
-        closeTodoEditor,
+        closeItemEditor,
         addItem,
         magicController,
     } = deps;
@@ -99,7 +99,7 @@ export function registerAppEventHandlers(deps) {
     });
 
     manualAddBtn?.addEventListener('click', () => {
-        openTodoCreate();
+        openItemCreate();
     });
 
     fileInput?.addEventListener('change', () => {
@@ -388,7 +388,7 @@ export function registerAppEventHandlers(deps) {
     });
 
     itemEditorBack?.addEventListener('click', () => {
-        void closeTodoEditor();
+        void closeItemEditor();
     });
 
     noteTitleInput?.addEventListener('input', scheduleNoteSave);
