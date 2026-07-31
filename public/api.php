@@ -2359,15 +2359,13 @@ try {
             // Acquire the SQLite write lock before the read-or-insert decision so
             // concurrent first saves for the same day cannot both observe no item.
             $db->exec('BEGIN IMMEDIATE');
-            $journalTransactionActive = true;
             try {
                 $category = ensureDailyNotesCategory($db, $userId);
                 $item = loadJournalItem($db, $userId, (int) $category['id'], $date);
 
                 if ($item === null) {
                     if ($expectedRevision !== 0) {
-                        $db->exec('ROLLBACK');
-                        $journalTransactionActive = false;
+                        $db->rollBack();
                         respond(404, ['error' => t('error.item_not_found'), 'error_key' => 'error.item_not_found']);
                     }
                     $sortOrder = prependItemSortOrder($db, $userId, (int) $category['id']);
@@ -2390,8 +2388,7 @@ try {
                     $currentRevision = (int) $item['revision'];
                     $currentContent = (string) $item['content'];
                     if ($currentContent === $content) {
-                        $db->exec('COMMIT');
-                        $journalTransactionActive = false;
+                        $db->commit();
                         respond(200, [
                             'message' => 'Journal gespeichert.',
                             'item' => formatJournalItem($item),
@@ -2401,8 +2398,7 @@ try {
                     $componentUnchanged = $baseContentProvided && $currentContent === $baseContent;
                     $parallelFirstCreate = $expectedRevision === 0 && $currentContent === '';
                     if (!$revisionMatches && !$componentUnchanged && !$parallelFirstCreate) {
-                        $db->exec('ROLLBACK');
-                        $journalTransactionActive = false;
+                        $db->rollBack();
                         respond(409, [
                             'error' => t('error.item_revision_conflict'),
                             'error_key' => 'error.item_revision_conflict',
@@ -2427,8 +2423,7 @@ try {
                         ':expected_revision' => $currentRevision,
                     ]);
                     if ($stmt->rowCount() !== 1) {
-                        $db->exec('ROLLBACK');
-                        $journalTransactionActive = false;
+                        $db->rollBack();
                         $current = loadJournalItem($db, $userId, (int) $category['id'], $date);
                         respond(409, [
                             'error' => t('error.item_revision_conflict'),
@@ -2440,11 +2435,10 @@ try {
                     }
                 }
 
-                $db->exec('COMMIT');
-                $journalTransactionActive = false;
+                $db->commit();
             } catch (Throwable $error) {
-                if ($journalTransactionActive) {
-                    $db->exec('ROLLBACK');
+                if ($db->inTransaction()) {
+                    $db->rollBack();
                 }
                 throw $error;
             }
@@ -2701,7 +2695,6 @@ try {
                     'storage_section' => (string) $category['type'],
                     'stored_name' => $storedName,
                 ];
-                $immediateTransaction = false;
 
                 try {
                     if (!move_uploaded_file((string) $uploadedFile['tmp_name'], $targetPath)) {
@@ -2714,11 +2707,9 @@ try {
                     }
 
                     $db->exec('BEGIN IMMEDIATE');
-                    $immediateTransaction = true;
                     $currentItem = fetchItemForUser($db, $userId, $replaceItemId);
                     if ($currentItem === null || (int) $currentItem['category_id'] !== (int) $category['id']) {
-                        $db->exec('ROLLBACK');
-                        $immediateTransaction = false;
+                        $db->rollBack();
                         deleteAttachmentStorageFile($newAttachment);
                         respond(404, ['error' => t('error.item_not_found'), 'error_key' => 'error.item_not_found']);
                     }
@@ -2742,8 +2733,7 @@ try {
                         ':expected_revision' => $expectedRevision,
                     ]);
                     if ($updated->rowCount() !== 1) {
-                        $db->exec('ROLLBACK');
-                        $immediateTransaction = false;
+                        $db->rollBack();
                         deleteAttachmentStorageFile($newAttachment);
                         $currentItem = fetchItemForUser($db, $userId, $replaceItemId);
                         if ($currentItem === null) {
@@ -2778,8 +2768,7 @@ try {
                     ]);
 
                     $canonicalItem = fetchItemForUser($db, $userId, $replaceItemId);
-                    $db->exec('COMMIT');
-                    $immediateTransaction = false;
+                    $db->commit();
 
                     if ($oldAttachment !== null) {
                         try {
@@ -2789,8 +2778,8 @@ try {
                         }
                     }
                 } catch (Throwable $exception) {
-                    if ($immediateTransaction) {
-                        $db->exec('ROLLBACK');
+                    if ($db->inTransaction()) {
+                        $db->rollBack();
                     }
                     if ($storedFileMoved) {
                         try {
@@ -3913,19 +3902,16 @@ try {
             // and concurrent first saves for the same day cannot both observe
             // a missing row.
             $db->exec('BEGIN IMMEDIATE');
-            $journalTransactionActive = true;
             try {
                 $category = ensureDailyNotesCategory($db, $userId);
                 $item = loadJournalItem($db, $userId, (int) $category['id'], $date);
 
                 if ($item === null && $normalized === '') {
                     if ($expectedRevision !== 0) {
-                        $db->exec('ROLLBACK');
-                        $journalTransactionActive = false;
+                        $db->rollBack();
                         respond(404, ['error' => t('error.item_not_found'), 'error_key' => 'error.item_not_found']);
                     }
-                    $db->exec('COMMIT');
-                    $journalTransactionActive = false;
+                    $db->commit();
                     respond(200, [
                         'message' => 'Keine Skizze zu speichern.',
                         'item_id' => null,
@@ -3938,8 +3924,7 @@ try {
 
                 if ($item === null) {
                     if ($expectedRevision !== 0) {
-                        $db->exec('ROLLBACK');
-                        $journalTransactionActive = false;
+                        $db->rollBack();
                         respond(404, ['error' => t('error.item_not_found'), 'error_key' => 'error.item_not_found']);
                     }
                     $sortOrder = prependItemSortOrder($db, $userId, (int) $category['id']);
@@ -3962,8 +3947,7 @@ try {
                     $currentRevision = (int) $item['revision'];
                     $currentScene = (string) ($item['sketch_json'] ?? '');
                     if ($currentScene === $normalized) {
-                        $db->exec('COMMIT');
-                        $journalTransactionActive = false;
+                        $db->commit();
                         respond(200, [
                             'message' => 'Skizze gespeichert.',
                             'item_id' => $itemId,
@@ -3978,8 +3962,7 @@ try {
                     $componentUnchanged = $baseSceneProvided && $currentScene === $baseScene;
                     $parallelFirstCreate = $expectedRevision === 0 && $currentScene === '';
                     if (!$revisionMatches && !$componentUnchanged && !$parallelFirstCreate) {
-                        $db->exec('ROLLBACK');
-                        $journalTransactionActive = false;
+                        $db->rollBack();
                         respond(409, [
                             'error' => t('error.item_revision_conflict'),
                             'error_key' => 'error.item_revision_conflict',
@@ -4008,11 +3991,10 @@ try {
                     }
                 }
 
-                $db->exec('COMMIT');
-                $journalTransactionActive = false;
+                $db->commit();
             } catch (Throwable $error) {
-                if ($journalTransactionActive) {
-                    $db->exec('ROLLBACK');
+                if ($db->inTransaction()) {
+                    $db->rollBack();
                 }
                 throw $error;
             }
