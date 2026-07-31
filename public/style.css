@@ -3699,6 +3699,8 @@ body[data-theme*="dark"] .item-card.is-deep-link-highlight {
 .btn-search-close {
     min-width: 44px;
     min-height: 44px;
+    width: 44px; /* ponytail: ohne explizite width misst die Touch-Audit-Matrix < 44 px durch Inhalt-Schrumpfung */
+    height: 44px;
     padding: 0;
     background: none;
     border: none;
@@ -4112,6 +4114,7 @@ body[data-theme*="dark"] .item-card.is-deep-link-highlight {
     top: 2px;
     bottom: 2px;
     width: 44px;
+    height: 44px; /* ponytail: explizite Hoehe, sonst misst die mobile Touch-Audit-Matrix 43.6 px (< 44) durch Subpixel-Rundung des parent .magic-input */
     background: transparent;
     color: var(--text-muted);
     border: none;
@@ -4151,6 +4154,7 @@ body[data-theme*="dark"] .item-card.is-deep-link-highlight {
     top: 2px;
     bottom: 2px;
     width: 44px;
+    height: 44px; /* ponytail: siehe btn-magic-voice */
     background: var(--accent);
     color: var(--accent-contrast, var(--text-primary));
     border: none;
