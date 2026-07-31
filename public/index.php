@@ -217,7 +217,7 @@ $clientWebSocketUrl = is_string($clientWebSocketUrl) ? trim($clientWebSocketUrl)
                         <button type="button" id="agendaAddBtn" class="journal-card-icon-btn" aria-label="<?= t('item.add') ?>"><?= icon('plus') ?></button>
                     </div>
                 </header>
-                <div id="journalAgendaBody" class="journal-agenda-columns" data-collapsed="true">
+                <div id="journalAgendaBody" class="journal-agenda-columns">
                     <section class="journal-agenda-column" aria-labelledby="journalAnytimeTitle">
                         <h4 id="journalAnytimeTitle"><?= t('journal.without_time') ?></h4>
                         <ul id="journalAnytimeList"></ul>

@@ -100,6 +100,17 @@ export function createJournalController(deps) {
     let returnCategoryId = null;
     let lastAgendaItems = [];
     let agendaCollapsed = Boolean(readLocalPrefs().agenda_collapsed);
+    // ponytail: data-collapsed synchron beim Boot setzen, damit der erste
+    // Frame den persistierten Wert zeigt. Ohne diesen Schritt rendert
+    // index.php ohne Attribut, das CSS schaltet dadurch den Default-
+    // Spalten-Layout an, und renderAgenda() korrigiert erst nach dem
+    // Agenda-API-Call. Mobile flackert sichtbar.
+    if (journalAgendaBody) {
+        journalAgendaBody.dataset.collapsed = agendaCollapsed ? 'true' : 'false';
+    }
+    if (journalAgendaCollapseBtn) {
+        journalAgendaCollapseBtn.setAttribute('aria-expanded', agendaCollapsed ? 'false' : 'true');
+    }
 
     function waitForTipTap() {
         return new Promise(resolve => {
