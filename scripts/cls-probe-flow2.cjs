@@ -23,10 +23,28 @@ function pickDevice(project) {
 }
 
 const initScript = () => {
-  window.__cls = { value: 0, entries: [], marks: [] };
+  window.__cls = { value: 0, entries: [], marks: [], muts: [] };
   window.__mark = label => {
     window.__cls.marks.push({ label, time: Math.round(performance.now()) });
   };
+  // Attributaenderungen mitschneiden, um Shifts ihrer Ursache zuzuordnen.
+  const startMutationLog = () => {
+    new MutationObserver(list => {
+      for (const m of list) {
+        const el = m.target;
+        const name = el.id ? `#${el.id}` : (el.className || '').toString().split(' ')[0];
+        window.__cls.muts.push({
+          time: Math.round(performance.now()),
+          detail: `${name} ${m.attributeName}="${el.getAttribute(m.attributeName)}"`,
+        });
+      }
+    }).observe(document.documentElement, {
+      attributes: true, subtree: true,
+      attributeFilter: ['class', 'hidden', 'style', 'data-collapsed', 'data-mode', 'data-layout'],
+    });
+  };
+  if (document.documentElement) startMutationLog();
+  else document.addEventListener('readystatechange', startMutationLog, { once: true });
   try {
     const obs = new PerformanceObserver(list => {
       for (const e of list.getEntries()) {
@@ -188,6 +206,8 @@ async function flow2(page) {
         console.log(`    · ${s.chain}`);
         console.log(`      prev: ${f(s.prev)}  →  curr: ${f(s.curr)}`);
       }
+      const near = (r.cls.muts || []).filter(m => m.time >= e.time - 80 && m.time <= e.time + 20);
+      for (const m of near.slice(-8)) console.log(`      ~ ${m.time}ms  ${m.detail}`);
     }
     if (r.cls.value > max) max = r.cls.value;
   }

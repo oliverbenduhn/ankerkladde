@@ -56,6 +56,12 @@ $validLayouts = ['list', 'grid', 'kanban'];
 $rawLayout = $userPreferences['layout'] ?? $userPreferences['desktop_layout'] ?? 'list';
 if ($rawLayout === 'liste') $rawLayout = 'list';
 $initialLayout = in_array($rawLayout, $validLayouts, true) ? $rawLayout : 'list';
+// Die Tagesansicht schon im Server-HTML aufsetzen. Sonst rendert der erste Paint
+// die Listen-Ansicht (Eingabezeile + Tabs), und der Boot schiebt die Liste erst
+// Hunderte Millisekunden spaeter weg — sichtbarer Sprung und CLS ueber 0,1.
+// 'today' ist der Legacy-Alias, den readInitialRouteFromUrl() ebenfalls kennt.
+$requestedScreen = $_GET['screen'] ?? $_GET['view'] ?? '';
+$startsInJournal = is_string($requestedScreen) && ($requestedScreen === 'journal' || $requestedScreen === 'today');
 $clientWebSocketUrl = getenv('ANKERKLADDE_WS_CLIENT_URL');
 $clientWebSocketUrl = is_string($clientWebSocketUrl) ? trim($clientWebSocketUrl) : '';
 ?>
@@ -86,7 +92,7 @@ $clientWebSocketUrl = is_string($clientWebSocketUrl) ? trim($clientWebSocketUrl)
     <title>Ankerkladde</title>
 </head>
 <body data-theme="<?= htmlspecialchars($effectiveTheme, ENT_QUOTES, 'UTF-8') ?>">
-<div class="app" id="app" data-mode="<?= htmlspecialchars($initialMode, ENT_QUOTES, 'UTF-8') ?>" data-layout="<?= htmlspecialchars($initialLayout, ENT_QUOTES, 'UTF-8') ?>">
+<div class="app<?= $startsInJournal ? ' journal-view' : '' ?>" id="app" data-mode="<?= htmlspecialchars($initialMode, ENT_QUOTES, 'UTF-8') ?>" data-layout="<?= htmlspecialchars($initialLayout, ENT_QUOTES, 'UTF-8') ?>">
 
     <div class="install-banner" id="installBanner" hidden>
         <span class="install-text"><?= t('ui.install_prompt') ?></span>
@@ -186,7 +192,7 @@ $clientWebSocketUrl = is_string($clientWebSocketUrl) ? trim($clientWebSocketUrl)
     </section>
 
     <main class="list-area">
-        <div class="list-swipe-stage" id="listSwipeStage">
+        <div class="list-swipe-stage" id="listSwipeStage"<?= $startsInJournal ? ' hidden' : '' ?>>
             <ul id="list" aria-label="<?= t('item.list_label') ?>"></ul>
             <button type="button" class="btn-clear edit-only"
                     id="clearDoneBtn" disabled><?= t('item.clear_done') ?></button>
@@ -195,7 +201,7 @@ $clientWebSocketUrl = is_string($clientWebSocketUrl) ? trim($clientWebSocketUrl)
             <div class="list-swipe-preview-header" id="listSwipePreviewHeader"></div>
             <ul class="list-swipe-preview-list" id="listSwipePreviewList"></ul>
         </div>
-        <section class="journal-view parchment-view" id="journalView" aria-labelledby="journalDateHeading" hidden>
+        <section class="journal-view parchment-view" id="journalView" aria-labelledby="journalDateHeading"<?= $startsInJournal ? '' : ' hidden' ?>>
             <div class="journal-navigation">
                 <button type="button" id="journalBackBtn" class="journal-nav-icon-btn" aria-label="<?= t('journal.back') ?>"><?= icon('arrow-left') ?></button>
                 <button type="button" id="journalDatePickerBtn" class="journal-nav-icon-btn" aria-label="<?= t('journal.choose_date') ?>"><?= icon('calendar') ?></button>
@@ -227,6 +233,12 @@ $clientWebSocketUrl = is_string($clientWebSocketUrl) ? trim($clientWebSocketUrl)
                         <ul id="journalScheduledList"></ul>
                     </section>
                 </div>
+                <?php // Der Collapse-Zustand liegt nur in localStorage, der Server kennt ihn
+                      // nicht. Ohne diesen Inline-Schritt malt der Browser erst das
+                      // Zwei-Spalten-Raster und journal.js klappt es Hunderte Millisekunden
+                      // spaeter auf eine Spalte um — sichtbarer Sprung. Gleiches Muster wie
+                      // renderThemeBootScript(): Preference vor dem ersten Paint anwenden. ?>
+                <script>(function(){try{var raw=localStorage.getItem("ankerkladde_local_prefs");var p=raw?JSON.parse(raw):{};var collapsed=p.agenda_collapsed?"true":"false";var el=document.getElementById("journalAgendaBody");if(el)el.dataset.collapsed=collapsed;var btn=document.getElementById("journalAgendaCollapseBtn");if(btn)btn.setAttribute("aria-expanded",collapsed==="true"?"false":"true");}catch(e){}})();</script>
             </section>
             <section class="parchment-card journal-note-card" aria-labelledby="journalNoteTitle">
                 <header class="journal-card-header">
