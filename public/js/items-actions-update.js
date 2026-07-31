@@ -362,6 +362,9 @@ export function createUpdateActions(deps) {
                 due_time: (draft.due_time || '').trim(),
                 priority: (draft.priority || '').trim(),
                 content: (draft.content || '').trim(),
+                // Nur der Vollbild-Editor fuehrt den Status im Draft. Inline-Edits
+                // lassen den Schluessel weg, damit der Server seinen Wert behaelt.
+                ...(draft.status === undefined ? {} : { status: String(draft.status ?? '') }),
             });
             const result = await api('update', {
                 method: 'POST',

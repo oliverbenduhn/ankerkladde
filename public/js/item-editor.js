@@ -1,33 +1,58 @@
 import { api } from './api.js';
 import { t } from './i18n.js';
 import { state } from './state.js';
+import { clearDraftSnapshot, wrapDraftForPersistence } from './draft-persistence.js';
+import { itemContentSnapshot, itemDraftHasLocalChanges } from './item-content-conflict.js';
 import {
     appEl,
     itemCategoryInput,
     itemCategorySection,
     itemCreateBtn,
     itemDateInput,
+    itemEditorBody,
     itemEditorEl,
     itemNoteInput,
     itemPriorityInput,
+    itemSaveBtn,
     itemStatusSection,
     itemTimeInput,
     itemTitleInput,
 } from './ui.js';
 
+function emptyDraft() {
+    return {
+        itemId: null,
+        categoryId: null,
+        name: '',
+        barcode: '',
+        quantity: '',
+        due_date: '',
+        due_time: '',
+        priority: '',
+        content: '',
+    };
+}
+
 export function createItemEditorController(deps) {
     const {
+        acceptServerItemContent,
+        discardDeletedDraft,
+        getItemById,
         getVisibleCategories,
-        invalidateCategoryCache,
-        loadItems,
-        handleStatus,
+        handleEditSave,
         handleToggle,
+        invalidateCategoryCache,
+        keepLocalItemContent,
+        loadItems,
         refreshOpenJournal,
+        renderItems,
+        restoreDeletedDraft,
         setMessage,
     } = deps;
 
     let currentItem = null;
     let currentStatus = '';
+    let baseStatus = '';
     let isCreating = false;
     let sourceScreen = 'list';
 
@@ -38,63 +63,207 @@ export function createItemEditorController(deps) {
         });
     }
 
-    async function save() {
-        if (!currentItem) return;
+    function activeDraft() {
+        const draft = state.editDraft;
+        if (!draft || !currentItem) return null;
+        if (Number(draft.itemId) !== Number(currentItem.id)) return null;
+        return draft;
+    }
 
-        const name = itemTitleInput?.value.trim() || currentItem.name;
+    // Der Save-Pfad raeumt den Draft weg, sobald er durch ist — auch verzoegert,
+    // wenn ein 409 mit passender Basis intern neu zugestellt wird. Solange der
+    // Editor offen bleibt, setzt er dann einen frischen Draft auf die kanonische
+    // Fassung auf, statt in den Stale-Zweig zu laufen.
+    function ensureDraft() {
+        if (!currentItem || isCreating) return null;
+        if (!activeDraft() || state.editingId === null) {
+            currentItem = getItemById(currentItem.id) || currentItem;
+            beginDraft(currentItem);
+        }
+        return state.editDraft;
+    }
+
+    // Der Editor ist nur ein Eingabe-Frontend fuer den Draft; der Save-Pfad
+    // (items-actions-update.js) liest ausschliesslich den Draft.
+    function syncDraftFromInputs() {
+        const draft = ensureDraft();
+        if (!draft) return;
         const dueDate = itemDateInput?.value || '';
-        const dueTime = dueDate ? (itemTimeInput?.value || '') : '';
-        const priority = itemPriorityInput?.value || '';
-        const content = itemNoteInput?.value || '';
-        const expectedRevision = Number(currentItem.revision);
-        if (expectedRevision < 1) {
-            throw new Error(t('error.revision_required'));
-        }
-
-        const body = new URLSearchParams({
-            id: String(currentItem.id),
-            expected_revision: String(expectedRevision),
-            name,
-            barcode: '',
-            quantity: '',
+        const next = {
+            name: itemTitleInput?.value.trim() || '',
             due_date: dueDate,
-            due_time: dueTime,
-            priority,
-            content,
+            due_time: dueDate ? (itemTimeInput?.value || '') : '',
+            priority: itemPriorityInput?.value || '',
+            content: itemNoteInput?.value || '',
             status: currentStatus,
-        });
-        let result;
-        try {
-            result = await api('update', { method: 'POST', body });
-        } catch (error) {
-            if (Number(error?.status) === 409 && error.payload?.item) {
-                // Konflikt: kanonische Server-Fassung uebernehmen.
-                Object.assign(currentItem, error.payload.item);
-            }
-            throw error;
-        }
-
-        currentItem = {
-            ...currentItem,
-            name,
-            due_date: dueDate,
-            due_time: dueTime,
-            priority,
-            content,
-            status: currentStatus,
-            revision: Number(result.item?.revision ?? expectedRevision + 1),
         };
-        invalidateCategoryCache(state.categoryId);
-        await loadItems();
+        Object.entries(next).forEach(([field, value]) => {
+            if (String(draft[field] ?? '') !== value) draft[field] = value;
+        });
+    }
+
+    function fillInputsFromItem(item) {
+        if (itemTitleInput) itemTitleInput.value = item.name || '';
+        if (itemDateInput) itemDateInput.value = item.due_date || '';
+        if (itemTimeInput) itemTimeInput.value = item.due_time || '';
+        if (itemPriorityInput) itemPriorityInput.value = item.priority || '';
+        if (itemNoteInput) itemNoteInput.value = item.content || '';
+    }
+
+    function beginDraft(item) {
+        state.editingId = item.id;
+        state.editDraft = wrapDraftForPersistence({
+            itemId: item.id,
+            categoryId: item.category_id ?? null,
+            ...itemContentSnapshot(item),
+            status: item.status || '',
+            baseContent: itemContentSnapshot(item),
+            baseRevision: Number(item.revision) || 0,
+            baseUpdatedAt: item.updated_at || '',
+            requestId: '',
+            conflict: null,
+        }, item.id, item);
+        baseStatus = item.status || '';
+    }
+
+    function resetDraftState() {
+        state.editingId = null;
+        state.editDraft = emptyDraft();
+        clearDraftSnapshot();
+        baseStatus = '';
+    }
+
+    // Status gehoert inhaltlich zum Item, ist aber noch nicht Teil von
+    // ITEM_CONTENT_FIELDS (folgt in #3b). Bis dahin haelt der Editor die
+    // Status-Aenderung selbst als "ungespeichert" fest.
+    function hasUnsavedChanges() {
+        const draft = activeDraft();
+        if (!draft) return false;
+        return itemDraftHasLocalChanges(draft) || String(currentStatus) !== String(baseStatus);
+    }
+
+    function clearBanners() {
+        itemEditorBody?.querySelectorAll('.item-conflict').forEach(node => node.remove());
+    }
+
+    function buildBanner(text, actions) {
+        const banner = document.createElement('div');
+        banner.className = 'item-conflict';
+        const hint = document.createElement('p');
+        hint.className = 'item-conflict-hint';
+        hint.textContent = text;
+        const row = document.createElement('div');
+        row.className = 'item-conflict-actions';
+        actions.forEach(({ label, className, onClick }) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = className;
+            button.textContent = label;
+            button.addEventListener('click', onClick);
+            row.appendChild(button);
+        });
+        banner.append(hint, row);
+        itemEditorBody?.prepend(banner);
+    }
+
+    function serverSummary(conflict) {
+        const server = conflict?.server || {};
+        const parts = [server.name, server.due_date, server.due_time, server.content]
+            .map(value => String(value ?? '').trim())
+            .filter(Boolean);
+        return `${t('ui.content_conflict_server')}: ${parts.join(' · ')}`;
+    }
+
+    function renderConflictBanner() {
+        clearBanners();
+        if (!currentItem || isCreating) return;
+        const id = currentItem.id;
+
+        if (currentItem.server_deleted === 1) {
+            buildBanner(t('msg.server_delete_detected'), [
+                {
+                    label: t('ui.accept_deletion'),
+                    className: 'btn-clear',
+                    onClick: () => {
+                        discardDeletedDraft(id);
+                        hideEditor();
+                    },
+                },
+                {
+                    label: t('ui.restore_as_new'),
+                    className: 'btn-add',
+                    onClick: async () => {
+                        await restoreDeletedDraft(id);
+                        hideEditor();
+                    },
+                },
+            ]);
+            return;
+        }
+
+        const conflict = activeDraft()?.conflict;
+        if (!conflict) return;
+
+        buildBanner(`${t('ui.content_conflict_hint')} ${serverSummary(conflict)}`, [
+            {
+                label: t('ui.accept_server_version'),
+                className: 'btn-clear',
+                onClick: () => {
+                    acceptServerItemContent(id);
+                    const canonical = getItemById(id);
+                    if (canonical) {
+                        currentItem = canonical;
+                        fillInputsFromItem(canonical);
+                        setStatus(canonical.status || '');
+                        beginDraft(canonical);
+                    }
+                    clearBanners();
+                },
+            },
+            {
+                label: t('ui.keep_local_version'),
+                className: 'btn-add',
+                onClick: async () => {
+                    await keepLocalItemContent(id);
+                    afterSaveAttempt(id);
+                },
+            },
+        ]);
+    }
+
+    function afterSaveAttempt(id) {
+        const canonical = getItemById(id);
+        if (canonical) currentItem = canonical;
+        if (state.editingId === null && currentItem && currentItem.server_deleted !== 1) {
+            // Erfolgreich gespeichert: Editor bleibt offen, also frischen
+            // Draft auf der kanonischen Server-Fassung aufsetzen.
+            beginDraft(currentItem);
+            setStatus(currentItem.status || '');
+        }
+        renderConflictBanner();
+    }
+
+    async function saveEdit() {
+        if (!currentItem || isCreating) return;
+        const id = currentItem.id;
+        syncDraftFromInputs();
+        await handleEditSave(id);
+        afterSaveAttempt(id);
     }
 
     function hideEditor() {
         currentItem = null;
         currentStatus = '';
+        baseStatus = '';
         isCreating = false;
+        clearBanners();
         if (itemCreateBtn) {
             itemCreateBtn.hidden = true;
             itemCreateBtn.disabled = false;
+        }
+        if (itemSaveBtn) {
+            itemSaveBtn.hidden = true;
+            itemSaveBtn.disabled = false;
         }
         if (itemCategorySection) itemCategorySection.hidden = true;
         if (itemStatusSection) itemStatusSection.hidden = false;
@@ -102,7 +271,7 @@ export function createItemEditorController(deps) {
         appEl?.classList.remove('item-editor-open');
     }
 
-    async function createTodo() {
+    async function createItem() {
         if (!isCreating) return;
         const name = itemTitleInput?.value.trim() || '';
         if (name === '') {
@@ -128,6 +297,7 @@ export function createItemEditorController(deps) {
         try {
             await api('add', { method: 'POST', body });
             invalidateCategoryCache(categoryId);
+            state.editDraft = emptyDraft();
             hideEditor();
             if (sourceScreen === 'journal') {
                 await refreshOpenJournal?.();
@@ -153,6 +323,19 @@ export function createItemEditorController(deps) {
         sourceScreen = state.screen;
         currentItem = null;
         currentStatus = '';
+        baseStatus = '';
+        clearBanners();
+
+        // Create-Flow hat keine Server-Basis: kein Snapshot, keine Persistenz.
+        state.editingId = null;
+        state.editDraft = {
+            ...emptyDraft(),
+            categoryId: Number(selectedCategory.id),
+            due_date: dueDate,
+            status: '',
+            baseContent: {},
+            baseRevision: 0,
+        };
 
         if (itemCategoryInput) {
             itemCategoryInput.replaceChildren(...dueCategories.map(category => new Option(category.name, String(category.id))));
@@ -165,6 +348,7 @@ export function createItemEditorController(deps) {
         if (itemNoteInput) itemNoteInput.value = '';
         if (itemCategorySection) itemCategorySection.hidden = false;
         if (itemStatusSection) itemStatusSection.hidden = true;
+        if (itemSaveBtn) itemSaveBtn.hidden = true;
         if (itemCreateBtn) {
             itemCreateBtn.hidden = false;
             itemCreateBtn.disabled = false;
@@ -177,48 +361,44 @@ export function createItemEditorController(deps) {
     function openItemEdit(item) {
         isCreating = false;
         currentItem = item;
-        currentStatus = item.status || '';
+        clearBanners();
+        beginDraft(item);
 
         // Register handlers fresh via onclick to avoid stacking.
         document.querySelectorAll('#itemStatusSelector .item-status-btn').forEach(btn => {
-            btn.onclick = async () => {
-                const nextStatus = btn.dataset.status;
-                if (nextStatus === currentStatus) {
-                    return;
-                }
-
-                await handleStatus(currentItem.id, currentStatus, nextStatus);
-                const canonical = state.items.find(item => Number(item.id) === Number(currentItem.id));
-                if (canonical) Object.assign(currentItem, canonical);
-                setStatus(currentItem.status || '');
+            if (btn.id === 'itemDoneBtn') return;
+            btn.onclick = () => {
+                setStatus(btn.dataset.status || '');
+                syncDraftFromInputs();
             };
         });
 
         const doneBtn = document.getElementById('itemDoneBtn');
         if (doneBtn) {
             doneBtn.onclick = async () => {
-                await save();
-                await handleToggle(item.id, item.done === 1 ? 0 : 1);
-                const canonical = state.items.find(entry => Number(entry.id) === Number(item.id));
-                if (canonical) {
-                    Object.assign(currentItem, canonical);
-                    Object.assign(item, canonical);
-                }
-                doneBtn.classList.toggle('is-active', currentItem.done === 1);
+                const id = currentItem.id;
+                await saveEdit();
+                const canonical = getItemById(id) || currentItem;
+                await handleToggle(id, canonical.done === 1 ? 0 : 1);
+                afterSaveAttempt(id);
+                const updated = getItemById(id);
+                if (updated) Object.assign(item, updated);
+                doneBtn.classList.toggle('is-active', (updated || canonical).done === 1);
             };
             doneBtn.classList.toggle('is-active', item.done === 1);
         }
 
-        if (itemTitleInput) itemTitleInput.value = item.name || '';
-        if (itemDateInput) itemDateInput.value = item.due_date || '';
-        if (itemTimeInput) itemTimeInput.value = item.due_time || '';
-        if (itemPriorityInput) itemPriorityInput.value = item.priority || '';
-        if (itemNoteInput) itemNoteInput.value = item.content || '';
+        fillInputsFromItem(item);
         if (itemCategorySection) itemCategorySection.hidden = true;
         if (itemStatusSection) itemStatusSection.hidden = false;
         if (itemCreateBtn) itemCreateBtn.hidden = true;
+        if (itemSaveBtn) {
+            itemSaveBtn.hidden = false;
+            itemSaveBtn.disabled = false;
+        }
 
-        setStatus(currentStatus);
+        setStatus(item.status || '');
+        renderConflictBanner();
 
         if (itemEditorEl) itemEditorEl.hidden = false;
         appEl?.classList.add('item-editor-open');
@@ -227,18 +407,36 @@ export function createItemEditorController(deps) {
 
     async function closeItemEditor() {
         if (isCreating) {
+            // Create-Draft ist reiner Speicherzustand — den persistierten
+            // Inline-Entwurf eines anderen Items darf er nicht mitloeschen.
+            state.editDraft = emptyDraft();
             hideEditor();
             return;
         }
-        try {
-            await save();
-        } catch {
-            // Fehler beim Speichern ignorieren, Editor trotzdem schließen
+        if (currentItem) {
+            syncDraftFromInputs();
+            if (hasUnsavedChanges() && !window.confirm(t('todo.discard_changes'))) return;
+            resetDraftState();
+            renderItems();
         }
         hideEditor();
     }
 
-    itemCreateBtn?.addEventListener('click', () => void createTodo());
+    [itemTitleInput, itemDateInput, itemTimeInput, itemPriorityInput, itemNoteInput].forEach(input => {
+        input?.addEventListener('input', () => syncDraftFromInputs());
+        input?.addEventListener('change', () => syncDraftFromInputs());
+    });
+    itemCreateBtn?.addEventListener('click', () => void createItem());
+    itemSaveBtn?.addEventListener('click', async () => {
+        if (!itemSaveBtn.disabled) {
+            itemSaveBtn.disabled = true;
+            try {
+                await saveEdit();
+            } finally {
+                itemSaveBtn.disabled = false;
+            }
+        }
+    });
 
     return { openItemCreate, openItemEdit, closeItemEditor };
 }

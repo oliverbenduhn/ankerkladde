@@ -37,7 +37,11 @@ test('normal todo list renders and edits a due time', async ({ page }) => {
   await expect(page.locator('#itemPriorityInput')).toHaveValue('2');
   await page.locator('#itemTimeInput').fill('09:45');
   await page.locator('#itemPriorityInput').selectOption('3');
+  await page.locator('#itemStatusSelector .item-status-btn[data-status="waiting"]').click();
+  await page.locator('#itemSaveBtn').click();
+  await expect(page.locator('#message')).toContainText('gespeichert');
   await page.locator('#itemEditorBack').click();
+  await expect(page.locator('#itemEditor')).toBeHidden();
   await expect(card).toContainText('09:45');
   await expect(card).toContainText('!3');
 
@@ -45,4 +49,6 @@ test('normal todo list renders and edits a due time', async ({ page }) => {
   const saved = list.items.find(item => item.name === name);
   expect(saved.due_time).toBe('09:45');
   expect(saved.priority).toBe('3');
+  // Der Status geht ueber denselben Save-Pfad wie der Inhalt.
+  expect(saved.status).toBe('waiting');
 });

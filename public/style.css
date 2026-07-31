@@ -1374,6 +1374,28 @@ button, input { font: inherit; }
     }
 }
 
+/* Konflikt-/Loeschbanner im Vollbild-Item-Editor */
+.item-conflict {
+    display: grid;
+    gap: 0.75rem;
+    width: 100%;
+    padding: 0.85rem;
+    border: 1px solid var(--color-warning, #b7791f);
+    border-radius: 0.75rem;
+    background: color-mix(in srgb, var(--color-warning, #b7791f) 10%, transparent);
+}
+
+.item-conflict-hint {
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+.item-conflict-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
 .attachment-content-conflict p {
     margin: 0;
 }

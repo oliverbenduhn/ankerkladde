@@ -419,6 +419,7 @@ $clientWebSocketUrl = is_string($clientWebSocketUrl) ? trim($clientWebSocketUrl)
             <button type="button" id="itemEditorBack" class="btn-note-back" aria-label="<?= t('todo.back') ?>"><?= icon('arrow-left') ?></button>
             <input type="text" id="itemTitleInput" class="note-title-input" placeholder="<?= t('todo.title_placeholder') ?>" aria-label="<?= t('todo.title_placeholder') ?>" maxlength="120" autocomplete="off">
             <button type="button" id="itemCreateBtn" class="item-create-btn" hidden><?= t('todo.create') ?></button>
+            <button type="button" id="itemSaveBtn" class="item-create-btn" hidden><?= t('todo.save') ?></button>
         </div>
         <div class="item-editor-body" id="itemEditorBody">
             <div class="item-editor-section" id="itemCategorySection" hidden>

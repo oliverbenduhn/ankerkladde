@@ -352,12 +352,18 @@ export function createAppRuntime(deps) {
     });
 
     itemEditorController = createItemEditorController({
+        acceptServerItemContent: id => itemsActionsController.acceptServerItemContent(id),
+        discardDeletedDraft: id => { itemsActionsController.discardDeletedDraft(id); },
+        getItemById,
         getVisibleCategories,
-        invalidateCategoryCache,
-        loadItems,
-        handleStatus: async (id, current, target) => itemsActionsController.handleStatus(id, current, target),
+        handleEditSave: async id => { await itemsActionsController.handleEditSave(id); },
         handleToggle: async (id, done) => { await itemsActionsController.handleToggle(id, done); },
+        invalidateCategoryCache,
+        keepLocalItemContent: async id => { await itemsActionsController.keepLocalItemContent(id); },
+        loadItems,
         refreshOpenJournal: () => journalController?.reloadAgenda?.(),
+        renderItems,
+        restoreDeletedDraft: async id => { await itemsActionsController.restoreDeletedDraft(id); },
         setMessage,
     });
 
