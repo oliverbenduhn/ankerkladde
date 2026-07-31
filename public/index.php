@@ -62,6 +62,51 @@ $initialLayout = in_array($rawLayout, $validLayouts, true) ? $rawLayout : 'list'
 // 'today' ist der Legacy-Alias, den readInitialRouteFromUrl() ebenfalls kennt.
 $requestedScreen = $_GET['screen'] ?? $_GET['view'] ?? '';
 $startsInJournal = is_string($requestedScreen) && ($requestedScreen === 'journal' || $requestedScreen === 'today');
+
+// Agenda-Items schon serverseitig rendern. Kaemen sie erst per fetch nach, waechst
+// die Agenda-Card beim Befuellen und schiebt die Notiz-Card darunter nach unten.
+$agendaToday = (new DateTimeImmutable('now', new DateTimeZone('Europe/Berlin')))->format('Y-m-d');
+$requestedDate = $_GET['date'] ?? '';
+$agendaDate = is_string($requestedDate) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $requestedDate) === 1
+    ? $requestedDate
+    : $agendaToday;
+$agendaRows = $startsInJournal ? fetchAgendaRows($db, $userId, $agendaDate, $agendaToday) : [];
+
+// Muss buildAgendaItem() in public/js/today-view.js exakt entsprechen: renderAgenda()
+// ersetzt diese Knoten spaeter, und jede Abweichung waere genau der Sprung, den das
+// Server-Rendering verhindern soll.
+$renderAgendaItem = static function (array $row): string {
+    $group = (string) $row['agenda_group'];
+    $overdue = $group === AGENDA_GROUP_OVERDUE;
+    $name = (string) $row['name'];
+    $categoryName = (string) $row['category_name'];
+    $esc = static fn (string $value): string => htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
+
+    $meta = '<span class="agenda-category-label">' . $esc($categoryName) . '</span>';
+    if ($group === AGENDA_GROUP_SCHEDULED) {
+        $meta .= '<span class="agenda-time-label">'
+            . $esc(t('today.at_time', ['time' => (string) $row['due_time']])) . '</span>';
+    } elseif ($overdue) {
+        $parts = explode('-', (string) $row['due_date']);
+        $day = count($parts) === 3 ? $parts[2] . '.' . $parts[1] . '.' : (string) $row['due_date'];
+        $meta .= '<span class="agenda-overdue-label">'
+            . $esc(t('today.since', ['date' => $day])) . '</span>';
+    }
+
+    return '<li class="agenda-item' . ($overdue ? ' is-overdue' : '') . '"'
+        . ' data-item-id="' . $esc((string) $row['id']) . '"'
+        . ' data-agenda-group="' . $esc($group) . '">'
+        . '<button type="button" class="agenda-item-checkbox" aria-label="'
+        . $esc(t('agenda.toggle', ['name' => $name])) . '">'
+        . '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+        . '</button>'
+        . '<button type="button" class="agenda-item-body" aria-label="'
+        . $esc($name . ' in ' . $categoryName . ' öffnen') . '">'
+        . '<span class="agenda-item-name">' . $esc($name) . '</span>'
+        . '<span class="agenda-item-meta">' . $meta . '</span>'
+        . '</button></li>';
+};
+
 $clientWebSocketUrl = getenv('ANKERKLADDE_WS_CLIENT_URL');
 $clientWebSocketUrl = is_string($clientWebSocketUrl) ? trim($clientWebSocketUrl) : '';
 ?>
@@ -226,11 +271,15 @@ $clientWebSocketUrl = is_string($clientWebSocketUrl) ? trim($clientWebSocketUrl)
                 <div id="journalAgendaBody" class="journal-agenda-columns">
                     <section class="journal-agenda-column" aria-labelledby="journalAnytimeTitle">
                         <h4 id="journalAnytimeTitle"><?= t('journal.without_time') ?></h4>
-                        <ul id="journalAnytimeList"></ul>
+                        <ul id="journalAnytimeList"><?php foreach ($agendaRows as $row) {
+                            if ($row['agenda_group'] !== AGENDA_GROUP_SCHEDULED) echo $renderAgendaItem($row);
+                        } ?></ul>
                     </section>
                     <section class="journal-agenda-column" aria-labelledby="journalScheduledTitle">
                         <h4 id="journalScheduledTitle"><?= t('today.section.scheduled') ?></h4>
-                        <ul id="journalScheduledList"></ul>
+                        <ul id="journalScheduledList"><?php foreach ($agendaRows as $row) {
+                            if ($row['agenda_group'] === AGENDA_GROUP_SCHEDULED) echo $renderAgendaItem($row);
+                        } ?></ul>
                     </section>
                 </div>
                 <?php // Der Collapse-Zustand liegt nur in localStorage, der Server kennt ihn
@@ -238,7 +287,11 @@ $clientWebSocketUrl = is_string($clientWebSocketUrl) ? trim($clientWebSocketUrl)
                       // Zwei-Spalten-Raster und journal.js klappt es Hunderte Millisekunden
                       // spaeter auf eine Spalte um — sichtbarer Sprung. Gleiches Muster wie
                       // renderThemeBootScript(): Preference vor dem ersten Paint anwenden. ?>
-                <script>(function(){try{var raw=localStorage.getItem("ankerkladde_local_prefs");var p=raw?JSON.parse(raw):{};var collapsed=p.agenda_collapsed?"true":"false";var el=document.getElementById("journalAgendaBody");if(el)el.dataset.collapsed=collapsed;var btn=document.getElementById("journalAgendaCollapseBtn");if(btn)btn.setAttribute("aria-expanded",collapsed==="true"?"false":"true");}catch(e){}})();</script>
+                <?php // Der eingeklappte Zustand begrenzt zusaetzlich auf COLLAPSED_SCHEDULED_LIMIT
+                      // Items je Spalte (journal.js). Ohne diese Begrenzung wuerde renderAgenda()
+                      // die ueberzaehligen serverseitig gerenderten Items spaeter entfernen — und
+                      // genau dabei springt das Layout. ?>
+                <script>(function(){try{var raw=localStorage.getItem("ankerkladde_local_prefs");var p=raw?JSON.parse(raw):{};var collapsed=!!p.agenda_collapsed;var body=document.getElementById("journalAgendaBody");if(body)body.dataset.collapsed=collapsed?"true":"false";var btn=document.getElementById("journalAgendaCollapseBtn");var sched=document.getElementById("journalScheduledList");var any=document.getElementById("journalAnytimeList");var total=(sched?sched.children.length:0)+(any?any.children.length:0);if(btn){btn.setAttribute("aria-expanded",collapsed?"false":"true");btn.hidden=total===0;}if(collapsed){var LIMIT=2;var trim=function(list){if(!list)return 0;while(list.children.length>LIMIT)list.removeChild(list.lastElementChild);return list.children.length;};var visibleScheduled=trim(sched);var anyCount=any?any.children.length:0;trim(any);var col=any&&any.closest(".journal-agenda-column");if(col)col.dataset.suppressed=(visibleScheduled>0&&anyCount>0)?"true":"false";}}catch(e){}})();</script>
             </section>
             <section class="parchment-card journal-note-card" aria-labelledby="journalNoteTitle">
                 <header class="journal-card-header">

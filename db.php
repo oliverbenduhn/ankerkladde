@@ -721,3 +721,93 @@ function getDatabase(): PDO
 
     return $db;
 }
+
+/**
+ * Agenda-Zeilen fuer einen Tag (Tagesansicht).
+ *
+ * Einzige Quelle fuer die Agenda-Auswahl: die API liefert sie als JSON aus,
+ * index.php rendert sie fuer den ersten Paint direkt ins HTML. Laegen die
+ * Kriterien doppelt vor, wuerden Server-Markup und spaeterer JS-Render
+ * auseinanderlaufen und die Tagesansicht wuerde beim Boot springen.
+ *
+ * Liefert die Rohzeilen inklusive 'agenda_group'; das Formatieren fuer die API
+ * bleibt beim Aufrufer.
+ */
+function fetchAgendaRows(PDO $db, int $userId, string $date, string $today): array
+{
+    $dateCondition = $date === $today ? 'items.due_date <= :date' : 'items.due_date = :date';
+    // Timed events verschwinden automatisch, sobald ihre Uhrzeit vorbei ist.
+    // Nur fuer "heute" sinnvoll, sonst verloere man zukuenftige Termine.
+    $timeCondition = '';
+    if ($date === $today) {
+        $timeCondition = " AND NOT (items.due_date = :date AND items.due_time != '' AND items.due_time < :now_hm)";
+    }
+
+    $stmt = $db->prepare(
+        'SELECT
+            items.id,
+            items.category_id,
+            categories.name AS category_name,
+            categories.type AS category_type,
+            items.name,
+            items.barcode,
+            items.quantity,
+            items.due_date,
+            items.due_time,
+            items.is_pinned,
+            items.status,
+            items.content,
+            items.done,
+            items.sort_order,
+            items.created_at,
+            items.updated_at,
+            items.revision,
+            attachments.id AS attachment_id,
+            attachments.storage_section AS attachment_storage_section,
+            attachments.stored_name AS attachment_stored_name,
+            attachments.original_name AS attachment_original_name,
+            attachments.media_type AS attachment_media_type,
+            attachments.size_bytes AS attachment_size_bytes,
+            attachments.updated_at AS attachment_updated_at,
+            CASE WHEN attachments.id IS NULL THEN 0 ELSE 1 END AS has_attachment,
+            CASE WHEN length(items.sketch_json) > 0 THEN 1 ELSE 0 END AS has_sketch
+         FROM items
+         INNER JOIN categories ON categories.id = items.category_id
+         LEFT JOIN attachments ON attachments.item_id = items.id
+         WHERE items.user_id = :user_id
+           AND categories.user_id = :user_id
+           AND categories.type = :category_type
+           AND items.done = 0
+           AND items.due_date != \'\'
+           AND ' . $dateCondition . $timeCondition . '
+         ORDER BY
+            CASE
+                WHEN items.due_date < :date THEN 0
+                WHEN items.due_time != \'\' THEN 1
+                ELSE 2
+            END ASC,
+            CASE WHEN items.due_date < :date THEN items.due_date ELSE NULL END ASC,
+            CASE WHEN items.due_date = :date AND items.due_time != \'\' THEN items.due_time ELSE NULL END ASC,
+            CASE WHEN items.due_date = :date AND items.due_time = \'\' THEN items.sort_order ELSE NULL END ASC,
+            categories.sort_order ASC,
+            items.sort_order ASC,
+            items.id ASC'
+    );
+
+    $params = [
+        ':user_id' => $userId,
+        ':category_type' => 'list_due_date',
+        ':date' => $date,
+    ];
+    if ($timeCondition !== '') {
+        $params[':now_hm'] = (new DateTimeImmutable('now', new DateTimeZone('Europe/Berlin')))->format('H:i');
+    }
+    $stmt->execute($params);
+
+    return array_map(static function (array $row) use ($date): array {
+        $row['agenda_group'] = $row['due_date'] < $date
+            ? AGENDA_GROUP_OVERDUE
+            : (($row['due_time'] ?? '') !== '' ? AGENDA_GROUP_SCHEDULED : AGENDA_GROUP_ANYTIME_TODAY);
+        return $row;
+    }, $stmt->fetchAll());
+}
