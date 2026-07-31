@@ -6,6 +6,7 @@ import {
     agendaAddBtn,
     appEl,
     itemInput,
+    manualAddBtn,
     journalAgendaBody,
     journalAgendaCollapseBtn,
     journalBackBtn,
@@ -81,6 +82,7 @@ export function createJournalController(deps) {
         navigation,
         openSourceItem,
         renderCategoryTabs,
+        resetItemForm,
         setMessage,
         updateHeaders,
     } = deps;
@@ -98,6 +100,32 @@ export function createJournalController(deps) {
     let applyingContent = false;
     let editorGeneration = 0;
     let returnCategoryId = null;
+
+    function setQuickAddOpen(open, { reset = false } = {}) {
+        appEl?.classList.toggle('quick-add-open', open);
+        if (agendaAddBtn) {
+            agendaAddBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+            agendaAddBtn.setAttribute('aria-label', t(open ? 'ui.cancel' : 'item.add'));
+            const addIcon = agendaAddBtn.querySelector('.agenda-add-icon');
+            const cancelIcon = agendaAddBtn.querySelector('.agenda-cancel-icon');
+            if (addIcon instanceof HTMLElement) addIcon.hidden = open;
+            if (cancelIcon instanceof HTMLElement) cancelIcon.hidden = !open;
+        }
+        if (open) {
+            if (manualAddBtn) manualAddBtn.hidden = false;
+            itemInput?.focus();
+        } else if (reset) {
+            if (manualAddBtn) manualAddBtn.hidden = true;
+            resetItemForm?.();
+            itemInput?.dispatchEvent(new Event('input', { bubbles: true }));
+        } else if (manualAddBtn) {
+            manualAddBtn.hidden = true;
+        }
+    }
+
+    function closeQuickAdd(options = {}) {
+        setQuickAddOpen(false, options);
+    }
     let lastAgendaItems = [];
     let agendaCollapsed = Boolean(readLocalPrefs().agenda_collapsed);
     // ponytail: data-collapsed synchron beim Boot setzen, damit der erste
@@ -657,6 +685,7 @@ export function createJournalController(deps) {
 
     async function closeJournal() {
         const targetCategoryId = returnCategoryId;
+        closeQuickAdd({ reset: true });
         await destroyEditor();
         state.journalDate = null;
         state.journalItemId = null;
@@ -705,8 +734,14 @@ export function createJournalController(deps) {
         else journalDatePicker?.focus();
     });
     agendaAddBtn?.addEventListener('click', () => {
-        appEl?.classList.toggle('quick-add-open');
-        if (appEl?.classList.contains('quick-add-open')) itemInput?.focus();
+        const isOpen = appEl?.classList.contains('quick-add-open') === true;
+        setQuickAddOpen(!isOpen, { reset: isOpen });
+    });
+    itemInput?.addEventListener('keydown', event => {
+        if (event.key !== 'Escape' || !appEl?.classList.contains('quick-add-open')) return;
+        event.preventDefault();
+        closeQuickAdd({ reset: true });
+        agendaAddBtn?.focus();
     });
     journalFormatBtn?.addEventListener('click', () => setToolbarOpen(journalToolbar?.hidden !== false));
     journalToolbar?.addEventListener('click', handleToolbarClick);
@@ -754,5 +789,13 @@ export function createJournalController(deps) {
         if (dirty && !journalDraft?.conflict) void saveCurrentContent();
     });
 
-    return { closeJournal, openDay, refreshCurrentDay, reloadAgenda, setToggleHandler };
+    return {
+        closeJournal,
+        closeQuickAdd,
+        getReturnCategoryId: () => returnCategoryId,
+        openDay,
+        refreshCurrentDay,
+        reloadAgenda,
+        setToggleHandler,
+    };
 }

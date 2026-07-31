@@ -90,6 +90,10 @@ export function createAddActions(deps) {
     // appropriate due-date category, then signal the caller that nothing else needs
     // to switch.
     async function quickAddForJournal(input, date) {
+        if (input.trim() === '') {
+            itemInput?.focus();
+            return null;
+        }
         const dueCategories = getVisibleCategories().filter(entry => entry.type === 'list_due_date');
         if (dueCategories.length === 0) {
             setMessage(t('quick_add.no_due_category'), true);
@@ -115,7 +119,6 @@ export function createAddActions(deps) {
             if (typeof deps.afterJournalQuickAdd === 'function') {
                 await deps.afterJournalQuickAdd(payload);
             }
-            document.getElementById('app')?.classList.remove('quick-add-open');
             setMessage(t('msg.item_added'));
             return payload;
         } catch (error) {
