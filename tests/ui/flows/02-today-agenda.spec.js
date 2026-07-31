@@ -30,10 +30,13 @@ test.describe('FLOW 2 — Tagesansicht (Heute / Agenda)', () => {
     await expect(page).toHaveURL(/screen=journal/);
     // UX-Fund: Agenda ist beim Aufruf eingeklappt → User muss "Mehr anzeigen" klicken
     const agenda = page.locator('#journalAgendaBody');
-    if (await agenda.getAttribute('data-collapsed') === 'true') {
-      await page.locator('#journalAgendaCollapseBtn').click();
-      await expect(agenda).toHaveAttribute('data-collapsed', 'false');
-    }
+    await expect(agenda).toHaveAttribute('data-collapsed', 'false');
+    await page.locator('#journalAgendaCollapseBtn').click();
+    await expect(agenda).toHaveAttribute('data-collapsed', 'true');
+    await page.reload();
+    await expect(page.locator('#journalAgendaBody')).toHaveAttribute('data-collapsed', 'true');
+    await page.locator('#journalAgendaCollapseBtn').click();
+    await expect(agenda).toHaveAttribute('data-collapsed', 'false');
     await snap(page, testInfo, '2-journal-open');
 
     // Item muss in einer der beiden Agenda-Spalten auftauchen (Anytime oder Scheduled)

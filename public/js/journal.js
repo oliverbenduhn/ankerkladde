@@ -1,7 +1,7 @@
 import { api, normalizeItem } from './api.js';
 import { buildAgendaItem, loadAgenda } from './today-view.js';
 import { buildNoteConflictVersion } from './conflict-ui.js';
-import { NOTE_SAVE_DEBOUNCE_MS, state } from './state.js';
+import { NOTE_SAVE_DEBOUNCE_MS, readLocalPrefs, saveLocalPrefs, state } from './state.js';
 import {
     agendaAddBtn,
     appEl,
@@ -99,8 +99,7 @@ export function createJournalController(deps) {
     let editorGeneration = 0;
     let returnCategoryId = null;
     let lastAgendaItems = [];
-    // ponytail: Default collapsed = true entspricht dem Parchment-Original.
-    let agendaCollapsed = true;
+    let agendaCollapsed = Boolean(readLocalPrefs().agenda_collapsed);
 
     function waitForTipTap() {
         return new Promise(resolve => {
@@ -702,6 +701,7 @@ export function createJournalController(deps) {
     journalToolbar?.addEventListener('click', handleToolbarClick);
     journalAgendaCollapseBtn?.addEventListener('click', () => {
         agendaCollapsed = !agendaCollapsed;
+        saveLocalPrefs({ agenda_collapsed: agendaCollapsed });
         renderAgenda(lastAgendaItems);
     });
     const handleSketchOpen = () => {

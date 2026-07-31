@@ -33,6 +33,7 @@ export const DEFAULT_PREFERENCES = {
     light_theme: 'hafenblau',
     dark_theme: 'nachtwache',
     layout: 'list',
+    agenda_collapsed: false,
 };
 
 // Preferences, die gerätespezifisch in localStorage gespeichert werden
@@ -47,6 +48,7 @@ export const LOCAL_PREF_KEYS = [
     'light_theme',
     'dark_theme',
     'layout',
+    'agenda_collapsed',
 ];
 const LOCAL_PREFS_STORAGE_KEY = 'ankerkladde_local_prefs';
 
@@ -173,6 +175,7 @@ export function normalizePreferences(preferences) {
             if (raw === 'liste') return 'list';
             return ['list', 'grid', 'kanban'].includes(raw) ? raw : 'list';
         })(),
+        agenda_collapsed: Boolean(preferences?.agenda_collapsed),
     };
 }
 
