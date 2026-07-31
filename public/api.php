@@ -105,6 +105,38 @@ function requireMethod(string $expectedMethod): void
     }
 }
 
+// Read-or-insert-Bloecke brauchen BEGIN IMMEDIATE: die Schreibsperre muss schon
+// vor dem SELECT stehen, sonst koennen zwei parallele Erstanlagen desselben Tages
+// beide "kein Item" sehen. PDO::beginTransaction() setzt aber nur ein deferred
+// BEGIN und kennt per exec() gestartete Transaktionen nicht — commit()/rollBack()
+// werfen dann "There is no active transaction". Darum die gesamte Lebensdauer
+// dieser Transaktionen ueber exec() fahren, nie gemischt mit PDO-Methoden.
+function beginImmediateTransaction(PDO $db): void
+{
+    $db->exec('BEGIN IMMEDIATE');
+}
+
+function commitImmediateTransaction(PDO $db): void
+{
+    $db->exec('COMMIT');
+}
+
+function rollBackImmediateTransaction(PDO $db): void
+{
+    $db->exec('ROLLBACK');
+}
+
+// Fuer catch-Bloecke: PDO::inTransaction() sieht diese Transaktionen nicht, also
+// den Rollback versuchen und ein "no transaction" schlucken.
+function rollBackImmediateTransactionIfActive(PDO $db): void
+{
+    try {
+        $db->exec('ROLLBACK');
+    } catch (PDOException $error) {
+        // Transaktion war bereits beendet — nichts zurueckzurollen.
+    }
+}
+
 // ponytail: replaces the 4-line POST auth dance (method check + body read +
 // CSRF for browser sessions). API key requests still skip CSRF as before.
 function requireWriteRequest(): array
@@ -2358,14 +2390,14 @@ try {
 
             // Acquire the SQLite write lock before the read-or-insert decision so
             // concurrent first saves for the same day cannot both observe no item.
-            $db->exec('BEGIN IMMEDIATE');
+            beginImmediateTransaction($db);
             try {
                 $category = ensureDailyNotesCategory($db, $userId);
                 $item = loadJournalItem($db, $userId, (int) $category['id'], $date);
 
                 if ($item === null) {
                     if ($expectedRevision !== 0) {
-                        $db->rollBack();
+                        rollBackImmediateTransaction($db);
                         respond(404, ['error' => t('error.item_not_found'), 'error_key' => 'error.item_not_found']);
                     }
                     $sortOrder = prependItemSortOrder($db, $userId, (int) $category['id']);
@@ -2388,7 +2420,7 @@ try {
                     $currentRevision = (int) $item['revision'];
                     $currentContent = (string) $item['content'];
                     if ($currentContent === $content) {
-                        $db->commit();
+                        commitImmediateTransaction($db);
                         respond(200, [
                             'message' => 'Journal gespeichert.',
                             'item' => formatJournalItem($item),
@@ -2398,7 +2430,7 @@ try {
                     $componentUnchanged = $baseContentProvided && $currentContent === $baseContent;
                     $parallelFirstCreate = $expectedRevision === 0 && $currentContent === '';
                     if (!$revisionMatches && !$componentUnchanged && !$parallelFirstCreate) {
-                        $db->rollBack();
+                        rollBackImmediateTransaction($db);
                         respond(409, [
                             'error' => t('error.item_revision_conflict'),
                             'error_key' => 'error.item_revision_conflict',
@@ -2423,7 +2455,7 @@ try {
                         ':expected_revision' => $currentRevision,
                     ]);
                     if ($stmt->rowCount() !== 1) {
-                        $db->rollBack();
+                        rollBackImmediateTransaction($db);
                         $current = loadJournalItem($db, $userId, (int) $category['id'], $date);
                         respond(409, [
                             'error' => t('error.item_revision_conflict'),
@@ -2435,11 +2467,9 @@ try {
                     }
                 }
 
-                $db->commit();
+                commitImmediateTransaction($db);
             } catch (Throwable $error) {
-                if ($db->inTransaction()) {
-                    $db->rollBack();
-                }
+                rollBackImmediateTransactionIfActive($db);
                 throw $error;
             }
 
@@ -2706,10 +2736,10 @@ try {
                         @generateImageThumbnailFile($targetPath, getAttachmentThumbnailAbsolutePath($newAttachment));
                     }
 
-                    $db->exec('BEGIN IMMEDIATE');
+                    beginImmediateTransaction($db);
                     $currentItem = fetchItemForUser($db, $userId, $replaceItemId);
                     if ($currentItem === null || (int) $currentItem['category_id'] !== (int) $category['id']) {
-                        $db->rollBack();
+                        rollBackImmediateTransaction($db);
                         deleteAttachmentStorageFile($newAttachment);
                         respond(404, ['error' => t('error.item_not_found'), 'error_key' => 'error.item_not_found']);
                     }
@@ -2733,7 +2763,7 @@ try {
                         ':expected_revision' => $expectedRevision,
                     ]);
                     if ($updated->rowCount() !== 1) {
-                        $db->rollBack();
+                        rollBackImmediateTransaction($db);
                         deleteAttachmentStorageFile($newAttachment);
                         $currentItem = fetchItemForUser($db, $userId, $replaceItemId);
                         if ($currentItem === null) {
@@ -2768,7 +2798,7 @@ try {
                     ]);
 
                     $canonicalItem = fetchItemForUser($db, $userId, $replaceItemId);
-                    $db->commit();
+                    commitImmediateTransaction($db);
 
                     if ($oldAttachment !== null) {
                         try {
@@ -2778,9 +2808,7 @@ try {
                         }
                     }
                 } catch (Throwable $exception) {
-                    if ($db->inTransaction()) {
-                        $db->rollBack();
-                    }
+                    rollBackImmediateTransactionIfActive($db);
                     if ($storedFileMoved) {
                         try {
                             deleteAttachmentStorageFile($newAttachment);
@@ -3901,17 +3929,17 @@ try {
             // first sketch save creates the daily item even without text,
             // and concurrent first saves for the same day cannot both observe
             // a missing row.
-            $db->exec('BEGIN IMMEDIATE');
+            beginImmediateTransaction($db);
             try {
                 $category = ensureDailyNotesCategory($db, $userId);
                 $item = loadJournalItem($db, $userId, (int) $category['id'], $date);
 
                 if ($item === null && $normalized === '') {
                     if ($expectedRevision !== 0) {
-                        $db->rollBack();
+                        rollBackImmediateTransaction($db);
                         respond(404, ['error' => t('error.item_not_found'), 'error_key' => 'error.item_not_found']);
                     }
-                    $db->commit();
+                    commitImmediateTransaction($db);
                     respond(200, [
                         'message' => 'Keine Skizze zu speichern.',
                         'item_id' => null,
@@ -3924,7 +3952,7 @@ try {
 
                 if ($item === null) {
                     if ($expectedRevision !== 0) {
-                        $db->rollBack();
+                        rollBackImmediateTransaction($db);
                         respond(404, ['error' => t('error.item_not_found'), 'error_key' => 'error.item_not_found']);
                     }
                     $sortOrder = prependItemSortOrder($db, $userId, (int) $category['id']);
@@ -3947,7 +3975,7 @@ try {
                     $currentRevision = (int) $item['revision'];
                     $currentScene = (string) ($item['sketch_json'] ?? '');
                     if ($currentScene === $normalized) {
-                        $db->commit();
+                        commitImmediateTransaction($db);
                         respond(200, [
                             'message' => 'Skizze gespeichert.',
                             'item_id' => $itemId,
@@ -3962,7 +3990,7 @@ try {
                     $componentUnchanged = $baseSceneProvided && $currentScene === $baseScene;
                     $parallelFirstCreate = $expectedRevision === 0 && $currentScene === '';
                     if (!$revisionMatches && !$componentUnchanged && !$parallelFirstCreate) {
-                        $db->rollBack();
+                        rollBackImmediateTransaction($db);
                         respond(409, [
                             'error' => t('error.item_revision_conflict'),
                             'error_key' => 'error.item_revision_conflict',
@@ -3991,11 +4019,9 @@ try {
                     }
                 }
 
-                $db->commit();
+                commitImmediateTransaction($db);
             } catch (Throwable $error) {
-                if ($db->inTransaction()) {
-                    $db->rollBack();
-                }
+                rollBackImmediateTransactionIfActive($db);
                 throw $error;
             }
 
