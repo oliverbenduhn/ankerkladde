@@ -1,4 +1,4 @@
-import { state } from './state.js';
+import { isJournalScreen, state } from './state.js';
 import { listAreaEl, listEl, progressEl, clearDoneBtn } from './ui.js';
 
 const COLUMNS = [
@@ -120,13 +120,15 @@ export function createKanbanViewController({ buildItemNode, getVisibleItems, han
         if (!board.parentElement) {
             listAreaEl.appendChild(board);
         }
-        board.hidden = false;
+        // Gehoert der Screen der Tagesansicht, bleibt die Listenflaeche unsichtbar:
+        // renderItems() laeuft auch waehrend des Journal-Boots.
+        board.hidden = isJournalScreen();
     }
 
     function hideKanban() {
         if (boardEl) boardEl.hidden = true;
         const swipeStage = listEl?.parentElement;
-        if (swipeStage) swipeStage.hidden = false;
+        if (swipeStage) swipeStage.hidden = isJournalScreen();
     }
 
     return { renderKanban, hideKanban };

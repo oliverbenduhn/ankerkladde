@@ -1,5 +1,5 @@
 import { normalizeSettingsTab } from './api.js';
-import { isBarcodeCategory, state } from './state.js';
+import { isBarcodeCategory, isJournalScreen, state } from './state.js';
 import {
     appEl,
     journalViewEl,
@@ -10,7 +10,7 @@ import {
 
 export function applyViewState() {
     const inSettings = state.screen === 'settings';
-    const inJournal = state.screen === 'journal';
+    const inJournal = isJournalScreen();
     appEl?.classList.toggle('settings-view', inSettings);
     appEl?.classList.toggle('journal-view', inJournal);
     settingsBtns.forEach(button => button.classList.toggle('is-active', inSettings));

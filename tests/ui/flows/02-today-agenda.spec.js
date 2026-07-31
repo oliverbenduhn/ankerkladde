@@ -70,4 +70,40 @@ test.describe('FLOW 2 — Tagesansicht (Heute / Agenda)', () => {
     const cls = await readCls(page);
     expect(cls.value, `CLS=${cls.value}`).toBeLessThan(0.15);
   });
+
+  // Regression (#44): beim Boot auf der Tagesansicht setzte renderItems() ueber
+  // hideKanban() die Liste wieder sichtbar, obwohl das Journal den Screen
+  // besitzt. Das schob die Agenda aus dem Viewport und wieder zurueck (CLS > 1).
+  test('reload auf der Tagesansicht blendet die Liste nie ein', async ({ page }) => {
+    await login(page);
+    await page.locator('#journalBtn').click();
+    await expect(page).toHaveURL(/screen=journal/);
+    await page.locator('#journalAgendaBody').waitFor();
+
+    // Recorder gilt erst ab dem naechsten Dokument, also ab dem Reload.
+    // Pro Frame samplen: das Fehlfenster war ~47ms (≈3 Frames) und damit sicher
+    // sichtbar. samples zaehlt mit, damit ein nicht gestarteter Recorder nicht
+    // faelschlich als "keine Verletzung" durchgeht.
+    await page.addInitScript(() => {
+      window.__stageProbe = { hits: [], samples: 0 };
+      const sample = () => {
+        window.__stageProbe.samples += 1;
+        const app = document.getElementById('app');
+        const stage = document.getElementById('listSwipeStage');
+        if (app?.classList.contains('journal-view') && stage && !stage.hidden) {
+          window.__stageProbe.hits.push(Math.round(performance.now()));
+        }
+        window.requestAnimationFrame(sample);
+      };
+      window.requestAnimationFrame(sample);
+    });
+
+    await page.reload();
+    await page.locator('#journalAgendaBody').waitFor();
+    await page.waitForTimeout(1500);
+
+    const probe = await page.evaluate(() => window.__stageProbe);
+    expect(probe.samples, 'Recorder muss gelaufen sein').toBeGreaterThan(30);
+    expect(probe.hits, `listSwipeStage war sichtbar bei ${JSON.stringify(probe.hits)}ms`).toEqual([]);
+  });
 });

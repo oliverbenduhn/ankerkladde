@@ -105,6 +105,13 @@ export const state = {
     diskFreeBytes: null,
 };
 
+// Einzige Quelle fuer "die Tagesansicht besitzt gerade den Screen". Wer Inhalte
+// der Listenflaeche ein-/ausblendet, muss das hier fragen — sonst ueberschreiben
+// sich Screen-Wechsel und Item-Render gegenseitig.
+export function isJournalScreen() {
+    return state.screen === 'journal';
+}
+
 export const NOTE_SAVE_DEBOUNCE_MS = 800;
 export const TAB_REORDER_LONG_PRESS_MS = 400;
 export const CATEGORY_SWIPE_THRESHOLD_PX = 72;
