@@ -195,7 +195,7 @@ export function createAppUiController(deps = {}) {
         const submitBtn = itemForm?.querySelector('[type="submit"]');
         const quickAddCategory = category?.type === 'list_quantity' || category?.type === 'list_due_date';
         if (submitBtn) submitBtn.hidden = quickAddCategory || (uploadCategory && uploadMode === 'file');
-        if (manualAddBtn) manualAddBtn.hidden = type !== 'list_due_date';
+        if (manualAddBtn) manualAddBtn.hidden = !quickAddCategory;
         if (scanAddBtn) scanAddBtn.hidden = !shoppingListScannerEnabled || !barcodeCategory || uploadCategory;
         if (scanShoppingBtn) scanShoppingBtn.hidden = !shoppingListScannerEnabled || !barcodeCategory;
 
@@ -329,7 +329,7 @@ export function createAppUiController(deps = {}) {
 
         itemForm?.classList.toggle('is-quick-add', isQuickAddCategory);
         if (itemSubmitBtn) itemSubmitBtn.hidden = isQuickAddCategory;
-        if (manualAddBtn) manualAddBtn.hidden = category.type !== 'list_due_date';
+        if (manualAddBtn) manualAddBtn.hidden = !isQuickAddCategory;
         if (quickAddFeedback) quickAddFeedback.hidden = true;
 
         if (quantityInput) {

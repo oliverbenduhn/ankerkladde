@@ -381,12 +381,13 @@ export function createItemEditorController(deps) {
         }
 
         const categoryId = Number(itemCategoryInput?.value);
-        const dueDate = itemDateInput?.value || '';
+        const type = getVisibleCategories().find(category => Number(category.id) === categoryId)?.type;
+        const dueDate = type === 'list_due_date' ? (itemDateInput?.value || '') : '';
         const body = new URLSearchParams({
             category_id: String(categoryId),
             name,
-            barcode: '',
-            quantity: '',
+            barcode: type === 'list_quantity' ? (itemBarcodeInput?.value || '') : '',
+            quantity: type === 'list_quantity' ? (itemQuantityInput?.value || '') : '',
             due_date: dueDate,
             due_time: dueDate ? (itemTimeInput?.value || '') : '',
             priority: itemPriorityInput?.value || '',
@@ -412,13 +413,18 @@ export function createItemEditorController(deps) {
     }
 
     function openItemCreate({ categoryId = null, dueDate = '' } = {}) {
-        const dueCategories = getVisibleCategories().filter(category => category.type === 'list_due_date');
-        if (dueCategories.length === 0) {
-            setMessage(t('quick_add.no_due_category'), true);
+        const activeCategory = categoryId !== null
+            ? getVisibleCategories().find(category => Number(category.id) === Number(categoryId))
+            : null;
+        const targetType = activeCategory?.type === 'list_quantity' ? 'list_quantity' : 'list_due_date';
+        const candidateCategories = getVisibleCategories().filter(category => category.type === targetType);
+        if (candidateCategories.length === 0) {
+            setMessage(t(targetType === 'list_quantity' ? 'quick_add.no_quantity_category' : 'quick_add.no_due_category'), true);
             return;
         }
 
-        const selectedCategory = dueCategories.find(category => Number(category.id) === Number(categoryId)) || dueCategories[0];
+        const selectedCategory = candidateCategories.find(category => Number(category.id) === Number(categoryId)) || candidateCategories[0];
+        const resolvedDueDate = targetType === 'list_due_date' ? dueDate : '';
         isCreating = true;
         sourceScreen = state.screen;
         currentItem = null;
@@ -431,23 +437,25 @@ export function createItemEditorController(deps) {
         state.editDraft = {
             ...emptyDraft(),
             categoryId: Number(selectedCategory.id),
-            due_date: dueDate,
+            due_date: resolvedDueDate,
             status: '',
             baseContent: {},
             baseRevision: 0,
         };
 
         if (itemCategoryInput) {
-            itemCategoryInput.replaceChildren(...dueCategories.map(category => new Option(category.name, String(category.id))));
+            itemCategoryInput.replaceChildren(...candidateCategories.map(category => new Option(category.name, String(category.id))));
             itemCategoryInput.value = String(selectedCategory.id);
         }
         if (itemTitleInput) itemTitleInput.value = '';
-        if (itemDateInput) itemDateInput.value = dueDate;
+        if (itemQuantityInput) itemQuantityInput.value = '';
+        if (itemBarcodeInput) itemBarcodeInput.value = '';
+        if (itemDateInput) itemDateInput.value = resolvedDueDate;
         if (itemTimeInput) itemTimeInput.value = '';
         if (itemPriorityInput) itemPriorityInput.value = '';
         if (itemNoteInput) itemNoteInput.value = '';
         if (itemCategorySection) itemCategorySection.hidden = false;
-        applyTypeSections('list_due_date');
+        applyTypeSections(targetType);
         if (itemStatusSection) itemStatusSection.hidden = true;
         if (itemSaveBtn) itemSaveBtn.hidden = true;
         if (itemCreateBtn) {

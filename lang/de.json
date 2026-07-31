@@ -68,6 +68,7 @@
     "quick_add.shopping_placeholder": "Schnelleingabe: Artikel, /Kategorie, !1–!3",
     "quick_add.shopping_aria_label": "Einkaufsartikel schnell hinzufügen",
     "quick_add.no_due_category": "Für Quick-Add ist eine Aufgaben-Kategorie erforderlich.",
+    "quick_add.no_quantity_category": "Für „Mit Details hinzufügen“ ist eine Mengenlisten-Kategorie erforderlich.",
     "quick_add.processing_error": "Quick-Add konnte nicht verarbeitet werden.",
     "quick_add.invalid_category_type": "Quick-Add ist nur für Listen und Aufgaben verfügbar.",
     "error.system_category": "Die Journal-Kategorie wird vom System verwaltet.",

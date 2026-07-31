@@ -68,6 +68,7 @@
     "quick_add.shopping_placeholder": "Quick entry: item, /category, !1–!3",
     "quick_add.shopping_aria_label": "Quickly add shopping item",
     "quick_add.no_due_category": "Quick-Add requires a task category.",
+    "quick_add.no_quantity_category": "“Add with details” requires a quantity-list category.",
     "quick_add.processing_error": "Quick-Add could not be processed.",
     "quick_add.invalid_category_type": "Quick-Add is only available for lists and tasks.",
     "error.system_category": "The journal category is managed by the system.",
