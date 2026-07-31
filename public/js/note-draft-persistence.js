@@ -1,16 +1,13 @@
 import { userId } from './state.js';
+import { safeJsonParse } from './safe-json.js';
 
 const NOTE_DRAFT_KEY = `ankerkladde-note-draft:${userId}`;
 
 export function loadNoteDraft(itemId = null) {
-    try {
-        const draft = JSON.parse(sessionStorage.getItem(NOTE_DRAFT_KEY) || 'null');
-        if (!draft || !Number.isInteger(Number(draft.itemId))) return null;
-        if (itemId !== null && Number(draft.itemId) !== Number(itemId)) return null;
-        return draft;
-    } catch {
-        return null;
-    }
+    const draft = safeJsonParse(sessionStorage.getItem(NOTE_DRAFT_KEY), null);
+    if (!draft || !Number.isInteger(Number(draft.itemId))) return null;
+    if (itemId !== null && Number(draft.itemId) !== Number(itemId)) return null;
+    return draft;
 }
 
 export function saveNoteDraft(draft) {

@@ -1,9 +1,10 @@
 import { userId } from './state.js';
+import { safeJsonParse } from './safe-json.js';
 
-// ponytail: sessionStorage ist von Natur aus pro Tab isoliert (kein
-// zusaetzliches Tab-ID-Schema noetig) und ueberlebt Reload/Navigation
-// innerhalb desselben Tabs, aber nicht das Schliessen des Tabs - genau der
-// Schutzumfang, den Spec AC #63 fuer unbestaetigte Entwuerfe fordert.
+// ponytail: sessionStorage ist pro Tab isoliert (kein zusaetzliches
+// Tab-ID-Schema noetig) und ueberlebt Reload/Navigation innerhalb
+// desselben Tabs, aber nicht das Schliessen — Schutzumfang gemass
+// AC #63 fuer unbestaetigte Entwuerfe.
 const DRAFT_KEY = `ankerkladde-edit-draft:${userId}`;
 
 export function saveDraftSnapshot(editingId, draft, item = null, serverDeleted = false) {
@@ -16,15 +17,9 @@ export function saveDraftSnapshot(editingId, draft, item = null, serverDeleted =
 }
 
 export function loadDraftSnapshot() {
-    try {
-        const raw = sessionStorage.getItem(DRAFT_KEY);
-        if (!raw) return null;
-        const parsed = JSON.parse(raw);
-        if (!parsed || typeof parsed !== 'object' || !parsed.draft) return null;
-        return parsed;
-    } catch {
-        return null;
-    }
+    const parsed = safeJsonParse(sessionStorage.getItem(DRAFT_KEY), null);
+    if (!parsed || typeof parsed !== 'object' || !parsed.draft) return null;
+    return parsed;
 }
 
 export function clearDraftSnapshot() {
