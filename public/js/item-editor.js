@@ -5,19 +5,29 @@ import { clearDraftSnapshot, wrapDraftForPersistence } from './draft-persistence
 import { itemContentSnapshot, itemDraftHasLocalChanges } from './item-content-conflict.js';
 import {
     appEl,
+    itemBarcodeInput,
     itemCategoryInput,
     itemCategorySection,
     itemCreateBtn,
     itemDateInput,
+    itemDueDateSection,
     itemEditorBody,
     itemEditorEl,
     itemNoteInput,
+    itemNoteSection,
     itemPriorityInput,
+    itemQuantityInput,
+    itemQuantitySection,
     itemSaveBtn,
     itemStatusSection,
     itemTimeInput,
     itemTitleInput,
 } from './ui.js';
+
+const TYPE_SECTIONS = {
+    list_quantity: { quantity: true, dueDate: false, status: false, note: false },
+    list_due_date: { quantity: false, dueDate: true, status: true, note: true },
+};
 
 function emptyDraft() {
     return {
@@ -91,6 +101,8 @@ export function createItemEditorController(deps) {
         const dueDate = itemDateInput?.value || '';
         const next = {
             name: itemTitleInput?.value.trim() || '',
+            barcode: itemBarcodeInput?.value || '',
+            quantity: itemQuantityInput?.value || '',
             due_date: dueDate,
             due_time: dueDate ? (itemTimeInput?.value || '') : '',
             priority: itemPriorityInput?.value || '',
@@ -104,10 +116,20 @@ export function createItemEditorController(deps) {
 
     function fillInputsFromItem(item) {
         if (itemTitleInput) itemTitleInput.value = item.name || '';
+        if (itemQuantityInput) itemQuantityInput.value = item.quantity || '';
+        if (itemBarcodeInput) itemBarcodeInput.value = item.barcode || '';
         if (itemDateInput) itemDateInput.value = item.due_date || '';
         if (itemTimeInput) itemTimeInput.value = item.due_time || '';
         if (itemPriorityInput) itemPriorityInput.value = item.priority || '';
         if (itemNoteInput) itemNoteInput.value = item.content || '';
+    }
+
+    function applyTypeSections(type) {
+        const sections = TYPE_SECTIONS[type] || TYPE_SECTIONS.list_due_date;
+        if (itemQuantitySection) itemQuantitySection.hidden = !sections.quantity;
+        if (itemDueDateSection) itemDueDateSection.hidden = !sections.dueDate;
+        if (itemStatusSection) itemStatusSection.hidden = !sections.status;
+        if (itemNoteSection) itemNoteSection.hidden = !sections.note;
     }
 
     function beginDraft(item) {
@@ -347,6 +369,7 @@ export function createItemEditorController(deps) {
         if (itemPriorityInput) itemPriorityInput.value = '';
         if (itemNoteInput) itemNoteInput.value = '';
         if (itemCategorySection) itemCategorySection.hidden = false;
+        applyTypeSections('list_due_date');
         if (itemStatusSection) itemStatusSection.hidden = true;
         if (itemSaveBtn) itemSaveBtn.hidden = true;
         if (itemCreateBtn) {
@@ -364,33 +387,36 @@ export function createItemEditorController(deps) {
         clearBanners();
         beginDraft(item);
 
-        // Register handlers fresh via onclick to avoid stacking.
-        document.querySelectorAll('#itemStatusSelector .item-status-btn').forEach(btn => {
-            if (btn.id === 'itemDoneBtn') return;
-            btn.onclick = () => {
-                setStatus(btn.dataset.status || '');
-                syncDraftFromInputs();
-            };
-        });
+        const showsStatus = item.category_type === 'list_due_date';
+        if (showsStatus) {
+            // Register handlers fresh via onclick to avoid stacking.
+            document.querySelectorAll('#itemStatusSelector .item-status-btn').forEach(btn => {
+                if (btn.id === 'itemDoneBtn') return;
+                btn.onclick = () => {
+                    setStatus(btn.dataset.status || '');
+                    syncDraftFromInputs();
+                };
+            });
 
-        const doneBtn = document.getElementById('itemDoneBtn');
-        if (doneBtn) {
-            doneBtn.onclick = async () => {
-                const id = currentItem.id;
-                await saveEdit();
-                const canonical = getItemById(id) || currentItem;
-                await handleToggle(id, canonical.done === 1 ? 0 : 1);
-                afterSaveAttempt(id);
-                const updated = getItemById(id);
-                if (updated) Object.assign(item, updated);
-                doneBtn.classList.toggle('is-active', (updated || canonical).done === 1);
-            };
-            doneBtn.classList.toggle('is-active', item.done === 1);
+            const doneBtn = document.getElementById('itemDoneBtn');
+            if (doneBtn) {
+                doneBtn.onclick = async () => {
+                    const id = currentItem.id;
+                    await saveEdit();
+                    const canonical = getItemById(id) || currentItem;
+                    await handleToggle(id, canonical.done === 1 ? 0 : 1);
+                    afterSaveAttempt(id);
+                    const updated = getItemById(id);
+                    if (updated) Object.assign(item, updated);
+                    doneBtn.classList.toggle('is-active', (updated || canonical).done === 1);
+                };
+                doneBtn.classList.toggle('is-active', item.done === 1);
+            }
         }
 
         fillInputsFromItem(item);
         if (itemCategorySection) itemCategorySection.hidden = true;
-        if (itemStatusSection) itemStatusSection.hidden = false;
+        applyTypeSections(item.category_type);
         if (itemCreateBtn) itemCreateBtn.hidden = true;
         if (itemSaveBtn) {
             itemSaveBtn.hidden = false;

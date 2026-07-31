@@ -119,6 +119,8 @@
     "editor.toolbar.redo": "Wiederholen",
     "todo.back": "Zurück",
     "todo.category": "Liste",
+    "todo.quantity": "Menge",
+    "todo.barcode": "Barcode",
     "todo.create": "Anlegen",
     "todo.save": "Speichern",
     "todo.discard_changes": "Ungespeicherte Änderungen verwerfen?",

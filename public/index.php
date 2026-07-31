@@ -426,7 +426,19 @@ $clientWebSocketUrl = is_string($clientWebSocketUrl) ? trim($clientWebSocketUrl)
                 <label class="item-editor-label" for="itemCategoryInput"><?= t('todo.category') ?></label>
                 <select id="itemCategoryInput" class="item-editor-date-input"></select>
             </div>
-            <div class="item-editor-section">
+            <div class="item-editor-section" id="itemQuantitySection" hidden>
+                <div class="item-due-fields">
+                    <label class="item-due-field" for="itemQuantityInput">
+                        <span class="item-editor-label"><?= t('todo.quantity') ?></span>
+                        <input type="text" id="itemQuantityInput" class="item-editor-date-input" maxlength="40" autocomplete="off">
+                    </label>
+                    <label class="item-due-field" for="itemBarcodeInput">
+                        <span class="item-editor-label"><?= t('todo.barcode') ?></span>
+                        <input type="text" id="itemBarcodeInput" class="item-editor-date-input" inputmode="numeric" maxlength="64" autocomplete="off">
+                    </label>
+                </div>
+            </div>
+            <div class="item-editor-section" id="itemDueDateSection">
                 <div class="item-due-fields">
                     <label class="item-due-field" for="itemDateInput">
                         <span class="item-editor-label"><?= t('todo.due_date') ?></span>
@@ -456,7 +468,7 @@ $clientWebSocketUrl = is_string($clientWebSocketUrl) ? trim($clientWebSocketUrl)
                     <option value="3">!3 – <?= t('todo.priority_low') ?></option>
                 </select>
             </div>
-            <div class="item-editor-section item-editor-section--note">
+            <div class="item-editor-section item-editor-section--note" id="itemNoteSection">
                 <label class="item-editor-label" for="itemNoteInput"><?= t('todo.notes_placeholder') ?></label>
                 <textarea id="itemNoteInput" class="item-note-input" placeholder="<?= t('todo.notes_placeholder') ?>" maxlength="8000"></textarea>
             </div>
