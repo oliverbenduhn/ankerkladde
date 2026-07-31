@@ -225,6 +225,8 @@ $clientWebSocketUrl = is_string($clientWebSocketUrl) ? trim($clientWebSocketUrl)
                    placeholder="<?= t('item.quantity') ?>" aria-label="<?= t('item.quantity') ?>" maxlength="40" autocomplete="off" enterkeyhint="done">
             <button type="button" class="btn-add btn-scan-input" id="scanAddBtn" aria-label="<?= t('ui.scan_barcode') ?>"<?= !$shoppingListScannerEnabled ? ' hidden' : '' ?>><?= icon('scan') ?></button>
             <button type="submit" class="btn-add" id="itemSubmitBtn" aria-label="<?= t('item.add') ?>"><?= icon('plus') ?></button>
+            <button type="button" class="btn-add btn-manual-add" id="manualAddBtn"
+                    aria-label="<?= t('item.add_details') ?>" hidden><?= icon('calendar') ?><span><?= t('item.details') ?></span></button>
         </form>
         <div class="quick-add-feedback" id="quickAddFeedback" role="alert" hidden>
             <span id="quickAddFeedbackText"></span>
@@ -265,7 +267,11 @@ $clientWebSocketUrl = is_string($clientWebSocketUrl) ? trim($clientWebSocketUrl)
                     <h3 id="journalAgendaTitle" class="journal-card-title"><?= t('journal.agenda') ?></h3>
                     <div class="journal-card-actions">
                         <button type="button" id="journalAgendaCollapseBtn" class="journal-format-btn" aria-expanded="false" aria-controls="journalAgendaBody"><?= t('agenda.expand') ?></button>
-                        <button type="button" id="agendaAddBtn" class="journal-card-icon-btn" aria-label="<?= t('item.add') ?>"><?= icon('plus') ?></button>
+                        <button type="button" id="agendaAddBtn" class="journal-card-icon-btn"
+                                aria-label="<?= t('item.add') ?>" aria-expanded="false" aria-controls="inputArea">
+                            <span class="agenda-add-icon"><?= icon('plus') ?></span>
+                            <span class="agenda-cancel-icon" hidden><?= icon('x') ?></span>
+                        </button>
                     </div>
                 </header>
                 <div id="journalAgendaBody" class="journal-agenda-columns">
@@ -408,45 +414,50 @@ $clientWebSocketUrl = is_string($clientWebSocketUrl) ? trim($clientWebSocketUrl)
         <div class="note-editor-body" id="noteEditorEl"></div>
     </div>
 
-    <div class="todo-editor" id="todoEditor" hidden>
-        <div class="todo-editor-top">
-            <button type="button" id="todoEditorBack" class="btn-note-back" aria-label="<?= t('todo.back') ?>"><?= icon('arrow-left') ?></button>
-            <input type="text" id="todoTitleInput" class="note-title-input" placeholder="<?= t('todo.title_placeholder') ?>" aria-label="<?= t('todo.title_placeholder') ?>" maxlength="120" autocomplete="off">
+    <div class="item-editor" id="itemEditor" hidden>
+        <div class="item-editor-top">
+            <button type="button" id="itemEditorBack" class="btn-note-back" aria-label="<?= t('todo.back') ?>"><?= icon('arrow-left') ?></button>
+            <input type="text" id="itemTitleInput" class="note-title-input" placeholder="<?= t('todo.title_placeholder') ?>" aria-label="<?= t('todo.title_placeholder') ?>" maxlength="120" autocomplete="off">
+            <button type="button" id="itemCreateBtn" class="item-create-btn" hidden><?= t('todo.create') ?></button>
         </div>
-        <div class="todo-editor-body" id="todoEditorBody">
-            <div class="todo-editor-section">
-                <div class="todo-due-fields">
-                    <label class="todo-due-field" for="todoDateInput">
-                        <span class="todo-editor-label"><?= t('todo.due_date') ?></span>
-                        <input type="date" id="todoDateInput" class="todo-editor-date-input">
+        <div class="item-editor-body" id="itemEditorBody">
+            <div class="item-editor-section" id="itemCategorySection" hidden>
+                <label class="item-editor-label" for="itemCategoryInput"><?= t('todo.category') ?></label>
+                <select id="itemCategoryInput" class="item-editor-date-input"></select>
+            </div>
+            <div class="item-editor-section">
+                <div class="item-due-fields">
+                    <label class="item-due-field" for="itemDateInput">
+                        <span class="item-editor-label"><?= t('todo.due_date') ?></span>
+                        <input type="date" id="itemDateInput" class="item-editor-date-input">
                     </label>
-                    <label class="todo-due-field" for="todoTimeInput">
-                        <span class="todo-editor-label"><?= t('todo.due_time') ?></span>
-                        <input type="time" id="todoTimeInput" class="todo-editor-date-input" step="60">
+                    <label class="item-due-field" for="itemTimeInput">
+                        <span class="item-editor-label"><?= t('todo.due_time') ?></span>
+                        <input type="time" id="itemTimeInput" class="item-editor-date-input" step="60">
                     </label>
                 </div>
             </div>
-            <div class="todo-editor-section">
-                <span class="todo-editor-label"><?= t('todo.status') ?></span>
-                <div class="todo-status-selector" id="todoStatusSelector" role="group" aria-label="<?= t('todo.status') ?>">
-                    <button type="button" class="todo-status-btn" data-status=""><?= t('todo.status_open') ?></button>
-                    <button type="button" class="todo-status-btn" data-status="in_progress"><?= t('todo.status_in_progress') ?></button>
-                    <button type="button" class="todo-status-btn" data-status="waiting"><?= t('todo.status_waiting') ?></button>
-                    <button type="button" class="todo-status-btn" id="todoDoneBtn"><?= t('todo.status_done') ?></button>
+            <div class="item-editor-section" id="itemStatusSection">
+                <span class="item-editor-label"><?= t('todo.status') ?></span>
+                <div class="item-status-selector" id="itemStatusSelector" role="group" aria-label="<?= t('todo.status') ?>">
+                    <button type="button" class="item-status-btn" data-status=""><?= t('todo.status_open') ?></button>
+                    <button type="button" class="item-status-btn" data-status="in_progress"><?= t('todo.status_in_progress') ?></button>
+                    <button type="button" class="item-status-btn" data-status="waiting"><?= t('todo.status_waiting') ?></button>
+                    <button type="button" class="item-status-btn" id="itemDoneBtn"><?= t('todo.status_done') ?></button>
                 </div>
             </div>
-            <div class="todo-editor-section">
-                <label class="todo-editor-label" for="todoPriorityInput"><?= t('todo.priority') ?></label>
-                <select id="todoPriorityInput" class="todo-editor-date-input">
+            <div class="item-editor-section">
+                <label class="item-editor-label" for="itemPriorityInput"><?= t('todo.priority') ?></label>
+                <select id="itemPriorityInput" class="item-editor-date-input">
                     <option value=""><?= t('todo.priority_none') ?></option>
                     <option value="1">!1 – <?= t('todo.priority_high') ?></option>
                     <option value="2">!2 – <?= t('todo.priority_medium') ?></option>
                     <option value="3">!3 – <?= t('todo.priority_low') ?></option>
                 </select>
             </div>
-            <div class="todo-editor-section todo-editor-section--note">
-                <label class="todo-editor-label" for="todoNoteInput"><?= t('todo.notes_placeholder') ?></label>
-                <textarea id="todoNoteInput" class="todo-note-input" placeholder="<?= t('todo.notes_placeholder') ?>" maxlength="8000"></textarea>
+            <div class="item-editor-section item-editor-section--note">
+                <label class="item-editor-label" for="itemNoteInput"><?= t('todo.notes_placeholder') ?></label>
+                <textarea id="itemNoteInput" class="item-note-input" placeholder="<?= t('todo.notes_placeholder') ?>" maxlength="8000"></textarea>
             </div>
         </div>
     </div>

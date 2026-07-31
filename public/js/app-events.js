@@ -15,7 +15,7 @@ import {
     noteEditorBack,
     noteTitleInput,
     noteToolbar,
-    todoEditorBack,
+    itemEditorBack,
     quantityInput,
     scanAddBtn,
     scanShoppingBtn,
@@ -32,6 +32,7 @@ import {
     magicSubmit,
     magicVoiceBtn,
     magicClose,
+    manualAddBtn,
     sectionTabsEl,
     settingsBtns,
     tabsToggleBtns,
@@ -58,6 +59,7 @@ export function registerAppEventHandlers(deps) {
         openScanner,
         openSearch,
         openJournalWithNavigation,
+        openTodoCreate,
         refreshVisibleCategory,
         renderCategoryTabs,
         renderItems,
@@ -94,6 +96,10 @@ export function registerAppEventHandlers(deps) {
             setUploadProgress(0);
             setMessage(error instanceof Error ? error.message : 'Aktion fehlgeschlagen.', true);
         });
+    });
+
+    manualAddBtn?.addEventListener('click', () => {
+        openTodoCreate();
     });
 
     fileInput?.addEventListener('change', () => {
@@ -381,7 +387,7 @@ export function registerAppEventHandlers(deps) {
         navigation.navigateBackOrReplace({ screen: 'list' });
     });
 
-    todoEditorBack?.addEventListener('click', () => {
+    itemEditorBack?.addEventListener('click', () => {
         void closeTodoEditor();
     });
 

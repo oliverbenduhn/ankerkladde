@@ -1,17 +1,39 @@
 import { api } from './api.js';
 import { t } from './i18n.js';
 import { state } from './state.js';
-import { appEl, todoEditorEl, todoTitleInput, todoDateInput, todoTimeInput, todoPriorityInput, todoNoteInput } from './ui.js';
+import {
+    appEl,
+    itemCategoryInput,
+    itemCategorySection,
+    itemCreateBtn,
+    itemDateInput,
+    itemEditorEl,
+    itemNoteInput,
+    itemPriorityInput,
+    itemStatusSection,
+    itemTimeInput,
+    itemTitleInput,
+} from './ui.js';
 
 export function createTodoEditorController(deps) {
-    const { invalidateCategoryCache, loadItems, handleStatus, handleToggle } = deps;
+    const {
+        getVisibleCategories,
+        invalidateCategoryCache,
+        loadItems,
+        handleStatus,
+        handleToggle,
+        refreshOpenJournal,
+        setMessage,
+    } = deps;
 
     let currentItem = null;
     let currentStatus = '';
+    let isCreating = false;
+    let sourceScreen = 'list';
 
     function setStatus(status) {
         currentStatus = status;
-        document.querySelectorAll('#todoStatusSelector .todo-status-btn').forEach(btn => {
+        document.querySelectorAll('#itemStatusSelector .item-status-btn').forEach(btn => {
             btn.classList.toggle('is-active', btn.dataset.status === status);
         });
     }
@@ -19,11 +41,11 @@ export function createTodoEditorController(deps) {
     async function save() {
         if (!currentItem) return;
 
-        const name = todoTitleInput?.value.trim() || currentItem.name;
-        const dueDate = todoDateInput?.value || '';
-        const dueTime = dueDate ? (todoTimeInput?.value || '') : '';
-        const priority = todoPriorityInput?.value || '';
-        const content = todoNoteInput?.value || '';
+        const name = itemTitleInput?.value.trim() || currentItem.name;
+        const dueDate = itemDateInput?.value || '';
+        const dueTime = dueDate ? (itemTimeInput?.value || '') : '';
+        const priority = itemPriorityInput?.value || '';
+        const content = itemNoteInput?.value || '';
         const expectedRevision = Number(currentItem.revision);
         if (expectedRevision < 1) {
             throw new Error(t('error.revision_required'));
@@ -66,12 +88,99 @@ export function createTodoEditorController(deps) {
         await loadItems();
     }
 
+    function hideEditor() {
+        currentItem = null;
+        currentStatus = '';
+        isCreating = false;
+        if (itemCreateBtn) {
+            itemCreateBtn.hidden = true;
+            itemCreateBtn.disabled = false;
+        }
+        if (itemCategorySection) itemCategorySection.hidden = true;
+        if (itemStatusSection) itemStatusSection.hidden = false;
+        if (itemEditorEl) itemEditorEl.hidden = true;
+        appEl?.classList.remove('item-editor-open');
+    }
+
+    async function createTodo() {
+        if (!isCreating) return;
+        const name = itemTitleInput?.value.trim() || '';
+        if (name === '') {
+            setMessage(t('error.item_name_required'), true);
+            itemTitleInput?.focus();
+            return;
+        }
+
+        const categoryId = Number(itemCategoryInput?.value);
+        const dueDate = itemDateInput?.value || '';
+        const body = new URLSearchParams({
+            category_id: String(categoryId),
+            name,
+            barcode: '',
+            quantity: '',
+            due_date: dueDate,
+            due_time: dueDate ? (itemTimeInput?.value || '') : '',
+            priority: itemPriorityInput?.value || '',
+            content: itemNoteInput?.value || '',
+        });
+
+        if (itemCreateBtn) itemCreateBtn.disabled = true;
+        try {
+            await api('add', { method: 'POST', body });
+            invalidateCategoryCache(categoryId);
+            hideEditor();
+            if (sourceScreen === 'journal') {
+                await refreshOpenJournal?.();
+            } else if (Number(state.categoryId) === categoryId) {
+                await loadItems(undefined, { useCache: false });
+            }
+            setMessage(t('msg.item_added'));
+        } catch (error) {
+            if (itemCreateBtn) itemCreateBtn.disabled = false;
+            setMessage(error instanceof Error ? error.message : t('error.item_name_required'), true);
+        }
+    }
+
+    function openTodoCreate({ categoryId = null, dueDate = '' } = {}) {
+        const dueCategories = getVisibleCategories().filter(category => category.type === 'list_due_date');
+        if (dueCategories.length === 0) {
+            setMessage(t('quick_add.no_due_category'), true);
+            return;
+        }
+
+        const selectedCategory = dueCategories.find(category => Number(category.id) === Number(categoryId)) || dueCategories[0];
+        isCreating = true;
+        sourceScreen = state.screen;
+        currentItem = null;
+        currentStatus = '';
+
+        if (itemCategoryInput) {
+            itemCategoryInput.replaceChildren(...dueCategories.map(category => new Option(category.name, String(category.id))));
+            itemCategoryInput.value = String(selectedCategory.id);
+        }
+        if (itemTitleInput) itemTitleInput.value = '';
+        if (itemDateInput) itemDateInput.value = dueDate;
+        if (itemTimeInput) itemTimeInput.value = '';
+        if (itemPriorityInput) itemPriorityInput.value = '';
+        if (itemNoteInput) itemNoteInput.value = '';
+        if (itemCategorySection) itemCategorySection.hidden = false;
+        if (itemStatusSection) itemStatusSection.hidden = true;
+        if (itemCreateBtn) {
+            itemCreateBtn.hidden = false;
+            itemCreateBtn.disabled = false;
+        }
+        if (itemEditorEl) itemEditorEl.hidden = false;
+        appEl?.classList.add('item-editor-open');
+        itemTitleInput?.focus();
+    }
+
     function openTodoEditor(item) {
+        isCreating = false;
         currentItem = item;
         currentStatus = item.status || '';
 
         // Register handlers fresh via onclick to avoid stacking.
-        document.querySelectorAll('#todoStatusSelector .todo-status-btn').forEach(btn => {
+        document.querySelectorAll('#itemStatusSelector .item-status-btn').forEach(btn => {
             btn.onclick = async () => {
                 const nextStatus = btn.dataset.status;
                 if (nextStatus === currentStatus) {
@@ -85,7 +194,7 @@ export function createTodoEditorController(deps) {
             };
         });
 
-        const doneBtn = document.getElementById('todoDoneBtn');
+        const doneBtn = document.getElementById('itemDoneBtn');
         if (doneBtn) {
             doneBtn.onclick = async () => {
                 await save();
@@ -100,30 +209,36 @@ export function createTodoEditorController(deps) {
             doneBtn.classList.toggle('is-active', item.done === 1);
         }
 
-        if (todoTitleInput) todoTitleInput.value = item.name || '';
-        if (todoDateInput) todoDateInput.value = item.due_date || '';
-        if (todoTimeInput) todoTimeInput.value = item.due_time || '';
-        if (todoPriorityInput) todoPriorityInput.value = item.priority || '';
-        if (todoNoteInput) todoNoteInput.value = item.content || '';
+        if (itemTitleInput) itemTitleInput.value = item.name || '';
+        if (itemDateInput) itemDateInput.value = item.due_date || '';
+        if (itemTimeInput) itemTimeInput.value = item.due_time || '';
+        if (itemPriorityInput) itemPriorityInput.value = item.priority || '';
+        if (itemNoteInput) itemNoteInput.value = item.content || '';
+        if (itemCategorySection) itemCategorySection.hidden = true;
+        if (itemStatusSection) itemStatusSection.hidden = false;
+        if (itemCreateBtn) itemCreateBtn.hidden = true;
 
         setStatus(currentStatus);
 
-        if (todoEditorEl) todoEditorEl.hidden = false;
-        appEl?.classList.add('todo-editor-open');
-        todoTitleInput?.focus();
+        if (itemEditorEl) itemEditorEl.hidden = false;
+        appEl?.classList.add('item-editor-open');
+        itemTitleInput?.focus();
     }
 
     async function closeTodoEditor() {
+        if (isCreating) {
+            hideEditor();
+            return;
+        }
         try {
             await save();
         } catch {
             // Fehler beim Speichern ignorieren, Editor trotzdem schließen
         }
-        currentItem = null;
-        currentStatus = '';
-        if (todoEditorEl) todoEditorEl.hidden = true;
-        appEl?.classList.remove('todo-editor-open');
+        hideEditor();
     }
 
-    return { openTodoEditor, closeTodoEditor };
+    itemCreateBtn?.addEventListener('click', () => void createTodo());
+
+    return { openTodoCreate, openTodoEditor, closeTodoEditor };
 }

@@ -32,12 +32,12 @@ test('normal todo list renders and edits a due time', async ({ page }) => {
   await expect(card).toContainText('08:15');
   await expect(card).toContainText('!2');
   await card.getByRole('button', { name: `${name} bearbeiten` }).click();
-  await expect(page.locator('#todoEditor')).toBeVisible();
-  await expect(page.locator('#todoTimeInput')).toHaveValue('08:15');
-  await expect(page.locator('#todoPriorityInput')).toHaveValue('2');
-  await page.locator('#todoTimeInput').fill('09:45');
-  await page.locator('#todoPriorityInput').selectOption('3');
-  await page.locator('#todoEditorBack').click();
+  await expect(page.locator('#itemEditor')).toBeVisible();
+  await expect(page.locator('#itemTimeInput')).toHaveValue('08:15');
+  await expect(page.locator('#itemPriorityInput')).toHaveValue('2');
+  await page.locator('#itemTimeInput').fill('09:45');
+  await page.locator('#itemPriorityInput').selectOption('3');
+  await page.locator('#itemEditorBack').click();
   await expect(card).toContainText('09:45');
   await expect(card).toContainText('!3');
 

@@ -106,4 +106,92 @@ test.describe('FLOW 2 — Tagesansicht (Heute / Agenda)', () => {
     expect(probe.samples, 'Recorder muss gelaufen sein').toBeGreaterThan(30);
     expect(probe.hits, `listSwipeStage war sichtbar bei ${JSON.stringify(probe.hits)}ms`).toEqual([]);
   });
+
+  test('Termin hinzufügen lässt sich sichtbar abbrechen', async ({ page }) => {
+    await login(page);
+    await page.locator('#journalBtn').click();
+
+    await page.locator('#agendaAddBtn').click();
+    await page.locator('#itemInput').fill('Nicht speichern');
+
+    const cancelButton = page.getByRole('button', { name: 'Abbrechen', exact: true });
+    await expect(cancelButton).toBeVisible();
+    await cancelButton.click();
+
+    await expect(page.locator('#inputArea')).toBeHidden();
+    await expect(page.locator('#itemInput')).toHaveValue('');
+    await expect(page.getByRole('button', { name: 'Artikel hinzufügen', exact: true })).toBeVisible();
+
+    await page.locator('#agendaAddBtn').click();
+    await page.locator('#itemInput').fill('Auch nicht speichern');
+    await page.locator('#itemInput').press('Escape');
+
+    await expect(page.locator('#inputArea')).toBeHidden();
+    await expect(page.locator('#itemInput')).toHaveValue('');
+    await expect(page.locator('#agendaAddBtn')).toBeFocused();
+  });
+
+  test('leeres Quick-Add legt keinen Datumseintrag an', async ({ page }) => {
+    await login(page);
+    await page.locator('#journalBtn').click();
+    await page.locator('#agendaAddBtn').click();
+
+    let quickAddRequests = 0;
+    page.on('request', request => {
+      if (request.url().includes('action=quick_add')) quickAddRequests += 1;
+    });
+
+    await page.locator('#itemInput').press('Enter');
+    await page.waitForTimeout(300);
+
+    expect(quickAddRequests).toBe(0);
+    await expect(page.locator('#inputArea')).toBeVisible();
+    await expect(page.locator('#itemInput')).toBeFocused();
+  });
+
+  test('Termin kann ohne Quick-Add-Syntax mit Details angelegt werden', async ({ page }) => {
+    await login(page);
+    const categories = await (await page.request.get('/api.php?action=categories_list')).json();
+    const dueCategory = categories.categories.find(category => category.type === 'list_due_date');
+    expect(dueCategory).toBeTruthy();
+
+    await page.getByRole('button', { name: dueCategory.name, exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Mit Details hinzufügen', exact: true })).toBeVisible();
+
+    const todayPayload = await (await page.request.get('/api.php?action=today')).json();
+    await page.locator('#journalBtn').click();
+    await page.locator('#agendaAddBtn').click();
+    await page.getByRole('button', { name: 'Mit Details hinzufügen', exact: true }).click();
+
+    await expect(page.locator('#itemEditor')).toBeVisible();
+    await expect(page.locator('#itemCategoryInput')).toHaveValue(String(dueCategory.id));
+    await expect(page.locator('#itemDateInput')).toHaveValue(todayPayload.today);
+
+    const name = `Termin mit Details ${Date.now()}`;
+    await page.locator('#itemTitleInput').fill(name);
+    await page.locator('#itemTimeInput').fill('23:30');
+    await page.locator('#itemPriorityInput').selectOption('1');
+    await page.locator('#itemNoteInput').fill('Ohne Quick-Add-Syntax angelegt');
+
+    const createResponse = page.waitForResponse(response => response.url().includes('action=add') && response.status() === 201);
+    await page.getByRole('button', { name: 'Anlegen', exact: true }).click();
+    const created = await (await createResponse).json();
+
+    await expect(page.locator('#itemEditor')).toBeHidden();
+    const listPayload = await (await page.request.get(`/api.php?action=list&category_id=${dueCategory.id}`)).json();
+    const savedItem = listPayload.items.find(item => Number(item.id) === Number(created.id));
+    expect(savedItem).toMatchObject({
+      name,
+      due_date: todayPayload.today,
+      due_time: '23:30',
+      priority: '1',
+      content: 'Ohne Quick-Add-Syntax angelegt',
+    });
+    if (await page.locator('#journalAgendaBody').getAttribute('data-collapsed') === 'true') {
+      await page.locator('#journalAgendaCollapseBtn').click();
+    }
+    const agendaItem = page.locator('#journalScheduledList .agenda-item').filter({ hasText: name });
+    await expect(agendaItem).toBeVisible();
+    await expect(agendaItem).toContainText('23:30 Uhr');
+  });
 });

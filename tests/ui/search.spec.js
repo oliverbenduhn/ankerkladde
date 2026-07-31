@@ -32,7 +32,7 @@ test.describe('Search', () => {
     await expect(result).toBeVisible();
     await result.click();
 
-    await expect(page.locator('#todoEditor')).toBeVisible();
-    await expect(page.locator('#todoTitleInput')).toHaveValue(title);
+    await expect(page.locator('#itemEditor')).toBeVisible();
+    await expect(page.locator('#itemTitleInput')).toHaveValue(title);
   });
 });

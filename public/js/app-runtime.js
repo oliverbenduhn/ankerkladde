@@ -71,7 +71,10 @@ export function createAppRuntime(deps) {
     let journalController = null;
     // Forward-reference so itemsActionsController can call back into the journal controller
     // before the latter is constructed (depends on cycle between the two).
-    const afterJournalQuickAdd = () => journalController?.reloadAgenda?.();
+    const afterJournalQuickAdd = async () => {
+        await journalController?.reloadAgenda?.();
+        journalController?.closeQuickAdd?.();
+    };
 
     const getItemById = id => itemsController.getItemById(id);
     const getVisibleCategories = () => itemsController.getVisibleCategories();
@@ -108,6 +111,15 @@ export function createAppRuntime(deps) {
     const closeJournal = async () => { await journalController?.closeJournal(); };
     const openJournalDay = async (date, options = {}) => { await journalController.openDay(date || state.serverToday || 'today', options); };
     const openTodoEditor = item => { todoEditorController.openTodoEditor(item); };
+    const openTodoCreate = () => {
+        const journalOpen = state.screen === 'journal';
+        const categoryId = journalOpen
+            ? journalController?.getReturnCategoryId?.()
+            : state.categoryId;
+        const dueDate = journalOpen ? (state.journalDate || state.serverToday || '') : '';
+        if (journalOpen) journalController?.closeQuickAdd?.({ reset: true });
+        todoEditorController.openTodoCreate({ categoryId, dueDate });
+    };
     const closeTodoEditor = async () => { await todoEditorController.closeTodoEditor(); };
     const scheduleNoteSave = () => editorController.scheduleNoteSave();
     const resetItemForm = () => helpersController.resetItemForm();
@@ -199,6 +211,7 @@ export function createAppRuntime(deps) {
             navigation.pushHistoryState({ screen: 'list', categoryId, itemId });
         },
         renderCategoryTabs,
+        resetItemForm,
         setMessage,
         updateHeaders,
     });
@@ -338,10 +351,13 @@ export function createAppRuntime(deps) {
     });
 
     todoEditorController = createTodoEditorController({
+        getVisibleCategories,
         invalidateCategoryCache,
         loadItems,
         handleStatus: async (id, current, target) => itemsActionsController.handleStatus(id, current, target),
         handleToggle: async (id, done) => { await itemsActionsController.handleToggle(id, done); },
+        refreshOpenJournal: () => journalController?.reloadAgenda?.(),
+        setMessage,
     });
 
     reorderController = createReorderController({
@@ -398,6 +414,7 @@ export function createAppRuntime(deps) {
         openScanner,
         openSearch,
         openJournalWithNavigation,
+        openTodoCreate,
         prefetchAdjacentCategories,
         quickAdd: async (input, activeCategoryId) => { await itemsActionsController.quickAdd(input, activeCategoryId); },
         refreshVisibleCategory,

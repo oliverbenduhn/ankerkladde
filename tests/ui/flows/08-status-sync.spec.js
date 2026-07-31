@@ -156,9 +156,9 @@ test.describe('FLOW 8 — Statusänderungen unabhängig synchronisieren (Issue #
     await openItemMenu(pageB, id);
     await pageB.getByRole('button', { name: 'Bearbeiten', exact: true }).click();
     const changedName = `${originalName} Serverinhalt`;
-    await pageB.locator('#todoTitleInput').fill(changedName);
-    await pageB.locator('#todoEditorBack').click();
-    await expect(pageB.locator('#todoEditor')).toBeHidden();
+    await pageB.locator('#itemTitleInput').fill(changedName);
+    await pageB.locator('#itemEditorBack').click();
+    await expect(pageB.locator('#itemEditor')).toBeHidden();
 
     const statuses = [];
     page.on('response', response => {
@@ -204,14 +204,14 @@ test.describe('FLOW 8 — Statusänderungen unabhängig synchronisieren (Issue #
     await openItemMenu(page, id);
     await page.getByRole('button', { name: 'Bearbeiten', exact: true }).click();
     const firstName = `${originalName} vor Erledigt`;
-    await page.locator('#todoTitleInput').fill(firstName);
-    await page.locator('#todoDoneBtn').click();
-    await expect(page.locator('#todoDoneBtn')).toHaveClass(/\bis-active\b/);
+    await page.locator('#itemTitleInput').fill(firstName);
+    await page.locator('#itemDoneBtn').click();
+    await expect(page.locator('#itemDoneBtn')).toHaveClass(/\bis-active\b/);
 
     const finalName = `${originalName} nach Erledigt`;
-    await page.locator('#todoTitleInput').fill(finalName);
-    await page.locator('#todoEditorBack').click();
-    await expect(page.locator('#todoEditor')).toBeHidden();
+    await page.locator('#itemTitleInput').fill(finalName);
+    await page.locator('#itemEditorBack').click();
+    await expect(page.locator('#itemEditor')).toBeHidden();
     await expect(itemCard(page, id)).toContainText(finalName);
   });
 

@@ -20,7 +20,7 @@ import {
     searchBtn,
     searchClose,
     searchInput,
-    todoEditorBack,
+    itemEditorBack,
 } from './ui.js';
 
 export function registerToolsEvents(deps) {
@@ -150,7 +150,7 @@ export function registerToolsEvents(deps) {
         navigation.navigateBackOrReplace({ screen: 'list' });
     });
 
-    todoEditorBack?.addEventListener('click', () => {
+    itemEditorBack?.addEventListener('click', () => {
         void closeTodoEditor();
     });
 
