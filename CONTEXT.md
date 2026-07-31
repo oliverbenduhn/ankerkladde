@@ -4,6 +4,18 @@ Mobile-freundliche PHP+SQLite-Webapp für Listen, Aufgaben, Notizen, Bilder, Dat
 
 ## Language
 
+**Mengenliste**:
+Eine vom Nutzer angelegte Kategorie vom Typ `list_quantity`. Jedes Item führt einen Titel und optional eine Menge (`quantity`) und einen Barcode. Jedes Item kann mit einem Tippen abgehakt werden.
+_Avoid_: Einkaufsliste, To-do-Liste, Shopping-Liste
+
+**Terminliste**:
+Eine vom Nutzer angelegte Kategorie vom Typ `list_due_date`. Jedes Item führt einen Titel, ein Datum (`due_date`), optional eine Uhrzeit (`due_time`), optional eine Workflow-Stufe (`status`: `''` / `in_progress` / `waiting`) und optional eine Notiz. Wird ohne `due_date` gespeichert, zählt es als nicht-fällig; weitere Spezifikation der Datums-/Status-Ausdrücke unter *Fällig*, *Terminiert* und *Ohne Uhrzeit* weiter unten.
+_Avoid_: Aufgabenliste, To-Do, Kalender-Liste
+
+**Item-Editor**:
+Vollbild-Overlay zum Erstellen und Bearbeiten von Items einer Mengen- oder Terminliste. Einziger Editor-Pfad für beide Listentypen: gleiche Topbar (Abbrechen / Titel / Speichern), gleiches Dirty-Tracking pro Feld gegen einen Server-Snapshot, gleicher Save-Aufruf (`add` oder `update`), gleiche 409-/Konflikt-Auflösung. Im Edit-Modus zeigt der Editor nur Kategorien desselben Listentyps zum Verschieben. Notizen, Bilder, Dateien, Links, Tagesnotizen und Zeichnungen verwenden weiterhin ihre eigenen Oberflächen.
+_Avoid_: Aufgaben-Editor, Eintrag bearbeiten-Dialog
+
 **Tagesansicht**:
 Eine datumszentrierte Ansicht, die die kategorieübergreifende Agenda und die Tagesnotiz für dasselbe gewählte Datum zusammenführt; wählbar sind heute, gestern, morgen und freie Daten. Am tatsächlichen heutigen Datum schließt die Agenda Überfälliges ein, für jedes andere Datum ausschließlich Items mit genau diesem Datum.
 _Avoid_: Heute-Sicht, Dashboard, Inbox
