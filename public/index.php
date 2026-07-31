@@ -266,7 +266,7 @@ $clientWebSocketUrl = is_string($clientWebSocketUrl) ? trim($clientWebSocketUrl)
 
     </main>
 
-    <nav class="section-tabs" id="sectionTabs" aria-label="<?= t('ui.select_category') ?>"></nav>
+    <nav class="section-tabs is-scrollable" id="sectionTabs" aria-label="<?= t('ui.select_category') ?>"></nav>
 
     <div class="message" id="message" role="status" aria-live="polite"></div>
 

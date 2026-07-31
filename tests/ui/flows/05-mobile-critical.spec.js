@@ -65,6 +65,6 @@ test.describe('FLOW 5 — Mobile Critical Path', () => {
 
     // 7) Layout-Shift unter Interaktion
     const cls = await readCls(page);
-    expect(cls.value, `CLS=${cls.value}`).toBeLessThan(0.2);
+    expect(cls.value, `CLS=${cls.value}`).toBeLessThan(0.1);
   });
 });

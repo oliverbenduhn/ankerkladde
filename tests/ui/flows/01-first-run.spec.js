@@ -38,6 +38,6 @@ test.describe('FLOW 1 — First-Run Einkaufsliste', () => {
 
     // Layout-Shift-Audit (Interaktionszeitraum) — Google Web Vitals: CLS < 0.1 ist "good"
     const cls = await readCls(page);
-    expect(cls.value, `CLS=${cls.value} entries=${JSON.stringify(cls.entries.slice(0,3))}`).toBeLessThan(0.25);
+    expect(cls.value, `CLS=${cls.value} entries=${JSON.stringify(cls.entries.slice(0,3))}`).toBeLessThan(0.1);
   });
 });
