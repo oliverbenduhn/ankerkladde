@@ -33,9 +33,14 @@ async function openMenu(page, id) {
   await itemCard(page, id).locator('.btn-item-menu').click();
 }
 
-async function startInlineEdit(page, id) {
+async function startEdit(page, id) {
   await openMenu(page, id);
   await page.getByRole('button', { name: 'Bearbeiten', exact: true }).click();
+  await expect(page.locator('#itemEditor')).toBeVisible();
+}
+
+async function saveEditor(page) {
+  await page.locator('#itemSaveBtn').click();
 }
 
 async function triggerOnlineRefresh(page) {
@@ -52,10 +57,10 @@ test.describe('FLOW 9 — Löschkonflikte ohne Datenverlust (Issue #66)', () => 
     const id = await quickAdd(page, original);
     const { context, page: pageB } = await secondContext(browser, page);
 
-    await startInlineEdit(pageB, id);
+    await startEdit(pageB, id);
     const serverName = `${original} Serverfassung`;
-    await itemCard(pageB, id).locator('.edit-name-input').fill(serverName);
-    await itemCard(pageB, id).getByRole('button', { name: `${original} speichern` }).click();
+    await pageB.locator('#itemTitleInput').fill(serverName);
+    await saveEditor(pageB);
     await expect(itemCard(pageB, id)).toContainText(serverName);
 
     const conflictResponse = page.waitForResponse(r => r.url().includes('action=delete') && r.status() === 409);
@@ -81,9 +86,9 @@ test.describe('FLOW 9 — Löschkonflikte ohne Datenverlust (Issue #66)', () => 
     const id = await quickAdd(page, original);
     const { context, page: pageB } = await secondContext(browser, page);
 
-    await startInlineEdit(page, id);
+    await startEdit(page, id);
     const draftName = `${original} lokaler Entwurf`;
-    await itemCard(page, id).locator('.edit-name-input').fill(draftName);
+    await page.locator('#itemTitleInput').fill(draftName);
 
     await openMenu(pageB, id);
     await pageB.getByRole('button', { name: 'Löschen', exact: true }).click();
@@ -91,10 +96,10 @@ test.describe('FLOW 9 — Löschkonflikte ohne Datenverlust (Issue #66)', () => 
     await triggerOnlineRefresh(page);
 
     await page.reload();
-    await openShopping(page);
-    await expect(itemCard(page, id).locator('.edit-name-input')).toHaveValue(draftName);
-    await expect(itemCard(page, id)).toContainText('Server-Löschung erkannt');
-    await itemCard(page, id).getByRole('button', { name: 'Als neuen Eintrag wiederherstellen' }).click();
+    await expect(page.locator('#itemEditor')).toBeVisible();
+    await expect(page.locator('#itemTitleInput')).toHaveValue(draftName);
+    await expect(page.locator('#itemEditorBody')).toContainText('Server-Löschung erkannt');
+    await page.getByRole('button', { name: 'Als neuen Eintrag wiederherstellen' }).click();
     await expect(page.locator('.item-card').filter({ hasText: draftName })).toBeVisible();
     await expect(itemCard(page, id)).toHaveCount(0);
 
@@ -108,15 +113,15 @@ test.describe('FLOW 9 — Löschkonflikte ohne Datenverlust (Issue #66)', () => 
     const id = await quickAdd(page, original);
     const { context, page: pageB } = await secondContext(browser, page);
 
-    await startInlineEdit(page, id);
-    await itemCard(page, id).locator('.edit-name-input').fill(`${original} lokal`);
+    await startEdit(page, id);
+    await page.locator('#itemTitleInput').fill(`${original} lokal`);
     await openMenu(pageB, id);
     await pageB.getByRole('button', { name: 'Löschen', exact: true }).click();
     await expect(itemCard(pageB, id)).toHaveCount(0);
     await triggerOnlineRefresh(page);
 
-    await expect(itemCard(page, id)).toContainText('Server-Löschung erkannt');
-    await itemCard(page, id).getByRole('button', { name: 'Löschung übernehmen' }).click();
+    await expect(page.locator('#itemEditorBody')).toContainText('Server-Löschung erkannt');
+    await page.getByRole('button', { name: 'Löschung übernehmen' }).click();
     await expect(itemCard(page, id)).toHaveCount(0);
     await page.reload();
     await openShopping(page);

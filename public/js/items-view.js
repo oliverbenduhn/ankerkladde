@@ -1,7 +1,7 @@
 import { t } from './i18n.js';
 import { getCurrentType, state } from './state.js';
 import { clearDoneBtn, listEl, progressEl, svgIcon } from './ui.js';
-import { normalizeBarcodeValue, sanitizeItemField, syncAutoHeight } from './utils.js';
+import { sanitizeItemField, syncAutoHeight } from './utils.js';
 import { createLightboxController } from './lightbox.js';
 import { createItemMenuController } from './item-menu.js';
 import { getItemSyncState } from './item-sync-state.js';
@@ -11,6 +11,11 @@ import {
     itemContentSnapshot,
     itemDraftHasLocalChanges,
 } from './item-content-conflict.js';
+
+// Mengen-/Terminlisten-Items werden ausschliesslich ueber den Vollbild-Editor
+// bearbeitet (item-editor.js) — die Inline-Edit-Karte bedient nur noch die
+// restlichen Typen ohne eigenen Vollbild-Editor.
+const INLINE_EDIT_TYPES = ['images', 'files', 'links'];
 
 let sketchEditorModulePromise = null;
 async function loadSketchEditor() {
@@ -138,6 +143,14 @@ export function createItemsViewController(deps) {
         state.editingId = null;
         state.editDraft = createEditDraft({ id: null, category_id: null });
         clearDraftSnapshot();
+    }
+
+    // Mengen-/Terminlisten-Items werden ausschliesslich ueber den Vollbild-Editor
+    // bearbeitet — dessen Draft lebt unabhaengig von der gerade sichtbaren Kategorie.
+    function isEditedViaItemEditor() {
+        const categoryId = Number(state.editDraft?.categoryId);
+        const category = state.categories.find(entry => Number(entry.id) === categoryId);
+        return category?.type === 'list_quantity' || category?.type === 'list_due_date';
     }
 
     function getEditDraftForItem(item) {
@@ -459,14 +472,15 @@ export function createItemsViewController(deps) {
                 content.appendChild(title);
             }
         } else {
-            const nameEl = item.category_type === 'list_due_date'
+            const opensEditor = item.category_type === 'list_due_date' || item.category_type === 'list_quantity';
+            const nameEl = opensEditor
                 ? document.createElement('button')
                 : document.createElement('span');
-            nameEl.className = item.category_type === 'list_due_date'
+            nameEl.className = opensEditor
                 ? 'item-name item-name-button'
                 : 'item-name';
             nameEl.textContent = item.name;
-            if (item.category_type === 'list_due_date') {
+            if (opensEditor) {
                 nameEl.type = 'button';
                 nameEl.setAttribute('aria-label', `${item.name} bearbeiten`);
                 nameEl.addEventListener('click', event => {
@@ -694,83 +708,6 @@ export function createItemsViewController(deps) {
             }
         }
 
-        if (item.category_type === 'list_quantity') {
-            const barcodeInput = document.createElement('input');
-            barcodeInput.type = 'text';
-            barcodeInput.inputMode = 'numeric';
-            barcodeInput.className = 'item-edit-input';
-            barcodeInput.maxLength = 64;
-            barcodeInput.placeholder = 'Barcode';
-            barcodeInput.value = draft.barcode;
-            barcodeInput.addEventListener('input', event => {
-                draft.barcode = normalizeBarcodeValue(event.target.value);
-                barcodeInput.value = draft.barcode;
-            });
-            fields.appendChild(barcodeInput);
-
-            const quantity = document.createElement('input');
-            quantity.type = 'text';
-            quantity.className = 'item-edit-input';
-            quantity.maxLength = 40;
-            quantity.value = draft.quantity;
-            quantity.placeholder = 'Menge';
-            quantity.addEventListener('input', event => {
-                draft.quantity = sanitizeItemField('quantity', event.target.value);
-                if (event.target.value !== draft.quantity) event.target.value = draft.quantity;
-            });
-            fields.appendChild(quantity);
-        }
-
-        if (['list_quantity', 'list_due_date'].includes(item.category_type)) {
-            const priority = document.createElement('select');
-            priority.className = 'item-edit-input';
-            priority.setAttribute('aria-label', 'Priorität');
-            [['', 'Keine Priorität'], ['1', '!1 – Hoch'], ['2', '!2 – Mittel'], ['3', '!3 – Niedrig']]
-                .forEach(([value, label]) => priority.appendChild(new Option(label, value)));
-            priority.value = draft.priority;
-            priority.addEventListener('change', event => {
-                draft.priority = event.target.value;
-            });
-            fields.appendChild(priority);
-        }
-
-        if (item.category_type === 'list_due_date') {
-            const dueDate = document.createElement('input');
-            dueDate.type = 'date';
-            dueDate.className = 'item-edit-input';
-            dueDate.value = draft.due_date;
-            dueDate.addEventListener('input', event => {
-                draft.due_date = sanitizeItemField('due_date', event.target.value);
-                if (event.target.value !== draft.due_date) event.target.value = draft.due_date;
-            });
-            fields.appendChild(dueDate);
-
-            const dueTime = document.createElement('input');
-            dueTime.type = 'time';
-            dueTime.step = '60';
-            dueTime.className = 'item-edit-input';
-            dueTime.value = draft.due_time;
-            dueTime.setAttribute('aria-label', 'Fälligkeitszeit');
-            dueTime.addEventListener('input', event => {
-                draft.due_time = event.target.value;
-            });
-            fields.appendChild(dueTime);
-
-            const noteInput = document.createElement('textarea');
-            noteInput.className = 'item-edit-input item-edit-textarea item-edit-textarea--note';
-            noteInput.rows = 6;
-            noteInput.maxLength = 8000;
-            noteInput.placeholder = 'Notiz optional';
-            noteInput.value = draft.content;
-            noteInput.addEventListener('input', event => {
-                draft.content = sanitizeItemField('content', event.target.value);
-                if (event.target.value !== draft.content) event.target.value = draft.content;
-                syncAutoHeight(noteInput);
-            });
-            syncAutoHeight(noteInput);
-            fields.appendChild(noteInput);
-        }
-
         if (item.category_type === 'links') {
             const descriptionInput = document.createElement('textarea');
             descriptionInput.className = 'item-edit-input item-edit-textarea';
@@ -863,7 +800,7 @@ export function createItemsViewController(deps) {
         const content = document.createElement('div');
         content.className = 'item-content';
 
-        if (state.editingId === item.id && item.category_type !== 'list_due_date') {
+        if (state.editingId === item.id && INLINE_EDIT_TYPES.includes(item.category_type)) {
             buildEditContent(item, content);
             if (item.server_deleted) appendDeletedDraftConflict(item, content);
         } else {
@@ -876,7 +813,7 @@ export function createItemsViewController(deps) {
         const actions = document.createElement('div');
         actions.className = 'item-actions';
 
-        if (state.editingId === item.id && !item.server_deleted) {
+        if (state.editingId === item.id && INLINE_EDIT_TYPES.includes(item.category_type) && !item.server_deleted) {
             actions.appendChild(buildActionButton('check', `${item.name} speichern`, () => void handleEditSave(item.id)));
             actions.appendChild(buildActionButton('rotate-ccw', `${item.name} abbrechen`, () => {
                 resetEditDraft();
@@ -985,7 +922,10 @@ export function createItemsViewController(deps) {
         }
 
         const items = getVisibleItems();
-        if (state.editingId !== null && !items.some(item => item.id === state.editingId)) {
+        // Der Vollbild-Editor (item-editor.js) haengt nicht am Card-Rendering —
+        // sein Draft darf nicht verworfen werden, nur weil das Item gerade in
+        // keiner sichtbaren Kategorie steckt (Reload-Restore, Tab-Wechsel).
+        if (state.editingId !== null && !items.some(item => item.id === state.editingId) && !isEditedViaItemEditor()) {
             resetEditDraft();
         }
         const doneCount = items.filter(item => item.done === 1).length;

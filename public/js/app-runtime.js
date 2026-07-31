@@ -103,8 +103,14 @@ export function createAppRuntime(deps) {
             kanbanViewController?.hideKanban();
             itemsViewController.renderItems();
         }
+        // Server-Loeschung des offenen Vollbild-Editor-Items live erkennen,
+        // ohne auf einen Reload zu warten.
+        itemEditorController?.refreshFromState();
     };
-    const restorePersistedDraft = () => itemsViewController.restorePersistedDraft();
+    // Mengen-/Terminlisten-Drafts leben im Vollbild-Editor (item-editor.js);
+    // alle anderen Typen (Bilder, Dateien, Links) noch in der Inline-Edit-Karte.
+    const restorePersistedDraft = () => itemEditorController.restorePersistedDraft()
+        || itemsViewController.restorePersistedDraft();
     const openNoteEditor = async item => { await editorController.openNoteEditor(item); };
     const openNoteEditorWithNavigation = async item => { await editorController.openNoteEditorWithNavigation(item); };
     const closeNoteEditor = async () => { await editorController.closeNoteEditor(); };

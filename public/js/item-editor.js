@@ -1,8 +1,8 @@
 import { api } from './api.js';
 import { t } from './i18n.js';
 import { state } from './state.js';
-import { clearDraftSnapshot, wrapDraftForPersistence } from './draft-persistence.js';
-import { itemContentSnapshot, itemDraftHasLocalChanges } from './item-content-conflict.js';
+import { clearDraftSnapshot, loadDraftSnapshot, wrapDraftForPersistence } from './draft-persistence.js';
+import { ITEM_CONTENT_FIELDS, itemContentSnapshot, itemDraftHasLocalChanges } from './item-content-conflict.js';
 import {
     appEl,
     itemBarcodeInput,
@@ -22,6 +22,7 @@ import {
     itemStatusSection,
     itemTimeInput,
     itemTitleInput,
+    listEl,
 } from './ui.js';
 
 const TYPE_SECTIONS = {
@@ -114,14 +115,27 @@ export function createItemEditorController(deps) {
         });
     }
 
-    function fillInputsFromItem(item) {
-        if (itemTitleInput) itemTitleInput.value = item.name || '';
-        if (itemQuantityInput) itemQuantityInput.value = item.quantity || '';
-        if (itemBarcodeInput) itemBarcodeInput.value = item.barcode || '';
-        if (itemDateInput) itemDateInput.value = item.due_date || '';
-        if (itemTimeInput) itemTimeInput.value = item.due_time || '';
-        if (itemPriorityInput) itemPriorityInput.value = item.priority || '';
-        if (itemNoteInput) itemNoteInput.value = item.content || '';
+    // Nimmt sowohl ein Item als auch einen Draft entgegen — beide tragen die
+    // ITEM_CONTENT_FIELDS unter denselben Namen (name, barcode, quantity, ...).
+    function fillInputsFromDraft(source) {
+        if (itemTitleInput) itemTitleInput.value = source.name || '';
+        if (itemQuantityInput) itemQuantityInput.value = source.quantity || '';
+        if (itemBarcodeInput) itemBarcodeInput.value = source.barcode || '';
+        if (itemDateInput) itemDateInput.value = source.due_date || '';
+        if (itemTimeInput) itemTimeInput.value = source.due_time || '';
+        if (itemPriorityInput) itemPriorityInput.value = source.priority || '';
+        if (itemNoteInput) itemNoteInput.value = source.content || '';
+    }
+
+    function ensureDraftBase(draft, item) {
+        if (!draft.baseContent || typeof draft.baseContent !== 'object') {
+            draft.baseContent = itemContentSnapshot(item);
+        }
+        if (!Number(draft.baseRevision)) draft.baseRevision = Number(item.revision) || 0;
+        if (!('requestId' in draft)) draft.requestId = '';
+        if (!('conflict' in draft)) draft.conflict = null;
+        if (!('status' in draft)) draft.status = item.status || '';
+        return draft;
     }
 
     function applyTypeSections(type) {
@@ -130,6 +144,25 @@ export function createItemEditorController(deps) {
         if (itemDueDateSection) itemDueDateSection.hidden = !sections.dueDate;
         if (itemStatusSection) itemStatusSection.hidden = !sections.status;
         if (itemNoteSection) itemNoteSection.hidden = !sections.note;
+    }
+
+    // Der Editor liegt als Overlay ueber der Liste — die Karte darunter bleibt
+    // sichtbar und muss ihr "Lokal geändert"-Badge unabhaengig vom Editor-DOM
+    // pflegen, sonst faellt AC #63 (Badge ab erster Eingabe) fuer den
+    // Vollbild-Pfad weg.
+    function updateCardDirtyBadge(itemId, draft) {
+        const content = listEl?.querySelector(`.item-card[data-item-id="${Number(itemId)}"] .item-content`);
+        if (!content) return;
+        const existing = content.querySelector('.item-sync-badge-dirty');
+        if (!itemDraftHasLocalChanges(draft)) {
+            existing?.remove();
+            return;
+        }
+        if (existing) return;
+        const badge = document.createElement('span');
+        badge.className = 'item-sync-badge item-sync-badge-dirty';
+        badge.textContent = 'Lokal geändert';
+        content.appendChild(badge);
     }
 
     function beginDraft(item) {
@@ -144,7 +177,7 @@ export function createItemEditorController(deps) {
             baseUpdatedAt: item.updated_at || '',
             requestId: '',
             conflict: null,
-        }, item.id, item);
+        }, item.id, item, changedDraft => updateCardDirtyBadge(item.id, changedDraft));
         baseStatus = item.status || '';
     }
 
@@ -168,7 +201,7 @@ export function createItemEditorController(deps) {
         itemEditorBody?.querySelectorAll('.item-conflict').forEach(node => node.remove());
     }
 
-    function buildBanner(text, actions) {
+    function buildBanner(text, actions, extra = null) {
         const banner = document.createElement('div');
         banner.className = 'item-conflict';
         const hint = document.createElement('p');
@@ -184,8 +217,31 @@ export function createItemEditorController(deps) {
             button.addEventListener('click', onClick);
             row.appendChild(button);
         });
-        banner.append(hint, row);
+        banner.append(hint);
+        if (extra) banner.append(extra);
+        banner.append(row);
         itemEditorBody?.prepend(banner);
+    }
+
+    // Baut die Lokal-/Server-Vorschau fuer den Konflikt-Banner — Testfluss
+    // liest die Werte ueber die Klassen "local"/"server" aus dem Banner-DOM.
+    function buildConflictVersions(conflict) {
+        const container = document.createElement('div');
+        container.className = 'item-conflict-versions';
+        const buildVersion = (className, source) => {
+            const version = document.createElement('div');
+            version.className = className;
+            ITEM_CONTENT_FIELDS.forEach(field => {
+                const value = String(source?.[field] ?? '');
+                if (!value) return;
+                const row = document.createElement('p');
+                row.textContent = value;
+                version.appendChild(row);
+            });
+            return version;
+        };
+        container.append(buildVersion('local', conflict.local), buildVersion('server', conflict.server));
+        return container;
     }
 
     function serverSummary(conflict) {
@@ -235,7 +291,7 @@ export function createItemEditorController(deps) {
                     const canonical = getItemById(id);
                     if (canonical) {
                         currentItem = canonical;
-                        fillInputsFromItem(canonical);
+                        fillInputsFromDraft(canonical);
                         setStatus(canonical.status || '');
                         beginDraft(canonical);
                     }
@@ -250,7 +306,7 @@ export function createItemEditorController(deps) {
                     afterSaveAttempt(id);
                 },
             },
-        ]);
+        ], buildConflictVersions(conflict));
     }
 
     function afterSaveAttempt(id) {
@@ -271,6 +327,28 @@ export function createItemEditorController(deps) {
         syncDraftFromInputs();
         await handleEditSave(id);
         afterSaveAttempt(id);
+    }
+
+    // Wird bei jedem renderItems() aufgerufen: haelt den offenen Editor mit
+    // Hintergrund-Aktualisierungen synchron (items.js#refreshVisibleCategory),
+    // ohne auf einen Reload zu warten — Server-Loeschung erkennen, und ohne
+    // lokale Aenderungen den rebased Draft auch in den Eingabefeldern zeigen.
+    function refreshFromState() {
+        if (!currentItem || isCreating) return;
+        if (Number(state.editingId) !== Number(currentItem.id)) return;
+        const live = getItemById(currentItem.id);
+        if (live?.server_deleted === 1) {
+            currentItem = live;
+            renderConflictBanner();
+            return;
+        }
+        if (currentItem.server_deleted === 1) return;
+        if (live) currentItem = live;
+        if (!itemDraftHasLocalChanges(state.editDraft)) {
+            fillInputsFromDraft(state.editDraft);
+            setStatus(state.editDraft?.status ?? live?.status ?? '');
+        }
+        renderConflictBanner();
     }
 
     function hideEditor() {
@@ -381,12 +459,10 @@ export function createItemEditorController(deps) {
         itemTitleInput?.focus();
     }
 
-    function openItemEdit(item) {
-        isCreating = false;
-        currentItem = item;
-        clearBanners();
-        beginDraft(item);
-
+    // Praesentiert den bereits in state.editDraft stehenden Draft im Editor —
+    // gemeinsam genutzt von openItemEdit (frischer Draft) und
+    // restorePersistedDraft (ueberlebender Draft aus einem frueheren Tab-Leben).
+    function showEditorUi(item) {
         const showsStatus = item.category_type === 'list_due_date';
         if (showsStatus) {
             // Register handlers fresh via onclick to avoid stacking.
@@ -414,7 +490,7 @@ export function createItemEditorController(deps) {
             }
         }
 
-        fillInputsFromItem(item);
+        fillInputsFromDraft(state.editDraft || item);
         if (itemCategorySection) itemCategorySection.hidden = true;
         applyTypeSections(item.category_type);
         if (itemCreateBtn) itemCreateBtn.hidden = true;
@@ -423,12 +499,57 @@ export function createItemEditorController(deps) {
             itemSaveBtn.disabled = false;
         }
 
-        setStatus(item.status || '');
+        setStatus(state.editDraft?.status ?? item.status ?? '');
         renderConflictBanner();
 
         if (itemEditorEl) itemEditorEl.hidden = false;
         appEl?.classList.add('item-editor-open');
         itemTitleInput?.focus();
+    }
+
+    function openItemEdit(item) {
+        isCreating = false;
+        currentItem = item;
+        clearBanners();
+        beginDraft(item);
+        showEditorUi(item);
+    }
+
+    // AC #63: ein unbestaetigter Draft fuer Mengen-/Terminlisten-Items ueberlebt
+    // Reload/Navigation im selben Tab — der Vollbild-Editor oeffnet sich beim
+    // Boot automatisch wieder, statt den Entwurf stillschweigend zu verlieren.
+    function restorePersistedDraft() {
+        if (state.editingId !== null || currentItem) return false;
+        const snapshot = loadDraftSnapshot();
+        if (!snapshot) return false;
+
+        const snapshotType = snapshot.item?.category_type;
+        if (snapshotType !== 'list_quantity' && snapshotType !== 'list_due_date') return false;
+
+        let item = getItemById(snapshot.editingId);
+        if (!item) {
+            if (!snapshot.item) {
+                clearDraftSnapshot();
+                return false;
+            }
+            item = { ...snapshot.item, server_deleted: 1 };
+        }
+
+        isCreating = false;
+        currentItem = item;
+        clearBanners();
+        const draftBase = snapshot.item || item;
+        state.editingId = item.id;
+        state.editDraft = wrapDraftForPersistence(
+            ensureDraftBase(snapshot.draft, draftBase),
+            item.id,
+            draftBase,
+            changedDraft => updateCardDirtyBadge(item.id, changedDraft)
+        );
+        baseStatus = item.status || '';
+
+        showEditorUi(item);
+        return true;
     }
 
     async function closeItemEditor() {
@@ -448,7 +569,7 @@ export function createItemEditorController(deps) {
         hideEditor();
     }
 
-    [itemTitleInput, itemDateInput, itemTimeInput, itemPriorityInput, itemNoteInput].forEach(input => {
+    [itemTitleInput, itemBarcodeInput, itemQuantityInput, itemDateInput, itemTimeInput, itemPriorityInput, itemNoteInput].forEach(input => {
         input?.addEventListener('input', () => syncDraftFromInputs());
         input?.addEventListener('change', () => syncDraftFromInputs());
     });
@@ -464,5 +585,5 @@ export function createItemEditorController(deps) {
         }
     });
 
-    return { openItemCreate, openItemEdit, closeItemEditor };
+    return { openItemCreate, openItemEdit, closeItemEditor, restorePersistedDraft, refreshFromState };
 }

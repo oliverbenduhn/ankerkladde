@@ -1396,6 +1396,32 @@ button, input { font: inherit; }
     gap: 0.5rem;
 }
 
+.item-conflict-versions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+.item-conflict-versions .local,
+.item-conflict-versions .server {
+    min-width: 0;
+    padding: 0.75rem;
+    border-radius: 0.6rem;
+    background: var(--color-surface, #fff);
+}
+
+.item-conflict-versions p {
+    margin: 0;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+}
+
+@media (max-width: 640px) {
+    .item-conflict-versions {
+        grid-template-columns: 1fr;
+    }
+}
+
 .attachment-content-conflict p {
     margin: 0;
 }
@@ -1483,6 +1509,9 @@ button, input { font: inherit; }
 }
 
 .item-name-button {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
     padding: 0;
     border: 0;
     background: transparent;

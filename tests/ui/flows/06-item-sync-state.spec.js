@@ -5,9 +5,6 @@ async function goToEinkauf(page) {
   await page.getByRole('button', { name: /^Einkauf/ }).first().click();
 }
 
-// Stabiler Selektor ueber data-item-id statt hasText: im Edit-Modus steckt
-// der Name im .value einer Textarea, nicht im sichtbaren Textinhalt, den ein
-// hasText-Filter sehen wuerde.
 function itemCard(page, id) {
   return page.locator(`.item-card[data-item-id="${id}"]`);
 }
@@ -30,7 +27,8 @@ async function quickAdd(page, name) {
 
 async function openEditMode(page, id) {
   await itemCard(page, id).locator('.btn-item-menu').click();
-  await page.getByRole('button', { name: 'Bearbeiten' }).click();
+  await page.getByRole('button', { name: 'Bearbeiten', exact: true }).click();
+  await expect(page.locator('#itemEditor')).toBeVisible();
 }
 
 test.describe('FLOW 6 — Item-Sync-Zustand & Entwurf-Persistenz (Issue #63)', () => {
@@ -47,7 +45,7 @@ test.describe('FLOW 6 — Item-Sync-Zustand & Entwurf-Persistenz (Issue #63)', (
     const { id } = await quickAdd(page, itemName);
 
     await openEditMode(page, id);
-    const nameInput = itemCard(page, id).locator('.edit-name-input');
+    const nameInput = page.locator('#itemTitleInput');
     await expect(nameInput).toBeVisible();
     await nameInput.fill(`${itemName} bearbeitet`);
 
@@ -55,24 +53,26 @@ test.describe('FLOW 6 — Item-Sync-Zustand & Entwurf-Persistenz (Issue #63)', (
     await expect(itemCard(page, id).locator('.item-sync-badge-dirty')).toHaveText('Lokal geändert');
     await snap(page, testInfo, '1-dirty-before-reload');
 
-    // Reload OHNE zu speichern — Entwurf darf nicht verloren gehen (AC #63).
+    // Reload OHNE zu speichern — Entwurf darf nicht verloren gehen (AC #63):
+    // der Vollbild-Editor oeffnet sich beim Boot automatisch wieder.
     await page.reload();
-    await page.locator('#sectionTabs .section-tab').first().waitFor({ state: 'visible' });
 
-    const restoredInput = itemCard(page, id).locator('.edit-name-input');
-    await expect(restoredInput).toBeVisible();
+    const restoredInput = page.locator('#itemTitleInput');
+    await expect(page.locator('#itemEditor')).toBeVisible();
     await expect(restoredInput).toHaveValue(`${itemName} bearbeitet`);
     await expect(itemCard(page, id).locator('.item-sync-badge-dirty')).toBeVisible();
     await snap(page, testInfo, '2-restored-after-reload');
 
     // Speichern entfernt den Entwurf-Snapshot.
-    await itemCard(page, id).getByRole('button', { name: `${itemName} speichern` }).click();
-    await expect(itemCard(page, id).locator('.item-edit-input')).toHaveCount(0);
+    await page.locator('#itemSaveBtn').click();
+    await expect(itemCard(page, id).locator('.item-sync-badge-dirty')).toHaveCount(0);
     await expect(itemCard(page, id)).toContainText(`${itemName} bearbeitet`);
+    await page.locator('#itemEditorBack').click();
+    await expect(page.locator('#itemEditor')).toBeHidden();
 
     await page.reload();
     await page.locator('#sectionTabs .section-tab').first().waitFor({ state: 'visible' });
-    await expect(itemCard(page, id).locator('.edit-name-input')).toHaveCount(0);
+    await expect(page.locator('#itemEditor')).toBeHidden();
     await snap(page, testInfo, '3-no-draft-after-save');
   });
 
@@ -102,7 +102,7 @@ test.describe('FLOW 6 — Item-Sync-Zustand & Entwurf-Persistenz (Issue #63)', (
     const itemName = `QA Flow6 TwoTabs ${Date.now()}`;
     const { id } = await quickAdd(pageA, itemName);
     await openEditMode(pageA, id);
-    await itemCard(pageA, id).locator('.edit-name-input').fill(`${itemName} nur in Tab A`);
+    await pageA.locator('#itemTitleInput').fill(`${itemName} nur in Tab A`);
     await expect(itemCard(pageA, id).locator('.item-sync-badge-dirty')).toBeVisible();
     await snap(pageA, testInfo, '1-tab-a-dirty');
 
@@ -118,7 +118,7 @@ test.describe('FLOW 6 — Item-Sync-Zustand & Entwurf-Persistenz (Issue #63)', (
 
     const cardB = itemCard(pageB, id);
     await expect(cardB).toBeVisible();
-    await expect(cardB.locator('.edit-name-input')).toHaveCount(0);
+    await expect(pageB.locator('#itemEditor')).toBeHidden();
     await expect(cardB.locator('.item-sync-badge-dirty')).toHaveCount(0);
     await snap(pageB, testInfo, '2-tab-b-no-foreign-draft');
 

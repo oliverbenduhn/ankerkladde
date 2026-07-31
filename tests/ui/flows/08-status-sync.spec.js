@@ -93,10 +93,10 @@ test.describe('FLOW 8 — Statusänderungen unabhängig synchronisieren (Issue #
     const { context, page: pageB } = await secondContext(browser, page, category.name);
 
     await itemCard(pageB, id).locator('.btn-item-menu').click();
-    await pageB.getByRole('button', { name: 'Bearbeiten' }).click();
+    await pageB.getByRole('button', { name: 'Bearbeiten', exact: true }).click();
     const changedName = `${originalName} Serverinhalt`;
-    await itemCard(pageB, id).locator('.edit-name-input').fill(changedName);
-    await itemCard(pageB, id).getByRole('button', { name: `${originalName} speichern` }).click();
+    await pageB.locator('#itemTitleInput').fill(changedName);
+    await pageB.locator('#itemSaveBtn').click();
     await expect(itemCard(pageB, id)).toContainText(changedName);
 
     const requests = [];
@@ -230,8 +230,8 @@ test.describe('FLOW 8 — Statusänderungen unabhängig synchronisieren (Issue #
     await openItemMenu(pageB, id);
     await pageB.getByRole('button', { name: 'Bearbeiten', exact: true }).click();
     const changedName = `${originalName} Serverinhalt`;
-    await itemCard(pageB, id).locator('.edit-name-input').fill(changedName);
-    await itemCard(pageB, id).getByRole('button', { name: `${originalName} speichern` }).click();
+    await pageB.locator('#itemTitleInput').fill(changedName);
+    await pageB.locator('#itemSaveBtn').click();
     await expect(itemCard(pageB, id)).toContainText(changedName);
 
     const requests = [];

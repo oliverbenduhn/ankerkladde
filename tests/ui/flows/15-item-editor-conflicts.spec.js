@@ -27,10 +27,15 @@ async function quickAdd(page, name) {
 async function edit(page, id, value) {
   await itemCard(page, id).locator('.btn-item-menu').click();
   await page.getByRole('button', { name: 'Bearbeiten', exact: true }).click();
-  await itemCard(page, id).locator('.edit-name-input').fill(value);
+  await expect(page.locator('#itemEditor')).toBeVisible();
+  await page.locator('#itemTitleInput').fill(value);
 }
 
-test.describe('FLOW 15 — Allgemeine Inline-Inhaltskonflikte', () => {
+async function save(page) {
+  await page.locator('#itemSaveBtn').click();
+}
+
+test.describe('FLOW 15 — Item-Editor-Inhaltskonflikte', () => {
   test('409 zeigt beide Fassungen; lokale Auflösung behält die Request-ID', async ({ page, context }, testInfo) => {
     test.skip(testInfo.project.name !== 'mobile', 'Der Zwei-Tab-Nachweis läuft im mobilen Projekt.');
     await login(page);
@@ -47,7 +52,7 @@ test.describe('FLOW 15 — Allgemeine Inline-Inhaltskonflikte', () => {
     await pageB.locator('#sectionTabs .section-tab').first().waitFor({ state: 'visible' });
     await goToEinkauf(pageB);
     await edit(pageB, id, `${original} server`);
-    await itemCard(pageB, id).getByRole('button', { name: `${original} speichern` }).click();
+    await save(pageB);
     await expect(itemCard(pageB, id)).toContainText(`${original} server`);
 
     const requestIds = [];
@@ -56,14 +61,14 @@ test.describe('FLOW 15 — Allgemeine Inline-Inhaltskonflikte', () => {
         requestIds.push(request.headers()['x-idempotency-key']);
       }
     });
-    await itemCard(page, id).getByRole('button', { name: `${original} speichern` }).click();
-    const conflict = itemCard(page, id).locator('.item-content-conflict');
+    await save(page);
+    const conflict = page.locator('#itemEditorBody .item-conflict');
     await expect(conflict).toBeVisible();
-    await expect(conflict.locator('.item-content-conflict-version-local')).toContainText(`${original} lokal`);
-    await expect(conflict.locator('.item-content-conflict-version-server')).toContainText(`${original} server`);
+    await expect(conflict.locator('.local')).toContainText(`${original} lokal`);
+    await expect(conflict.locator('.server')).toContainText(`${original} server`);
 
     await conflict.getByRole('button', { name: 'Meine Fassung behalten', exact: true }).click();
-    await expect(itemCard(page, id).locator('.item-edit-fields')).toHaveCount(0);
+    await expect(page.locator('#itemEditorBody .item-conflict')).toHaveCount(0);
     await expect(itemCard(page, id)).toContainText(`${original} lokal`);
     expect(requestIds).toHaveLength(2);
     expect(requestIds[0]).toBe(requestIds[1]);
@@ -86,13 +91,13 @@ test.describe('FLOW 15 — Allgemeine Inline-Inhaltskonflikte', () => {
     await pageB.locator('#sectionTabs .section-tab').first().waitFor({ state: 'visible' });
     await goToEinkauf(pageB);
     await edit(pageB, id, `${original} kanonisch`);
-    await itemCard(pageB, id).getByRole('button', { name: `${original} speichern` }).click();
-    await itemCard(page, id).getByRole('button', { name: `${original} speichern` }).click();
+    await save(pageB);
+    await save(page);
 
-    const conflict = itemCard(page, id).locator('.item-content-conflict');
+    const conflict = page.locator('#itemEditorBody .item-conflict');
     await expect(conflict).toBeVisible();
     await conflict.getByRole('button', { name: 'Server-Version übernehmen', exact: true }).click();
-    await expect(itemCard(page, id).locator('.item-edit-fields')).toHaveCount(0);
+    await expect(page.locator('#itemEditorBody .item-conflict')).toHaveCount(0);
     await expect(itemCard(page, id)).toContainText(`${original} kanonisch`);
     await pageB.close();
   });

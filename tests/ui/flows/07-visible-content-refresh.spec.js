@@ -49,9 +49,9 @@ test.describe('FLOW 7 — Sichtbare Inhalte automatisch aktualisieren (Issue #64
 
     // Item X wird lokal bearbeitet (Konflikteinheit soll geschuetzt bleiben).
     await pageA.locator(`.item-card[data-item-id="${idX}"] .btn-item-menu`).click();
-    await pageA.getByRole('button', { name: 'Bearbeiten' }).click();
+    await pageA.getByRole('button', { name: 'Bearbeiten', exact: true }).click();
     const draftText = `${nameX} lokal veraendert, nicht gespeichert`;
-    await itemCard(pageA, idX).locator('.edit-name-input').fill(draftText);
+    await pageA.locator('#itemTitleInput').fill(draftText);
     await snap(pageA, testInfo, '1-tab-a-editing-x');
 
     // Tab B (gleiches Konto, gleicher Context): aendert Item Y auf dem Server,
@@ -77,7 +77,7 @@ test.describe('FLOW 7 — Sichtbare Inhalte automatisch aktualisieren (Issue #64
     // AC: andere sichtbare Aenderung (Item Y) wird uebernommen ...
     await expect(itemCard(pageA, idY)).toHaveClass(/\bdone\b/);
     // ... aber die eigene, noch nicht gespeicherte Bearbeitung von Item X bleibt unangetastet.
-    await expect(itemCard(pageA, idX).locator('.edit-name-input')).toHaveValue(draftText);
+    await expect(pageA.locator('#itemTitleInput')).toHaveValue(draftText);
 
     await pageA.close();
     await pageB.close();
@@ -127,7 +127,7 @@ test.describe('FLOW 7 — Sichtbare Inhalte automatisch aktualisieren (Issue #64
     const originalName = `QA Flow7 Clean Editor ${Date.now()}`;
     const { id } = await quickAdd(pageA, originalName);
     await pageA.locator(`.item-card[data-item-id="${id}"] .btn-item-menu`).click();
-    await pageA.getByRole('button', { name: 'Bearbeiten' }).click();
+    await pageA.getByRole('button', { name: 'Bearbeiten', exact: true }).click();
     await expect(itemCard(pageA, id).locator('.item-sync-badge-dirty')).toHaveCount(0);
 
     const pageB = await context.newPage();
@@ -138,14 +138,16 @@ test.describe('FLOW 7 — Sichtbare Inhalte automatisch aktualisieren (Issue #64
     await pageB.locator('#sectionTabs .section-tab').first().waitFor({ state: 'visible' });
     await goToEinkauf(pageB);
     await pageB.locator(`.item-card[data-item-id="${id}"] .btn-item-menu`).click();
-    await pageB.getByRole('button', { name: 'Bearbeiten' }).click();
+    await pageB.getByRole('button', { name: 'Bearbeiten', exact: true }).click();
     const serverName = `${originalName} vom Server`;
-    await itemCard(pageB, id).locator('.edit-name-input').fill(serverName);
-    await itemCard(pageB, id).getByRole('button', { name: `${originalName} speichern` }).click();
+    await pageB.locator('#itemTitleInput').fill(serverName);
+    await pageB.locator('#itemSaveBtn').click();
+    await pageB.locator('#itemEditorBack').click();
+    await expect(pageB.locator('#itemEditor')).toBeHidden();
     await itemCard(pageB, id).locator('input.toggle').click();
 
     await triggerOnlineRefresh(pageA);
-    await expect(itemCard(pageA, id).locator('.edit-name-input')).toHaveValue(serverName);
+    await expect(pageA.locator('#itemTitleInput')).toHaveValue(serverName);
     await expect(itemCard(pageA, id).locator('input.toggle')).toBeChecked();
     await expect(itemCard(pageA, id).locator('.item-sync-badge-dirty')).toHaveCount(0);
     await pageA.close();
