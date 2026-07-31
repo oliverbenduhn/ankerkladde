@@ -6,6 +6,7 @@ export const ITEM_CONTENT_FIELDS = [
     'due_time',
     'priority',
     'content',
+    'status',
 ];
 
 function value(source, field) {
