@@ -22,14 +22,29 @@ mkdir -p "${DATA_DIR}"
 
 export EINKAUF_DATA_DIR="${DATA_DIR}"
 export ANKERKLADDE_CANONICAL_HOST=""
-export EINKAUF_ADMIN_USER="playwright-admin"
-export EINKAUF_ADMIN_PASS="playwright-pass"
-export EINKAUF_REGULAR_USER="playwright-user"
-export EINKAUF_REGULAR_PASS="playwright-pass"
+export EINKAUF_ADMIN_USER="${EINKAUF_ADMIN_USER:-playwright-admin}"
+export EINKAUF_ADMIN_PASS="${EINKAUF_ADMIN_PASS:-playwright-pass}"
+export EINKAUF_REGULAR_USER="${EINKAUF_REGULAR_USER:-playwright-user}"
+export EINKAUF_REGULAR_PASS="${EINKAUF_REGULAR_PASS:-playwright-pass}"
+# ponytail: Flow-Tests teilen sich bei fullyParallel denselben Nutzer und
+# raeumen sich so gegenseitig die Vorbedingungen weg (#74). Pro Worker einen
+# eigenen Nutzer anlegen, damit parallele Slots nichts voneinander sehen.
+PW_WORKER_COUNT="${PW_WORKER_COUNT:-1}"
 export ANKERKLADDE_WS_CLIENT_URL="${ANKERKLADDE_WS_CLIENT_URL:-ws://${HOST}:3000}"
 export WS_NOTIFY_URL="${WS_NOTIFY_URL:-http://127.0.0.1:3000/notify}"
 
 php "${ROOT_DIR}/scripts/create-admin.php" >/dev/null
 EINKAUF_DEMO_USER="${EINKAUF_REGULAR_USER}" php "${ROOT_DIR}/scripts/seed-demo-data.php" >/dev/null
+
+if [[ "${PW_WORKER_COUNT}" -gt 1 ]]; then
+    slotUsers=""
+    for slot in $(seq 1 $((PW_WORKER_COUNT - 1))); do
+        slotUsers="${slotUsers:+${slotUsers},}playwright-user-${slot}"
+    done
+    if [[ -n "${slotUsers}" ]]; then
+        PW_USERS="${slotUsers}" PW_PASS="${EINKAUF_REGULAR_PASS}" \
+            php "${ROOT_DIR}/scripts/create-test-users.php" >/dev/null
+    fi
+fi
 
 exec php -S "${HOST}:${PORT}" -t "${ROOT_DIR}/public"

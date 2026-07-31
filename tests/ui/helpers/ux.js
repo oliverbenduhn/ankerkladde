@@ -23,9 +23,20 @@ async function snap(page, testInfo, suffix) {
   }
 }
 
-async function login(page, { username = 'playwright-user', password = 'playwright-pass' } = {}) {
+async function login(page, opts = {}) {
+  const { username = 'playwright-user', password = 'playwright-pass', testInfo } = opts;
+  // ponytail: Per-Worker-User, damit parallele Flow-Worker (#74) sich nicht
+  // gegenseitig Vorbedingungen wegraeumen. Default-User (playwright-user)
+  // bleibt fuer Aufrufer ohne testInfo bestehen.
+  let resolvedUsername = username;
+  if (testInfo && typeof testInfo.workerIndex === 'number') {
+    const workerCount = Number(process.env.PW_WORKER_COUNT || 1);
+    if (workerCount > 1) {
+      resolvedUsername = `playwright-user-${testInfo.workerIndex}`;
+    }
+  }
   await page.goto('/login.php');
-  await page.getByLabel('Benutzername').fill(username);
+  await page.getByLabel('Benutzername').fill(resolvedUsername);
   await page.getByLabel('Passwort').fill(password);
   await page.getByRole('button', { name: 'Anmelden' }).click();
   await page.waitForURL(/index\.php/);

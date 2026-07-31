@@ -13,8 +13,8 @@ test.setTimeout(60_000);
 
 test.describe('FLOW 19c — Tages-Skizze-Karte Sichtbarkeit (#43)', () => {
 
-    test('Ohne Skizze: Karte hidden, mit Skizze: Karte sichtbar', async ({ page }) => {
-        await login(page);
+    test('Ohne Skizze: Karte hidden, mit Skizze: Karte sichtbar', async ({ page }, testInfo) => {
+        await login(page, { testInfo });
         const csrf = await csrfToken(page);
         const dateEmpty = '2032-10-11';
         const dateWithSketch = '2032-10-12';

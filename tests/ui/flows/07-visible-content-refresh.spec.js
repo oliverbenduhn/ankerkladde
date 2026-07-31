@@ -39,7 +39,7 @@ test.describe('FLOW 7 — Sichtbare Inhalte automatisch aktualisieren (Issue #64
 
   test('Automatische Aktualisierung heilt einen verlorenen Push-Hinweis und schützt lokale Bearbeitung', async ({ context }, testInfo) => {
     const pageA = await context.newPage();
-    await login(pageA);
+    await login(pageA, { testInfo });
     await goToEinkauf(pageA);
 
     const nameX = `QA Flow7 Edited ${Date.now()}`;
@@ -83,9 +83,9 @@ test.describe('FLOW 7 — Sichtbare Inhalte automatisch aktualisieren (Issue #64
     await pageB.close();
   });
 
-  test('Drosselung: Rückkehr in die App innerhalb von 10s löst keinen zweiten Abruf aus', async ({ page }) => {
+  test('Drosselung: Rückkehr in die App innerhalb von 10s löst keinen zweiten Abruf aus', async ({ page }, testInfo) => {
     test.setTimeout(30_000);
-    await login(page);
+    await login(page, { testInfo });
     await goToEinkauf(page);
     // prefetchAdjacentCategories() laedt Nachbarkategorien im Hintergrund
     // nach (eigener AC, nicht Teil dieses Tests) und Item X wird bereits im
@@ -120,9 +120,9 @@ test.describe('FLOW 7 — Sichtbare Inhalte automatisch aktualisieren (Issue #64
     expect(listRequests).toBe(countAfterFirst);
   });
 
-  test('Geöffneter Editor ohne lokale Eingabe übernimmt Inhalt und Status komponentenbezogen', async ({ context }) => {
+  test('Geöffneter Editor ohne lokale Eingabe übernimmt Inhalt und Status komponentenbezogen', async ({ context }, testInfo) => {
     const pageA = await context.newPage();
-    await login(pageA);
+    await login(pageA, { testInfo });
     await goToEinkauf(pageA);
     const originalName = `QA Flow7 Clean Editor ${Date.now()}`;
     const { id } = await quickAdd(pageA, originalName);
