@@ -124,7 +124,6 @@
     "todo.barcode": "Barcode",
     "todo.create": "Anlegen",
     "todo.save": "Speichern",
-    "todo.discard_changes": "Ungespeicherte Änderungen verwerfen?",
     "todo.title_placeholder": "Aufgabe...",
     "todo.due_date": "Fälligkeitsdatum",
     "todo.due_time": "Uhrzeit",

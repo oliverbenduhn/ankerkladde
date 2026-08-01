@@ -2,7 +2,12 @@ import { api } from './api.js';
 import { t } from './i18n.js';
 import { state } from './state.js';
 import { clearDraftSnapshot, loadDraftSnapshot, wrapDraftForPersistence } from './draft-persistence.js';
-import { ITEM_CONTENT_FIELDS, itemContentSnapshot, itemDraftHasLocalChanges } from './item-content-conflict.js';
+import {
+    ITEM_CONTENT_FIELDS,
+    itemContentSnapshot,
+    itemDraftHasLocalChanges,
+    rebaseItemDraft,
+} from './item-content-conflict.js';
 import {
     appEl,
     itemBarcodeInput,
@@ -191,7 +196,7 @@ export function createItemEditorController(deps) {
     // Status gehoert inhaltlich zum Item, ist aber noch nicht Teil von
     // ITEM_CONTENT_FIELDS (folgt in #3b). Bis dahin haelt der Editor die
     // Status-Aenderung selbst als "ungespeichert" fest.
-    function hasUnsavedChanges() {
+    function isDirty() {
         const draft = activeDraft();
         if (!draft) return false;
         return itemDraftHasLocalChanges(draft) || String(currentStatus) !== String(baseStatus);
@@ -489,10 +494,18 @@ export function createItemEditorController(deps) {
                     await saveEdit();
                     const canonical = getItemById(id) || currentItem;
                     await handleToggle(id, canonical.done === 1 ? 0 : 1);
-                    afterSaveAttempt(id);
-                    const updated = getItemById(id);
-                    if (updated) Object.assign(item, updated);
-                    doneBtn.classList.toggle('is-active', (updated || canonical).done === 1);
+                    const updated = getItemById(id) || canonical;
+                    // Nur die Revisions-Basis auf den Toggle nachziehen (kein
+                    // afterSaveAttempt hier — das wuerde wegen state.editingId
+                    // !== null nichts tun und den Draft mit veralteter
+                    // baseRevision zurücklassen, wodurch der naechste Save
+                    // faelschlich in einen 409-Rebase liefe).
+                    const draft = activeDraft();
+                    if (draft && !draft.conflict) rebaseItemDraft(draft, updated);
+                    currentItem = updated;
+                    Object.assign(item, updated);
+                    doneBtn.classList.toggle('is-active', updated.done === 1);
+                    renderConflictBanner();
                 };
                 doneBtn.classList.toggle('is-active', item.done === 1);
             }
@@ -560,6 +573,28 @@ export function createItemEditorController(deps) {
         return true;
     }
 
+    // Nach einem abgeschlossenen Save (Button oder Flush-beim-Schliessen):
+    // bei offenem Konflikt bleibt der Editor bewusst offen, damit die
+    // Aufloesung (Banner) nicht uebergangen wird — sonst schliessen.
+    // Nicht schliessen, solange ein Save nicht wirklich sauber durch ist —
+    // itemDraftHasLocalChanges() ist nach einem erfolgreichen Save immer
+    // false (afterSaveAttempt setzt einen frischen, unveraenderten Draft
+    // auf die kanonische Fassung auf); bei einem fehlgeschlagenen Save
+    // (Validierung, Netzwerk) bleiben die lokalen Werte dagegen abweichend
+    // stehen, und der Nutzer sieht die Fehlermeldung mit offenem Editor.
+    function finishEditorSession() {
+        if (currentItem?.server_deleted === 1) return;
+        if (activeDraft()?.conflict) return;
+        if (itemDraftHasLocalChanges(state.editDraft)) return;
+        resetDraftState();
+        renderItems();
+        hideEditor();
+    }
+
+    // Kein Verwerfen-Dialog mehr: der Pfeil speichert bei Bedarf sofort und
+    // schliesst dann, statt zu fragen — der Draft haengt bis dahin (AC #63)
+    // ausschliesslich lokal in sessionStorage, es geht also nichts verloren,
+    // egal ob gespeichert oder verworfen wird.
     async function closeItemEditor() {
         if (isCreating) {
             // Create-Draft ist reiner Speicherzustand — den persistierten
@@ -570,9 +605,9 @@ export function createItemEditorController(deps) {
         }
         if (currentItem) {
             syncDraftFromInputs();
-            if (hasUnsavedChanges() && !window.confirm(t('todo.discard_changes'))) return;
-            resetDraftState();
-            renderItems();
+            if (isDirty()) await saveEdit();
+            finishEditorSession();
+            return;
         }
         hideEditor();
     }
@@ -587,6 +622,7 @@ export function createItemEditorController(deps) {
             itemSaveBtn.disabled = true;
             try {
                 await saveEdit();
+                finishEditorSession();
             } finally {
                 itemSaveBtn.disabled = false;
             }

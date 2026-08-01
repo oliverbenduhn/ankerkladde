@@ -63,12 +63,11 @@ test.describe('FLOW 6 — Item-Sync-Zustand & Entwurf-Persistenz (Issue #63)', (
     await expect(itemCard(page, id).locator('.item-sync-badge-dirty')).toBeVisible();
     await snap(page, testInfo, '2-restored-after-reload');
 
-    // Speichern entfernt den Entwurf-Snapshot.
+    // Speichern entfernt den Entwurf-Snapshot und schliesst den Editor.
     await page.locator('#itemSaveBtn').click();
+    await expect(page.locator('#itemEditor')).toBeHidden();
     await expect(itemCard(page, id).locator('.item-sync-badge-dirty')).toHaveCount(0);
     await expect(itemCard(page, id)).toContainText(`${itemName} bearbeitet`);
-    await page.locator('#itemEditorBack').click();
-    await expect(page.locator('#itemEditor')).toBeHidden();
 
     await page.reload();
     await page.locator('#sectionTabs .section-tab').first().waitFor({ state: 'visible' });

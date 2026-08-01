@@ -159,7 +159,6 @@ test.describe('FLOW 8 — Statusänderungen unabhängig synchronisieren (Issue #
     await pageB.locator('#itemTitleInput').fill(changedName);
     await pageB.locator('#itemSaveBtn').click();
     await expect(pageB.locator('#message')).toContainText('gespeichert');
-    await pageB.locator('#itemEditorBack').click();
     await expect(pageB.locator('#itemEditor')).toBeHidden();
 
     const statuses = [];
@@ -214,7 +213,6 @@ test.describe('FLOW 8 — Statusänderungen unabhängig synchronisieren (Issue #
     await page.locator('#itemTitleInput').fill(finalName);
     await page.locator('#itemSaveBtn').click();
     await expect(page.locator('#message')).toContainText('gespeichert');
-    await page.locator('#itemEditorBack').click();
     await expect(page.locator('#itemEditor')).toBeHidden();
     await expect(itemCard(page, id)).toContainText(finalName);
   });

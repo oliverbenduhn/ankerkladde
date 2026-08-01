@@ -124,7 +124,6 @@
     "todo.barcode": "Barcode",
     "todo.create": "Create",
     "todo.save": "Save",
-    "todo.discard_changes": "Discard unsaved changes?",
     "todo.title_placeholder": "Task...",
     "todo.due_date": "Due date",
     "todo.due_time": "Time",

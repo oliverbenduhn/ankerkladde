@@ -142,7 +142,6 @@ test.describe('FLOW 7 — Sichtbare Inhalte automatisch aktualisieren (Issue #64
     const serverName = `${originalName} vom Server`;
     await pageB.locator('#itemTitleInput').fill(serverName);
     await pageB.locator('#itemSaveBtn').click();
-    await pageB.locator('#itemEditorBack').click();
     await expect(pageB.locator('#itemEditor')).toBeHidden();
     await itemCard(pageB, id).locator('input.toggle').click();
 
