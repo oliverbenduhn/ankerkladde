@@ -198,7 +198,7 @@ $clientWebSocketUrl = is_string($clientWebSocketUrl) ? trim($clientWebSocketUrl)
         <form id="itemForm" novalidate>
             <textarea id="itemInput" name="name"
                       placeholder="<?= t('item.input_placeholder') ?>" aria-label="<?= t('item.input_placeholder') ?>" maxlength="120"
-                      autocomplete="off" enterkeyhint="done" rows="3" required></textarea>
+                      autocomplete="off" enterkeyhint="done" rows="1" required></textarea>
             <textarea id="linkDescriptionInput" name="content"
                       class="link-description-input" placeholder="<?= t('item.link_description') ?>" aria-label="<?= t('item.link_description') ?>"
                       autocomplete="off" enterkeyhint="done" rows="2" hidden></textarea>

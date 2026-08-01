@@ -1,0 +1,9 @@
+{
+  "date": "2026-08-01",
+  "framework": "PHP PWA + Vanilla JavaScript ESM",
+  "font_stack": "system sans + Iowan/Palatino serif + system mono",
+  "palette": "PHP-generated selectable themes with warm parchment default",
+  "motion": "motion-cut; no motion library",
+  "spacing": "new Hallmark 4-point named scale",
+  "sources": ["package.json", "public/style.css", "public/theme-data.php", "public/index.php"]
+}

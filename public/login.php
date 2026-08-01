@@ -112,7 +112,7 @@ $csrfToken = getCsrfToken();
 <html lang="<?= htmlspecialchars(getCurrentLanguage(), ENT_QUOTES, 'UTF-8') ?>">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="<?= htmlspecialchars($themeColor, ENT_QUOTES, 'UTF-8') ?>">
     <?= renderThemeBootScript($defaultThemePreferences) ?>
     <meta name="mobile-web-app-capable" content="yes">

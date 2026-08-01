@@ -483,7 +483,7 @@ $uploadLimits = getUploadLimitSettings($db);
 <html lang="<?= htmlspecialchars(getCurrentLanguage(), ENT_QUOTES, 'UTF-8') ?>">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <?php
 $effectiveTheme = resolveEffectiveTheme($adminPreferences);
 $themeColor = getThemeColor($effectiveTheme);

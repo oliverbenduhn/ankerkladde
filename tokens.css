@@ -1,0 +1,68 @@
+/* Hallmark · pre-emit critique: P5 H4 E4 S5 R5 V4 */
+/* Ankerkladde · locked design tokens · source of truth */
+:root {
+  --color-paper: oklch(96% 0.014 78);
+  --color-paper-2: oklch(93% 0.016 76);
+  --color-paper-3: oklch(89% 0.018 74);
+  --color-ink: oklch(22% 0.028 248);
+  --color-ink-2: oklch(34% 0.032 244);
+  --color-rule: oklch(78% 0.025 232);
+  --color-rule-2: oklch(85% 0.019 226);
+  --color-muted: oklch(48% 0.026 240);
+  --color-neutral: oklch(40% 0.03 242);
+  --color-accent: oklch(44% 0.12 242);
+  --color-accent-ink: oklch(97% 0.012 78);
+  --color-focus: oklch(56% 0.19 242);
+  --color-error: oklch(52% 0.17 28);
+  --color-success: oklch(46% 0.11 155);
+
+  --font-display: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Palatino, ui-serif, serif;
+  --font-body: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-outlier: ui-monospace, "SFMono-Regular", "SF Mono", Menlo, monospace;
+  --display-weight: 700;
+  --display-style: normal;
+  --tracking-display: -0.035em;
+  --tracking-label: 0.08em;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-md: 1.125rem;
+  --text-lg: 1.375rem;
+  --text-xl: 1.75rem;
+  --text-2xl: 2.25rem;
+  --text-display: clamp(2.5rem, 4vw + 1rem, 4.75rem);
+
+  --space-3xs: 0.125rem;
+  --space-2xs: 0.25rem;
+  --space-xs: 0.5rem;
+  --space-sm: 0.75rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2.5rem;
+  --space-2xl: 4rem;
+  --space-3xl: 6rem;
+  --space-4xl: 9rem;
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-micro: 120ms;
+  --dur-short: 220ms;
+  --dur-long: 420ms;
+
+  --rule-hair: 1px;
+  --rule-fine: 2px;
+  --radius-card: 10px;
+  --radius-pill: 999px;
+  --radius-input: 8px;
+  --shadow-card: 0 1px 2px oklch(22% 0.028 248 / 0.08);
+
+  --z-base: 1;
+  --z-raised: 10;
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-modal: 400;
+  --z-toast: 500;
+  --z-tooltip: 600;
+}

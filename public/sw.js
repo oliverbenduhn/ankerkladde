@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION = 'v5.3.46';
+const VERSION = 'v5.3.65';
 // ASSET_VERSION is derived from VERSION to ensure they stay in sync.
 const ASSET_VERSION = VERSION.replace(/^v/, '');
 const STATIC_CACHE = `ankerkladde-static-${VERSION}`;
@@ -13,6 +13,7 @@ const API_URL = new URL('api.php', APP_SCOPE_URL);
 const APP_SHELL_ASSET_URLS = [
     'offline.html',
     'theme-css.php',
+    'tokens.css',
     `style.css?v=${ASSET_VERSION}`,
     `js/main.js?v=${ASSET_VERSION}`,
     `js/api.js?v=${ASSET_VERSION}`,
