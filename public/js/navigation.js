@@ -6,7 +6,7 @@ export function createNavigation({ applyRouteState, getCurrentRouteState }) {
     let suppressHistorySync = false;
 
     function normalizeRouteState(route = {}) {
-        const screen = ['list', 'settings', 'search', 'note', 'scanner', 'journal'].includes(route?.screen)
+        const screen = ['list', 'settings', 'search', 'note', 'scanner', 'journal', 'sketch'].includes(route?.screen)
             ? route.screen
             : 'list';
 
@@ -36,6 +36,21 @@ export function createNavigation({ applyRouteState, getCurrentRouteState }) {
                 categoryId: Number.isInteger(Number(route?.categoryId)) ? Number(route.categoryId) : null,
             };
         }
+        if (screen === 'sketch') {
+            const isDaily = route?.sketchMode === 'daily';
+            const date = isDaily && typeof route?.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(route.date)
+                ? route.date
+                : null;
+            const itemId = Number(route?.itemId);
+            if (isDaily && !date) return { ...base, screen: 'list' };
+            if (!isDaily && (!Number.isInteger(itemId) || itemId <= 0)) return { ...base, screen: 'list' };
+            return {
+                ...base, screen,
+                sketchMode: isDaily ? 'daily' : 'item',
+                date,
+                itemId: isDaily ? null : itemId,
+            };
+        }
         if (screen === 'scanner') {
             return {
                 ...base, screen,
@@ -61,7 +76,7 @@ export function createNavigation({ applyRouteState, getCurrentRouteState }) {
         const url = new URL(window.location.href);
 
         // Clear all route params (old and new)
-        for (const key of ['view', 'screen', 'mode', 'layout', 'tab', 'note', 'item', 'scanner_action', 'q', 'category_id', 'date', 'focus']) {
+        for (const key of ['view', 'screen', 'mode', 'layout', 'tab', 'note', 'item', 'scanner_action', 'q', 'category_id', 'date', 'focus', 'sketch_mode']) {
             url.searchParams.delete(key);
         }
 
@@ -90,6 +105,13 @@ export function createNavigation({ applyRouteState, getCurrentRouteState }) {
             url.searchParams.set('note', String(normalized.noteId));
             if (normalized.categoryId !== null) {
                 url.searchParams.set('category_id', String(normalized.categoryId));
+            }
+        } else if (normalized.screen === 'sketch') {
+            url.searchParams.set('sketch_mode', normalized.sketchMode);
+            if (normalized.sketchMode === 'daily' && normalized.date) {
+                url.searchParams.set('date', normalized.date);
+            } else if (normalized.itemId !== null) {
+                url.searchParams.set('item', String(normalized.itemId));
             }
         } else if (normalized.screen === 'scanner') {
             url.searchParams.set('scanner_action', normalized.action);
@@ -167,6 +189,7 @@ export function createNavigation({ applyRouteState, getCurrentRouteState }) {
         let itemParam = Number(params.get('item'));
         let queryParam = params.get('q');
         let scannerActionParam = params.get('scanner_action');
+        let sketchModeParam = params.get('sketch_mode');
         if (!screen && window.history.state && typeof window.history.state === 'object') {
             const stateful = window.history.state;
             if (typeof stateful.screen === 'string') screen = stateful.screen;
@@ -177,6 +200,7 @@ export function createNavigation({ applyRouteState, getCurrentRouteState }) {
             if (Number.isInteger(stateful.itemId)) itemParam = stateful.itemId;
             if (typeof stateful.query === 'string') queryParam = stateful.query;
             if (typeof stateful.action === 'string') scannerActionParam = stateful.action;
+            if (typeof stateful.sketchMode === 'string') sketchModeParam = stateful.sketchMode;
             if (Number.isInteger(stateful.categoryId)) {
                 params.set('category_id', String(stateful.categoryId));
             }
@@ -209,6 +233,14 @@ export function createNavigation({ applyRouteState, getCurrentRouteState }) {
                 ...base, screen: 'note',
                 noteId: noteParam,
                 categoryId: Number.isInteger(categoryId) ? categoryId : null,
+            });
+        }
+        if (screen === 'sketch') {
+            return normalizeRouteState({
+                ...base, screen: 'sketch',
+                sketchMode: sketchModeParam,
+                date: dateParam,
+                itemId: itemParam,
             });
         }
         if (screen === 'scanner') {

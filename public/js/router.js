@@ -1,4 +1,5 @@
 import { normalizeSettingsTab } from './api.js';
+import { closeOpenSketchEditor, getOpenSketchRoute, openSketchEditor, openSketchEditorDaily } from './sketch-editor.js';
 import { isBarcodeCategory, isJournalScreen, state } from './state.js';
 import {
     appEl,
@@ -142,6 +143,15 @@ export function createRouter(deps) {
     function getCurrentRouteState() {
         const base = { mode: state.mode, layout: state.layout };
 
+        const openSketch = getOpenSketchRoute();
+        if (openSketch) {
+            return {
+                ...base, screen: 'sketch',
+                sketchMode: openSketch.mode,
+                date: openSketch.date,
+                itemId: openSketch.itemId,
+            };
+        }
         if (deps.scannerState.open) {
             return { ...base, screen: 'scanner', action: deps.scannerState.action, categoryId: state.categoryId };
         }
@@ -188,7 +198,17 @@ export function createRouter(deps) {
         if (state.screen === 'journal' && target.screen !== 'journal') {
             await closeJournalScreen();
         }
+        if (getOpenSketchRoute() && target.screen !== 'sketch') {
+            await closeOpenSketchEditor();
+        }
 
+        if (target.screen === 'sketch') {
+            const opener = target.sketchMode === 'daily'
+                ? openSketchEditorDaily(target.date, { pushHistory: false })
+                : openSketchEditor({ id: target.itemId }, { pushHistory: false });
+            void opener.catch(() => {});
+            return;
+        }
         if (target.screen === 'settings') {
             await openSettings(target.tab);
             return;

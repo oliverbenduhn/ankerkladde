@@ -16,9 +16,30 @@ const EXCALIDRAW_ASSET_PATH = 'https://unpkg.com/@excalidraw/excalidraw@0.17.3/d
 
 let excalidrawPromise = null;
 let activeSketchRefresh = null;
+let activeSketchClose = null;
+let openSketchRoute = null;
+let navigationRef = null;
 
 export async function refreshOpenSketchEditor() {
     return activeSketchRefresh ? activeSketchRefresh() : false;
+}
+
+// Vom App-Setup einmalig gesetzt, damit dieses Modul (per dynamischem Import
+// von mehreren Stellen aus geladen) F5/Zurück-Navigation für die offene
+// Skizze unterstützen kann, ohne den Navigation-Controller zu importieren.
+export function configureSketchNavigation(navigation) {
+    navigationRef = navigation;
+}
+
+export function getOpenSketchRoute() {
+    return openSketchRoute;
+}
+
+// Schliesst die offene Skizze ohne die Browser-History anzufassen — für den
+// Fall, dass die Route sich bereits geändert hat (Zurück-Button, F5-Restore)
+// und die Skizze nur noch dem neuen Zustand angepasst werden muss.
+export async function closeOpenSketchEditor() {
+    if (activeSketchClose) await activeSketchClose();
 }
 
 async function ensureExcalidraw() {
@@ -178,10 +199,15 @@ function createDraft({ mode, itemId, date, item, scene }) {
     };
 }
 
-async function openSketchEditorImpl({ item, date, mode }) {
+async function openSketchEditorImpl({ item, date, mode, pushHistory = true }) {
     let itemId = Number(item?.id);
     const isDaily = mode === 'daily';
     if (!isDaily && (!Number.isInteger(itemId) || itemId <= 0)) return;
+
+    openSketchRoute = { mode, date: isDaily ? date : null, itemId: isDaily ? null : itemId };
+    if (pushHistory) {
+        navigationRef?.pushHistoryState({ screen: 'sketch', sketchMode: mode, date: openSketchRoute.date, itemId: openSketchRoute.itemId });
+    }
 
     const refs = buildOverlay();
     refs.status.textContent = t('editor.loading');
@@ -213,6 +239,12 @@ async function openSketchEditorImpl({ item, date, mode }) {
         unmounted = true;
         if (saveTimer) clearTimeout(saveTimer);
         if (activeSketchRefresh === refreshFromServer) activeSketchRefresh = null;
+        if (activeSketchClose === performClose) activeSketchClose = null;
+        if (openSketchRoute && openSketchRoute.mode === mode
+            && openSketchRoute.date === (isDaily ? date : null)
+            && openSketchRoute.itemId === (isDaily ? null : itemId)) {
+            openSketchRoute = null;
+        }
         unmountRoots();
         refs.overlay.remove();
         resolveClosed();
@@ -437,7 +469,7 @@ async function openSketchEditorImpl({ item, date, mode }) {
         }, 800);
     };
 
-    const handleClose = async () => {
+    const performClose = async () => {
         if (draft?.conflict) {
             safeUnmount();
             return;
@@ -454,6 +486,18 @@ async function openSketchEditorImpl({ item, date, mode }) {
             try { await flushSave(); } catch { return; }
         }
         safeUnmount();
+    };
+
+    // Nur der Klick auf den Schliessen-Button soll die History zurücksetzen
+    // (navigateBackOrReplace) — ein Schliessen als Folge einer bereits
+    // erfolgten Routenänderung (Zurück-Button, F5-Restore) darf die History
+    // nicht nochmal anfassen, siehe performClose/closeOpenSketchEditor.
+    const handleClose = async () => {
+        const wasOpen = isOpen();
+        await performClose();
+        if (wasOpen && !isOpen()) {
+            navigationRef?.navigateBackOrReplace({ screen: 'list' });
+        }
     };
 
     const refreshFromServer = async () => {
@@ -538,6 +582,7 @@ async function openSketchEditorImpl({ item, date, mode }) {
             scene: canonical.scene,
         });
         activeSketchRefresh = refreshFromServer;
+        activeSketchClose = performClose;
 
         if (persisted?.conflict) {
             draft.conflict.server = {
@@ -593,13 +638,13 @@ async function openSketchEditorImpl({ item, date, mode }) {
     return closed;
 }
 
-export function openSketchEditor(item) {
-    return openSketchEditorImpl({ item, mode: 'item' });
+export function openSketchEditor(item, { pushHistory = true } = {}) {
+    return openSketchEditorImpl({ item, mode: 'item', pushHistory });
 }
 
-export function openSketchEditorDaily(date) {
+export function openSketchEditorDaily(date, { pushHistory = true } = {}) {
     if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
         return Promise.resolve();
     }
-    return openSketchEditorImpl({ date, mode: 'daily' });
+    return openSketchEditorImpl({ date, mode: 'daily', pushHistory });
 }

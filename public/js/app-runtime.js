@@ -6,7 +6,7 @@ import { createItemsViewController } from './items-view.js';
 import { createNavigation } from './navigation.js';
 import { createEditorController } from './editor.js';
 import { createItemEditorController } from './item-editor.js';
-import { refreshOpenSketchEditor } from './sketch-editor.js';
+import { configureSketchNavigation, refreshOpenSketchEditor } from './sketch-editor.js';
 import { createReorderController } from './reorder.js';
 import { createRouter } from './router.js';
 import { createScannerController } from './scanner.js';
@@ -210,6 +210,7 @@ export function createAppRuntime(deps) {
         applyRouteState: router.applyRouteState,
         getCurrentRouteState: router.getCurrentRouteState,
     });
+    configureSketchNavigation(navigation);
 
     journalController = createJournalController({
         navigation,
