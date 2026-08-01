@@ -2123,6 +2123,12 @@ function normalizeItemFieldsForType(
             'quantity' => '',
             'due_date' => '',
         ],
+        'daily_notes' => [
+            'content'  => $content,
+            'barcode'  => '',
+            'quantity' => '',
+            'due_date' => $dueDate,
+        ],
         default => [
             'content'  => '',
             'barcode'  => '',

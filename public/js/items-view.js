@@ -44,7 +44,6 @@ export function createItemsViewController(deps) {
         handleToggle,
         isOverdueItem,
         openNoteEditorWithNavigation,
-        openJournalWithNavigation,
         openItemEdit,
         setCategory,
         setMessage,
@@ -839,7 +838,7 @@ export function createItemsViewController(deps) {
         else li.append(content, actions);
 
         if (item.category_type === 'daily_notes') {
-            makeListItemButton(li, `${item.name} öffnen`, () => void openJournalWithNavigation(item.due_date));
+            makeListItemButton(li, `${item.name} öffnen`, () => void openNoteEditorWithNavigation(item));
         } else if (item.category_type === 'notes') {
             makeListItemButton(li, `${item.name} öffnen`, () => void openNoteEditorWithNavigation(item));
         } else if (item.category_type === 'drawings' || item.has_sketch) {
@@ -893,7 +892,7 @@ export function createItemsViewController(deps) {
             makeListItemButton(li, `${item.name} in ${item.category_name} öffnen`, async () => {
                 closeSearch();
                 if (item.category_type === 'daily_notes') {
-                    await openJournalWithNavigation(item.due_date);
+                    await openNoteEditorWithNavigation(item);
                     return;
                 }
                 if (item.category_type === 'drawings' || item.has_sketch) {
