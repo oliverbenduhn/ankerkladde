@@ -78,13 +78,6 @@ export function createRouter(deps) {
     }
 
     async function selectCategory(categoryId) {
-        const category = state.categories.find(entry => Number(entry.id) === Number(categoryId));
-        if (category?.type === 'daily_notes') {
-            const date = state.serverToday || 'today';
-            await openJournal(date);
-            deps.pushHistoryState?.({ screen: 'journal', date, focus: null });
-            return;
-        }
         const fromJournal = state.screen === 'journal';
         if (fromJournal) await closeJournalScreen();
         await setCategory(categoryId);

@@ -790,12 +790,15 @@ export function createItemsViewController(deps) {
         li.dataset.itemId = String(item.id);
 
 
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.className = 'toggle';
-        checkbox.checked = item.done === 1;
-        checkbox.setAttribute('aria-label', `${item.name} umschalten`);
-        checkbox.addEventListener('change', () => void handleToggle(item.id, item.done === 1 ? 0 : 1));
+        let checkbox = null;
+        if (item.category_type !== 'daily_notes') {
+            checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.className = 'toggle';
+            checkbox.checked = item.done === 1;
+            checkbox.setAttribute('aria-label', `${item.name} umschalten`);
+            checkbox.addEventListener('change', () => void handleToggle(item.id, item.done === 1 ? 0 : 1));
+        }
 
         const content = document.createElement('div');
         content.className = 'item-content';
@@ -832,9 +835,12 @@ export function createItemsViewController(deps) {
             actions.appendChild(menuButton);
         }
 
-        li.append(checkbox, content, actions);
+        if (checkbox) li.append(checkbox, content, actions);
+        else li.append(content, actions);
 
-        if (item.category_type === 'notes') {
+        if (item.category_type === 'daily_notes') {
+            makeListItemButton(li, `${item.name} öffnen`, () => void openJournalWithNavigation(item.due_date));
+        } else if (item.category_type === 'notes') {
             makeListItemButton(li, `${item.name} öffnen`, () => void openNoteEditorWithNavigation(item));
         } else if (item.category_type === 'drawings' || item.has_sketch) {
             makeListItemButton(li, `${item.name} öffnen`, async () => {

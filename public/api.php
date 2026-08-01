@@ -2415,6 +2415,10 @@ try {
             requireMethod('GET');
             $category = requireCategory([], $db, $userId);
 
+            $orderBy = (string) $category['type'] === 'daily_notes'
+                ? 'items.due_date DESC'
+                : 'items.is_pinned DESC, items.sort_order ASC, items.id ASC';
+
             $stmt = $db->prepare(
                 'SELECT
                     items.id,
@@ -2448,7 +2452,7 @@ try {
                  LEFT JOIN attachments ON attachments.item_id = items.id
                  WHERE items.category_id = :category_id
                    AND items.user_id = :user_id
-                 ORDER BY items.is_pinned DESC, items.sort_order ASC, items.id ASC'
+                 ORDER BY ' . $orderBy
             );
             $stmt->execute([':category_id' => (int) $category['id'], ':user_id' => $userId]);
 

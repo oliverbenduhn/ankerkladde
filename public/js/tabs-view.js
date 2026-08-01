@@ -192,7 +192,7 @@ export function createTabsViewController(deps) {
         sectionTabsEl.replaceChildren();
         sectionTabsEl.classList.add('is-scrollable');
 
-        const categories = getVisibleCategories().filter(category => category.type !== 'daily_notes');
+        const categories = getVisibleCategories();
         const fragment = document.createDocumentFragment();
 
         categories.forEach(category => {
