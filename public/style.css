@@ -231,8 +231,10 @@ button, input { font: inherit; }
     align-items: center;
     justify-content: center;
     gap: 4px;
-    min-width: 44px;
-    min-height: 44px;
+    /* Kein 44px-Touch-Target hier: der Chip sitzt direkt neben dem
+       zweizeiligen, deutlich kompakteren Titel-Stack und wirkte dadurch
+       überdimensioniert und schief ausgerichtet (#84). */
+    min-height: 32px;
     padding: 3px 10px;
     border-radius: 12px;
     border: 1px solid var(--accent);
