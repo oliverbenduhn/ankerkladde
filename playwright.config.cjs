@@ -12,6 +12,10 @@ const chromiumExecutablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH |
 const defaultWorkers = Math.max(1, Math.min(os.cpus().length, 8));
 const workerCount = Number(process.env.PW_WORKER_COUNT || process.env.PLAYWRIGHT_WORKERS || defaultWorkers);
 const pwWorkerCount = workerCount;
+// Die Worker-Prozesse laden diese Config ebenfalls. Ohne das Setzen hier sieht
+// tests/ui/helpers/ux.js kein PW_WORKER_COUNT und faellt auf den geteilten
+// Default-User zurueck — die Isolation waere wirkungslos.
+process.env.PW_WORKER_COUNT = String(pwWorkerCount);
 
 module.exports = defineConfig({
   testDir: './tests/ui',

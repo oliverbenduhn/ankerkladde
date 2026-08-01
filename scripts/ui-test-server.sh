@@ -44,7 +44,15 @@ if [[ "${PW_WORKER_COUNT}" -gt 1 ]]; then
     if [[ -n "${slotUsers}" ]]; then
         PW_USERS="${slotUsers}" PW_PASS="${EINKAUF_REGULAR_PASS}" \
             php "${ROOT_DIR}/scripts/create-test-users.php" >/dev/null
+        # Slot-User brauchen denselben Ausgangsbestand wie playwright-user,
+        # sonst laufen Flows auf Slot > 0 gegen eine leere Liste.
+        for slot in $(seq 1 $((PW_WORKER_COUNT - 1))); do
+            EINKAUF_DEMO_USER="playwright-user-${slot}" \
+                php "${ROOT_DIR}/scripts/seed-demo-data.php" >/dev/null
+        done
     fi
 fi
 
+# Bewusst ohne PHP_CLI_SERVER_WORKERS: mehrere Server-Prozesse auf derselben
+# SQLite-Datei liessen quer durch die Suite Requests scheitern (#74).
 exec php -S "${HOST}:${PORT}" -t "${ROOT_DIR}/public"

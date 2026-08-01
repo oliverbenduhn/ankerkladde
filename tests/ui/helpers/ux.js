@@ -1,5 +1,6 @@
 const path = require('path');
 const fs = require('fs');
+const { test } = require('@playwright/test');
 
 const SCREENSHOT_DIR = path.join(__dirname, '..', '..', '..', 'screenshots', 'flows');
 
@@ -23,18 +24,41 @@ async function snap(page, testInfo, suffix) {
   }
 }
 
-async function login(page, opts = {}) {
-  const { username = 'playwright-user', password = 'playwright-pass', testInfo } = opts;
-  // ponytail: Per-Worker-User, damit parallele Flow-Worker (#74) sich nicht
-  // gegenseitig Vorbedingungen wegraeumen. Default-User (playwright-user)
-  // bleibt fuer Aufrufer ohne testInfo bestehen.
-  let resolvedUsername = username;
-  if (testInfo && typeof testInfo.workerIndex === 'number') {
-    const workerCount = Number(process.env.PW_WORKER_COUNT || 1);
-    if (workerCount > 1) {
-      resolvedUsername = `playwright-user-${testInfo.workerIndex}`;
+// ponytail: Per-Worker-User, damit parallele Flow-Worker (#74) sich nicht
+// gegenseitig Vorbedingungen wegraeumen (Slot-User siehe
+// scripts/ui-test-server.sh). Der Slot kommt aus parallelIndex (0 .. workers-1);
+// workerIndex zaehlt bei jedem Worker-Neustart hoch und liefe aus den
+// angelegten Usern heraus. Slot 0 = playwright-user, Slot n = playwright-user-n.
+//
+// testInfo wird bewusst selbst besorgt statt vom Aufrufer erwartet: sonst muss
+// jede einzelne login()-Stelle daran denken, und eine vergessene faellt still
+// auf den geteilten User zurueck — genau die Fehlerquelle aus #74.
+const DEFAULT_TEST_USER = 'playwright-user';
+
+function workerUsername(fallbackUsername, testInfo) {
+  // Ein bewusst uebergebener Nutzer (z. B. der Admin) bleibt unangetastet.
+  if (fallbackUsername !== DEFAULT_TEST_USER) {
+    return fallbackUsername;
+  }
+  let info = testInfo;
+  if (!info) {
+    try {
+      info = test.info();
+    } catch (e) {
+      return fallbackUsername; // ausserhalb eines laufenden Tests
     }
   }
+  const workerCount = Number(process.env.PW_WORKER_COUNT || 1);
+  const slot = info && typeof info.parallelIndex === 'number' ? info.parallelIndex : 0;
+  if (workerCount > 1 && slot > 0) {
+    return `playwright-user-${slot}`;
+  }
+  return fallbackUsername;
+}
+
+async function login(page, opts = {}) {
+  const { username = 'playwright-user', password = 'playwright-pass', testInfo } = opts;
+  const resolvedUsername = workerUsername(username, testInfo);
   await page.goto('/login.php');
   await page.getByLabel('Benutzername').fill(resolvedUsername);
   await page.getByLabel('Passwort').fill(password);
