@@ -2205,7 +2205,9 @@ button, input { font: inherit; }
 }
 
 .btn-clear:hover   { border-color: var(--accent); color: var(--text-secondary); }
-.btn-clear:disabled { opacity: 0.58; cursor: not-allowed; }
+/* Nichts zu löschen -> Button ist nicht klickbar und wird deshalb gar
+   nicht angezeigt, statt nur ausgegraut zu bleiben (#82). */
+.btn-clear:disabled { display: none; }
 
 /* ===========================================
    STATUS MESSAGE (toast)
