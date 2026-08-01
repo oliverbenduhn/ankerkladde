@@ -2193,7 +2193,9 @@ button, input { font: inherit; }
     min-height: 44px;
     margin-top: 10px;
     padding: 10px;
-    background: none;
+    /* Undurchsichtiger Hintergrund nötig, sonst schimmert beim Scrollen der
+       zuletzt gerenderte Item-Eintrag durch den Button hindurch (#82). */
+    background: var(--bg);
     border: 1.5px solid var(--border);
     border-radius: 20px;
     color: var(--text-muted);
