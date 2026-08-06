@@ -21,3 +21,7 @@
 
 # MCP-Server Dependencies
 /mcp/node_modules/
+
+# Playwright-Test-Screenshots (bei jedem Lauf neu erzeugt)
+/screenshots/flows/
+/playwright.reuse.cjs
