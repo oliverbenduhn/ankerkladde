@@ -13,6 +13,17 @@ function isAttachmentCategoryType(string $type): bool
     return in_array($type, ATTACHMENT_CATEGORY_TYPES, true);
 }
 
+function normalizeAttachmentMediaType(string $mediaType, string $originalName): string
+{
+    $extension = strtolower((string) pathinfo($originalName, PATHINFO_EXTENSION));
+
+    if ($extension === 'apk' && in_array($mediaType, ['application/zip', 'application/x-zip-compressed'], true)) {
+        return 'application/vnd.android.package-archive';
+    }
+
+    return $mediaType;
+}
+
 function getAttachmentStorageDirectory(string $section): string
 {
     if (!isAttachmentCategoryType($section)) {

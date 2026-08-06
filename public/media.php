@@ -126,6 +126,7 @@ try {
     if ($mediaType === '') {
         $mediaType = 'application/octet-stream';
     }
+    $mediaType = normalizeAttachmentMediaType($mediaType, (string) ($attachment['original_name'] ?? ''));
 
     $filename = mediaDispositionFilename((string) ($attachment['original_name'] ?? ''));
     $dispositionType = (($attachment['storage_section'] ?? '') === 'images' && !mediaShouldForceDownload())

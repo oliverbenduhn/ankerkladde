@@ -1601,6 +1601,8 @@ function validateFileUpload(array $uploadedFile, string $limitKey = 'file_upload
     $extension = normalizeStoredExtension(is_string($pathInfoExtension) ? $pathInfoExtension : '');
     $mediaType = detectMimeType((string) $uploadedFile['tmp_name']);
 
+    $mediaType = normalizeAttachmentMediaType($mediaType, (string) $uploadedFile['original_name']);
+
     if ($extension === '') {
         $extension = normalizeStoredExtension(MIME_TYPE_EXTENSIONS[$mediaType] ?? '');
     }

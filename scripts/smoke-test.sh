@@ -164,6 +164,9 @@ FILES_ADD_BODY="$TMP_DIR/files-add.json"
 FILES_LIST_BODY="$TMP_DIR/files-list.json"
 BIG_FILES_ADD_BODY="$TMP_DIR/big-files-add.json"
 BIG_FILES_LIST_BODY="$TMP_DIR/big-files-list.json"
+APK_UPLOAD_BODY="$TMP_DIR/apk-upload.json"
+APK_LIST_BODY="$TMP_DIR/apk-list.json"
+APK_MEDIA_HEADERS="$TMP_DIR/apk-media-headers.txt"
 MEDIA_BODY="$TMP_DIR/media-body.txt"
 MEDIA_HEADERS="$TMP_DIR/media-headers.txt"
 FILES_DELETE_BODY="$TMP_DIR/files-delete.json"
@@ -188,11 +191,13 @@ SUBPATH_HTML="$TMP_DIR/subpath-index.html"
 SUBPATH_MANIFEST="$TMP_DIR/subpath-manifest.json"
 FILE_UPLOAD_SOURCE="$TMP_DIR/Rechnung.txt"
 BIG_FILE_UPLOAD_SOURCE="$TMP_DIR/Grosse-Datei.bin"
+APK_UPLOAD_SOURCE="$TMP_DIR/app-release.apk"
 IMAGE_UPLOAD_SOURCE="$TMP_DIR/Bild.png"
 INVALID_IMAGE_SOURCE="$TMP_DIR/kein-bild.txt"
 
 printf 'Smoke attachment\n' >"$FILE_UPLOAD_SOURCE"
 truncate -s 26M "$BIG_FILE_UPLOAD_SOURCE"
+printf '%s' 'UEsFBgAAAAAAAAAAAAAAAAAAAAAAAA==' | base64 -d >"$APK_UPLOAD_SOURCE"
 printf 'not really an image\n' >"$INVALID_IMAGE_SOURCE"
 printf '%s' 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aR9QAAAAASUVORK5CYII=' \
     | base64 -d >"$IMAGE_UPLOAD_SOURCE"
@@ -409,6 +414,32 @@ grep -q "\"id\":$BIG_FILE_ITEM_ID" "$BIG_FILES_LIST_BODY"
 grep -q '"name":"Grosse Datei"' "$BIG_FILES_LIST_BODY"
 grep -q '"attachment_original_name":"Grosse-Datei.bin"' "$BIG_FILES_LIST_BODY"
 grep -q '"attachment_size_bytes":27262976' "$BIG_FILES_LIST_BODY"
+
+[[ "$(status_code "$APK_UPLOAD_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
+    -F "section=files" \
+    -F "file=@$APK_UPLOAD_SOURCE;type=application/vnd.android.package-archive" \
+    "http://127.0.0.1:$PORT/api.php?action=upload")" == "201" ]]
+APK_ITEM_ID="$(sed -n 's/.*"id":\([0-9][0-9]*\).*/\1/p' "$APK_UPLOAD_BODY" | head -n 1)"
+
+if [[ -z "$APK_ITEM_ID" ]]; then
+    echo "APK-Artikel-ID konnte nicht aus der Upload-Antwort gelesen werden." >&2
+    exit 1
+fi
+
+[[ "$(status_code "$APK_LIST_BODY" -b "$COOKIE_JAR" "http://127.0.0.1:$PORT/api.php?action=list&section=files")" == "200" ]]
+grep -q '"attachment_original_name":"app-release.apk"' "$APK_LIST_BODY"
+grep -q '"attachment_media_type":"application/vnd.android.package-archive"' "$APK_LIST_BODY"
+
+# Simuliert eine APK, die vor der MIME-Normalisierung als ZIP gespeichert wurde.
+EINKAUF_DATA_DIR="$TEST_DATA_DIR" php -r '
+    $db = new PDO("sqlite:" . getenv("EINKAUF_DATA_DIR") . "/einkaufsliste.db");
+    $db->prepare("UPDATE attachments SET media_type = :media_type WHERE item_id = :item_id")
+        ->execute([":media_type" => "application/zip", ":item_id" => (int) $argv[1]]);
+' "$APK_ITEM_ID"
+
+[[ "$(curl -sS -b "$COOKIE_JAR" -D "$APK_MEDIA_HEADERS" -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/media.php?item_id=$APK_ITEM_ID&download=1")" == "200" ]]
+grep -qi '^Content-Type: application/vnd.android.package-archive' "$APK_MEDIA_HEADERS"
+grep -qiE '^Content-Disposition: attachment;.*filename="app-release\.apk"' "$APK_MEDIA_HEADERS"
 
 [[ "$(status_code "$IMAGE_UPLOAD_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
     -F "section=images" \
