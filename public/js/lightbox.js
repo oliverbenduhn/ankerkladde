@@ -1,17 +1,16 @@
 import { t } from './i18n.js';
+import { activateModal } from './utils.js';
 
 export function createLightboxController() {
     let currentOverlay = null;
-    let onKeyHandler = null;
+    let modalSession = null;
 
     function close() {
+        modalSession?.deactivate();
+        modalSession = null;
         if (currentOverlay) {
             currentOverlay.remove();
             currentOverlay = null;
-        }
-        if (onKeyHandler) {
-            document.removeEventListener('keydown', onKeyHandler);
-            onKeyHandler = null;
         }
     }
 
@@ -35,29 +34,16 @@ export function createLightboxController() {
         closeBtn.setAttribute('aria-label', t('ui.close'));
         closeBtn.textContent = '×';
 
-        const closeOverlay = () => {
-            overlay.remove();
-            if (onKeyHandler) {
-                document.removeEventListener('keydown', onKeyHandler);
-                onKeyHandler = null;
-            }
-            currentOverlay = null;
-        };
-
-        onKeyHandler = (event) => {
-            if (event.key === 'Escape') closeOverlay();
-        };
-
-        closeBtn.addEventListener('click', closeOverlay);
-        overlay.addEventListener('click', event => {
-            if (event.target === overlay) closeOverlay();
-        });
-        document.addEventListener('keydown', onKeyHandler);
+        closeBtn.addEventListener('click', close);
 
         overlay.append(img, closeBtn);
         document.body.appendChild(overlay);
-        closeBtn.focus();
         currentOverlay = overlay;
+        modalSession = activateModal(overlay, {
+            initialFocus: closeBtn,
+            onEscape: close,
+            onBackdrop: close,
+        });
     }
 
     return {

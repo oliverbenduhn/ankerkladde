@@ -1,5 +1,6 @@
 import { t } from './i18n.js';
 import { getConflicts } from './offline-queue.js';
+import { activateModal } from './utils.js';
 
 export function createItemMenuController(deps) {
     const {
@@ -31,14 +32,16 @@ export function createItemMenuController(deps) {
 
         const actions = document.createElement('div');
         actions.className = 'item-menu-actions';
+        let modalSession = null;
 
         function close() {
+            modalSession?.deactivate();
+            modalSession = null;
             overlay.remove();
-            document.removeEventListener('keydown', onKey);
         }
 
-        function onKey(event) {
-            if (event.key === 'Escape') close();
+        function focusFirstAction() {
+            if (overlay.isConnected) actions.querySelector('button:not([disabled])')?.focus({ preventScroll: true });
         }
 
         function appendAction(label, onClick, className = '', closeOnClick = true) {
@@ -69,6 +72,7 @@ export function createItemMenuController(deps) {
             if (targets.length === 0) {
                 appendAction(t('msg.no_move_target'), async () => {}, 'is-secondary');
                 appendAction(t('ui.back'), async () => showMainActions(), 'is-secondary', false);
+                focusFirstAction();
                 return;
             }
 
@@ -76,6 +80,7 @@ export function createItemMenuController(deps) {
                 appendAction(category.name, () => handleMove(item, category.id));
             });
             appendAction(t('ui.back'), async () => showMainActions(), 'is-secondary', false);
+            focusFirstAction();
         }
 
         function showMainActions() {
@@ -100,6 +105,7 @@ export function createItemMenuController(deps) {
                 && Number(conflict?.payload?.id) === Number(item.id));
             appendAction(deleteConflict ? t('ui.delete_anyway') : t('ui.delete'), () => handleDelete(item.id), 'is-danger');
             appendAction(t('ui.cancel'), async () => {}, 'is-secondary');
+            focusFirstAction();
         }
 
         showMainActions();
@@ -107,11 +113,12 @@ export function createItemMenuController(deps) {
         sheet.appendChild(actions);
         overlay.appendChild(sheet);
 
-        overlay.addEventListener('click', event => {
-            if (event.target === overlay) close();
-        });
-        document.addEventListener('keydown', onKey);
         document.body.appendChild(overlay);
+        modalSession = activateModal(overlay, {
+            initialFocus: () => actions.querySelector('button:not([disabled])'),
+            onEscape: close,
+            onBackdrop: close,
+        });
     }
 
     return { open };

@@ -98,7 +98,7 @@ $renderAgendaItem = static function (array $row): string {
         . ' data-agenda-group="' . $esc($group) . '">'
         . '<button type="button" class="agenda-item-checkbox" aria-label="'
         . $esc(t('agenda.toggle', ['name' => $name])) . '">'
-        . '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+        . icon('check')
         . '</button>'
         . '<button type="button" class="agenda-item-body" aria-label="'
         . $esc($name . ' in ' . $categoryName . ' öffnen') . '">'
@@ -345,8 +345,8 @@ $clientWebSocketUrl = is_string($clientWebSocketUrl) ? trim($clientWebSocketUrl)
         <div class="upload-progress-bar" id="uploadProgressBar"></div>
     </div>
 
-    <div class="conflict-overlay" id="conflictOverlay" hidden>
-        <div class="conflict-sheet" role="dialog" aria-modal="true" aria-labelledby="conflictTitle">
+    <div class="conflict-overlay" id="conflictOverlay" role="dialog" aria-modal="true" aria-labelledby="conflictTitle" hidden>
+        <div class="conflict-sheet">
             <div class="conflict-header">
                 <div>
                     <h2 class="conflict-title" id="conflictTitle"><?= t('conflict.title') ?></h2>
@@ -362,8 +362,8 @@ $clientWebSocketUrl = is_string($clientWebSocketUrl) ? trim($clientWebSocketUrl)
     </div>
 
     <?php if ($shoppingListScannerEnabled): ?>
-    <div class="scanner-overlay" id="scannerOverlay" hidden>
-        <div class="scanner-sheet" role="dialog" aria-modal="true" aria-labelledby="scannerTitle">
+    <div class="scanner-overlay" id="scannerOverlay" role="dialog" aria-modal="true" aria-labelledby="scannerTitle" hidden>
+        <div class="scanner-sheet">
             <div class="scanner-header">
                 <div>
                     <h2 class="scanner-title" id="scannerTitle"><?= t('scanner.title') ?></h2>

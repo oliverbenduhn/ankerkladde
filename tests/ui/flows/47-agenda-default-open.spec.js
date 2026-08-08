@@ -1,11 +1,27 @@
 const { test, expect } = require('@playwright/test');
-const { login } = require('../helpers/ux');
+const { csrfToken, login } = require('../helpers/ux');
 
 test.use({ serviceWorkers: 'block' });
 
 test.describe('FLOW 47 — Agenda initial sichtbar + Collapse-Zustand persistiert', () => {
     test('Journal offen: Agenda ist initial sichtbar und merkt sich den Toggle über Reload', async ({ page }) => {
         await login(page);
+        // Die Agenda-Toggle-Interaktion braucht echte sichtbare Inhalte. Der
+        // Test erzeugt seine Vorbedingung selbst, statt auf Daten anderer
+        // Flows oder auf das Kalenderdatum des Demo-Seeds zu vertrauen.
+        const categories = await page.request.get('/api.php?action=categories_list');
+        const { categories: list } = await categories.json();
+        const dueCategory = list.find(category => category.type === 'list_due_date');
+        const today = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Berlin' }).format(new Date());
+        const addAgendaItem = await page.request.post('/api.php?action=add', {
+            headers: { 'X-CSRF-Token': await csrfToken(page) },
+            form: {
+                category_id: String(dueCategory.id),
+                name: `QA Agenda Toggle ${Date.now()}`,
+                due_date: today,
+            },
+        });
+        expect(addAgendaItem.status()).toBe(201);
         await page.locator('#journalBtn').click();
         await expect(page).toHaveURL(/screen=journal/);
 

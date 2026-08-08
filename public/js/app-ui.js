@@ -51,16 +51,65 @@ export function createAppUiController(deps = {}) {
         onSyncClick = () => {},
     } = deps;
     let messageTimer = null;
+    let pendingUndo = null;
     let uploadMode = 'file';
     let lastUploadCategoryId = null;
     let remoteImportLoading = false;
 
+    function settleUndo(undone) {
+        if (!pendingUndo) return;
+        const current = pendingUndo;
+        pendingUndo = null;
+        window.clearTimeout(current.timer);
+        if (document.activeElement === current.button) current.button.blur();
+        messageEl.classList.remove('has-action');
+        current.resolve(Boolean(undone));
+    }
+
     function setMessage(text, isError = false) {
+        // Eine neue Statusmeldung beendet das vorherige Undo-Fenster. Die
+        // zugehörige Mutation darf dann committen, statt unsichtbar hängen zu
+        // bleiben.
+        settleUndo(false);
         clearTimeout(messageTimer);
         messageEl.textContent = text;
         messageEl.classList.toggle('is-error', isError);
         messageEl.classList.add('is-visible');
         messageTimer = setTimeout(() => messageEl.classList.remove('is-visible'), 2500);
+    }
+
+    function offerUndo(text, { duration = 6000 } = {}) {
+        settleUndo(false);
+        clearTimeout(messageTimer);
+
+        const label = document.createElement('span');
+        label.className = 'message-content';
+        label.textContent = text;
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'message-action';
+        button.textContent = t('ui.undo');
+
+        messageEl.replaceChildren(label, button);
+        messageEl.classList.remove('is-error');
+        messageEl.classList.add('is-visible', 'has-action');
+
+        const decision = new Promise(resolve => {
+            const timer = window.setTimeout(() => {
+                if (pendingUndo?.timer === timer) {
+                    settleUndo(false);
+                    messageEl.classList.remove('is-visible');
+                }
+            }, duration);
+            pendingUndo = { button, resolve, timer };
+        });
+
+        button.addEventListener('click', () => {
+            settleUndo(true);
+            messageEl.classList.remove('is-visible');
+        }, { once: true });
+        button.focus({ preventScroll: true });
+        return decision;
     }
 
     function setUploadProgress(fraction) {
@@ -86,6 +135,7 @@ export function createAppUiController(deps = {}) {
 
     function makeUploadProgressCallback() {
         return fraction => {
+            settleUndo(false);
             setUploadProgress(fraction);
             messageEl.classList.remove('is-error');
             messageEl.classList.add('is-visible');
@@ -108,6 +158,7 @@ export function createAppUiController(deps = {}) {
         if (uploadModeUrlBtn) uploadModeUrlBtn.disabled = remoteImportLoading;
 
         if (remoteImportLoading) {
+            settleUndo(false);
             clearTimeout(messageTimer);
             messageEl.textContent = text;
             messageEl.classList.remove('is-error');
@@ -410,6 +461,7 @@ export function createAppUiController(deps = {}) {
         applyTabsVisibility,
         formatBytes,
         makeUploadProgressCallback,
+        offerUndo,
         setMessage,
         setNetworkStatus,
         setRemoteImportLoading,

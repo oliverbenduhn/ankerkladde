@@ -66,7 +66,19 @@ test.describe('FLOW 19b — Zeichnungen-Suche oeffnet Editor (#42)', () => {
         const overlay = page.locator('.sketch-editor-overlay');
         await expect(overlay).toBeVisible({ timeout: 10_000 });
 
-        // Schliessen-Button sichtbar (Konsistenz-Assert)
-        await expect(page.locator('.sketch-editor-close')).toBeVisible();
+        // Der Editor ist bereits waehrend des Lazy-Loads ein vollwertiger
+        // Dialog und muss sich ohne Kamera-/Netzwerk-Wartezeit schließen lassen.
+        const closeButton = page.locator('.sketch-editor-close');
+        await expect(overlay).toHaveAttribute('role', 'dialog');
+        await expect(overlay).toHaveAttribute('aria-modal', 'true');
+        await expect(closeButton).toBeFocused();
+        expect(await page.locator('#app').evaluate(element => element.inert)).toBe(true);
+        await page.keyboard.press('Shift+Tab');
+        expect(await overlay.evaluate(element => element.contains(document.activeElement))).toBe(true);
+        await page.keyboard.press('Escape');
+        await expect(overlay).toHaveCount(0);
+        expect(await page.locator('#app').evaluate(element => element.inert)).toBe(false);
+        await expect(page.locator('#searchBar')).toBeVisible();
+        await expect(page.locator('#searchInput')).toBeFocused();
     });
 });

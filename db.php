@@ -12,6 +12,8 @@ require_once __DIR__ . '/src/ImageHelper.php';
 
 require_once __DIR__ . '/src/ItemRepository.php';
 
+require_once __DIR__ . '/src/DeletionTombstoneService.php';
+
 
 require_once __DIR__ . '/src/CategoryRepository.php';
 
@@ -116,6 +118,115 @@ function migrateIdempotencyKeysSchema(PDO $db): void
     $db->exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_idempotency_user_request ON idempotency_keys(user_id, request_id)');
 
     setSchemaVersion($db, $targetVersion);
+}
+
+// Reversible deletes keep the complete database rows until the client finalizes
+// the deletion (or the retention window expires). The small parent row remains
+// after payload GC so a late undo can distinguish "purged" from "never staged".
+function migrateDeletionTombstonesSchema(PDO $db): void
+{
+    $targetVersion = 6;
+
+    $db->exec(
+        "CREATE TABLE IF NOT EXISTS deletion_tombstones (
+            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            deletion_id TEXT NOT NULL,
+            operation TEXT NOT NULL CHECK(operation IN ('delete', 'clear')),
+            state TEXT NOT NULL DEFAULT 'staged' CHECK(state IN ('staged', 'restored', 'purged')),
+            request_fingerprint TEXT NOT NULL,
+            item_count INTEGER NOT NULL CHECK(item_count >= 1),
+            item_ids_json TEXT NOT NULL,
+            terminal_revisions_json TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            expires_at TEXT NOT NULL,
+            restored_at TEXT,
+            purged_at TEXT,
+            PRIMARY KEY (user_id, deletion_id)
+        )"
+    );
+    $db->exec(
+        "CREATE TABLE IF NOT EXISTS deletion_tombstone_items (
+            user_id INTEGER NOT NULL,
+            deletion_id TEXT NOT NULL,
+            item_id INTEGER NOT NULL,
+            category_id INTEGER REFERENCES categories(id),
+            item_order INTEGER NOT NULL,
+            item_json TEXT NOT NULL,
+            attachment_json TEXT,
+            terminal_revision INTEGER NOT NULL CHECK(terminal_revision >= 2),
+            PRIMARY KEY (user_id, deletion_id, item_id),
+            FOREIGN KEY (user_id, deletion_id)
+                REFERENCES deletion_tombstones(user_id, deletion_id)
+                ON DELETE CASCADE
+        )"
+    );
+    // Unlike tombstones, these rows intentionally have no user FK: they are
+    // the durable hand-off for files whose owning user has already been
+    // deleted. The row disappears only after idempotent filesystem cleanup.
+    $db->exec(
+        "CREATE TABLE IF NOT EXISTS attachment_cleanup_jobs (
+            cleanup_key TEXT PRIMARY KEY,
+            attachment_json TEXT NOT NULL,
+            attempt_count INTEGER NOT NULL DEFAULT 0 CHECK(attempt_count >= 0),
+            next_attempt_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            last_error TEXT,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )"
+    );
+
+    // Development builds briefly created v5 payloads without an explicit
+    // category reference. Backfill it from the raw item snapshot so an active
+    // undo window keeps its target category alive even under concurrent delete.
+    $payloadColumns = $db->query('PRAGMA table_info(deletion_tombstone_items)')->fetchAll();
+    $payloadColumnNames = array_column($payloadColumns, 'name');
+    if (!in_array('category_id', $payloadColumnNames, true)) {
+        $db->exec('ALTER TABLE deletion_tombstone_items ADD COLUMN category_id INTEGER REFERENCES categories(id)');
+    }
+    // Run on every boot: a process could have stopped after ALTER but before
+    // the backfill. Never discard raw payload/attachment metadata; malformed
+    // legacy rows remain available for explicit finalize/diagnostics.
+    $db->exec(
+        "UPDATE deletion_tombstone_items
+         SET category_id = CAST(json_extract(item_json, '$.category_id') AS INTEGER)
+         WHERE category_id IS NULL
+           AND json_valid(item_json) = 1
+           AND json_extract(item_json, '$.category_id') IS NOT NULL
+           AND EXISTS (
+               SELECT 1 FROM categories
+               WHERE categories.id = CAST(json_extract(deletion_tombstone_items.item_json, '$.category_id') AS INTEGER)
+           )"
+    );
+    // Category ownership is needed only while Undo can restore the payload.
+    // Restored/purged legacy rows may keep attachment metadata for cleanup but
+    // must no longer prevent their former category from being deleted.
+    $db->exec(
+        "UPDATE deletion_tombstone_items
+         SET category_id = NULL
+         WHERE category_id IS NOT NULL
+           AND EXISTS (
+               SELECT 1 FROM deletion_tombstones
+               WHERE deletion_tombstones.user_id = deletion_tombstone_items.user_id
+                 AND deletion_tombstones.deletion_id = deletion_tombstone_items.deletion_id
+                 AND deletion_tombstones.state != 'staged'
+           )"
+    );
+    $db->exec(
+        'CREATE INDEX IF NOT EXISTS idx_deletion_tombstones_user_gc
+         ON deletion_tombstones(user_id, state, expires_at)'
+    );
+    $db->exec(
+        'CREATE INDEX IF NOT EXISTS idx_deletion_tombstone_items_category
+         ON deletion_tombstone_items(user_id, category_id)'
+    );
+    $db->exec(
+        'CREATE INDEX IF NOT EXISTS idx_attachment_cleanup_jobs_due
+         ON attachment_cleanup_jobs(next_attempt_at, created_at)'
+    );
+
+    if (getSchemaVersion($db) < $targetVersion) {
+        setSchemaVersion($db, $targetVersion);
+    }
 }
 
 function migrateParchmentSchema(PDO $db): void
@@ -661,6 +772,7 @@ function getDatabase(): PDO
     migrateParchmentSchema($db);
     migrateItemRevisionSchema($db);
     migrateIdempotencyKeysSchema($db);
+    migrateDeletionTombstonesSchema($db);
     $db->exec('CREATE INDEX IF NOT EXISTS idx_categories_user_id ON categories(user_id)');
     $db->exec('CREATE INDEX IF NOT EXISTS idx_categories_user_sort ON categories(user_id, sort_order)');
     $db->exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_categories_one_daily_notes_per_user ON categories(user_id) WHERE type = 'daily_notes'");

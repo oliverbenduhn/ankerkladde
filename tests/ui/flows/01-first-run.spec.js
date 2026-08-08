@@ -3,7 +3,7 @@ const { login, snap, touchTargetsBelowMin, attachClsListener, readCls } = requir
 
 test.describe('FLOW 1 — First-Run Einkaufsliste', () => {
   test('login → einkauf → quick-add → toggle done → clear', async ({ page }, testInfo) => {
-    attachClsListener(page);
+    await attachClsListener(page);
     await login(page);
     await snap(page, testInfo, '1-after-login');
 
@@ -33,7 +33,15 @@ test.describe('FLOW 1 — First-Run Einkaufsliste', () => {
     await expect(card).toHaveClass(/\bdone\b/);
     await snap(page, testInfo, '4-item-done');
 
-    // Touch-Target-Audit NICHT hier — das ist FLOW 5's Aufgabe; FLOW 1 testet die Standard-Journey
+    // Erledigten Eintrag über die sichtbare Sammelaktion entfernen.
+    const clearResponse = page.waitForResponse(r => r.url().includes('action=clear') && r.status() === 200);
+    const clearButton = page.locator('#clearDoneBtn');
+    await expect(clearButton).toBeVisible();
+    await expect(clearButton).toBeEnabled();
+    await clearButton.click();
+    await clearResponse;
+    await expect(card).toHaveCount(0);
+    await expect(page.locator('#message')).toContainText('Erledigte Artikel entfernt.');
     await snap(page, testInfo, '5-flow-complete');
 
     // Layout-Shift-Audit (Interaktionszeitraum) — Google Web Vitals: CLS < 0.1 ist "good"

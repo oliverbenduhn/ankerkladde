@@ -89,6 +89,7 @@ function respond(int $status, array $payload): never
             }
         }
     } elseif (getIdempotencyRequestId() !== '') {
+        releaseOwnedIdempotencyReservation();
         $payload['error_key'] = $payload['error_key'] ?? 'error.idempotency_replay_blocked';
     }
 
@@ -234,28 +235,93 @@ function replayIdempotentIfKnown(array $data): void
     $requestHash = computeIdempotencyRequestHash($action, $data);
     $GLOBALS['current_idempotency_request_hash'] = $requestHash;
 
-    $stmt = $db->prepare('SELECT request_hash, response_status, response_body FROM idempotency_keys WHERE user_id = :user_id AND request_id = :request_id LIMIT 1');
-    $stmt->execute([':user_id' => $userId, ':request_id' => $requestId]);
-    $cached = $stmt->fetch();
+    // Reserve the key under the same SQLite write lock used by every competing
+    // request. response_status=0 is a durable in-flight marker. Without this
+    // insert-before-mutate step two workers can both observe a missing key,
+    // commit different mutations and overwrite each other's cached response.
+    beginImmediateTransaction($db);
+    try {
+        $stmt = $db->prepare(
+            'SELECT request_hash, response_status, response_body, created_at
+             FROM idempotency_keys
+             WHERE user_id = :user_id AND request_id = :request_id
+             LIMIT 1'
+        );
+        $stmt->execute([':user_id' => $userId, ':request_id' => $requestId]);
+        $cached = $stmt->fetch();
 
-    if ($cached === false) {
-        return;
+        if ($cached === false) {
+            $reserveStmt = $db->prepare(
+                'INSERT INTO idempotency_keys
+                    (user_id, request_id, action, request_hash, response_status, response_body)
+                 VALUES (:user_id, :request_id, :action, :request_hash, 0, :response_body)'
+            );
+            $reserveStmt->execute([
+                ':user_id' => $userId,
+                ':request_id' => $requestId,
+                ':action' => $action,
+                ':request_hash' => $requestHash,
+                ':response_body' => '',
+            ]);
+            commitImmediateTransaction($db);
+            $GLOBALS['current_idempotency_reservation_owned'] = true;
+            return;
+        }
+
+        if (!hash_equals((string) ($cached['request_hash'] ?? ''), $requestHash)) {
+            commitImmediateTransaction($db);
+            respond(422, ['error' => t('error.idempotency_key_mismatch'), 'error_key' => 'error.idempotency_key_mismatch']);
+        }
+
+        $status = (int) ($cached['response_status'] ?? 0);
+        if ($status === 0) {
+            // A crashed worker must not reserve the key forever. Three hours is
+            // deliberately above the two-hour remote-import timeout.
+            $reclaimStmt = $db->prepare(
+                "UPDATE idempotency_keys
+                 SET action = :action, created_at = CURRENT_TIMESTAMP
+                 WHERE user_id = :user_id
+                   AND request_id = :request_id
+                   AND request_hash = :request_hash
+                   AND response_status = 0
+                   AND created_at <= datetime('now', '-3 hours')"
+            );
+            $reclaimStmt->execute([
+                ':action' => $action,
+                ':user_id' => $userId,
+                ':request_id' => $requestId,
+                ':request_hash' => $requestHash,
+            ]);
+            $reclaimed = $reclaimStmt->rowCount() === 1;
+            commitImmediateTransaction($db);
+            if ($reclaimed) {
+                $GLOBALS['current_idempotency_reservation_owned'] = true;
+                return;
+            }
+            respond(409, [
+                'error' => 'Eine Anfrage mit diesem Idempotency-Key wird bereits verarbeitet.',
+                'error_key' => 'error.idempotency_in_progress',
+            ]);
+        }
+
+        $decoded = json_decode((string) ($cached['response_body'] ?? '{}'), true);
+        $payload = is_array($decoded) ? $decoded : [];
+        $payload['idempotent_replay'] = 1;
+        commitImmediateTransaction($db);
+        $GLOBALS['current_idempotency_replay'] = true;
+        respond($status, $payload);
+    } catch (Throwable $error) {
+        rollBackImmediateTransactionIfActive($db);
+        throw $error;
     }
-
-    if (!hash_equals((string) ($cached['request_hash'] ?? ''), $requestHash)) {
-        respond(422, ['error' => t('error.idempotency_key_mismatch'), 'error_key' => 'error.idempotency_key_mismatch']);
-    }
-
-    $status = (int) ($cached['response_status'] ?? 200);
-    $decoded = json_decode((string) ($cached['response_body'] ?? '{}'), true);
-    $payload = is_array($decoded) ? $decoded : [];
-    $payload['idempotent_replay'] = 1;
-
-    respond($status, $payload);
 }
 
 function storeIdempotentResponse(int $status, array $payload): void
 {
+    if (($GLOBALS['current_idempotency_replay'] ?? false) === true) {
+        return;
+    }
+
     $requestId = getIdempotencyRequestId();
     if ($requestId === '') {
         return;
@@ -276,13 +342,11 @@ function storeIdempotentResponse(int $status, array $payload): void
     $body = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
     $stmt = $db->prepare(
-        'INSERT INTO idempotency_keys (user_id, request_id, action, request_hash, response_status, response_body)
-         VALUES (:user_id, :request_id, :action, :request_hash, :response_status, :response_body)
-         ON CONFLICT(user_id, request_id) DO UPDATE SET
-            action = excluded.action,
-            request_hash = excluded.request_hash,
-            response_status = excluded.response_status,
-            response_body = excluded.response_body'
+        'UPDATE idempotency_keys
+         SET action = :action, response_status = :response_status, response_body = :response_body
+         WHERE user_id = :user_id
+           AND request_id = :request_id
+           AND request_hash = :request_hash'
     );
     $stmt->execute([
         ':user_id' => $userId,
@@ -292,6 +356,41 @@ function storeIdempotentResponse(int $status, array $payload): void
         ':response_status' => $status,
         ':response_body' => (string) $body,
     ]);
+    $GLOBALS['current_idempotency_reservation_owned'] = false;
+}
+
+function releaseOwnedIdempotencyReservation(): void
+{
+    if (($GLOBALS['current_idempotency_reservation_owned'] ?? false) !== true) {
+        return;
+    }
+
+    $db = $GLOBALS['db'] ?? null;
+    $userId = $GLOBALS['current_user_id'] ?? null;
+    $requestId = getIdempotencyRequestId();
+    $requestHash = (string) ($GLOBALS['current_idempotency_request_hash'] ?? '');
+    if (!($db instanceof PDO) || !is_int($userId) || $requestId === '' || $requestHash === '') {
+        return;
+    }
+
+    try {
+        $stmt = $db->prepare(
+            'DELETE FROM idempotency_keys
+             WHERE user_id = :user_id
+               AND request_id = :request_id
+               AND request_hash = :request_hash
+               AND response_status = 0'
+        );
+        $stmt->execute([
+            ':user_id' => $userId,
+            ':request_id' => $requestId,
+            ':request_hash' => $requestHash,
+        ]);
+    } catch (Throwable $error) {
+        error_log('Idempotency reservation release failed: ' . $error->getMessage());
+    } finally {
+        $GLOBALS['current_idempotency_reservation_owned'] = false;
+    }
 }
 
 function ensureUtf8(mixed $value): mixed
@@ -2038,6 +2137,25 @@ function requireExpectedItemRevision(array $data): int
     return $revision;
 }
 
+function requireDeletionId(array $data): string
+{
+    $deletionId = trim((string) ($data['deletion_id'] ?? ''));
+    if ($deletionId === '') {
+        respond(428, [
+            'error' => 'Lösch-ID erforderlich.',
+            'error_key' => 'error.deletion_id_required',
+        ]);
+    }
+    if (strlen($deletionId) > 128 || preg_match('/^[A-Za-z0-9_-]+$/', $deletionId) !== 1) {
+        respond(422, [
+            'error' => 'Ungültige Lösch-ID.',
+            'error_key' => 'error.deletion_id_invalid',
+        ]);
+    }
+
+    return $deletionId;
+}
+
 function requireExpectedCreateOrUpdateRevision(array $data): int
 {
     $expectedRevision = array_key_exists('expected_revision', $data) ? $data['expected_revision'] : null;
@@ -2149,6 +2267,14 @@ $userId = requireApiAuthWithKey($db);
 $GLOBALS['current_user_id'] = $userId;
 
 try {
+    // Opportunistic, user-scoped GC keeps staged payloads/files bounded even if
+    // a client never gets to send its scheduled finalize request.
+    try {
+        (new DeletionTombstoneService($db))->garbageCollectExpired($userId);
+    } catch (Throwable $gcError) {
+        error_log(sprintf('Deletion tombstone GC error [user:%d]: %s', $userId, $gcError->getMessage()));
+    }
+
     switch ($action) {
         case 'categories_list':
             requireMethod('GET');
@@ -2493,7 +2619,33 @@ try {
                 respond(404, ['error' => t('error.category_not_found'), 'error_key' => 'error.category_not_found']);
             }
 
-            $parsed = parseQuickAdd((string) ($data['input'] ?? ''), $activeCategoryId, $categories, date('Y-m-d'));
+            $rawDefaultDueDate = $data['default_due_date'] ?? '';
+            $defaultDueDate = is_string($rawDefaultDueDate) ? trim($rawDefaultDueDate) : '';
+            $parsedDefaultDueDate = $defaultDueDate === ''
+                ? false
+                : DateTimeImmutable::createFromFormat('!Y-m-d', $defaultDueDate, new DateTimeZone('Europe/Berlin'));
+            $defaultDueDateErrors = $parsedDefaultDueDate === false ? false : DateTimeImmutable::getLastErrors();
+            if (
+                !is_string($rawDefaultDueDate)
+                || ($defaultDueDate !== '' && (
+                    $parsedDefaultDueDate === false
+                    || ($defaultDueDateErrors !== false && ($defaultDueDateErrors['warning_count'] > 0 || $defaultDueDateErrors['error_count'] > 0))
+                    || $parsedDefaultDueDate->format('Y-m-d') !== $defaultDueDate
+                ))
+            ) {
+                respond(422, [
+                    'error' => t('quick_add.invalid_default_due_date'),
+                    'error_key' => 'quick_add.invalid_default_due_date',
+                    'can_escalate_to_ai' => false,
+                ]);
+            }
+            $parsed = parseQuickAdd(
+                (string) ($data['input'] ?? ''),
+                $activeCategoryId,
+                $categories,
+                date('Y-m-d'),
+                $defaultDueDate
+            );
             if (($parsed['ok'] ?? false) !== true) {
                 respond(422, $parsed);
             }
@@ -3096,47 +3248,142 @@ try {
                 respond(422, ['error' => t('error.invalid_id'), 'error_key' => 'error.invalid_id']);
             }
             $expectedRevision = requireExpectedItemRevision($data);
+            $deletionId = requireDeletionId($data);
 
-            $attachment = findAttachmentByItemId($db, $id);
-            $db->beginTransaction();
-            $stmt = $db->prepare(
-                'DELETE FROM items
-                 WHERE id = :id AND user_id = :user_id AND revision = :expected_revision'
-            );
-            $stmt->execute([
-                ':id' => $id,
-                ':user_id' => $userId,
-                ':expected_revision' => $expectedRevision,
-            ]);
-
-            if ($stmt->rowCount() === 0) {
-                $db->rollBack();
-                $current = fetchItemForUser($db, $userId, $id);
-                if ($current === null) {
+            try {
+                $staged = (new DeletionTombstoneService($db))->stageSingle(
+                    $userId,
+                    $deletionId,
+                    $id,
+                    $expectedRevision
+                );
+            } catch (DeletionTombstoneException $error) {
+                if ($error->reason === 'item_not_found') {
                     respond(404, ['error' => t('error.item_not_found'), 'error_key' => 'error.item_not_found']);
                 }
-                respond(409, [
-                    'error' => t('error.item_revision_conflict'),
-                    'error_key' => 'error.item_revision_conflict',
-                    'expected_revision' => $expectedRevision,
-                    'current_revision' => (int) $current['revision'],
-                    'item' => formatListItem($current),
-                ]);
+                if ($error->reason === 'revision_conflict') {
+                    $current = fetchItemForUser($db, $userId, $id);
+                    if ($current === null) {
+                        respond(404, ['error' => t('error.item_not_found'), 'error_key' => 'error.item_not_found']);
+                    }
+                    respond(409, [
+                        'error' => t('error.item_revision_conflict'),
+                        'error_key' => 'error.item_revision_conflict',
+                        'expected_revision' => $expectedRevision,
+                        'current_revision' => (int) $current['revision'],
+                        'item' => formatListItem($current),
+                    ]);
+                }
+                if ($error->reason === 'deletion_id_conflict') {
+                    respond(409, [
+                        'error' => 'Lösch-ID wurde bereits für einen anderen Vorgang verwendet.',
+                        'error_key' => 'error.deletion_id_conflict',
+                    ]);
+                }
+                throw $error;
             }
-            $db->commit();
 
-            if ($attachment !== null) {
-                try {
-                    deleteAttachmentStorageFile($attachment);
-                } catch (Throwable $cleanupException) {
-                    error_log(sprintf('Einkauf attachment cleanup error [delete:%d]: %s', $id, $cleanupException->getMessage()));
+            $deletedItem = $staged['items'][0];
+
+            respond(200, [
+                'message' => 'Artikel gelöscht.',
+                'deleted_id' => (int) $deletedItem['deleted_id'],
+                'terminal_revision' => (int) $deletedItem['terminal_revision'],
+                'deletion_id' => $deletionId,
+                'deletion_state' => (string) $staged['state'],
+            ]);
+
+        case 'undo_delete':
+            $data = requireWriteRequest();
+            requireIdempotencyRequestId();
+            $deletionId = requireDeletionId($data);
+
+            $rawItemIds = $data['item_ids'] ?? ($data['item_ids[]'] ?? []);
+            if (is_string($rawItemIds)) {
+                $decodedItemIds = json_decode($rawItemIds, true);
+                if (!is_array($decodedItemIds)) {
+                    respond(422, ['error' => t('error.invalid_params'), 'error_key' => 'error.invalid_params']);
+                }
+                $rawItemIds = $decodedItemIds;
+            }
+            $itemIds = normalizeIdList($rawItemIds);
+            if ($rawItemIds !== [] && $itemIds === []) {
+                respond(422, ['error' => t('error.invalid_params'), 'error_key' => 'error.invalid_params']);
+            }
+
+            try {
+                $undone = (new DeletionTombstoneService($db))->undo($userId, $deletionId, $itemIds);
+            } catch (DeletionTombstoneException $error) {
+                if ($error->reason === 'deletion_purged') {
+                    respond(410, [
+                        'error' => 'Dieser Löschvorgang wurde bereits endgültig bereinigt.',
+                        'error_key' => 'error.deletion_purged',
+                        'deletion_id' => $deletionId,
+                        'deletion_state' => 'purged',
+                    ]);
+                }
+                if ($error->reason === 'deletion_not_found') {
+                    respond(404, [
+                        'error' => 'Löschvorgang nicht gefunden.',
+                        'error_key' => 'error.deletion_not_found',
+                        'deletion_id' => $deletionId,
+                    ]);
+                }
+                if ($error->reason === 'restore_item_conflict') {
+                    respond(409, [
+                        'error' => 'Die ursprüngliche Item-ID ist bereits belegt.',
+                        'error_key' => 'error.deletion_restore_conflict',
+                        'deletion_id' => $deletionId,
+                    ]);
+                }
+                throw $error;
+            }
+
+            $restoredItems = [];
+            foreach ($undone['item_ids'] as $restoredItemId) {
+                $restoredItem = fetchItemForUser($db, $userId, (int) $restoredItemId);
+                if ($restoredItem !== null) {
+                    $restoredItems[] = formatListItem($restoredItem);
                 }
             }
 
             respond(200, [
-                'message' => 'Artikel gelöscht.',
-                'deleted_id' => $id,
-                'terminal_revision' => $expectedRevision + 1,
+                'message' => $undone['state'] === 'not_staged'
+                    ? 'Löschen war nicht gespeichert; Artikel ist bereits vorhanden.'
+                    : 'Löschen rückgängig gemacht.',
+                'deletion_id' => $deletionId,
+                'deletion_state' => (string) $undone['state'],
+                'restored_items' => $restoredItems,
+            ]);
+
+        case 'finalize_delete':
+            $data = requireWriteRequest();
+            requireIdempotencyRequestId();
+            $deletionId = requireDeletionId($data);
+
+            try {
+                $finalized = (new DeletionTombstoneService($db))->finalize($userId, $deletionId);
+            } catch (DeletionTombstoneException $error) {
+                if ($error->reason === 'deletion_not_found') {
+                    respond(404, [
+                        'error' => 'Löschvorgang nicht gefunden.',
+                        'error_key' => 'error.deletion_not_found',
+                        'deletion_id' => $deletionId,
+                    ]);
+                }
+                throw $error;
+            }
+
+            $purgedItemIds = $finalized['state'] === 'purged' ? $finalized['item_ids'] : [];
+            respond(200, [
+                'message' => $finalized['state'] === 'purged'
+                    ? 'Löschvorgang endgültig bereinigt.'
+                    : 'Löschvorgang wurde bereits rückgängig gemacht.',
+                'deletion_id' => $deletionId,
+                'deletion_state' => (string) $finalized['state'],
+                'purged' => count($purgedItemIds),
+                'purged_items' => $purgedItemIds,
+                'cleanup_pending' => $finalized['cleanup_pending'] ? 1 : 0,
             ]);
 
         case 'move':
@@ -3229,66 +3476,45 @@ try {
             if ($capturedItems === []) {
                 respond(422, ['error' => t('error.invalid_params'), 'error_key' => 'error.invalid_params']);
             }
+            $deletionId = requireDeletionId($data);
 
-            $attachments = [];
-            $deletedItems = [];
-            $db->beginTransaction();
             try {
-                $deleteStmt = $db->prepare(
-                    'DELETE FROM items
-                     WHERE id = :id
-                       AND category_id = :category_id
-                       AND user_id = :user_id
-                       AND done = 1
-                       AND revision = :expected_revision'
+                $staged = (new DeletionTombstoneService($db))->stageCompletedBatch(
+                    $userId,
+                    $deletionId,
+                    (int) $category['id'],
+                    $capturedItems
                 );
-                foreach ($capturedItems as $capturedItem) {
-                    $attachment = findAttachmentByItemId($db, $capturedItem['id']);
-                    if ($attachment !== null) {
-                        $attachments[] = $attachment;
-                    }
-                    $deleteStmt->execute([
-                        ':id' => $capturedItem['id'],
-                        ':category_id' => (int) $category['id'],
-                        ':user_id' => $userId,
-                        ':expected_revision' => $capturedItem['expected_revision'],
+            } catch (DeletionTombstoneException $error) {
+                if ($error->reason === 'batch_conflict') {
+                    $conflictingItemId = (int) ($error->context['item_id'] ?? 0);
+                    $expectedRevision = (int) ($error->context['expected_revision'] ?? 0);
+                    $current = $conflictingItemId > 0
+                        ? fetchItemForUser($db, $userId, $conflictingItemId)
+                        : null;
+                    respond(409, [
+                        'error' => t('error.item_revision_conflict'),
+                        'error_key' => 'error.item_revision_conflict',
+                        'expected_revision' => $expectedRevision,
+                        'current_revision' => $current !== null ? (int) $current['revision'] : null,
+                        'item' => $current !== null ? formatListItem($current) : null,
                     ]);
-                    if ($deleteStmt->rowCount() !== 1) {
-                        $db->rollBack();
-                        $current = fetchItemForUser($db, $userId, $capturedItem['id']);
-                        respond(409, [
-                            'error' => t('error.item_revision_conflict'),
-                            'error_key' => 'error.item_revision_conflict',
-                            'expected_revision' => $capturedItem['expected_revision'],
-                            'current_revision' => $current !== null ? (int) $current['revision'] : null,
-                            'item' => $current !== null ? formatListItem($current) : null,
-                        ]);
-                    }
-                    $deletedItems[] = [
-                        'deleted_id' => $capturedItem['id'],
-                        'terminal_revision' => $capturedItem['expected_revision'] + 1,
-                    ];
                 }
-                $db->commit();
-            } catch (Throwable $exception) {
-                if ($db->inTransaction()) {
-                    $db->rollBack();
+                if ($error->reason === 'deletion_id_conflict') {
+                    respond(409, [
+                        'error' => 'Lösch-ID wurde bereits für einen anderen Vorgang verwendet.',
+                        'error_key' => 'error.deletion_id_conflict',
+                    ]);
                 }
-                throw $exception;
-            }
-
-            foreach ($attachments as $attachment) {
-                try {
-                    deleteAttachmentStorageFile($attachment);
-                } catch (Throwable $cleanupException) {
-                    error_log(sprintf('Einkauf attachment cleanup error [clear:%d:%d]: %s', (int) $category['id'], (int) ($attachment['item_id'] ?? 0), $cleanupException->getMessage()));
-                }
+                throw $error;
             }
 
             respond(200, [
                 'message' => 'Erledigte Artikel gelöscht.',
-                'deleted' => count($deletedItems),
-                'deleted_items' => $deletedItems,
+                'deleted' => count($staged['items']),
+                'deleted_items' => $staged['items'],
+                'deletion_id' => $deletionId,
+                'deletion_state' => (string) $staged['state'],
             ]);
 
         case 'reorder':

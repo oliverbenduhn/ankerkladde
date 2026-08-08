@@ -1,7 +1,7 @@
 import { t } from './i18n.js';
-import { api } from './api.js';
+import { api, buildIdempotencyKey } from './api.js';
 import { getCurrentCategory, state } from './state.js';
-import { addConflict, enqueueAction, getConflicts, setConflicts } from './offline-queue.js';
+import { addConflict, enqueueAction, getConflicts, removeQueuedAction, setConflicts } from './offline-queue.js';
 import { isItemSaving, markItemSaving, clearItemSaving } from './item-sync-state.js';
 import { clearDraftSnapshot, markDraftServerDeleted } from './draft-persistence.js';
 import {
@@ -26,6 +26,7 @@ export function createUpdateActions(deps) {
         shouldQueueOffline,
         itemParams,
         handleStaleCategory,
+        offerUndo = async () => false,
         applyServerItem,
         replaceAttachment,
         restoreDeletedAttachment,
@@ -34,6 +35,79 @@ export function createUpdateActions(deps) {
 
     function sameStatusValue(left, right) {
         return String(left ?? '') === String(right ?? '');
+    }
+
+    function mergeCategoryItems(items, categoryId) {
+        invalidateCategoryCache(categoryId);
+        if (Number(state.categoryId) !== Number(categoryId)) return;
+        const restoredById = new Map(items.map(item => [Number(item.id), item]));
+        state.items = state.items
+            .filter(item => !restoredById.has(Number(item.id)))
+            .concat(items);
+        cacheCurrentCategoryItems();
+        renderItems();
+    }
+
+    function removeCategoryItems(itemIds, categoryId) {
+        invalidateCategoryCache(categoryId);
+        if (Number(state.categoryId) !== Number(categoryId)) return;
+        const ids = new Set(itemIds.map(Number));
+        state.items = state.items.filter(item => !ids.has(Number(item.id)));
+        cacheCurrentCategoryItems();
+        renderItems();
+    }
+
+    async function reloadCategory(categoryId) {
+        invalidateCategoryCache(categoryId);
+        if (Number(state.categoryId) !== Number(categoryId)) return;
+        await loadItems(categoryId, { useCache: false });
+    }
+
+    async function queueOrRunUndo(deletionId, removedItems, { queueOnly = false } = {}) {
+        const body = new URLSearchParams({
+            deletion_id: deletionId,
+            item_ids: JSON.stringify(removedItems.map(item => Number(item.id))),
+        });
+        const requestId = await buildIdempotencyKey();
+        enqueueAction('undo_delete', Object.fromEntries(body.entries()), requestId);
+        if (queueOnly) {
+            setNetworkStatus();
+            return null;
+        }
+        try {
+            const payload = await api('undo_delete', { method: 'POST', body, idempotencyKey: requestId });
+            removeQueuedAction(requestId);
+            setNetworkStatus();
+            return payload;
+        } catch (error) {
+            if (!shouldQueueOffline(error)) {
+                removeQueuedAction(requestId);
+                throw error;
+            }
+            setNetworkStatus();
+            return null;
+        }
+    }
+
+    async function queueOrRunFinalize(deletionId, { queueOnly = false } = {}) {
+        const body = new URLSearchParams({ deletion_id: deletionId });
+        const requestId = await buildIdempotencyKey();
+        enqueueAction('finalize_delete', Object.fromEntries(body.entries()), requestId);
+        if (queueOnly) {
+            setNetworkStatus();
+            return;
+        }
+        try {
+            await api('finalize_delete', { method: 'POST', body, idempotencyKey: requestId });
+            removeQueuedAction(requestId);
+            setNetworkStatus();
+        } catch (error) {
+            if (!shouldQueueOffline(error)) {
+                removeQueuedAction(requestId);
+                return;
+            }
+            setNetworkStatus();
+        }
     }
 
     async function mutateStatus(action, item, field, payload, base = item?.[field] ?? '', applyToState = true) {
@@ -135,9 +209,16 @@ export function createUpdateActions(deps) {
             return;
         }
 
-        const snapshot = [...state.items];
-        const body = new URLSearchParams({ id: String(id), expected_revision: String(expectedRevision) });
+        const removedItem = { ...item };
+        const sourceCategoryId = Number(item.category_id || state.categoryId);
+        const deletionId = await buildIdempotencyKey();
+        const body = new URLSearchParams({
+            id: String(id),
+            expected_revision: String(expectedRevision),
+            deletion_id: deletionId,
+        });
         try {
+            enqueueAction('delete', Object.fromEntries(body.entries()), deletionId);
             removeItemById(id);
             if (state.noteEditorId === id) {
                 try {
@@ -148,32 +229,70 @@ export function createUpdateActions(deps) {
             }
             renderItems();
 
-            try {
-                await api('delete', { method: 'POST', body });
-                setConflicts(getConflicts().filter(conflict => conflict.type !== 'delete' || Number(conflict?.payload?.id) !== Number(id)));
-                invalidateCategoryCache(state.categoryId);
-                setMessage(t('msg.item_deleted'));
-            } catch (error) {
+            const stagePromise = api('delete', {
+                method: 'POST',
+                body,
+                idempotencyKey: deletionId,
+            }).then(payload => ({ payload, error: null })).catch(error => {
                 if (shouldQueueOffline(error)) {
-                    enqueueAction('delete', Object.fromEntries(body.entries()), error.idempotencyKey);
                     setNetworkStatus();
-                } else if (Number(error?.status) === 409 && error.payload?.item) {
-                    applyServerItem(error.payload.item);
+                    return { payload: null, error: null, queued: true };
+                }
+                removeQueuedAction(deletionId);
+                if (Number(error?.status) === 409 && error.payload?.item) {
                     addConflict('delete', {
                         id: String(id),
                         expected_revision: String(error.payload.item.revision),
                     }, error);
-                    renderItems();
+                    // Das Badge wird aus der Conflict-Queue abgeleitet. Daher
+                    // erst markieren und danach den kanonischen Serverstand
+                    // rendern.
+                    mergeCategoryItems([error.payload.item], sourceCategoryId);
                     setMessage(t('msg.delete_conflict'), true);
-                } else if (Number(error?.status) === 404) {
-                    setConflicts(getConflicts().filter(conflict => conflict.type !== 'delete' || Number(conflict?.payload?.id) !== Number(id)));
-                    setMessage(t('msg.item_deleted'));
-                } else {
-                    state.items = snapshot;
-                    cacheCurrentCategoryItems();
-                    renderItems();
-                    setMessage(error instanceof Error ? error.message : t('msg.delete_failed'), true);
+                    return { payload: null, error };
                 }
+                if (Number(error?.status) === 404) {
+                    setConflicts(getConflicts().filter(conflict => conflict.type !== 'delete' || Number(conflict?.payload?.id) !== Number(id)));
+                    return { payload: null, error: null };
+                }
+                mergeCategoryItems([removedItem], sourceCategoryId);
+                setMessage(error instanceof Error ? error.message : t('msg.delete_failed'), true);
+                return { payload: null, error };
+            });
+            stagePromise.then(result => {
+                if (!result.queued) {
+                    removeQueuedAction(deletionId);
+                    setNetworkStatus();
+                }
+            });
+
+            const undone = await offerUndo(t('msg.item_deleted'));
+            if (undone) {
+                mergeCategoryItems([removedItem], sourceCategoryId);
+                const staged = await stagePromise;
+                if (staged.error) return;
+                try {
+                    const undoPayload = await queueOrRunUndo(deletionId, [removedItem], {
+                        queueOnly: Boolean(staged.queued),
+                    });
+                    const restoredItems = Array.isArray(undoPayload?.restored_items)
+                        ? undoPayload.restored_items
+                        : [];
+                    if (restoredItems.length > 0) mergeCategoryItems(restoredItems, sourceCategoryId);
+                } catch (error) {
+                    removeCategoryItems([id], sourceCategoryId);
+                    setMessage(error instanceof Error ? error.message : t('msg.delete_failed'), true);
+                    return;
+                }
+                setMessage(t('msg.item_delete_undone'));
+                return;
+            }
+
+            const staged = await stagePromise;
+            if (!staged.error) {
+                setConflicts(getConflicts().filter(conflict => conflict.type !== 'delete' || Number(conflict?.payload?.id) !== Number(id)));
+                removeCategoryItems([id], sourceCategoryId);
+                void queueOrRunFinalize(deletionId, { queueOnly: Boolean(staged.queued) });
             }
         } catch (error) {
             setMessage(error instanceof Error ? error.message : t('msg.delete_failed'), true);
@@ -451,7 +570,7 @@ export function createUpdateActions(deps) {
         const category = getCurrentCategory();
         if (!category) return;
 
-        const removedItems = state.items.filter(item => item.done === 1);
+        const removedItems = state.items.filter(item => item.done === 1).map(item => ({ ...item }));
         const removedItemIds = removedItems.map(item => item.id);
 
         if (removedItemIds.length === 0) return;
@@ -459,16 +578,17 @@ export function createUpdateActions(deps) {
             setMessage(t('error.revision_required'), true);
             return;
         }
+        const deletionId = await buildIdempotencyKey();
         const body = new URLSearchParams({
             category_id: String(category.id),
+            deletion_id: deletionId,
             items: JSON.stringify(removedItems.map(item => ({
                 id: Number(item.id),
                 expected_revision: Number(item.revision),
             }))),
         });
 
-        // Snapshot for rollback on non-network errors.
-        const snapshot = [...state.items];
+        enqueueAction('clear', Object.fromEntries(body.entries()), deletionId);
 
         state.items = state.items.filter(item => item.done !== 1);
         cacheCurrentCategoryItems();
@@ -482,27 +602,61 @@ export function createUpdateActions(deps) {
         }
 
         renderItems();
-        setMessage(t('msg.done_cleared'));
 
-        try {
-            await api('clear', {
-                method: 'POST',
-                body,
-            });
-            invalidateCategoryCache(category.id);
-        } catch (error) {
-            if (await handleStaleCategory(error, category.id)) return;
-
-            if (shouldQueueOffline(error)) {
-                enqueueAction('clear', Object.fromEntries(body.entries()), error.idempotencyKey);
-                setNetworkStatus();
-            } else {
-                // 4xx or unexpected error: restore all items
-                state.items = snapshot;
-                cacheCurrentCategoryItems();
-                renderItems();
-                setMessage(error instanceof Error ? error.message : t('error.server_error'), true);
+        const stagePromise = api('clear', {
+            method: 'POST',
+            body,
+            idempotencyKey: deletionId,
+        }).then(payload => ({ payload, error: null })).catch(async error => {
+            if (await handleStaleCategory(error, category.id)) {
+                return { payload: null, error };
             }
+            if (shouldQueueOffline(error)) {
+                setNetworkStatus();
+                return { payload: null, error: null, queued: true };
+            }
+            removeQueuedAction(deletionId);
+            if (Number(error?.status) === 409) {
+                await reloadCategory(category.id);
+            } else {
+                mergeCategoryItems(removedItems, category.id);
+            }
+            setMessage(error instanceof Error ? error.message : t('error.server_error'), true);
+            return { payload: null, error };
+        });
+        stagePromise.then(result => {
+            if (!result.queued) {
+                removeQueuedAction(deletionId);
+                setNetworkStatus();
+            }
+        });
+
+        const undone = await offerUndo(t('msg.done_cleared'));
+        if (undone) {
+            mergeCategoryItems(removedItems, category.id);
+            const staged = await stagePromise;
+            if (staged.error) return;
+            try {
+                const undoPayload = await queueOrRunUndo(deletionId, removedItems, {
+                    queueOnly: Boolean(staged.queued),
+                });
+                const restoredItems = Array.isArray(undoPayload?.restored_items)
+                    ? undoPayload.restored_items
+                    : [];
+                if (restoredItems.length > 0) mergeCategoryItems(restoredItems, category.id);
+            } catch (error) {
+                removeCategoryItems(removedItemIds, category.id);
+                setMessage(error instanceof Error ? error.message : t('error.server_error'), true);
+                return;
+            }
+            setMessage(t('msg.done_clear_undone'));
+            return;
+        }
+
+        const staged = await stagePromise;
+        if (!staged.error) {
+            removeCategoryItems(removedItemIds, category.id);
+            void queueOrRunFinalize(deletionId, { queueOnly: Boolean(staged.queued) });
         }
     }
 

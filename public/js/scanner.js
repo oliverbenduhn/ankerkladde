@@ -1,8 +1,19 @@
 import { t } from './i18n.js';
 import { api } from './api.js';
 import { BARCODE_FORMATS, isBarcodeCategory, isIosWebKit, isScannerSupported, scannerState, state } from './state.js';
-import { itemForm, itemInput, quantityInput, scannerManualForm, scannerManualInput, scannerOverlay, scannerStatus, scannerSubtitle, scannerVideo } from './ui.js';
-import { normalizeBarcodeValue, sanitizeItemField, sanitizeItemPayload, syncAutoHeight } from './utils.js';
+import {
+    itemForm,
+    itemInput,
+    quantityInput,
+    scannerCloseBtn,
+    scannerManualForm,
+    scannerManualInput,
+    scannerOverlay,
+    scannerStatus,
+    scannerSubtitle,
+    scannerVideo,
+} from './ui.js';
+import { activateModal, normalizeBarcodeValue, sanitizeItemField, sanitizeItemPayload, syncAutoHeight } from './utils.js';
 
 export function createScannerController(deps) {
     /**
@@ -38,6 +49,7 @@ export function createScannerController(deps) {
         triggerHapticFeedback,
         updateFilePickerLabel,
     } = deps;
+    let modalSession = null;
 
     function setScannerProcessing(processing) {
         scannerState.processing = processing;
@@ -109,6 +121,8 @@ export function createScannerController(deps) {
         setScannerProcessing(false);
         scannerState.open = false;
         if (scannerOverlay) scannerOverlay.hidden = true;
+        modalSession?.deactivate();
+        modalSession = null;
     }
 
     async function createBarcodeDetector() {
@@ -359,7 +373,13 @@ export function createScannerController(deps) {
         scannerState.open = true;
         updateScannerSubtitle();
         setScannerStatus('Kamera wird vorbereitet…');
-        if (scannerOverlay) scannerOverlay.hidden = false;
+        if (scannerOverlay) {
+            scannerOverlay.hidden = false;
+            modalSession = activateModal(scannerOverlay, {
+                initialFocus: scannerCloseBtn,
+                onEscape: () => navigation.navigateBackOrReplace({ screen: 'list' }),
+            });
+        }
         if (scannerManualInput) scannerManualInput.value = '';
 
         if (!isScannerSupported()) {
@@ -370,6 +390,7 @@ export function createScannerController(deps) {
 
         try {
             const engine = await createBarcodeDetector();
+            if (!scannerState.open) return;
             if (!engine) {
                 setScannerStatus(t('scanner.not_supported'), true);
                 scannerManualInput?.focus();
@@ -385,46 +406,60 @@ export function createScannerController(deps) {
             if (engine.mode === 'zxing') {
                 setScannerStatus('ZXing: Starte Kamera...');
                 try {
-                    scannerState.controls = await scannerState.detector.decodeFromVideoDevice(
+                    const controls = await scannerState.detector.decodeFromVideoDevice(
                         undefined,
                         scannerVideo,
                         (result, error) => {
-                            if (error) return;
+                            if (error || !scannerState.open) return;
                             const rawValue = typeof result?.getText === 'function' ? result.getText() : '';
                             if (rawValue) {
                                 void handleScannedBarcode(rawValue);
                             }
                         }
                     );
+                    if (!scannerState.open) {
+                        controls?.stop?.();
+                        return;
+                    }
+                    scannerState.controls = controls;
                     await waitForVideoReady(scannerVideo);
+                    if (!scannerState.open) return;
                     setScannerStatus(isIosWebKit()
                         ? t('scanner.camera_active_zxing_ios')
                         : t('scanner.camera_active_zxing'));
                     scheduleScannerWatchdog();
                 } catch (err) {
+                    if (!scannerState.open) return;
                     setScannerStatus('ZXing-Fehler: ' + err.message, true);
                 }
                 return;
             }
 
-            scannerState.stream = await navigator.mediaDevices.getUserMedia({
+            const stream = await navigator.mediaDevices.getUserMedia({
                 audio: false,
                 video: {
                     facingMode: { ideal: 'environment' },
                 },
             });
+            if (!scannerState.open) {
+                stream.getTracks().forEach(track => track.stop());
+                return;
+            }
+            scannerState.stream = stream;
 
             if (scannerVideo) {
                 scannerVideo.srcObject = scannerState.stream;
                 await scannerVideo.play();
                 await waitForVideoReady(scannerVideo);
             }
+            if (!scannerState.open) return;
 
             setScannerStatus(t('scanner.camera_active_native'));
             scheduleScannerWatchdog();
             scheduleScannerLoop();
         } catch (error) {
             stopScannerStream();
+            if (!scannerState.open) return;
             setScannerStatus(error instanceof Error ? error.message : 'Kamera konnte nicht gestartet werden.', true);
             scannerManualInput?.focus();
         }

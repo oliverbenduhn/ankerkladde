@@ -289,4 +289,139 @@ run_php "$REVISION_DIR" '
     if ($version < 3) { fwrite(STDERR, "Revision-Migration ist nicht idempotent.\n"); exit(1); }
 '
 
+# --- Reversible Loeschungen: Tombstone-Migration v6 -------------------------
+run_php "$REVISION_DIR" '
+    require "'"$ROOT_DIR"'/security.php"; require "'"$ROOT_DIR"'/db.php";
+    $db = getDatabase();
+    $version = (int) $db->query("SELECT meta_value FROM database_meta WHERE meta_key = \"schema_version\"")->fetchColumn();
+    if ($version < 6) { fwrite(STDERR, "Tombstone-Migration setzte Schema-Version nicht auf v6.\n"); exit(1); }
+
+    foreach (["deletion_tombstones", "deletion_tombstone_items", "attachment_cleanup_jobs"] as $table) {
+        $exists = (int) $db->query("SELECT COUNT(*) FROM sqlite_master WHERE type = \"table\" AND name = " . $db->quote($table))->fetchColumn();
+        if ($exists !== 1) { fwrite(STDERR, "Tombstone-Tabelle fehlt: $table\n"); exit(1); }
+    }
+
+    $parentColumns = array_column($db->query("PRAGMA table_info(deletion_tombstones)")->fetchAll(PDO::FETCH_ASSOC), "name");
+    foreach (["user_id", "deletion_id", "operation", "state", "request_fingerprint", "item_ids_json", "terminal_revisions_json", "expires_at"] as $column) {
+        if (!in_array($column, $parentColumns, true)) { fwrite(STDERR, "Tombstone-Kopfspalte fehlt: $column\n"); exit(1); }
+    }
+
+    $payloadColumns = array_column($db->query("PRAGMA table_info(deletion_tombstone_items)")->fetchAll(PDO::FETCH_ASSOC), "name");
+    foreach (["item_id", "category_id", "item_json", "attachment_json", "terminal_revision"] as $column) {
+        if (!in_array($column, $payloadColumns, true)) { fwrite(STDERR, "Tombstone-Payloadspalte fehlt: $column\n"); exit(1); }
+    }
+
+    $cleanupColumns = array_column($db->query("PRAGMA table_info(attachment_cleanup_jobs)")->fetchAll(PDO::FETCH_ASSOC), "name");
+    foreach (["cleanup_key", "attachment_json", "attempt_count", "next_attempt_at", "last_error"] as $column) {
+        if (!in_array($column, $cleanupColumns, true)) { fwrite(STDERR, "Attachment-Cleanup-Spalte fehlt: $column\n"); exit(1); }
+    }
+
+    if ($db->query("PRAGMA foreign_key_check")->fetchAll(PDO::FETCH_ASSOC) !== []) {
+        fwrite(STDERR, "Tombstone-Migration hinterliess ungueltige Fremdschluessel.\n");
+        exit(1);
+    }
+'
+
+# v5-Entwicklungsstand ohne category_id: Payload und Attachment-Metadaten
+# muessen beim Upgrade erhalten und auch nach einem unterbrochenen Backfill
+# beim naechsten Start vervollstaendigt werden.
+TOMBSTONE_V5_DIR="$TMP_DIR/tombstone-v5"
+mkdir -p "$TOMBSTONE_V5_DIR"
+run_php "$TOMBSTONE_V5_DIR" '
+    require "'"$ROOT_DIR"'/security.php"; require "'"$ROOT_DIR"'/db.php";
+    $db = getDatabase();
+    $db->prepare("INSERT INTO users (username, password_hash) VALUES (:username, :password_hash)")
+        ->execute([":username" => "tombstone-v5", ":password_hash" => "hash"]);
+    $userId = (int) $db->lastInsertId();
+    $db->prepare("INSERT INTO categories (user_id, name, type) VALUES (:user_id, :name, :type)")
+        ->execute([":user_id" => $userId, ":name" => "V5 Kategorie", ":type" => "images"]);
+    $categoryId = (int) $db->lastInsertId();
+
+    $db->exec("DROP TABLE deletion_tombstone_items");
+    $db->exec("CREATE TABLE deletion_tombstone_items (
+        user_id INTEGER NOT NULL,
+        deletion_id TEXT NOT NULL,
+        item_id INTEGER NOT NULL,
+        item_order INTEGER NOT NULL,
+        item_json TEXT NOT NULL,
+        attachment_json TEXT,
+        terminal_revision INTEGER NOT NULL,
+        PRIMARY KEY (user_id, deletion_id, item_id),
+        FOREIGN KEY (user_id, deletion_id)
+            REFERENCES deletion_tombstones(user_id, deletion_id) ON DELETE CASCADE
+    )");
+    $db->prepare("INSERT INTO deletion_tombstones
+        (user_id, deletion_id, operation, state, request_fingerprint, item_count,
+         item_ids_json, terminal_revisions_json, expires_at)
+        VALUES (:user_id, :deletion_id, \"delete\", \"staged\", :fingerprint, 1, :ids, :revisions, datetime(\"now\", \"+7 days\"))")
+        ->execute([
+            ":user_id" => $userId,
+            ":deletion_id" => "v5-upgrade",
+            ":fingerprint" => str_repeat("a", 64),
+            ":ids" => json_encode([77]),
+            ":revisions" => json_encode([77 => 2]),
+        ]);
+    $db->prepare("INSERT INTO deletion_tombstone_items
+        (user_id, deletion_id, item_id, item_order, item_json, attachment_json, terminal_revision)
+        VALUES (:user_id, :deletion_id, 77, 0, :item_json, :attachment_json, 2)")
+        ->execute([
+            ":user_id" => $userId,
+            ":deletion_id" => "v5-upgrade",
+            ":item_json" => json_encode(["id" => 77, "category_id" => $categoryId, "user_id" => $userId, "revision" => 1]),
+            ":attachment_json" => json_encode(["item_id" => 77, "storage_section" => "images", "stored_name" => "v5-image.png"]),
+        ]);
+    $db->prepare("INSERT INTO deletion_tombstones
+        (user_id, deletion_id, operation, state, request_fingerprint, item_count,
+         item_ids_json, terminal_revisions_json, expires_at)
+        VALUES (:user_id, :deletion_id, \"delete\", \"staged\", :fingerprint, 1, :ids, :revisions, datetime(\"now\", \"+7 days\"))")
+        ->execute([
+            ":user_id" => $userId,
+            ":deletion_id" => "v5-invalid-json",
+            ":fingerprint" => str_repeat("b", 64),
+            ":ids" => json_encode([78]),
+            ":revisions" => json_encode([78 => 2]),
+        ]);
+    $db->prepare("INSERT INTO deletion_tombstone_items
+        (user_id, deletion_id, item_id, item_order, item_json, attachment_json, terminal_revision)
+        VALUES (:user_id, :deletion_id, 78, 0, :item_json, :attachment_json, 2)")
+        ->execute([
+            ":user_id" => $userId,
+            ":deletion_id" => "v5-invalid-json",
+            ":item_json" => "{invalid-json",
+            ":attachment_json" => json_encode(["item_id" => 78, "storage_section" => "images", "stored_name" => "v5-invalid.png"]),
+        ]);
+    setSchemaVersion($db, 5);
+'
+
+run_php "$TOMBSTONE_V5_DIR" '
+    require "'"$ROOT_DIR"'/security.php"; require "'"$ROOT_DIR"'/db.php";
+    $db = getDatabase();
+    $row = $db->query("SELECT category_id, item_json, attachment_json FROM deletion_tombstone_items WHERE deletion_id = \"v5-upgrade\"")
+        ->fetch(PDO::FETCH_ASSOC);
+    if (!is_array($row) || (int) ($row["category_id"] ?? 0) < 1 || !str_contains((string) $row["attachment_json"], "v5-image.png")) {
+        fwrite(STDERR, "v5-Upgrade verlor Tombstone- oder Attachment-Payload.\n");
+        exit(1);
+    }
+    $invalid = $db->query("SELECT category_id, item_json, attachment_json FROM deletion_tombstone_items WHERE deletion_id = \"v5-invalid-json\"")
+        ->fetch(PDO::FETCH_ASSOC);
+    if (!is_array($invalid)
+        || $invalid["category_id"] !== null
+        || (string) $invalid["item_json"] !== "{invalid-json"
+        || !str_contains((string) $invalid["attachment_json"], "v5-invalid.png")) {
+        fwrite(STDERR, "v5-Upgrade verlor malformed Diagnose-/Attachment-Payload.\n");
+        exit(1);
+    }
+    $db->exec("UPDATE deletion_tombstone_items SET category_id = NULL WHERE deletion_id = \"v5-upgrade\"");
+'
+
+run_php "$TOMBSTONE_V5_DIR" '
+    require "'"$ROOT_DIR"'/security.php"; require "'"$ROOT_DIR"'/db.php";
+    $db = getDatabase();
+    $categoryId = $db->query("SELECT category_id FROM deletion_tombstone_items WHERE deletion_id = \"v5-upgrade\"")->fetchColumn();
+    if ((int) $categoryId < 1) {
+        fwrite(STDERR, "Idempotenter Tombstone-Backfill reparierte NULL category_id nicht.\n");
+        exit(1);
+    }
+'
+
 echo "DB-Migrationstest erfolgreich."
