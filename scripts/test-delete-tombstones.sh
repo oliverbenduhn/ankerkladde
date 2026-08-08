@@ -19,6 +19,7 @@ cleanup() {
         kill "$SERVER_PID" >/dev/null 2>&1 || true
         wait "$SERVER_PID" >/dev/null 2>&1 || true
     fi
+    chmod -R u+w "$TMP_DIR" >/dev/null 2>&1 || true
     rm -rf "$TMP_DIR"
 }
 trap cleanup EXIT
@@ -650,6 +651,7 @@ GC_FAIR_TARGET="$(EINKAUF_DATA_DIR="$TEST_DATA_DIR" php -r '
 api_get 'action=categories_list' >/dev/null
 GC_FAIR_STATE="$(EINKAUF_DATA_DIR="$TEST_DATA_DIR" php -r '
     $db = new PDO("sqlite:" . getenv("EINKAUF_DATA_DIR") . "/einkaufsliste.db");
+    $db->exec("PRAGMA foreign_keys = ON");
     $stmt = $db->prepare("SELECT state FROM deletion_tombstones WHERE deletion_id = :deletion_id");
     $stmt->execute([":deletion_id" => $argv[1]]);
     $state = (string) $stmt->fetchColumn();
