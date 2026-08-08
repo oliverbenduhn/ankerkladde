@@ -70,6 +70,17 @@ export function enqueueAction(type, payload, requestId = '') {
     localStorage.setItem(QUEUE_KEY, queueJson);
 }
 
+export function removeQueuedAction(requestId) {
+    const resolvedRequestId = String(requestId || '');
+    if (resolvedRequestId === '') return;
+    const remaining = getQueue().filter(entry => String(entry?.requestId || '') !== resolvedRequestId);
+    if (remaining.length > 0) {
+        localStorage.setItem(QUEUE_KEY, JSON.stringify(remaining));
+    } else {
+        localStorage.removeItem(QUEUE_KEY);
+    }
+}
+
 export function getPendingCount() {
     return getQueue().length;
 }

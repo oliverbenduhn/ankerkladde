@@ -148,6 +148,17 @@ export function startApp(version) {
             applyTabsVisibility,
         });
 
+        // Eine bereits vor dem Reload persistierte Mutation gehoert zur
+        // Start-Synchronisation. Erst danach darf der WebSocket weitere
+        // Server-Snapshots einspielen, sonst kann ein geloeschter Eintrag bis
+        // zum naechsten "online"-Event wieder sichtbar bleiben.
+        try {
+            await flushOfflineQueue();
+        } catch {
+            // Die Queue bleibt fuer den naechsten Online-Versuch erhalten.
+            setNetworkStatus();
+        }
+
         initWebSocketServer(async (action) => {
             console.log('[WS] update received:', action);
 

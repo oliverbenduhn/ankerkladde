@@ -1,5 +1,5 @@
 import { appUrl, api, apiUpload, fetchLinkMetadata } from './api.js';
-import { escapeRegExp, limitText, sanitizeItemField, sanitizeItemPayload } from './utils.js';
+import { activateModal, escapeRegExp, limitText, sanitizeItemField, sanitizeItemPayload } from './utils.js';
 
 export function createShareActions(deps) {
     const {
@@ -112,6 +112,7 @@ export function createShareActions(deps) {
 
             const sheet = document.createElement('div');
             sheet.className = 'share-category-sheet';
+            let modalSession = null;
 
             const header = document.createElement('div');
             header.className = 'share-category-header';
@@ -154,7 +155,8 @@ export function createShareActions(deps) {
             overlay.appendChild(sheet);
 
             function cleanup() {
-                document.removeEventListener('keydown', onKeydown);
+                modalSession?.deactivate();
+                modalSession = null;
                 overlay.remove();
             }
 
@@ -163,17 +165,14 @@ export function createShareActions(deps) {
                 resolve(null);
             }
 
-            function onKeydown(event) {
-                if (event.key === 'Escape') cancel();
-            }
-
             closeBtn.addEventListener('click', cancel);
-            overlay.addEventListener('click', event => {
-                if (event.target === overlay) cancel();
-            });
-            document.addEventListener('keydown', onKeydown);
             document.body.appendChild(overlay);
-            list.querySelector('button')?.focus();
+            modalSession = activateModal(overlay, {
+                initialFocus: () => list.querySelector('button') || closeBtn,
+                onEscape: cancel,
+                onBackdrop: cancel,
+                fallbackFocus: () => document.getElementById('itemInput'),
+            });
         });
     }
 

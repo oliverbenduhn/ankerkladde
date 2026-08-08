@@ -39,6 +39,33 @@ export function getFormActionUrl(form) {
 export function initFormHandling(root = document) {
     const autoSaveControllers = new WeakMap();
 
+    function updateCategoryMoveButtons(categoryList) {
+        const rows = Array.from(categoryList.querySelectorAll('.settings-category-row'));
+        rows.forEach((row, index) => {
+            const moveUp = row.querySelector('[data-category-move="up"]');
+            const moveDown = row.querySelector('[data-category-move="down"]');
+            if (moveUp instanceof HTMLButtonElement) moveUp.disabled = index === 0;
+            if (moveDown instanceof HTMLButtonElement) moveDown.disabled = index === rows.length - 1;
+        });
+    }
+
+    function applyCategoryMove(form, action) {
+        const categoryList = form.closest('[data-category-list]');
+        if (!(categoryList instanceof HTMLElement)) return;
+
+        const sibling = action === 'move_category_up'
+            ? form.previousElementSibling
+            : form.nextElementSibling;
+        if (!(sibling instanceof HTMLFormElement) || !sibling.classList.contains('settings-category-row')) return;
+
+        if (action === 'move_category_up') {
+            categoryList.insertBefore(form, sibling);
+        } else {
+            categoryList.insertBefore(form, sibling.nextElementSibling);
+        }
+        updateCategoryMoveButtons(categoryList);
+    }
+
     async function submitForm(form, submitter = null) {
         if (!form.checkValidity()) {
             form.reportValidity();
@@ -84,6 +111,10 @@ export function initFormHandling(root = document) {
                 if (selectedIcon instanceof HTMLImageElement && previewIcon instanceof HTMLImageElement) previewIcon.src = selectedIcon.src;
                 window.dispatchEvent(new CustomEvent('ankerkladde-settings-content-changed'));
             }
+            if (action === 'move_category_up' || action === 'move_category_down') {
+                applyCategoryMove(form, action);
+                window.dispatchEvent(new CustomEvent('ankerkladde-settings-content-changed'));
+            }
             if (RELOAD_ACTIONS.has(action)) {
                 window.dispatchEvent(new CustomEvent('ankerkladde-settings-reload', {
                     detail: { action, message: payload.flash, type: payload.flash_type || 'ok' },
@@ -95,7 +126,14 @@ export function initFormHandling(root = document) {
         } catch (error) {
             renderFlash(error instanceof Error ? error.message : 'Ein Fehler ist aufgetreten.', 'err', root);
         } finally {
-            if (submitter instanceof HTMLButtonElement) submitter.disabled = false;
+            if (submitter instanceof HTMLButtonElement) {
+                const categoryList = submitter.closest('[data-category-list]');
+                if (submitter.matches('[data-category-move]') && categoryList instanceof HTMLElement) {
+                    updateCategoryMoveButtons(categoryList);
+                } else {
+                    submitter.disabled = false;
+                }
+            }
         }
     }
 

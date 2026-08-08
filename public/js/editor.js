@@ -4,7 +4,7 @@ import { buildNoteConflictVersion } from './conflict-ui.js';
 import { clearNoteDraft, loadNoteDraft, saveNoteDraft } from './note-draft-persistence.js';
 import { NOTE_SAVE_DEBOUNCE_MS, state } from './state.js';
 import { appEl, noteEditorBody, noteEditorEl, noteSaveStatus, noteTitleInput, noteToolbar } from './ui.js';
-import { sanitizeItemField, sanitizeItemPayload } from './utils.js';
+import { activateModal, sanitizeItemField, sanitizeItemPayload } from './utils.js';
 
 export function createEditorController(deps) {
     const {
@@ -20,6 +20,7 @@ export function createEditorController(deps) {
     let saveInFlight = false;
     let applyingContent = false;
     let conflictElement = null;
+    let modalSession = null;
 
     async function waitForTipTap() {
         return new Promise(resolve => {
@@ -39,8 +40,10 @@ export function createEditorController(deps) {
         }
     }
 
-    function setNoteSaveStatus(text) {
-        if (noteSaveStatus) noteSaveStatus.textContent = text;
+    function setNoteSaveStatus(text, busy = false) {
+        if (!noteSaveStatus) return;
+        noteSaveStatus.textContent = text;
+        noteSaveStatus.setAttribute('aria-busy', busy ? 'true' : 'false');
     }
 
     function createDraft(item) {
@@ -145,7 +148,7 @@ export function createEditorController(deps) {
         } else {
             clearNoteDraft(activeDraft.itemId);
         }
-        setNoteSaveStatus('Gespeichert');
+        setNoteSaveStatus(t('editor.saved'));
         renderConflict();
     }
 
@@ -230,14 +233,14 @@ export function createEditorController(deps) {
         if (!activeDraft || activeDraft.conflict) return;
         captureActiveDraft(true);
         clearTimeout(getNoteSaveTimer());
-        setNoteSaveStatus('...');
+        setNoteSaveStatus(t('editor.saving'), true);
         setNoteSaveTimer(setTimeout(() => void performSave(), NOTE_SAVE_DEBOUNCE_MS));
     }
 
     async function resolveWithLocalVersion() {
         const conflict = activeDraft?.conflict;
         if (!activeDraft || !conflict) return;
-        setNoteSaveStatus('...');
+        setNoteSaveStatus(t('editor.saving'), true);
         try {
             const result = await api('update', {
                 method: 'POST',
@@ -280,7 +283,7 @@ export function createEditorController(deps) {
         setEditorContent(server.title, server.content);
         activeDraft = createDraft(server.item);
         clearNoteDraft(server.item.id);
-        setNoteSaveStatus('Gespeichert');
+        setNoteSaveStatus(t('editor.saved'));
         renderConflict();
     }
 
@@ -313,7 +316,7 @@ export function createEditorController(deps) {
         if ((item.name || '') === activeDraft.title && (item.content || '') === activeDraft.content) {
             activeDraft = createDraft(item);
             clearNoteDraft(activeDraft.itemId);
-            setNoteSaveStatus('Gespeichert');
+            setNoteSaveStatus(t('editor.saved'));
             return;
         }
 
@@ -390,6 +393,14 @@ export function createEditorController(deps) {
         updateNoteToolbar();
         renderConflict();
         setNoteSaveStatus(activeDraft.conflict ? 'Konflikt' : (activeDraft.dirty ? 'Lokal geändert' : ''));
+        if (noteEditorEl) {
+            noteEditorEl.setAttribute('aria-label', activeDraft.title || t('ui.open_note'));
+            modalSession = activateModal(noteEditorEl, {
+                initialFocus: noteTitleInput,
+                onEscape: () => navigation.navigateBackOrReplace({ screen: 'list' }),
+                additionalBackground: [appEl.querySelector('#listSwipeStage')],
+            });
+        }
         if (activeDraft.dirty && !activeDraft.conflict) scheduleNoteSave();
     }
 
@@ -416,6 +427,8 @@ export function createEditorController(deps) {
         state.noteEditorId = null;
         appEl.classList.remove('note-editor-open');
         if (noteEditorEl) noteEditorEl.hidden = true;
+        modalSession?.deactivate();
+        modalSession = null;
         if (conflictElement) conflictElement.hidden = true;
         if (noteEditorBody) noteEditorBody.hidden = false;
         if (noteToolbar) noteToolbar.hidden = false;

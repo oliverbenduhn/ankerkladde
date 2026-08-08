@@ -75,6 +75,58 @@ test.describe('FLOW 6 — Item-Sync-Zustand & Entwurf-Persistenz (Issue #63)', (
     await snap(page, testInfo, '3-no-draft-after-save');
   });
 
+  test('Dirty-Abbrechen fragt nach und verwirft ohne automatisch zu speichern', async ({ page }) => {
+    await login(page);
+    await goToEinkauf(page);
+
+    const originalName = `QA Flow6 Abbrechen ${Date.now()}`;
+    const discardedName = `${originalName} verworfen`;
+    const { id } = await quickAdd(page, originalName);
+    await openEditMode(page, id);
+
+    let updateRequests = 0;
+    page.on('request', request => {
+      if (request.url().includes('action=update')) updateRequests += 1;
+    });
+
+    const dialogMessages = [];
+    let discardConfirmed = false;
+    page.on('dialog', async dialog => {
+      dialogMessages.push(dialog.message());
+      if (discardConfirmed) {
+        await dialog.accept();
+      } else {
+        await dialog.dismiss();
+      }
+    });
+
+    await page.locator('#itemTitleInput').fill(discardedName);
+    const cancelButton = page.getByRole('button', { name: 'Abbrechen', exact: true });
+    await cancelButton.click();
+
+    await expect(page.locator('#itemEditor')).toBeVisible();
+    await expect(page.locator('#itemTitleInput')).toHaveValue(discardedName);
+    expect(dialogMessages).toEqual(['Ungespeicherte Änderungen verwerfen?']);
+    expect(updateRequests).toBe(0);
+
+    discardConfirmed = true;
+    await cancelButton.click();
+    await expect(page.locator('#itemEditor')).toBeHidden();
+    await expect(itemCard(page, id)).toContainText(originalName);
+    await expect(itemCard(page, id)).not.toContainText(discardedName);
+    await expect(itemCard(page, id).locator('.item-sync-badge-dirty')).toHaveCount(0);
+    expect(dialogMessages).toEqual([
+      'Ungespeicherte Änderungen verwerfen?',
+      'Ungespeicherte Änderungen verwerfen?',
+    ]);
+    expect(updateRequests).toBe(0);
+
+    const categories = await (await page.request.get('/api.php?action=categories_list')).json();
+    const shopping = categories.categories.find(category => category.type === 'list_quantity');
+    const list = await (await page.request.get(`/api.php?action=list&category_id=${shopping.id}`)).json();
+    expect(list.items.find(item => Number(item.id) === id)?.name).toBe(originalName);
+  });
+
   test('Offline vorgemerkt: Badge erscheint offline und verschwindet nach Reconnect', async ({ page, context }, testInfo) => {
     await login(page);
     await goToEinkauf(page);

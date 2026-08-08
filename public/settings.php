@@ -358,7 +358,8 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
         <div class="settings-block">
             <p class="settings-copy"><?= t('settings.categories_hint') ?></p>
             <div class="settings-options settings-category-list" data-category-list>
-                <?php foreach ($categories as $category): ?>
+                <?php $categoryCount = count($categories); ?>
+                <?php foreach ($categories as $categoryIndex => $category): ?>
                     <?php
                     $categoryIcon = normalizeCategoryIcon((string) $category['icon'], (string) $category['type']);
                     $categoryIconOptions = $iconOptions;
@@ -434,6 +435,24 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                                         <button
                                             type="submit"
                                             name="action"
+                                            value="move_category_up"
+                                            class="settings-link"
+                                            data-category-move="up"
+                                            formnovalidate
+                                            <?= $categoryIndex === 0 ? 'disabled' : '' ?>
+                                        >↑ <?= t('settings.action.move_up') ?></button>
+                                        <button
+                                            type="submit"
+                                            name="action"
+                                            value="move_category_down"
+                                            class="settings-link"
+                                            data-category-move="down"
+                                            formnovalidate
+                                            <?= $categoryIndex === $categoryCount - 1 ? 'disabled' : '' ?>
+                                        >↓ <?= t('settings.action.move_down') ?></button>
+                                        <button
+                                            type="submit"
+                                            name="action"
                                             value="delete_category"
                                             class="settings-delete-button"
                                             formnovalidate
@@ -464,7 +483,7 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                     <label class="settings-field">
                         <span><?= t('settings.field.type') ?></span>
                         <select name="type" required>
-                            <?php foreach (CATEGORY_TYPES as $type): ?>
+                            <?php foreach (USER_CREATABLE_CATEGORY_TYPES as $type): ?>
                                 <option value="<?= htmlspecialchars($type, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars(categoryTypeLabel($type), ENT_QUOTES, 'UTF-8') ?></option>
                             <?php endforeach; ?>
                         </select>

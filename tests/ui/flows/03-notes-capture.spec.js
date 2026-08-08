@@ -1,5 +1,5 @@
 const { test, expect } = require('@playwright/test');
-const { login, snap, csrfToken } = require('../helpers/ux');
+const { login, snap, csrfToken, touchTargetsBelowMin } = require('../helpers/ux');
 
 test.describe('FLOW 3 — Notiz erfassen & bearbeiten', () => {
   test('notes-kategorie → tip-tap → formatierung → reload-persistence', async ({ page }, testInfo) => {
@@ -37,6 +37,26 @@ test.describe('FLOW 3 — Notiz erfassen & bearbeiten', () => {
     await noteCard.click();
     await expect(noteOverlay).toBeVisible({ timeout: 20_000 });
 
+    // Soft assertions lassen den Speicher-/Persistenz-Flow trotz UX-Fund
+    // vollständig laufen und sammeln alle Befunde in einem Trace.
+    const focusInsideEditor = await noteOverlay.evaluate(element => element.contains(document.activeElement));
+    expect.soft(focusInsideEditor, 'Der Notiz-Editor übernimmt beim Öffnen nicht den Fokus').toBe(true);
+    await expect.soft(noteOverlay).toHaveAttribute('role', 'dialog');
+    await expect.soft(noteOverlay).toHaveAttribute('aria-modal', 'true');
+    await expect.soft(page.locator('#noteTitleInput'), 'Der Notiz-Titel erhält nicht den initialen Fokus').toBeFocused();
+    const backgroundIsIsolated = await page.locator('#listSwipeStage').evaluate(element => (
+      element.inert || element.getAttribute('aria-hidden') === 'true'
+    ));
+    expect.soft(backgroundIsIsolated, 'Der Hintergrund bleibt bei offenem Notiz-Editor fokussierbar').toBe(true);
+    if (testInfo.project.name === 'mobile') {
+      const smallBackTargets = await touchTargetsBelowMin(page, { min: 44, selectors: '#noteEditorBack' });
+      expect.soft(smallBackTargets, `Notiz-Zurück unter 44px: ${JSON.stringify(smallBackTargets)}`).toEqual([]);
+    }
+    await page.locator('#noteEditorBack').focus();
+    await page.keyboard.press('Shift+Tab');
+    const shiftTabStayedInside = await noteOverlay.evaluate(element => element.contains(document.activeElement));
+    expect.soft(shiftTabStayedInside, 'Shift+Tab verlässt den modalen Notiz-Editor').toBe(true);
+
     // TipTap-Editor innerhalb des Overlays
     const editor = noteOverlay.locator('.tiptap').first();
     await expect(editor).toBeVisible({ timeout: 20_000 });
@@ -47,14 +67,16 @@ test.describe('FLOW 3 — Notiz erfassen & bearbeiten', () => {
     await page.keyboard.type(bodyText);
     await snap(page, testInfo, '3-editor-filled');
 
-    // Speicher-Status: "Gespeichert" o.ä. — Selector flexibel, Save-Status heißt in Notizen u.U. anders
-    await page.waitForTimeout(500);
+    // Erst weitergehen, wenn die für Nutzer sichtbare Autosave-Bestätigung da ist.
+    await expect(page.locator('#noteSaveStatus')).toHaveText('Gespeichert', { timeout: 15_000 });
 
     // Reload → Tab → Notiz erneut öffnen → Inhalt muss persistieren
     // Anker ist der notiz-name (noteName), nicht der getippte body (bodyText)
     // UX-Bug-Fund: offener Note-Editor überlebt Reload und blockiert alle weiteren Klicks
-    await page.locator('#noteEditorBack').click({ force: true }).catch(() => {});
-    await page.waitForTimeout(300);
+    await page.locator('#noteEditorBack').click();
+    await expect(noteOverlay).toBeHidden();
+    await expect.soft(noteCard, 'Nach Zurück kehrt der Fokus nicht zur Notiz-Karte zurück').toBeFocused();
+    await expect.soft(page.locator('#listSwipeStage')).not.toHaveAttribute('inert', '');
     await page.reload();
     await expect(page.locator('#noteEditor')).toBeHidden({ timeout: 10_000 });
     await page.getByRole('button', { name: catName, exact: true }).click();
@@ -64,5 +86,8 @@ test.describe('FLOW 3 — Notiz erfassen & bearbeiten', () => {
     await expect(page.locator('#noteEditor')).toBeVisible({ timeout: 20_000 });
     await expect(page.locator('#noteEditor .tiptap')).toContainText(bodyText, { timeout: 15_000 });
     await snap(page, testInfo, '4-after-reload');
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#noteEditor')).toBeHidden();
+    await expect.soft(reloadCard.first(), 'Nach Escape kehrt der Fokus nicht zur Notiz-Karte zurück').toBeFocused();
   });
 });

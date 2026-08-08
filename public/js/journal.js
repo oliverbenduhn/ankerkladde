@@ -150,8 +150,10 @@ export function createJournalController(deps) {
         });
     }
 
-    function setSaveStatus(text) {
-        if (journalSaveStatus) journalSaveStatus.textContent = text;
+    function setSaveStatus(text, busy = false) {
+        if (!journalSaveStatus) return;
+        journalSaveStatus.textContent = text;
+        journalSaveStatus.setAttribute('aria-busy', busy ? 'true' : 'false');
     }
 
     function setToolbarOpen(open) {
@@ -276,7 +278,7 @@ export function createJournalController(deps) {
         const expectedRevision = Number(journalDraft?.baseRevision) || 0;
         dirty = false;
         if (journalDraft) journalDraft.dirty = false;
-        setSaveStatus('...');
+        setSaveStatus(t('editor.saving'), true);
 
         pendingSave = pendingSave.catch(() => {}).then(async () => {
             try {
@@ -343,7 +345,7 @@ export function createJournalController(deps) {
         if (journalDraft?.conflict || applyingContent) return;
         captureJournalDraft(true);
         clearTimeout(saveTimer);
-        setSaveStatus('...');
+        setSaveStatus(t('editor.saving'), true);
         saveTimer = window.setTimeout(() => {
             saveTimer = null;
             void saveCurrentContent().catch(error => {

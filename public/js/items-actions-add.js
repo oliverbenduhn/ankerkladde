@@ -105,11 +105,10 @@ export function createAddActions(deps) {
             setMessage(t('quick_add.no_due_category'), true);
             return null;
         }
-        // Explicit ISO or relative date phrase in the input wins over the journal default.
-        const hasExplicitDate = /\b\d{4}-\d{2}-\d{2}\b|\b(heute|morgen|übermorgen|gestern)\b/i.test(input);
         const body = itemParams({
-            input: !hasExplicitDate && date ? `${input} ${date}` : input,
+            input,
             active_category_id: String(targetCategory.id),
+            ...(date ? { default_due_date: date } : {}),
         });
         try {
             const payload = await api('quick_add', { method: 'POST', body });

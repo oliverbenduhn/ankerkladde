@@ -31,7 +31,11 @@ test.describe('FLOW 19c — Tages-Skizze-Karte Sichtbarkeit (#43)', () => {
             if (before.item) {
                 const delResp = await page.request.post('/api.php?action=delete', {
                     headers: { 'X-CSRF-Token': csrf, 'X-Idempotency-Key': `f19c-cleanup-${runId}-${date}` },
-                    form: { id: String(before.item.id), expected_revision: String(before.item.revision || 1) },
+                    form: {
+                        id: String(before.item.id),
+                        expected_revision: String(before.item.revision || 1),
+                        deletion_id: `f19c-deletion-${runId}-${date}`,
+                    },
                 });
                 // 200 oder 404 beide ok
                 expect([200, 404]).toContain(delResp.status());

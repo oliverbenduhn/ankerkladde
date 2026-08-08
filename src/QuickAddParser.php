@@ -5,9 +5,16 @@ declare(strict_types=1);
  * Parse Quick-Add input without accessing a clock, database, or network.
  *
  * @param array<int, array{id:int|string,name:string,type?:string}> $categories
+ * @param string $defaultDueDate Validated YYYY-MM-DD default used when the input has no date token.
  * @return array<string, int|string|bool>
  */
-function parseQuickAdd(string $input, int $activeCategoryId, array $categories, string $today): array
+function parseQuickAdd(
+    string $input,
+    int $activeCategoryId,
+    array $categories,
+    string $today,
+    string $defaultDueDate = ''
+): array
 {
     $working = trim($input);
     $failure = static fn(string $key, string $message, bool $canEscalate = true): array => [
@@ -72,7 +79,7 @@ function parseQuickAdd(string $input, int $activeCategoryId, array $categories, 
         return $failure('quick_add.unresolved_token', 'Mindestens ein Steuer-Token konnte nicht aufgelöst werden.');
     }
 
-    if ($dueTime !== '' && $dateToken === '') {
+    if ($dueTime !== '' && $dateToken === '' && $defaultDueDate === '') {
         return $failure('quick_add.ambiguous', 'Eine Uhrzeit benötigt eine Datumsangabe.');
     }
 
@@ -81,7 +88,7 @@ function parseQuickAdd(string $input, int $activeCategoryId, array $categories, 
         return $failure('quick_add.name_required', 'Bitte gib einen Namen ein.', false);
     }
 
-    $dueDate = '';
+    $dueDate = $defaultDueDate;
     if ($dateToken !== '') {
         $date = DateTimeImmutable::createFromFormat('!Y-m-d', $today);
         if (!$date instanceof DateTimeImmutable || $date->format('Y-m-d') !== $today) {

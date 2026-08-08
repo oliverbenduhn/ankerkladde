@@ -1,8 +1,23 @@
 const { defineConfig, devices } = require('@playwright/test');
 const os = require('os');
+const path = require('path');
 
-const PORT = Number(process.env.PLAYWRIGHT_PORT || 4173);
-const baseURL = process.env.PLAYWRIGHT_BASE_URL || `http://127.0.0.1:${PORT}`;
+const configuredBaseURL = process.env.PLAYWRIGHT_BASE_URL || '';
+let baseURLPort = null;
+if (configuredBaseURL) {
+  const parsedBaseURL = new URL(configuredBaseURL);
+  baseURLPort = Number(parsedBaseURL.port || (parsedBaseURL.protocol === 'https:' ? 443 : 80));
+}
+const configuredPort = process.env.PLAYWRIGHT_PORT ? Number(process.env.PLAYWRIGHT_PORT) : null;
+if (configuredPort !== null && baseURLPort !== null && configuredPort !== baseURLPort) {
+  throw new Error(`PLAYWRIGHT_PORT (${configuredPort}) passt nicht zu PLAYWRIGHT_BASE_URL (${baseURLPort}).`);
+}
+const PORT = configuredPort ?? baseURLPort ?? 4173;
+const baseURL = configuredBaseURL || `http://127.0.0.1:${PORT}`;
+const testDataDir = process.env.EINKAUF_UI_TEST_DATA_DIR || path.join(__dirname, '.tmp', `ui-test-data-${PORT}`);
+const outputDir = process.env.PLAYWRIGHT_OUTPUT_DIR || path.join(__dirname, 'test-results', `run-${PORT}`);
+process.env.EINKAUF_UI_TEST_DATA_DIR = testDataDir;
+process.env.EINKAUF_DATA_DIR = testDataDir;
 const chromiumExecutablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || '';
 
 // ponytail: Per-Worker-User (siehe scripts/ui-test-server.sh), damit
@@ -19,6 +34,7 @@ process.env.PW_WORKER_COUNT = String(pwWorkerCount);
 
 module.exports = defineConfig({
   testDir: './tests/ui',
+  outputDir,
   fullyParallel: true,
   workers: workerCount,
   timeout: 30_000,
@@ -42,12 +58,14 @@ module.exports = defineConfig({
     command: './scripts/ui-test-server.sh',
     env: {
       ...process.env,
+      PLAYWRIGHT_PORT: String(PORT),
+      EINKAUF_UI_TEST_DATA_DIR: testDataDir,
       PW_WORKER_COUNT: String(pwWorkerCount),
     },
     url: baseURL,
     reuseExistingServer: false,
     timeout: 120_000,
-    stdout: 'pipe',
+    stdout: 'ignore',
     stderr: 'pipe',
   },
   projects: [

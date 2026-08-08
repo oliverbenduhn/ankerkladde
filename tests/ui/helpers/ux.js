@@ -1,8 +1,11 @@
 const path = require('path');
 const fs = require('fs');
+const { execFileSync } = require('child_process');
 const { test } = require('@playwright/test');
 
 const SCREENSHOT_DIR = path.join(__dirname, '..', '..', '..', 'screenshots', 'flows');
+const REPO_ROOT = path.join(__dirname, '..', '..', '..');
+const resetFixtures = new Set();
 
 function ensureScreenshotDir() {
   fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
@@ -10,9 +13,10 @@ function ensureScreenshotDir() {
 
 function flowName(testInfo, suffix) {
   const file = (testInfo.file || 'flow').replace(/.*\//, '').replace(/\.spec\.[cm]?[jt]sx?$/, '');
+  const project = (testInfo.project?.name || 'browser').replace(/[^a-z0-9-]+/gi, '-');
   const idx = String(testInfo.testIndex || 0).padStart(2, '0');
   const title = (testInfo.title || 'case').replace(/[^a-z0-9-]+/gi, '-').slice(0, 60);
-  return `${file}.${idx}-${title}-${suffix}.png`;
+  return `${file}.${project}.${idx}-${title}-${suffix}.png`;
 }
 
 async function snap(page, testInfo, suffix) {
@@ -56,9 +60,45 @@ function workerUsername(fallbackUsername, testInfo) {
   return fallbackUsername;
 }
 
+function resetWorkerFixture(username, testInfo) {
+  const info = testInfo || test.info();
+  const resetKey = `${info.testId || info.title}:${info.retry || 0}:${username}`;
+  if (resetFixtures.has(resetKey)) return;
+
+  const port = process.env.PLAYWRIGHT_PORT || '4173';
+  const dataDir = process.env.EINKAUF_UI_TEST_DATA_DIR || path.join(REPO_ROOT, '.tmp', `ui-test-data-${port}`);
+  const env = {
+    ...process.env,
+    EINKAUF_DATA_DIR: dataDir,
+    EINKAUF_UI_TEST_USER: username,
+  };
+  let lastError = null;
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    try {
+      execFileSync('php', ['scripts/reset-ui-test-user.php'], {
+        cwd: REPO_ROOT,
+        env,
+        stdio: 'pipe',
+      });
+      lastError = null;
+      break;
+    } catch (error) {
+      lastError = error;
+      const output = `${error?.stdout || ''}\n${error?.stderr || ''}`;
+      if (!/database is locked/i.test(output) || attempt === 7) throw error;
+      // SQLite erlaubt genau einen Writer. Bei parallel gestarteten Workern
+      // warten wir kurz und starten die vollständige, atomare Rücksetzung neu.
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 125 * (attempt + 1));
+    }
+  }
+  if (lastError) throw lastError;
+  resetFixtures.add(resetKey);
+}
+
 async function login(page, opts = {}) {
   const { username = 'playwright-user', password = 'playwright-pass', testInfo } = opts;
   const resolvedUsername = workerUsername(username, testInfo);
+  if (username === DEFAULT_TEST_USER) resetWorkerFixture(resolvedUsername, testInfo);
   await page.goto('/login.php');
   await page.getByLabel('Benutzername').fill(resolvedUsername);
   await page.getByLabel('Passwort').fill(password);
@@ -72,10 +112,12 @@ function csrfToken(page) {
   return page.locator('meta[name="csrf-token"]').getAttribute('content');
 }
 
-async function touchTargetsBelowMin(page, { min = 44 } = {}) {
+async function touchTargetsBelowMin(page, {
+  min = 44,
+  selectors = 'button, a, input, select, textarea, label[for], label:has(input:not([type="hidden"])), [role="button"], [role="link"]',
+} = {}) {
   // Audit helper: returns list of visible interactive elements with width or height < min
-  return await page.evaluate(({ min }) => {
-    const selectors = 'button, a, input, select, textarea, [role="button"], [role="link"]';
+  return await page.evaluate(({ min, selectors }) => {
     const issues = [];
     for (const el of Array.from(document.querySelectorAll(selectors))) {
       const cs = getComputedStyle(el);
@@ -95,20 +137,121 @@ async function touchTargetsBelowMin(page, { min = 44 } = {}) {
       }
     }
     return issues;
-  }, { min });
+  }, { min, selectors });
+}
+
+async function interactionBlockers(page, { selectors = [] } = {}) {
+  return await page.evaluate(({ selectors }) => {
+    const describe = element => {
+      if (!element || element.nodeType !== Node.ELEMENT_NODE) return null;
+      const id = element.id ? `#${element.id}` : '';
+      const classes = Array.from(element.classList || []).slice(0, 2);
+      return `${element.tagName.toLowerCase()}${id}${classes.length ? `.${classes.join('.')}` : ''}`;
+    };
+    const roundedRect = rect => ({
+      x: Math.round(rect.x),
+      y: Math.round(rect.y),
+      width: Math.round(rect.width),
+      height: Math.round(rect.height),
+    });
+    const issues = [];
+
+    for (const selector of selectors) {
+      for (const element of document.querySelectorAll(selector)) {
+        const style = getComputedStyle(element);
+        const rect = element.getBoundingClientRect();
+        if (style.visibility === 'hidden' || style.display === 'none' || Number(style.opacity) === 0) continue;
+        if (rect.width === 0 || rect.height === 0 || element.disabled) continue;
+
+        if (rect.left < -1 || rect.right > window.innerWidth + 1 || rect.top < -1 || rect.bottom > window.innerHeight + 1) {
+          issues.push({ selector, element: describe(element), reason: 'outside-viewport', rect: roundedRect(rect) });
+          continue;
+        }
+
+        const x = Math.min(window.innerWidth - 1, Math.max(0, rect.left + rect.width / 2));
+        const y = Math.min(window.innerHeight - 1, Math.max(0, rect.top + rect.height / 2));
+        const topElement = document.elementFromPoint(x, y);
+        if (topElement && topElement !== element && !element.contains(topElement) && !topElement.contains(element)) {
+          issues.push({
+            selector,
+            element: describe(element),
+            reason: 'covered',
+            blocker: describe(topElement),
+            rect: roundedRect(rect),
+          });
+        }
+      }
+    }
+    return issues;
+  }, { selectors });
 }
 
 function attachClsListener(page) {
   // Expose Cumulative-Layout-Shift via PerformanceObserver on a window flag
-  page.addInitScript(() => {
+  return page.addInitScript(() => {
     window.__clsValue = 0;
+    window.__clsTotal = 0;
     window.__clsEntries = [];
+    window.__clsMarks = [];
+    let sessionValue = 0;
+    let sessionStart = 0;
+    let previousEntryTime = 0;
+
+    const describeNode = node => {
+      if (!node || node.nodeType !== Node.ELEMENT_NODE) return null;
+      const parts = [];
+      let current = node;
+      while (current && current.nodeType === Node.ELEMENT_NODE && parts.length < 5) {
+        const id = current.id ? `#${current.id}` : '';
+        const classes = Array.from(current.classList || []).slice(0, 2);
+        parts.unshift(`${current.tagName.toLowerCase()}${id}${classes.length ? `.${classes.join('.')}` : ''}`);
+        current = current.parentElement;
+      }
+      return parts.join(' > ');
+    };
+    const roundedRect = rect => rect ? {
+      x: Math.round(rect.x),
+      y: Math.round(rect.y),
+      width: Math.round(rect.width),
+      height: Math.round(rect.height),
+    } : null;
+
+    window.__markCls = label => {
+      window.__clsMarks.push({ label, time: Math.round(performance.now()), value: window.__clsValue });
+    };
+    window.__resetCls = label => {
+      window.__clsValue = 0;
+      window.__clsTotal = 0;
+      window.__clsEntries = [];
+      window.__clsMarks = [{ label, time: Math.round(performance.now()), value: 0 }];
+      sessionValue = 0;
+      sessionStart = 0;
+      previousEntryTime = 0;
+    };
+
     try {
       const obs = new PerformanceObserver(list => {
         for (const e of list.getEntries()) {
           if (!e.hadRecentInput) {
-            window.__clsValue += e.value;
-            window.__clsEntries.push({ value: e.value, time: e.startTime });
+            if (previousEntryTime === 0 || (e.startTime - previousEntryTime <= 1000 && e.startTime - sessionStart <= 5000)) {
+              sessionValue += e.value;
+            } else {
+              sessionValue = e.value;
+              sessionStart = e.startTime;
+            }
+            if (sessionStart === 0) sessionStart = e.startTime;
+            previousEntryTime = e.startTime;
+            window.__clsValue = Math.max(window.__clsValue, sessionValue);
+            window.__clsTotal += e.value;
+            window.__clsEntries.push({
+              value: e.value,
+              time: Math.round(e.startTime),
+              sources: Array.from(e.sources || []).map(source => ({
+                node: describeNode(source.node),
+                previousRect: roundedRect(source.previousRect),
+                currentRect: roundedRect(source.currentRect),
+              })),
+            });
           }
         }
       });
@@ -118,7 +261,31 @@ function attachClsListener(page) {
 }
 
 async function readCls(page) {
-  return await page.evaluate(() => ({ value: window.__clsValue || 0, entries: window.__clsEntries || [] }));
+  return await page.evaluate(() => ({
+    value: window.__clsValue || 0,
+    total: window.__clsTotal || 0,
+    entries: window.__clsEntries || [],
+    marks: window.__clsMarks || [],
+  }));
 }
 
-module.exports = { snap, login, csrfToken, touchTargetsBelowMin, attachClsListener, readCls, SCREENSHOT_DIR };
+async function markCls(page, label) {
+  await page.evaluate(label => window.__markCls?.(label), label);
+}
+
+async function resetCls(page, label = 'reset') {
+  await page.evaluate(label => window.__resetCls?.(label), label);
+}
+
+module.exports = {
+  snap,
+  login,
+  csrfToken,
+  touchTargetsBelowMin,
+  interactionBlockers,
+  attachClsListener,
+  readCls,
+  markCls,
+  resetCls,
+  SCREENSHOT_DIR,
+};

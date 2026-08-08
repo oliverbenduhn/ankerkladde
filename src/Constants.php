@@ -2,6 +2,9 @@
 declare(strict_types=1);
 
 const CATEGORY_TYPES = ['list_quantity', 'list_due_date', 'notes', 'daily_notes', 'drawings', 'images', 'files', 'links'];
+// `daily_notes` is part of the storage/API type contract, but the single
+// Journal category is owned by the system and therefore not user-creatable.
+const USER_CREATABLE_CATEGORY_TYPES = ['list_quantity', 'list_due_date', 'notes', 'drawings', 'images', 'files', 'links'];
 const SKETCH_CATEGORY_TYPES = ['drawings'];
 const ATTACHMENT_CATEGORY_TYPES = ['images', 'files'];
 const AGENDA_GROUP_OVERDUE = 'overdue';

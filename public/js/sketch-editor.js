@@ -8,6 +8,7 @@ import {
     saveSketchDraft,
     sketchDraftKey,
 } from './sketch-draft-persistence.js';
+import { activateModal } from './utils.js';
 
 const EXCALIDRAW_MODULE = 'https://esm.sh/@excalidraw/excalidraw@0.17.3?deps=react@18.2.0,react-dom@18.2.0';
 const REACT_MODULE = 'https://esm.sh/react@18.2.0';
@@ -224,6 +225,7 @@ async function openSketchEditorImpl({ item, date, mode, pushHistory = true }) {
     let bundle = null;
     let userInteracted = false;
     let excalidrawApi = null;
+    let modalSession = null;
 
     const isOpen = () => !unmounted && document.body.contains(refs.overlay);
 
@@ -246,6 +248,8 @@ async function openSketchEditorImpl({ item, date, mode, pushHistory = true }) {
             openSketchRoute = null;
         }
         unmountRoots();
+        modalSession?.deactivate();
+        modalSession = null;
         refs.overlay.remove();
         resolveClosed();
     };
@@ -565,12 +569,19 @@ async function openSketchEditorImpl({ item, date, mode, pushHistory = true }) {
     };
 
     refs.closeBtn.addEventListener('click', () => void handleClose());
+    modalSession = activateModal(refs.overlay, {
+        initialFocus: refs.closeBtn,
+        onEscape: () => void handleClose(),
+        onBackdrop: () => void handleClose(),
+    });
 
     try {
         bundle = await ensureExcalidraw();
+        if (!isOpen()) return closed;
         const canonical = isDaily
             ? await loadDailyScene(date)
             : await loadItemScene(itemId);
+        if (!isOpen()) return closed;
         itemId = Number(canonical.item?.id) || itemId;
         draftKey = sketchDraftKey({ mode, itemId, date });
         const persisted = loadSketchDraft(draftKey);

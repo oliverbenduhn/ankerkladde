@@ -104,7 +104,9 @@ export function registerToolsEvents(deps) {
 
     searchInput?.addEventListener('keydown', event => {
         if (event.key === 'Escape') {
-            closeSearch();
+            event.preventDefault();
+            event.stopPropagation();
+            navigation.navigateBackOrReplace({ screen: 'list' });
         }
     });
 

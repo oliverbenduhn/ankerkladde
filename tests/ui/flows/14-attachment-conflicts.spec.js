@@ -187,8 +187,12 @@ test.describe('FLOW 14 — Attachment-Ersetzungen revisionssicher (Issue #71)', 
 
     const serverCard = itemCard(pageB, itemId);
     await serverCard.locator('.btn-item-menu').click();
+    const stagedDelete = pageB.waitForResponse(
+      response => response.url().includes('action=delete') && response.status() === 200,
+    );
     await pageB.getByRole('button', { name: 'Löschen', exact: true }).click();
     await expect(serverCard).toHaveCount(0);
+    await stagedDelete;
     await triggerOnlineRefresh(page);
 
     await expect(itemCard(page, itemId)).toContainText('Server-Löschung erkannt');

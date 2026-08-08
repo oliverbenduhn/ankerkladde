@@ -7,6 +7,19 @@ require dirname(__DIR__) . '/db.php';
 
 $db = getDatabase();
 
+// Browser-Tests sollen unabhängig vom Kalenderdatum ein repräsentatives
+// Ausgangsbild erhalten. Der normale Demo-Seed behält seine festen Daten;
+// EINKAUF_DEMO_RELATIVE_DATES=1 verschiebt sie relativ zu "heute".
+$relativeDates = filter_var(getenv('EINKAUF_DEMO_RELATIVE_DATES') ?: '0', FILTER_VALIDATE_BOOLEAN);
+$today = new DateTimeImmutable('today');
+$demoDate = static function (string $fixed, int $offsetDays) use ($relativeDates, $today): string {
+    if (!$relativeDates) {
+        return $fixed;
+    }
+    $modifier = $offsetDays >= 0 ? "+{$offsetDays} days" : "{$offsetDays} days";
+    return $today->modify($modifier)->format('Y-m-d');
+};
+
 $demoUser = getenv('EINKAUF_DEMO_USER');
 if (!is_string($demoUser) || trim($demoUser) === '') {
     $demoUser = 'tester';
@@ -97,13 +110,13 @@ if (isset($catByType['list_due_date'])) {
     if ($privatCat) {
         $id = $privatCat['id'];
         $items = [
-            ['name' => 'Arzttermin (Hausarzt)',         'due_date' => '2026-04-25'],
-            ['name' => 'Geburtstagsgeschenk für Mama',  'due_date' => '2026-04-28'],
-            ['name' => 'Auto zum TÜV',                  'due_date' => '2026-05-15'],
-            ['name' => 'Steuererklärung abgeben',       'due_date' => '2026-05-31'],
-            ['name' => 'Balkon bepflanzen',             'due_date' => '2026-05-10'],
-            ['name' => 'Bibliotheksbücher zurückgeben', 'due_date' => '2026-04-22', 'done' => 1],
-            ['name' => 'Versicherung kündigen',         'due_date' => '2026-04-20', 'done' => 1],
+            ['name' => 'Arzttermin (Hausarzt)',         'due_date' => $demoDate('2026-04-25', 3)],
+            ['name' => 'Geburtstagsgeschenk für Mama',  'due_date' => $demoDate('2026-04-28', 7)],
+            ['name' => 'Auto zum TÜV',                  'due_date' => $demoDate('2026-05-15', 14)],
+            ['name' => 'Steuererklärung abgeben',       'due_date' => $demoDate('2026-05-31', 21)],
+            ['name' => 'Balkon bepflanzen',             'due_date' => $demoDate('2026-05-10', 10)],
+            ['name' => 'Bibliotheksbücher zurückgeben', 'due_date' => $demoDate('2026-04-22', -2), 'done' => 1],
+            ['name' => 'Versicherung kündigen',         'due_date' => $demoDate('2026-04-20', -3), 'done' => 1],
         ];
         foreach ($items as $i => $item) {
             insertItem($db, $userId, $id, $item['name'], [
@@ -120,13 +133,13 @@ if (isset($catByType['list_due_date'])) {
     if ($arbeitCat) {
         $id = $arbeitCat['id'];
         $items = [
-            ['name' => 'Präsentation Q2 vorbereiten',   'due_date' => '2026-04-22'],
-            ['name' => 'Angebot an Kunde Fischer',       'due_date' => '2026-04-24'],
-            ['name' => 'Monatsbericht einreichen',       'due_date' => '2026-04-30'],
-            ['name' => 'Server-Backup einrichten',       'due_date' => '2026-05-08'],
-            ['name' => 'Onboarding neuer Kollege',       'due_date' => '2026-05-04'],
-            ['name' => 'Sprint-Review Protokoll',        'due_date' => '2026-04-18', 'done' => 1],
-            ['name' => 'Urlaub eintragen',               'due_date' => '2026-04-17', 'done' => 1],
+            ['name' => 'Präsentation Q2 vorbereiten',   'due_date' => $demoDate('2026-04-22', 2)],
+            ['name' => 'Angebot an Kunde Fischer',       'due_date' => $demoDate('2026-04-24', 4)],
+            ['name' => 'Monatsbericht einreichen',       'due_date' => $demoDate('2026-04-30', 6)],
+            ['name' => 'Server-Backup einrichten',       'due_date' => $demoDate('2026-05-08', 8)],
+            ['name' => 'Onboarding neuer Kollege',       'due_date' => $demoDate('2026-05-04', 10)],
+            ['name' => 'Sprint-Review Protokoll',        'due_date' => $demoDate('2026-04-18', -1), 'done' => 1],
+            ['name' => 'Urlaub eintragen',               'due_date' => $demoDate('2026-04-17', -4), 'done' => 1],
         ];
         foreach ($items as $i => $item) {
             insertItem($db, $userId, $id, $item['name'], [
