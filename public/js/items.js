@@ -2,13 +2,7 @@ import { api, normalizeItem, persistPreferences } from './api.js';
 import { LOCAL_PREF_KEYS, state } from './state.js';
 import { appEl, searchBar, searchBtn, searchInput } from './ui.js';
 import { markDraftServerDeleted } from './draft-persistence.js';
-import {
-    itemContentSnapshot,
-    itemDraftHasLocalChanges,
-    rebaseItemDraft,
-    serverContentMatchesDraft,
-    serverContentMatchesDraftBase,
-} from './item-content-conflict.js';
+import { rebaseItemDraft, resolveItemConflict } from './item-content-conflict.js';
 
 export function createItemsController(deps) {
     /**
@@ -223,26 +217,19 @@ export function createItemsController(deps) {
                 if (Number(freshItem.id) === editingId && state.editDraft) {
                     const draft = state.editDraft;
                     if (!draft.conflict) {
-                        if (!itemDraftHasLocalChanges(draft)) {
+                        const decision = resolveItemConflict(draft, freshItem);
+                        if (decision.type === 'replace') {
                             rebaseItemDraft(draft, freshItem, { replaceLocal: true });
                             draft.requestId = '';
-                        } else if (serverContentMatchesDraft(freshItem, draft)) {
+                        } else if (decision.type === 'rebase') {
                             rebaseItemDraft(draft, freshItem);
                             draft.requestId = '';
-                        } else if (serverContentMatchesDraftBase(freshItem, draft)) {
+                        } else if (decision.type === 'rebase-quiet') {
                             // Status, Reihenfolge oder Attachment änderten sich,
                             // der lokal bearbeitete Inhaltsbaustein jedoch nicht.
                             rebaseItemDraft(draft, freshItem);
                         } else {
-                            draft.conflict = {
-                                local: itemContentSnapshot(draft),
-                                server: {
-                                    ...itemContentSnapshot(freshItem),
-                                    revision: Number(freshItem.revision),
-                                    updatedAt: freshItem.updated_at || '',
-                                    item: freshItem,
-                                },
-                            };
+                            draft.conflict = decision.conflict;
                         }
                     }
                 }

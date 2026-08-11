@@ -8,6 +8,7 @@ import { getItemSyncState } from './item-sync-state.js';
 import { clearDraftSnapshot, loadDraftSnapshot, wrapDraftForPersistence } from './draft-persistence.js';
 import {
     ITEM_CONTENT_FIELDS,
+    initItemDraftBase,
     itemContentSnapshot,
     itemDraftHasLocalChanges,
 } from './item-content-conflict.js';
@@ -128,13 +129,7 @@ export function createItemsViewController(deps) {
     }
 
     function ensureEditDraftBase(draft, item) {
-        if (!draft.baseContent || typeof draft.baseContent !== 'object') {
-            draft.baseContent = itemContentSnapshot(item);
-        }
-        if (!Number(draft.baseRevision)) draft.baseRevision = Number(item.revision) || 0;
-        if (!('requestId' in draft)) draft.requestId = '';
-        if (!('conflict' in draft)) draft.conflict = null;
-        return draft;
+        return initItemDraftBase(draft, item);
     }
 
     function resetEditDraft() {

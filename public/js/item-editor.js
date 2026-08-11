@@ -4,6 +4,7 @@ import { state } from './state.js';
 import { clearDraftSnapshot, loadDraftSnapshot, wrapDraftForPersistence } from './draft-persistence.js';
 import {
     ITEM_CONTENT_FIELDS,
+    initItemDraftBase,
     itemContentSnapshot,
     itemDraftHasLocalChanges,
     rebaseItemDraft,
@@ -158,12 +159,8 @@ export function createItemEditorController(deps) {
     }
 
     function ensureDraftBase(draft, item) {
-        if (!draft.baseContent || typeof draft.baseContent !== 'object') {
-            draft.baseContent = itemContentSnapshot(item);
-        }
-        if (!Number(draft.baseRevision)) draft.baseRevision = Number(item.revision) || 0;
-        if (!('requestId' in draft)) draft.requestId = '';
-        if (!('conflict' in draft)) draft.conflict = null;
+        initItemDraftBase(draft, item);
+        // Nur der Vollbild-Editor fuehrt den Status im Draft.
         if (!('status' in draft)) draft.status = item.status || '';
         return draft;
     }

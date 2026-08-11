@@ -4,12 +4,7 @@ import { getCurrentCategory, state } from './state.js';
 import { addConflict, enqueueAction, getConflicts, removeQueuedAction, setConflicts } from './offline-queue.js';
 import { isItemSaving, markItemSaving, clearItemSaving } from './item-sync-state.js';
 import { clearDraftSnapshot, markDraftServerDeleted } from './draft-persistence.js';
-import {
-    itemContentSnapshot,
-    rebaseItemDraft,
-    serverContentMatchesDraft,
-    serverContentMatchesDraftBase,
-} from './item-content-conflict.js';
+import { rebaseItemDraft, resolveItemConflict } from './item-content-conflict.js';
 
 export function createUpdateActions(deps) {
     const {
@@ -501,7 +496,8 @@ export function createUpdateActions(deps) {
             if (Number(error?.status) === 409 && error.payload?.item) {
                 const serverItem = error.payload.item;
                 applyServerItem(serverItem);
-                if (serverContentMatchesDraft(serverItem, draft)) {
+                const decision = resolveItemConflict(draft, serverItem);
+                if (decision.type === 'replace' || decision.type === 'rebase') {
                     state.editingId = null;
                     state.editDraft = { itemId: null, categoryId: null, name: '', barcode: '', quantity: '', due_date: '', due_time: '', priority: '', content: '' };
                     clearDraftSnapshot();
@@ -509,21 +505,13 @@ export function createUpdateActions(deps) {
                     setMessage(t('msg.item_saved'));
                     return;
                 }
-                if (serverContentMatchesDraftBase(serverItem, draft)) {
+                if (decision.type === 'rebase-quiet') {
                     rebaseItemDraft(draft, serverItem);
                     renderItems();
                     window.setTimeout(() => void handleEditSave(id), 0);
                     return;
                 }
-                draft.conflict = {
-                    local: itemContentSnapshot(draft),
-                    server: {
-                        ...itemContentSnapshot(serverItem),
-                        revision: Number(serverItem.revision),
-                        updatedAt: serverItem.updated_at || '',
-                        item: serverItem,
-                    },
-                };
+                draft.conflict = decision.conflict;
                 renderItems();
                 setMessage(t('msg.item_conflict_remote_update'), true);
                 return;
