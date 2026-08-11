@@ -118,6 +118,21 @@ export function setConflicts(conflicts) {
     window.dispatchEvent(new Event('ankerkladde-conflicts-updated'));
 }
 
+// AC #63: ein Konflikt gehoert zu genau einer Konflikteinheit (type + id).
+// hasConflictFor/removeConflictFor kapseln diesen Abgleich, damit Aufrufer
+// nicht selbst gegen die interne {type, payload}-Form filtern muessen.
+export function hasConflictFor(id, type = null) {
+    const idStr = String(id);
+    return getConflicts().some(conflict => (type === null || conflict.type === type)
+        && String(conflict?.payload?.id ?? '') === idStr);
+}
+
+export function removeConflictFor(id, type) {
+    const idStr = String(id);
+    setConflicts(getConflicts().filter(conflict => !(conflict.type === type
+        && String(conflict?.payload?.id ?? '') === idStr)));
+}
+
 export function clearConflicts() {
     localStorage.removeItem(CONFLICTS_KEY);
     window.dispatchEvent(new Event('ankerkladde-conflicts-updated'));

@@ -1,7 +1,7 @@
 import { t } from './i18n.js';
 import { api, buildIdempotencyKey } from './api.js';
 import { getCurrentCategory, state } from './state.js';
-import { addConflict, enqueueAction, getConflicts, removeQueuedAction, setConflicts } from './offline-queue.js';
+import { addConflict, enqueueAction, removeConflictFor, removeQueuedAction } from './offline-queue.js';
 import { isItemSaving, markItemSaving, clearItemSaving } from './item-sync-state.js';
 import { clearDraftSnapshot, markDraftServerDeleted } from './draft-persistence.js';
 import { rebaseItemDraft, resolveItemConflict } from './item-content-conflict.js';
@@ -247,7 +247,7 @@ export function createUpdateActions(deps) {
                     return { payload: null, error };
                 }
                 if (Number(error?.status) === 404) {
-                    setConflicts(getConflicts().filter(conflict => conflict.type !== 'delete' || Number(conflict?.payload?.id) !== Number(id)));
+                    removeConflictFor(id, 'delete');
                     return { payload: null, error: null };
                 }
                 mergeCategoryItems([removedItem], sourceCategoryId);
@@ -285,7 +285,7 @@ export function createUpdateActions(deps) {
 
             const staged = await stagePromise;
             if (!staged.error) {
-                setConflicts(getConflicts().filter(conflict => conflict.type !== 'delete' || Number(conflict?.payload?.id) !== Number(id)));
+                removeConflictFor(id, 'delete');
                 removeCategoryItems([id], sourceCategoryId);
                 void queueOrRunFinalize(deletionId, { queueOnly: Boolean(staged.queued) });
             }

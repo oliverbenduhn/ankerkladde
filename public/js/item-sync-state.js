@@ -1,4 +1,4 @@
-import { getQueue, getConflicts } from './offline-queue.js';
+import { getQueue, hasConflictFor } from './offline-queue.js';
 
 // ponytail: Sync-Zustand pro Item (Spec AC #63). Kein eigener Datenspeicher
 // fuer "offline"/"conflict" - wird direkt aus der bestehenden Offline-Queue
@@ -17,9 +17,9 @@ export function isItemSaving(id) {
     return savingIds.has(String(id));
 }
 
-function queueHasItem(id, queueOrConflicts) {
+function queueHasItem(id, queue) {
     const idStr = String(id);
-    return queueOrConflicts.some(entry => String(entry?.payload?.id ?? '') === idStr);
+    return queue.some(entry => String(entry?.payload?.id ?? '') === idStr);
 }
 
 // Reihenfolge spiegelt Prioritaet: ein laufender Schreibversuch ueberdeckt
@@ -27,7 +27,7 @@ function queueHasItem(id, queueOrConflicts) {
 // Aenderungen in der Queue.
 export function getItemSyncState(id, { isDirty = false } = {}) {
     if (isItemSaving(id)) return 'saving';
-    if (queueHasItem(id, getConflicts())) return 'conflict';
+    if (hasConflictFor(id)) return 'conflict';
     if (queueHasItem(id, getQueue())) return 'offline';
     if (isDirty) return 'dirty';
     return 'synced';

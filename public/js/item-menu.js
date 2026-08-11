@@ -1,5 +1,5 @@
 import { t } from './i18n.js';
-import { getConflicts } from './offline-queue.js';
+import { hasConflictFor } from './offline-queue.js';
 import { activateModal } from './utils.js';
 
 export function createItemMenuController(deps) {
@@ -101,8 +101,7 @@ export function createItemMenuController(deps) {
             }
 
             appendAction(item.is_pinned ? t('ui.unpin') : t('ui.pin'), () => handlePin(item.id, item.is_pinned ? 0 : 1));
-            const deleteConflict = getConflicts().some(conflict => conflict.type === 'delete'
-                && Number(conflict?.payload?.id) === Number(item.id));
+            const deleteConflict = hasConflictFor(item.id, 'delete');
             appendAction(deleteConflict ? t('ui.delete_anyway') : t('ui.delete'), () => handleDelete(item.id), 'is-danger');
             appendAction(t('ui.cancel'), async () => {}, 'is-secondary');
             focusFirstAction();
