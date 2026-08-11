@@ -170,6 +170,7 @@ APK_MEDIA_HEADERS="$TMP_DIR/apk-media-headers.txt"
 MEDIA_BODY="$TMP_DIR/media-body.txt"
 MEDIA_HEADERS="$TMP_DIR/media-headers.txt"
 FILES_DELETE_BODY="$TMP_DIR/files-delete.json"
+FILES_FINALIZE_BODY="$TMP_DIR/files-finalize.json"
 IMAGE_UPLOAD_BODY="$TMP_DIR/image-upload.json"
 IMAGE_LIST_BODY="$TMP_DIR/image-list.json"
 IMAGE_MEDIA_BODY="$TMP_DIR/image-media.bin"
@@ -348,7 +349,7 @@ if [[ -z "$UNICODE_ITEM_ID" ]]; then
 fi
 [[ "$(status_code "$UNICODE_LIST_BODY" -b "$COOKIE_JAR" "http://127.0.0.1:$PORT/api.php?action=list&category_id=$SHOPPING_CATEGORY_ID")" == "200" ]]
 php -r '$payload = json_decode(file_get_contents($argv[1]), true); foreach (($payload["items"] ?? []) as $item) { if (($item["name"] ?? "") === "Öl") { exit(0); } } fwrite(STDERR, "Unicode-Artikel wurde nicht korrekt gespeichert.\n"); exit(1);' "$UNICODE_LIST_BODY"
-[[ "$(status_code "$UNICODE_DELETE_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: smoke-delete-unicode' -X POST -d "id=$UNICODE_ITEM_ID&expected_revision=$UNICODE_ITEM_REVISION" "http://127.0.0.1:$PORT/api.php?action=delete")" == "200" ]]
+[[ "$(status_code "$UNICODE_DELETE_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: smoke-delete-unicode' -X POST -d "id=$UNICODE_ITEM_ID&expected_revision=$UNICODE_ITEM_REVISION&deletion_id=smoke-delete-unicode" "http://127.0.0.1:$PORT/api.php?action=delete")" == "200" ]]
 
 [[ "$(status_code "$NOTE_UNICODE_ADD_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST --data-urlencode "category_id=$NOTES_CATEGORY_ID" --data-urlencode 'name=Umlaut Notiz' --data-urlencode 'content=<p>Ä Ü Ö ü ö ä</p>' "http://127.0.0.1:$PORT/api.php?action=add")" == "201" ]]
 [[ "$(status_code "$NOTE_UNICODE_LIST_BODY" -b "$COOKIE_JAR" "http://127.0.0.1:$PORT/api.php?action=list&category_id=$NOTES_CATEGORY_ID")" == "200" ]]
@@ -519,10 +520,16 @@ rm -f "$IMAGE_ATTACHMENT_PATH"
 [[ "$(status_code "$MISSING_MEDIA_BODY" -b "$COOKIE_JAR" "http://127.0.0.1:$PORT/media.php?item_id=$IMAGE_ITEM_ID")" == "404" ]]
 grep -q 'Datei nicht gefunden' "$MISSING_MEDIA_BODY"
 
-[[ "$(status_code "$FILES_DELETE_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: smoke-delete-file' -X POST -d "id=$FILE_ITEM_ID&expected_revision=$FILE_ITEM_REVISION" "http://127.0.0.1:$PORT/api.php?action=delete")" == "200" ]]
+[[ "$(status_code "$FILES_DELETE_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: smoke-delete-file' -X POST -d "id=$FILE_ITEM_ID&expected_revision=$FILE_ITEM_REVISION&deletion_id=smoke-delete-file" "http://127.0.0.1:$PORT/api.php?action=delete")" == "200" ]]
 grep -q 'Artikel gelöscht' "$FILES_DELETE_BODY"
+if [[ ! -e "$ATTACHMENT_PATH" ]]; then
+    echo "Attachment-Datei wurde bereits beim reversiblen Stage entfernt." >&2
+    exit 1
+fi
+[[ "$(status_code "$FILES_FINALIZE_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: smoke-finalize-file' -X POST -d 'deletion_id=smoke-delete-file' "http://127.0.0.1:$PORT/api.php?action=finalize_delete")" == "200" ]]
+grep -q '"deletion_state":"purged"' "$FILES_FINALIZE_BODY"
 if [[ -e "$ATTACHMENT_PATH" ]]; then
-    echo "Attachment-Datei wurde beim Delete nicht entfernt." >&2
+    echo "Attachment-Datei wurde beim Finalize nicht entfernt." >&2
     exit 1
 fi
 
@@ -691,7 +698,7 @@ CLEAR_ITEMS="$(php -r '
         "expected_revision" => (int) $item["revision"],
     ], $done));
 ' "$POST_TOGGLE_LIST_BODY")"
-[[ "$(status_code "$CLEAR_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: smoke-clear-main' -X POST --data-urlencode "items=$CLEAR_ITEMS" "http://127.0.0.1:$PORT/api.php?action=clear")" == "200" ]]
+[[ "$(status_code "$CLEAR_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: smoke-clear-main' -X POST --data-urlencode "items=$CLEAR_ITEMS" --data-urlencode 'deletion_id=smoke-clear-main' "http://127.0.0.1:$PORT/api.php?action=clear")" == "200" ]]
 grep -q '"deleted":1' "$CLEAR_BODY"
 
 [[ "$(status_code "$POST_CLEAR_LIST_BODY" -b "$COOKIE_JAR" "http://127.0.0.1:$PORT/api.php?action=list")" == "200" ]]

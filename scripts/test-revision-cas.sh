@@ -536,6 +536,7 @@ curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
     --data-urlencode "category_id=$SHOPPING_CATEGORY_ID" --data-urlencode 'name=Delete-CAS-Test' \
     -o "$DELETE_ADD_BODY" "http://127.0.0.1:$PORT/api.php?action=add" >/dev/null
 DELETE_ID="$(php -r 'echo (int) (json_decode(file_get_contents($argv[1]), true)["id"] ?? 0);' "$DELETE_ADD_BODY")"
+DELETE_DELETION_ID="revision-delete-tombstone"
 
 curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
     --data-urlencode "id=$DELETE_ID" --data-urlencode 'name=Parallel geaendert' --data-urlencode 'expected_revision=1' \
@@ -543,7 +544,7 @@ curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -X POST \
 
 DELETE_CONFLICT_BODY="$TMP_DIR/delete-conflict.json"
 [[ "$(curl -sS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: revision-delete-main' -X POST \
-    --data-urlencode "id=$DELETE_ID" --data-urlencode 'expected_revision=1' \
+    --data-urlencode "id=$DELETE_ID" --data-urlencode 'expected_revision=1' --data-urlencode "deletion_id=$DELETE_DELETION_ID" \
     -w '%{http_code}' -o "$DELETE_CONFLICT_BODY" "http://127.0.0.1:$PORT/api.php?action=delete")" == "409" ]]
 php -r '
     $payload = json_decode(file_get_contents($argv[1]), true);
@@ -559,7 +560,7 @@ php -r '
 
 DELETE_BODY="$TMP_DIR/delete.json"
 [[ "$(curl -sS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: revision-delete-main' -X POST \
-    --data-urlencode "id=$DELETE_ID" --data-urlencode 'expected_revision=2' \
+    --data-urlencode "id=$DELETE_ID" --data-urlencode 'expected_revision=2' --data-urlencode "deletion_id=$DELETE_DELETION_ID" \
     -w '%{http_code}' -o "$DELETE_BODY" "http://127.0.0.1:$PORT/api.php?action=delete")" == "200" ]]
 php -r '
     $payload = json_decode(file_get_contents($argv[1]), true);
@@ -571,7 +572,7 @@ php -r '
 
 DELETE_REPLAY_BODY="$TMP_DIR/delete-replay.json"
 [[ "$(curl -sS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: revision-delete-main' -X POST \
-    --data-urlencode "id=$DELETE_ID" --data-urlencode 'expected_revision=2' \
+    --data-urlencode "id=$DELETE_ID" --data-urlencode 'expected_revision=2' --data-urlencode "deletion_id=$DELETE_DELETION_ID" \
     -w '%{http_code}' -o "$DELETE_REPLAY_BODY" "http://127.0.0.1:$PORT/api.php?action=delete")" == "200" ]]
 grep -q '"idempotent_replay":1' "$DELETE_REPLAY_BODY" || { echo "Delete-Replay wurde erneut ausgefuehrt." >&2; exit 1; }
 grep -q '"terminal_revision":3' "$DELETE_REPLAY_BODY" || { echo "Delete-Replay verlor terminale Revision." >&2; exit 1; }
@@ -653,9 +654,10 @@ done
 CLEAR_A_ID="$(php -r 'echo (int) (json_decode(file_get_contents($argv[1]), true)["id"] ?? 0);' "$TMP_DIR/clear-add-Erledigt-A.json")"
 CLEAR_B_ID="$(php -r 'echo (int) (json_decode(file_get_contents($argv[1]), true)["id"] ?? 0);' "$TMP_DIR/clear-add-Erledigt-B.json")"
 CLEAR_ITEMS="[{\"id\":$CLEAR_A_ID,\"expected_revision\":2},{\"id\":$CLEAR_B_ID,\"expected_revision\":2}]"
+CLEAR_DELETION_ID="revision-clear-tombstone"
 CLEAR_BODY="$TMP_DIR/clear-cas.json"
 [[ "$(curl -sS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: revision-clear-main' -X POST \
-    --data-urlencode "category_id=$CLEAR_CATEGORY_ID" --data-urlencode "items=$CLEAR_ITEMS" \
+    --data-urlencode "category_id=$CLEAR_CATEGORY_ID" --data-urlencode "items=$CLEAR_ITEMS" --data-urlencode "deletion_id=$CLEAR_DELETION_ID" \
     -w '%{http_code}' -o "$CLEAR_BODY" "http://127.0.0.1:$PORT/api.php?action=clear")" == "200" ]]
 grep -q '"deleted":2' "$CLEAR_BODY"
 
@@ -668,7 +670,7 @@ curl -fsS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key:
     -o "$TMP_DIR/clear-later-toggle.json" "http://127.0.0.1:$PORT/api.php?action=toggle" >/dev/null
 CLEAR_REPLAY_BODY="$TMP_DIR/clear-replay.json"
 [[ "$(curl -sS -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: revision-clear-main' -X POST \
-    --data-urlencode "category_id=$CLEAR_CATEGORY_ID" --data-urlencode "items=$CLEAR_ITEMS" \
+    --data-urlencode "category_id=$CLEAR_CATEGORY_ID" --data-urlencode "items=$CLEAR_ITEMS" --data-urlencode "deletion_id=$CLEAR_DELETION_ID" \
     -w '%{http_code}' -o "$CLEAR_REPLAY_BODY" "http://127.0.0.1:$PORT/api.php?action=clear")" == "200" ]]
 grep -q '"idempotent_replay":1' "$CLEAR_REPLAY_BODY"
 curl -fsS -b "$COOKIE_JAR" \

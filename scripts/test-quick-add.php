@@ -38,6 +38,24 @@ $defaults = parseQuickAdd('Milch', 1, $categories, '2026-07-17');
 assertQuickAdd($defaults['category_id'] === 1, 'Aktive Kategorie wurde nicht als Default verwendet.');
 assertQuickAdd($defaults['due_date'] === '' && $defaults['due_time'] === '' && $defaults['priority'] === '', 'Fehlende Tokens müssen leer bleiben.');
 
+$journalDefault = parseQuickAdd('Arzt anrufen', 2, $categories, '2026-07-17', '2026-07-21');
+assertQuickAdd(
+    $journalDefault['name'] === 'Arzt anrufen' && $journalDefault['due_date'] === '2026-07-21',
+    'Ein übergebener Fälligkeitsdefault muss gelten, ohne den Namen zu verändern.'
+);
+
+$explicitDateWins = parseQuickAdd('Arzt anrufen morgen', 2, $categories, '2026-07-17', '2026-07-21');
+assertQuickAdd(
+    $explicitDateWins['name'] === 'Arzt anrufen' && $explicitDateWins['due_date'] === '2026-07-18',
+    'Eine explizite Datumsangabe muss den Fälligkeitsdefault überschreiben.'
+);
+
+$timeUsesDefault = parseQuickAdd('Arzt anrufen 08:15', 2, $categories, '2026-07-17', '2026-07-21');
+assertQuickAdd(
+    $timeUsesDefault['due_date'] === '2026-07-21' && $timeUsesDefault['due_time'] === '08:15',
+    'Eine Uhrzeit muss zusammen mit dem Fälligkeitsdefault eindeutig sein.'
+);
+
 $unknown = parseQuickAdd('Milch /unbekannt', 1, $categories, '2026-07-17');
 assertQuickAdd($unknown['ok'] === false && $unknown['error_key'] === 'quick_add.unknown_category', 'Unbekannte Kategorie muss ablehnen.');
 

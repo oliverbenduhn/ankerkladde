@@ -1,5 +1,6 @@
 import { getConflicts, setConflicts, clearConflicts, getConflictCount } from './offline-queue.js';
 import { api } from './api.js';
+import { activateModal } from './utils.js';
 
 export function initConflictUI(deps) {
     const { loadItems, invalidateCategoryCache, setMessage } = deps;
@@ -14,6 +15,22 @@ export function initConflictUI(deps) {
     if (!conflictAlertBtn || !conflictOverlay || !conflictCloseBtn || !conflictListContainer) {
         return;
     }
+    let modalSession = null;
+
+    function closeOverlay() {
+        conflictOverlay.hidden = true;
+        modalSession?.deactivate();
+        modalSession = null;
+    }
+
+    function openOverlay() {
+        conflictOverlay.hidden = false;
+        modalSession = activateModal(conflictOverlay, {
+            initialFocus: conflictCloseBtn,
+            onEscape: closeOverlay,
+            onBackdrop: closeOverlay,
+        });
+    }
 
     function updateAlertBadge() {
         const count = getConflictCount();
@@ -22,7 +39,7 @@ export function initConflictUI(deps) {
             // Pulse animation is in CSS
         } else {
             conflictAlertBtn.hidden = true;
-            conflictOverlay.hidden = true;
+            closeOverlay();
         }
     }
 
@@ -118,18 +135,10 @@ export function initConflictUI(deps) {
 
     conflictAlertBtn.addEventListener('click', () => {
         renderConflicts();
-        conflictOverlay.hidden = false;
+        openOverlay();
     });
 
-    conflictCloseBtn.addEventListener('click', () => {
-        conflictOverlay.hidden = true;
-    });
-
-    conflictOverlay.addEventListener('click', (e) => {
-        if (e.target === conflictOverlay) {
-            conflictOverlay.hidden = true;
-        }
-    });
+    conflictCloseBtn.addEventListener('click', closeOverlay);
 
     if (conflictClearAllBtn) {
         conflictClearAllBtn.addEventListener('click', () => {
@@ -137,7 +146,7 @@ export function initConflictUI(deps) {
                 clearConflicts();
                 renderConflicts();
                 updateAlertBadge();
-                conflictOverlay.hidden = true;
+                closeOverlay();
             }
         });
     }

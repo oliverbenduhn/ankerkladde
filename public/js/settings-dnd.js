@@ -1,3 +1,6 @@
+import { t } from './i18n.js';
+import { renderFlash } from './settings-ui.js';
+
 export function initCategoryDragReorder(root = document) {
     const categoryList = root.querySelector('[data-category-list]');
     if (!categoryList) return;
@@ -7,11 +10,34 @@ export function initCategoryDragReorder(root = document) {
     let dragMoved = false;
     let activeHandle = null;
     let activePointerId = null;
+    let orderBeforeDrag = [];
 
     function getCategoryOrder() {
         return Array.from(categoryList.querySelectorAll('.settings-category-row'))
             .map(row => parseInt(row.dataset.categoryId || '', 10))
             .filter(id => id > 0);
+    }
+
+    function restoreCategoryOrder(order) {
+        const rowsById = new Map(
+            Array.from(categoryList.querySelectorAll('.settings-category-row'))
+                .map(row => [Number(row.dataset.categoryId), row])
+        );
+        order.forEach(id => {
+            const row = rowsById.get(Number(id));
+            if (row) categoryList.appendChild(row);
+        });
+        updateMoveButtons();
+    }
+
+    function updateMoveButtons() {
+        const rows = Array.from(categoryList.querySelectorAll('.settings-category-row'));
+        rows.forEach((row, index) => {
+            const moveUp = row.querySelector('[data-category-move="up"]');
+            const moveDown = row.querySelector('[data-category-move="down"]');
+            if (moveUp instanceof HTMLButtonElement) moveUp.disabled = index === 0;
+            if (moveDown instanceof HTMLButtonElement) moveDown.disabled = index === rows.length - 1;
+        });
     }
 
     function moveDraggedCategory(y) {
@@ -41,19 +67,29 @@ export function initCategoryDragReorder(root = document) {
         document.removeEventListener('pointercancel', onPointerCancel);
     }
 
-    async function persistCategoryOrder() {
+    async function persistCategoryOrder(previousOrder) {
         const order = getCategoryOrder();
         if (!order.length) return;
 
         const csrfToken = (categoryList.querySelector('input[name="csrf_token"]') || root.querySelector('input[name="csrf_token"]'))?.value || '';
-        const actionUrl = categoryList.querySelector('form')?.action || 'settings.php';
+        const actionUrl = categoryList.querySelector('form')?.getAttribute('action') || 'settings.php';
         try {
-            await fetch(actionUrl, {
+            const response = await fetch(actionUrl, {
                 method: 'POST',
                 headers: { 'Accept': 'application/json', 'X-Requested-With': 'fetch' },
                 body: new URLSearchParams({ action: 'reorder_categories', csrf_token: csrfToken, order: JSON.stringify(order) }),
             });
-        } catch (_) {}
+            const payload = await response.json().catch(() => null);
+            if (!response.ok || !payload || payload.ok === false) {
+                throw new Error(payload?.flash || t('settings.flash.order_save_failed'));
+            }
+            updateMoveButtons();
+            renderFlash(payload.flash || t('settings.flash.order_saved'), payload.flash_type || 'ok', root);
+            window.dispatchEvent(new CustomEvent('ankerkladde-settings-content-changed'));
+        } catch (error) {
+            restoreCategoryOrder(previousOrder);
+            renderFlash(error instanceof Error ? error.message : t('settings.flash.order_save_failed'), 'err', root);
+        }
     }
 
     function resetDragState(pointerId = activePointerId) {
@@ -67,6 +103,7 @@ export function initCategoryDragReorder(root = document) {
         activeHandle = null;
         activePointerId = null;
         dragMoved = false;
+        orderBeforeDrag = [];
     }
 
     function onPointerMove(e) {
@@ -87,10 +124,11 @@ export function initCategoryDragReorder(root = document) {
         e.preventDefault();
         cleanupDragListeners();
         const wasDragged = dragMoved;
+        const previousOrder = orderBeforeDrag.slice();
         resetDragState(e.pointerId);
 
         if (wasDragged) {
-            void persistCategoryOrder();
+            void persistCategoryOrder(previousOrder);
         }
     }
 
@@ -111,6 +149,7 @@ export function initCategoryDragReorder(root = document) {
         dragEl = row;
         activeHandle = handle;
         dragMoved = false;
+        orderBeforeDrag = getCategoryOrder();
         activePointerId = e.pointerId;
         pointerStartY = e.clientY;
         dragEl.classList.add('settings-category-dragging');

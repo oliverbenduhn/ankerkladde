@@ -8,6 +8,7 @@ import {
     itemDraftHasLocalChanges,
     rebaseItemDraft,
 } from './item-content-conflict.js';
+import { activateModal } from './utils.js';
 import {
     appEl,
     itemBarcodeInput,
@@ -71,6 +72,30 @@ export function createItemEditorController(deps) {
     let baseStatus = '';
     let isCreating = false;
     let sourceScreen = 'list';
+    let createBaseline = null;
+    let modalSession = null;
+
+    function openEditorModal(label, fallbackFocus) {
+        if (!itemEditorEl) return;
+        itemEditorEl.setAttribute('aria-label', label);
+        modalSession?.deactivate({ restoreFocus: false });
+        modalSession = activateModal(itemEditorEl, {
+            initialFocus: itemTitleInput,
+            onEscape: () => { void closeItemEditor(); },
+            additionalBackground: [appEl?.querySelector('#listSwipeStage')],
+            fallbackFocus,
+        });
+    }
+
+    function itemEditorFallback(itemId = null) {
+        if (itemId !== null) {
+            const card = listEl?.querySelector(`.item-card[data-item-id="${Number(itemId)}"]`);
+            const action = card?.querySelector('.btn-item-menu') || card?.querySelector('.item-name-button');
+            if (action) return action;
+        }
+        if (sourceScreen === 'journal') return document.getElementById('agendaAddBtn');
+        return document.getElementById('itemInput');
+    }
 
     function setStatus(status) {
         currentStatus = status;
@@ -200,6 +225,26 @@ export function createItemEditorController(deps) {
         const draft = activeDraft();
         if (!draft) return false;
         return itemDraftHasLocalChanges(draft) || String(currentStatus) !== String(baseStatus);
+    }
+
+    function createInputSnapshot() {
+        const dueDate = itemDateInput?.value || '';
+        return {
+            categoryId: Number(itemCategoryInput?.value) || null,
+            name: itemTitleInput?.value.trim() || '',
+            barcode: itemBarcodeInput?.value || '',
+            quantity: itemQuantityInput?.value || '',
+            due_date: dueDate,
+            due_time: dueDate ? (itemTimeInput?.value || '') : '',
+            priority: itemPriorityInput?.value || '',
+            content: itemNoteInput?.value || '',
+        };
+    }
+
+    function isCreateDirty() {
+        if (!isCreating || !createBaseline) return false;
+        const current = createInputSnapshot();
+        return Object.keys(createBaseline).some(field => String(current[field] ?? '') !== String(createBaseline[field] ?? ''));
     }
 
     function clearBanners() {
@@ -361,6 +406,7 @@ export function createItemEditorController(deps) {
         currentStatus = '';
         baseStatus = '';
         isCreating = false;
+        createBaseline = null;
         clearBanners();
         if (itemCreateBtn) {
             itemCreateBtn.hidden = true;
@@ -374,6 +420,8 @@ export function createItemEditorController(deps) {
         if (itemStatusSection) itemStatusSection.hidden = false;
         if (itemEditorEl) itemEditorEl.hidden = true;
         appEl?.classList.remove('item-editor-open');
+        modalSession?.deactivate();
+        modalSession = null;
     }
 
     async function createItem() {
@@ -469,7 +517,8 @@ export function createItemEditorController(deps) {
         }
         if (itemEditorEl) itemEditorEl.hidden = false;
         appEl?.classList.add('item-editor-open');
-        itemTitleInput?.focus();
+        createBaseline = createInputSnapshot();
+        openEditorModal(t('todo.create'), () => itemEditorFallback());
     }
 
     // Praesentiert den bereits in state.editDraft stehenden Draft im Editor —
@@ -525,7 +574,7 @@ export function createItemEditorController(deps) {
 
         if (itemEditorEl) itemEditorEl.hidden = false;
         appEl?.classList.add('item-editor-open');
-        itemTitleInput?.focus();
+        openEditorModal(item.name || t('ui.edit'), () => itemEditorFallback(item.id));
     }
 
     function openItemEdit(item) {
@@ -573,7 +622,7 @@ export function createItemEditorController(deps) {
         return true;
     }
 
-    // Nach einem abgeschlossenen Save (Button oder Flush-beim-Schliessen):
+    // Nach einem abgeschlossenen expliziten Save:
     // bei offenem Konflikt bleibt der Editor bewusst offen, damit die
     // Aufloesung (Banner) nicht uebergangen wird — sonst schliessen.
     // Nicht schliessen, solange ein Save nicht wirklich sauber durch ist —
@@ -591,12 +640,9 @@ export function createItemEditorController(deps) {
         hideEditor();
     }
 
-    // Kein Verwerfen-Dialog mehr: der Pfeil speichert bei Bedarf sofort und
-    // schliesst dann, statt zu fragen — der Draft haengt bis dahin (AC #63)
-    // ausschliesslich lokal in sessionStorage, es geht also nichts verloren,
-    // egal ob gespeichert oder verworfen wird.
     async function closeItemEditor() {
         if (isCreating) {
+            if (isCreateDirty() && !window.confirm(t('todo.discard_confirm'))) return;
             // Create-Draft ist reiner Speicherzustand — den persistierten
             // Inline-Entwurf eines anderen Items darf er nicht mitloeschen.
             state.editDraft = emptyDraft();
@@ -605,7 +651,17 @@ export function createItemEditorController(deps) {
         }
         if (currentItem) {
             syncDraftFromInputs();
-            if (isDirty()) await saveEdit();
+            if (currentItem.server_deleted === 1 || activeDraft()?.conflict) {
+                renderConflictBanner();
+                return;
+            }
+            if (isDirty()) {
+                if (!window.confirm(t('todo.discard_confirm'))) return;
+                resetDraftState();
+                renderItems();
+                hideEditor();
+                return;
+            }
             finishEditorSession();
             return;
         }

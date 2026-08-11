@@ -73,8 +73,10 @@ test.describe('FLOW 9 — Löschkonflikte ohne Datenverlust (Issue #66)', () => 
     await openMenu(page, id);
     const forceDelete = page.getByRole('button', { name: 'Trotzdem löschen', exact: true });
     await expect(forceDelete).toBeVisible();
+    const forceDeleteResponse = page.waitForResponse(r => r.url().includes('action=delete') && r.status() === 200);
     await forceDelete.click();
     await expect(itemCard(page, id)).toHaveCount(0);
+    await forceDeleteResponse;
 
     await context.close();
   });
@@ -91,8 +93,10 @@ test.describe('FLOW 9 — Löschkonflikte ohne Datenverlust (Issue #66)', () => 
     await page.locator('#itemTitleInput').fill(draftName);
 
     await openMenu(pageB, id);
+    const deleteResponse = pageB.waitForResponse(r => r.url().includes('action=delete') && r.status() === 200);
     await pageB.getByRole('button', { name: 'Löschen', exact: true }).click();
     await expect(itemCard(pageB, id)).toHaveCount(0);
+    await deleteResponse;
     await triggerOnlineRefresh(page);
 
     await page.reload();
@@ -116,8 +120,10 @@ test.describe('FLOW 9 — Löschkonflikte ohne Datenverlust (Issue #66)', () => 
     await startEdit(page, id);
     await page.locator('#itemTitleInput').fill(`${original} lokal`);
     await openMenu(pageB, id);
+    const deleteResponse = pageB.waitForResponse(r => r.url().includes('action=delete') && r.status() === 200);
     await pageB.getByRole('button', { name: 'Löschen', exact: true }).click();
     await expect(itemCard(pageB, id)).toHaveCount(0);
+    await deleteResponse;
     await triggerOnlineRefresh(page);
 
     await expect(page.locator('#itemEditorBody')).toContainText('Server-Löschung erkannt');

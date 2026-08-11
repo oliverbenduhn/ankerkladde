@@ -230,7 +230,20 @@ function deleteUserCategory(PDO $db, int $userId, int $categoryId): int
 
 function countItemsInCategory(PDO $db, int $userId, int $categoryId): int
 {
-    $stmt = $db->prepare('SELECT COUNT(*) FROM items WHERE user_id = :user_id AND category_id = :category_id');
+    // Staged tombstone payloads count as category contents until Undo/Finalize
+    // releases their category reference. Otherwise the empty-looking category
+    // could be deleted during the undo window and exact restoration would lose
+    // its FK target.
+    $stmt = $db->prepare(
+        'SELECT
+            (SELECT COUNT(*)
+             FROM items
+             WHERE user_id = :user_id AND category_id = :category_id)
+            +
+            (SELECT COUNT(*)
+             FROM deletion_tombstone_items
+             WHERE user_id = :user_id AND category_id = :category_id)'
+    );
     $stmt->execute([':user_id' => $userId, ':category_id' => $categoryId]);
     return (int) $stmt->fetchColumn();
 }

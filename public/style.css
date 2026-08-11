@@ -386,7 +386,7 @@ button, input { font: inherit; }
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-height: 32px;
+    min-height: 44px;
     padding: 0 12px;
     background: var(--border);
     border-radius: 50px;
@@ -401,6 +401,13 @@ button, input { font: inherit; }
 .file-picker-button:hover {
     background: var(--accent);
     color: var(--accent-contrast, var(--text-primary));
+}
+
+.file-picker-button:focus-visible {
+    background: var(--accent);
+    color: var(--accent-contrast, var(--text-primary));
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
 }
 
 .file-picker-name {
@@ -1247,8 +1254,8 @@ button, input { font: inherit; }
     position: absolute;
     top: 12px;
     right: 16px;
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
     background: rgba(255, 255, 255, 0.15);
     border-radius: 50%;
     color: #fff;
@@ -1264,7 +1271,11 @@ button, input { font: inherit; }
 .lightbox-close:hover,
 .lightbox-close:focus-visible {
     background: rgba(255, 255, 255, 0.3);
-    outline: none;
+}
+
+.lightbox-close:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 2px;
 }
 
 
@@ -2021,11 +2032,15 @@ button, input { font: inherit; }
 
 .item-menu-sheet {
     width: min(100%, 420px);
+    max-height: min(82dvh, calc(100dvh - 32px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)));
     background: var(--bg);
     border: 1.5px solid var(--border);
     border-radius: 28px;
     box-shadow: 0 18px 40px rgba(19, 16, 11, 0.18);
     padding: 12px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
 }
 
 .item-menu-title {
@@ -2042,11 +2057,16 @@ button, input { font: inherit; }
     display: flex;
     flex-direction: column;
     gap: 6px;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
 }
 
 .item-menu-action {
     width: 100%;
-    min-height: 42px;
+    min-height: 44px;
+    flex: 0 0 auto;
     padding: 0 14px;
     background: var(--surface);
     border: 1.5px solid var(--border);
@@ -2054,6 +2074,18 @@ button, input { font: inherit; }
     color: var(--text-primary);
     text-align: left;
     cursor: pointer;
+}
+
+.item-menu-action:hover,
+.item-menu-action:active,
+.item-menu-action:focus-visible {
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+}
+
+.item-menu-action:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
 }
 
 .item-menu-action.is-secondary {
@@ -2232,7 +2264,8 @@ button, input { font: inherit; }
     padding: 8px 18px;
     border-radius: 20px;
     font-size: 0.85rem;
-    white-space: nowrap;
+    white-space: normal;
+    overflow-wrap: anywhere;
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.2s ease, transform 0.2s ease;
@@ -2243,6 +2276,45 @@ button, input { font: inherit; }
 
 .message.is-visible { opacity: 1; transform: translateX(-50%) translateY(0); }
 .message.is-error   { background: var(--error); }
+
+.message.has-action {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    pointer-events: auto;
+    cursor: pointer;
+    text-align: left;
+}
+
+.message-action {
+    min-width: 44px;
+    min-height: 44px;
+    flex: 0 0 auto;
+    padding: 0 14px;
+    border: 1px solid color-mix(in srgb, var(--surface) 60%, transparent);
+    border-radius: 22px;
+    background: var(--surface);
+    color: var(--text-primary);
+    font: inherit;
+    font-weight: 700;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.message-action:hover,
+.message-action:active {
+    background: color-mix(in srgb, var(--surface) 82%, var(--accent));
+}
+
+.message-action:focus-visible {
+    outline: 2px solid var(--surface);
+    outline-offset: 2px;
+}
+
+.message-action:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
 
 /* ===========================================
    UPLOAD PROGRESS BAR
@@ -2863,6 +2935,34 @@ button, input { font: inherit; }
     flex-shrink: 0;
 }
 
+.install-banner,
+.status-banner,
+.update-banner {
+    position: fixed;
+    top: auto;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 64px);
+    left: 50%;
+    z-index: 40;
+    width: min(100vw, 640px);
+    min-height: 44px;
+    max-height: 64px;
+    overflow-y: auto;
+    transform: translateX(-50%);
+    box-shadow: 0 8px 24px color-mix(in srgb, var(--text-primary) 14%, transparent);
+}
+
+.install-banner:not([hidden]) ~ .status-banner:not([hidden]),
+.install-banner:not([hidden]) ~ .update-banner:not([hidden]),
+.status-banner:not([hidden]) ~ .update-banner:not([hidden]) {
+    top: auto;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 132px);
+}
+
+.install-banner:not([hidden]) ~ .status-banner:not([hidden]) ~ .update-banner:not([hidden]) {
+    top: auto;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 200px);
+}
+
 .status-banner {
     background: #efe7dc;
     color: var(--text-secondary);
@@ -2885,6 +2985,7 @@ button, input { font: inherit; }
 }
 
 .btn-update-reload {
+    min-height: 44px;
     padding: 6px 14px;
     background: var(--text-primary);
     color: var(--surface);
@@ -2898,7 +2999,13 @@ button, input { font: inherit; }
     transition: background 0.15s ease;
 }
 
-.btn-update-reload:hover { background: var(--text-primary-dark); }
+.btn-update-reload:hover,
+.btn-update-reload:active { background: var(--text-primary-dark); }
+
+.btn-update-reload:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
 
 .install-text {
     flex: 1;
@@ -2907,6 +3014,7 @@ button, input { font: inherit; }
 }
 
 .btn-install {
+    min-height: 44px;
     padding: 6px 14px;
     background: var(--text-primary);
     color: var(--surface);
@@ -2920,11 +3028,17 @@ button, input { font: inherit; }
     transition: background 0.15s ease;
 }
 
-.btn-install:hover { background: var(--text-primary-dark); }
+.btn-install:hover,
+.btn-install:active { background: var(--text-primary-dark); }
+
+.btn-install:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
 
 .btn-install-dismiss {
-    min-width: 32px;
-    min-height: 32px;
+    min-width: 44px;
+    min-height: 44px;
     padding: 0;
     background: none;
     border: none;
@@ -2939,9 +3053,17 @@ button, input { font: inherit; }
     transition: color 0.15s ease;
 }
 
-.btn-install-dismiss:hover { color: var(--text-primary); }
+.btn-install-dismiss:hover,
+.btn-install-dismiss:active { color: var(--text-primary); }
+
+.btn-install-dismiss:focus-visible {
+    color: var(--text-primary);
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
 
 .btn-network-sync {
+    min-height: 44px;
     padding: 6px 12px;
     background: var(--text-primary);
     color: var(--surface);
@@ -2955,7 +3077,13 @@ button, input { font: inherit; }
     transition: background 0.15s ease;
 }
 
-.btn-network-sync:hover { background: var(--text-primary-dark); }
+.btn-network-sync:hover,
+.btn-network-sync:active { background: var(--text-primary-dark); }
+
+.btn-network-sync:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
 
 /* ===========================================
    REDUCED MOTION
@@ -3507,8 +3635,8 @@ body[data-theme*="dark"] .item-card.is-deep-link-highlight {
 }
 
 .btn-note-back {
-    min-width: 40px;
-    min-height: 40px;
+    min-width: 44px;
+    min-height: 44px;
     padding: 0 10px;
     background: var(--border);
     border: none;
@@ -3530,7 +3658,7 @@ body[data-theme*="dark"] .item-card.is-deep-link-highlight {
 .note-title-input {
     flex: 1;
     min-width: 0;
-    min-height: 40px;
+    min-height: 44px;
     padding: 0;
     background: transparent;
     border: none;
@@ -3569,8 +3697,8 @@ body[data-theme*="dark"] .item-card.is-deep-link-highlight {
 .note-toolbar::-webkit-scrollbar { display: none; }
 
 .note-toolbar button {
-    min-width: 40px;
-    min-height: 40px;
+    min-width: 44px;
+    min-height: 44px;
     padding: 0 6px;
     background: none;
     border: 1.5px solid transparent;
@@ -3589,6 +3717,12 @@ body[data-theme*="dark"] .item-card.is-deep-link-highlight {
 .note-toolbar button:active {
     background: rgba(200, 184, 154, 0.15);
     color: var(--text-primary);
+}
+
+.note-toolbar button:focus-visible {
+    border-color: var(--accent);
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
 }
 
 .note-toolbar button.is-active {
@@ -3891,7 +4025,7 @@ body[data-theme*="dark"] .item-card.is-deep-link-highlight {
 
 .journal-navigation {
     display: grid;
-    grid-template-columns: 2.5rem 2.5rem minmax(0, 1fr) 2.5rem;
+    grid-template-columns: 2.75rem 2.75rem minmax(0, 1fr) 2.75rem;
     align-items: center;
     gap: 0.5rem;
     margin-bottom: 0.75rem;
@@ -3905,7 +4039,7 @@ body[data-theme*="dark"] .item-card.is-deep-link-highlight {
 
 .journal-nav-btn,
 .journal-nav-icon-btn {
-    min-height: 2.5rem;
+    min-height: 2.75rem;
     border: 1px solid var(--border);
     border-radius: 999px;
     background: var(--surface);
@@ -3917,7 +4051,7 @@ body[data-theme*="dark"] .item-card.is-deep-link-highlight {
 .journal-nav-icon-btn {
     display: grid;
     place-items: center;
-    width: 2.5rem;
+    width: 2.75rem;
     padding: 0;
     text-decoration: none;
 }
@@ -3926,6 +4060,15 @@ body[data-theme*="dark"] .item-card.is-deep-link-highlight {
     border-color: var(--accent);
     background: var(--accent);
     color: var(--button-active-text);
+}
+
+.journal-nav-btn:hover,
+.journal-nav-icon-btn:hover,
+.journal-nav-btn:active,
+.journal-nav-icon-btn:active,
+.journal-nav-btn:focus-visible,
+.journal-nav-icon-btn:focus-visible {
+    border-color: var(--accent);
 }
 
 .journal-date-picker {
@@ -4030,8 +4173,8 @@ body[data-theme*="dark"] .item-card.is-deep-link-highlight {
 
 .journal-agenda-column .agenda-item-checkbox {
     position: relative;
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
     border: 0;
     background: transparent;
 }
@@ -4093,7 +4236,7 @@ body[data-theme*="dark"] .item-card.is-deep-link-highlight {
 }
 
 .journal-format-btn {
-    min-height: 2.5rem;
+    min-height: 2.75rem;
     padding: 0.4rem 0.75rem;
     border: 1px solid var(--border);
     border-radius: 999px;
@@ -4104,14 +4247,23 @@ body[data-theme*="dark"] .item-card.is-deep-link-highlight {
 .journal-card-icon-btn {
     display: grid;
     place-items: center;
-    width: 2.5rem;
-    min-height: 2.5rem;
+    width: 2.75rem;
+    min-height: 2.75rem;
     padding: 0;
     border: 1px solid var(--border);
     border-radius: 0.75rem;
     background: color-mix(in srgb, var(--accent) 18%, transparent);
     color: var(--text-primary);
     cursor: pointer;
+}
+
+.journal-format-btn:hover,
+.journal-card-icon-btn:hover,
+.journal-format-btn:active,
+.journal-card-icon-btn:active,
+.journal-format-btn:focus-visible,
+.journal-card-icon-btn:focus-visible {
+    border-color: var(--accent);
 }
 
 .journal-toolbar {
@@ -5659,6 +5811,12 @@ details[open].settings-category-details > .settings-category-summary .settings-s
     border-color: var(--accent);
 }
 
+.theme-card-label:has(input:focus-visible) .theme-card {
+    border-color: var(--accent);
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
 .theme-card-label:has(input:checked) .theme-card {
     border-color: var(--accent);
     box-shadow: 0 0 0 1.5px var(--accent);
@@ -5841,9 +5999,8 @@ details[open].settings-category-details > .settings-category-summary .settings-s
 }
 
 @keyframes pulse-error {
-    0% { transform: scale(1); opacity: 1; }
-    50% { transform: scale(1.1); opacity: 0.8; }
-    100% { transform: scale(1); opacity: 1; }
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.68; }
 }
 
 .conflict-overlay {
@@ -7299,6 +7456,30 @@ select:disabled,
     .offline-brand {
         grid-row: auto;
     }
+}
+
+/* Minimum interactive geometry. These controls keep their visual treatment,
+   while the element itself exposes a reliable WCAG-sized hit area. */
+.item-note-summary,
+.item-status-chip,
+.btn-replace-attachment,
+.item-edit-input,
+.journal-sketch-open-btn,
+.settings-drag-handle {
+    min-height: 2.75rem;
+}
+
+.settings-drag-handle {
+    width: 2.75rem;
+    min-width: 2.75rem;
+}
+
+.item-note-summary:focus-visible,
+.item-status-chip:focus-visible,
+.btn-replace-attachment:focus-visible,
+.journal-sketch-open-btn:focus-visible {
+    outline: var(--rule-fine) solid var(--color-focus);
+    outline-offset: var(--space-2xs);
 }
 
 @media (prefers-reduced-motion: reduce) {

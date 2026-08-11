@@ -323,21 +323,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     );
                     $attStmt->execute([':user_id' => $targetId]);
                     $attachments = $attStmt->fetchAll();
+                    $cleanupService = new DeletionTombstoneService($db);
+                    $attachments = array_merge(
+                        $attachments,
+                        $cleanupService->attachmentPayloadsForUserDeletion((int) $targetId)
+                    );
 
                     $db->beginTransaction();
+                    // The queue has no user FK and is inserted in the same
+                    // transaction as the cascade. It therefore remains the
+                    // retry source if physical deletion fails after commit.
+                    $cleanupService->enqueueDetachedAttachmentCleanup($attachments);
                     $db->prepare('DELETE FROM items WHERE user_id = :user_id')
                        ->execute([':user_id' => $targetId]);
                     $db->prepare('DELETE FROM users WHERE id = :id')
                        ->execute([':id' => $targetId]);
                     $db->commit();
 
-                    foreach ($attachments as $att) {
-                        try {
-                            deleteAttachmentStorageFile($att);
-                        } catch (Throwable $e) {
-                            error_log(sprintf('Einkauf attachment cleanup error [user_delete:%d]: %s', $targetId, $e->getMessage()));
-                        }
-                    }
+                    $cleanupService->garbageCollectDetachedAttachments(max(10, count($attachments)));
 
                     $flash = t('admin.flash.user_deleted', ['username' => $targetUser['username']]);
                 }

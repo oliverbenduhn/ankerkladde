@@ -134,6 +134,7 @@ export function createAppRuntime(deps) {
     const isOverdueItem = item => helpersController.isOverdueItem(item);
     const formatDate = value => helpersController.formatDate(value);
     const setMessage = (text, isError = false) => appUiController.setMessage(text, isError);
+    const offerUndo = (text, options = {}) => appUiController.offerUndo(text, options);
     const setRemoteImportLoading = (active, text) => appUiController.setRemoteImportLoading(active, text);
     const setUploadProgress = fraction => appUiController.setUploadProgress(fraction);
     const makeUploadProgressCallback = () => appUiController.makeUploadProgressCallback();
@@ -244,6 +245,7 @@ export function createAppRuntime(deps) {
         makeUploadProgressCallback,
         openNoteEditorWithNavigation,
         openMagic: input => magicController?.openMagic(input),
+        offerUndo,
         renderItems,
         resetItemForm,
         setCategory,

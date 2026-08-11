@@ -287,6 +287,9 @@ class SettingsController
                 } elseif (!in_array($type, CATEGORY_TYPES, true)) {
                     $flash = t('error.invalid_category_type');
                     $flashType = 'err';
+                } elseif (!in_array($type, USER_CREATABLE_CATEGORY_TYPES, true)) {
+                    $flash = t('error.system_category');
+                    $flashType = 'err';
                 } else {
                     $categoryId = insertCategory(
                         $this->db,
