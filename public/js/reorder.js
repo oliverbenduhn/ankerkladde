@@ -4,10 +4,7 @@ import { listEl } from './ui.js';
 
 export function createReorderController(deps) {
     const {
-        cacheCurrentCategoryItems,
-        getItemById,
-        invalidateCategoryCache,
-        loadItems,
+        itemsController,
         setMessage,
         triggerHapticFeedback,
     } = deps;
@@ -19,7 +16,7 @@ export function createReorderController(deps) {
             .map(li => Number(li.dataset.itemId))
             .filter(id => Number.isInteger(id) && id > 0);
         const orderedItems = orderedIds.map(id => {
-            const item = getItemById(id);
+            const item = itemsController.getItemById(id);
             return {
                 id,
                 expected_revision: Number(item?.revision),
@@ -27,16 +24,16 @@ export function createReorderController(deps) {
         });
         if (orderedItems.some(item => !Number.isInteger(item.expected_revision) || item.expected_revision < 1)) {
             setMessage('Reihenfolge konnte ohne aktuelle Revision nicht gespeichert werden.', true);
-            invalidateCategoryCache(state.categoryId);
-            await loadItems();
+            itemsController.invalidateCategoryCache(state.categoryId);
+            await itemsController.loadItems();
             return;
         }
 
         orderedIds.forEach((id, index) => {
-            const item = getItemById(id);
+            const item = itemsController.getItemById(id);
             if (item) item.sort_order = index + 1;
         });
-        cacheCurrentCategoryItems();
+        itemsController.cacheCurrentCategoryItems();
 
         const body = new URLSearchParams({
             category_id: String(state.categoryId),
@@ -46,14 +43,14 @@ export function createReorderController(deps) {
         try {
             const result = await api('reorder', { method: 'POST', body });
             for (const canonicalItem of result.items || []) {
-                const item = getItemById(canonicalItem.id);
+                const item = itemsController.getItemById(canonicalItem.id);
                 if (item) Object.assign(item, canonicalItem);
             }
-            cacheCurrentCategoryItems();
+            itemsController.cacheCurrentCategoryItems();
         } catch (error) {
             setMessage(error instanceof Error ? error.message : 'Reihenfolge konnte nicht gespeichert werden.', true);
-            invalidateCategoryCache(state.categoryId);
-            await loadItems();
+            itemsController.invalidateCategoryCache(state.categoryId);
+            await itemsController.loadItems();
         }
     }
 

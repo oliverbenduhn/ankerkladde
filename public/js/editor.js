@@ -8,7 +8,7 @@ import { activateModal, sanitizeItemField, sanitizeItemPayload } from './utils.j
 
 export function createEditorController(deps) {
     const {
-        cacheCurrentCategoryItems,
+        itemsController,
         navigation,
         setNoteSaveTimer,
         getNoteSaveTimer,
@@ -71,9 +71,9 @@ export function createEditorController(deps) {
     }
 
     function updateCanonicalItem(item) {
-        const localItem = deps.getItemById(item.id);
+        const localItem = itemsController.getItemById(item.id);
         if (localItem) Object.assign(localItem, item);
-        cacheCurrentCategoryItems();
+        itemsController.cacheCurrentCategoryItems();
     }
 
     function setEditorContent(title, content) {

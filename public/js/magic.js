@@ -4,7 +4,7 @@ import { appEl, magicBtns, magicBar, magicInput, magicSubmit, magicClose, magicV
 import { state, csrfToken } from './state.js';
 
 export function createMagicController(deps) {
-    const { getUserPreferences, invalidateCategoryCache, loadCategories, loadItems, setCategory, setMessage, updateHeaders } = deps;
+    const { getUserPreferences, itemsController, setMessage, updateHeaders } = deps;
     let recognition = null;
     let isSubmitting = false;
     let previewContainer = null;
@@ -176,15 +176,15 @@ export function createMagicController(deps) {
             // Invalidate cache for all affected categories
             const affectedCategoryIds = new Set(selectedItems.map(item => Number(item.category_id)));
             for (const catId of affectedCategoryIds) {
-                invalidateCategoryCache(catId);
+                itemsController.invalidateCategoryCache(catId);
             }
 
             const targetCategoryId = Number(result.target_category_id);
             if (Number.isInteger(targetCategoryId) && targetCategoryId > 0) {
-                await setCategory(targetCategoryId);
+                await itemsController.setCategory(targetCategoryId);
             } else {
-                await loadCategories();
-                await loadItems();
+                await itemsController.loadCategories();
+                await itemsController.loadItems();
                 updateHeaders();
             }
 

@@ -19,13 +19,11 @@ export function createScannerController(deps) {
     /**
      * @typedef {Object} ScannerControllerDeps
      * @property {function(): Object|null} getCurrentCategory
-     * @property {function(number): Object|null} getItemById
      * @property {function(): number} getScannerCooldownMs
      * @property {function(): string[]} getScannerSupportedFormats
      * @property {function(): Object} getUserPreferences
      * @property {function(number, number): Promise<void>} handleToggle
-     * @property {function(number): void} invalidateCategoryCache
-     * @property {function(number=, Object=): Promise<void>} loadItems
+     * @property {Object} itemsController
      * @property {Object} navigation
      * @property {function(string, boolean=): void} setMessage
      * @property {function(string, boolean=): void} setScannerStatus
@@ -36,13 +34,11 @@ export function createScannerController(deps) {
     /** @type {ScannerControllerDeps} */
     const {
         getCurrentCategory,
-        getItemById,
         getScannerCooldownMs,
         getScannerSupportedFormats,
         getUserPreferences,
         handleToggle,
-        invalidateCategoryCache,
-        loadItems,
+        itemsController,
         navigation,
         setMessage,
         setScannerStatus,
@@ -257,8 +253,8 @@ export function createScannerController(deps) {
         itemForm?.reset();
         syncAutoHeight(itemInput);
         updateFilePickerLabel();
-        invalidateCategoryCache(category.id);
-        await loadItems();
+        itemsController.invalidateCategoryCache(category.id);
+        await itemsController.loadItems();
         setMessage(`${name} hinzugefügt.`);
     }
 

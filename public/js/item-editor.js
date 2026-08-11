@@ -55,13 +55,10 @@ export function createItemEditorController(deps) {
     const {
         acceptServerItemContent,
         discardDeletedDraft,
-        getItemById,
-        getVisibleCategories,
         handleEditSave,
         handleToggle,
-        invalidateCategoryCache,
+        itemsController,
         keepLocalItemContent,
-        loadItems,
         refreshOpenJournal,
         renderItems,
         restoreDeletedDraft,
@@ -119,7 +116,7 @@ export function createItemEditorController(deps) {
     function ensureDraft() {
         if (!currentItem || isCreating) return null;
         if (!activeDraft() || state.editingId === null) {
-            currentItem = getItemById(currentItem.id) || currentItem;
+            currentItem = itemsController.getItemById(currentItem.id) || currentItem;
             beginDraft(currentItem);
         }
         return state.editDraft;
@@ -335,7 +332,7 @@ export function createItemEditorController(deps) {
                 className: 'btn-clear',
                 onClick: () => {
                     acceptServerItemContent(id);
-                    const canonical = getItemById(id);
+                    const canonical = itemsController.getItemById(id);
                     if (canonical) {
                         currentItem = canonical;
                         fillInputsFromDraft(canonical);
@@ -357,7 +354,7 @@ export function createItemEditorController(deps) {
     }
 
     function afterSaveAttempt(id) {
-        const canonical = getItemById(id);
+        const canonical = itemsController.getItemById(id);
         if (canonical) currentItem = canonical;
         if (state.editingId === null && currentItem && currentItem.server_deleted !== 1) {
             // Erfolgreich gespeichert: Editor bleibt offen, also frischen
@@ -383,7 +380,7 @@ export function createItemEditorController(deps) {
     function refreshFromState() {
         if (!currentItem || isCreating) return;
         if (Number(state.editingId) !== Number(currentItem.id)) return;
-        const live = getItemById(currentItem.id);
+        const live = itemsController.getItemById(currentItem.id);
         if (live?.server_deleted === 1) {
             currentItem = live;
             renderConflictBanner();
@@ -431,7 +428,7 @@ export function createItemEditorController(deps) {
         }
 
         const categoryId = Number(itemCategoryInput?.value);
-        const type = getVisibleCategories().find(category => Number(category.id) === categoryId)?.type;
+        const type = itemsController.getVisibleCategories().find(category => Number(category.id) === categoryId)?.type;
         const dueDate = type === 'list_due_date' ? (itemDateInput?.value || '') : '';
         const body = new URLSearchParams({
             category_id: String(categoryId),
@@ -447,13 +444,13 @@ export function createItemEditorController(deps) {
         if (itemCreateBtn) itemCreateBtn.disabled = true;
         try {
             await api('add', { method: 'POST', body });
-            invalidateCategoryCache(categoryId);
+            itemsController.invalidateCategoryCache(categoryId);
             state.editDraft = emptyDraft();
             hideEditor();
             if (sourceScreen === 'journal') {
                 await refreshOpenJournal?.();
             } else if (Number(state.categoryId) === categoryId) {
-                await loadItems(undefined, { useCache: false });
+                await itemsController.loadItems(undefined, { useCache: false });
             }
             setMessage(t('msg.item_added'));
         } catch (error) {
@@ -464,10 +461,10 @@ export function createItemEditorController(deps) {
 
     function openItemCreate({ categoryId = null, dueDate = '' } = {}) {
         const activeCategory = categoryId !== null
-            ? getVisibleCategories().find(category => Number(category.id) === Number(categoryId))
+            ? itemsController.getVisibleCategories().find(category => Number(category.id) === Number(categoryId))
             : null;
         const targetType = activeCategory?.type === 'list_quantity' ? 'list_quantity' : 'list_due_date';
-        const candidateCategories = getVisibleCategories().filter(category => category.type === targetType);
+        const candidateCategories = itemsController.getVisibleCategories().filter(category => category.type === targetType);
         if (candidateCategories.length === 0) {
             setMessage(t(targetType === 'list_quantity' ? 'quick_add.no_quantity_category' : 'quick_add.no_due_category'), true);
             return;
@@ -538,9 +535,9 @@ export function createItemEditorController(deps) {
                 doneBtn.onclick = async () => {
                     const id = currentItem.id;
                     await saveEdit();
-                    const canonical = getItemById(id) || currentItem;
+                    const canonical = itemsController.getItemById(id) || currentItem;
                     await handleToggle(id, canonical.done === 1 ? 0 : 1);
-                    const updated = getItemById(id) || canonical;
+                    const updated = itemsController.getItemById(id) || canonical;
                     // Nur die Revisions-Basis auf den Toggle nachziehen (kein
                     // afterSaveAttempt hier — das wuerde wegen state.editingId
                     // !== null nichts tun und den Draft mit veralteter
@@ -593,7 +590,7 @@ export function createItemEditorController(deps) {
         const snapshotType = snapshot.item?.category_type;
         if (snapshotType !== 'list_quantity' && snapshotType !== 'list_due_date') return false;
 
-        let item = getItemById(snapshot.editingId);
+        let item = itemsController.getItemById(snapshot.editingId);
         if (!item) {
             if (!snapshot.item) {
                 clearDraftSnapshot();

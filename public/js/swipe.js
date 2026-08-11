@@ -10,7 +10,7 @@ import {
 export function createSwipeController(deps) {
     const {
         getUserPreferences,
-        getVisibleCategories,
+        itemsController,
         setCategory,
     } = deps;
 
@@ -85,7 +85,7 @@ export function createSwipeController(deps) {
     }
 
     function getSwipeTargetCategoryId(direction) {
-        const visibleCategories = getVisibleCategories();
+        const visibleCategories = itemsController.getVisibleCategories();
         const currentIndex = visibleCategories.findIndex(category => category.id === state.categoryId);
         if (currentIndex === -1) return null;
 

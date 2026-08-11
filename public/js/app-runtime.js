@@ -336,13 +336,11 @@ export function createAppRuntime(deps) {
 
     scannerController = createScannerController({
         getCurrentCategory,
-        getItemById,
         getScannerCooldownMs: () => SCANNER_COOLDOWN_MS,
         getScannerSupportedFormats: () => BARCODE_FORMATS,
         getUserPreferences,
         handleToggle: async (id, done) => { await itemsActionsController.handleToggle(id, done); },
-        invalidateCategoryCache,
-        loadItems,
+        itemsController,
         navigation,
         setMessage,
         setScannerStatus,
@@ -351,9 +349,8 @@ export function createAppRuntime(deps) {
     });
 
     editorController = createEditorController({
-        cacheCurrentCategoryItems,
-        getItemById,
         getNoteSaveTimer,
+        itemsController,
         navigation,
         setNoteSaveTimer,
         setTiptapEditor,
@@ -363,13 +360,10 @@ export function createAppRuntime(deps) {
     itemEditorController = createItemEditorController({
         acceptServerItemContent: id => itemsActionsController.acceptServerItemContent(id),
         discardDeletedDraft: id => { itemsActionsController.discardDeletedDraft(id); },
-        getItemById,
-        getVisibleCategories,
         handleEditSave: async id => { await itemsActionsController.handleEditSave(id); },
         handleToggle: async (id, done) => { await itemsActionsController.handleToggle(id, done); },
-        invalidateCategoryCache,
+        itemsController,
         keepLocalItemContent: async id => { await itemsActionsController.keepLocalItemContent(id); },
-        loadItems,
         refreshOpenJournal: () => journalController?.reloadAgenda?.(),
         renderItems,
         restoreDeletedDraft: async id => { await itemsActionsController.restoreDeletedDraft(id); },
@@ -378,13 +372,8 @@ export function createAppRuntime(deps) {
 
     reorderController = createReorderController({
         applyTabsVisibility,
-        cacheCurrentCategoryItems,
-        getItemById,
         getUserPreferences,
-        getVisibleCategories,
-        invalidateCategoryCache,
-        loadCategories,
-        loadItems,
+        itemsController,
         renderCategoryTabs,
         setMessage,
         triggerHapticFeedback,
@@ -393,16 +382,13 @@ export function createAppRuntime(deps) {
 
     swipeController = createSwipeController({
         getUserPreferences,
-        getVisibleCategories,
+        itemsController,
         setCategory: async categoryId => router.selectCategory(categoryId),
     });
 
     magicController = createMagicController({
         getUserPreferences,
-        invalidateCategoryCache,
-        loadCategories,
-        loadItems,
-        setCategory,
+        itemsController,
         setMessage,
         updateHeaders,
     });
