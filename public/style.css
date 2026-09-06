@@ -3832,6 +3832,23 @@ body[data-theme*="dark"] .item-card.is-deep-link-highlight {
     text-underline-offset: 3px;
 }
 
+.tiptap mark,
+.note-conflict-content mark,
+.note-toolbar button mark {
+    background: rgba(255, 214, 79, 0.55);
+    color: inherit;
+    padding: 0 0.12em;
+    border-radius: 3px;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+}
+
+.tiptap u,
+.note-toolbar button u {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
 .note-editor-body .tiptap hr {
     border: none;
     border-top: 1.5px solid var(--border);

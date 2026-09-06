@@ -112,6 +112,8 @@
     "editor.toolbar.bold": "Bold",
     "editor.toolbar.italic": "Italic",
     "editor.toolbar.strike": "Strikethrough",
+    "editor.toolbar.underline": "Underline",
+    "editor.toolbar.highlight": "Highlight",
     "editor.toolbar.bullet_list": "Bullet list",
     "editor.toolbar.ordered_list": "Numbered list",
     "editor.toolbar.blockquote": "Quote",

@@ -374,7 +374,7 @@ export function createEditorController(deps) {
         if (noteEditorEl) noteEditorEl.hidden = false;
         appEl.classList.add('note-editor-open');
 
-        const { Editor, StarterKit, Link } = await waitForTipTap();
+        const { Editor, StarterKit, Link, Underline, Highlight } = await waitForTipTap();
         if (noteEditorBody) noteEditorBody.innerHTML = '';
         const editor = new Editor({
             element: noteEditorBody,
@@ -382,6 +382,8 @@ export function createEditorController(deps) {
             extensions: [
                 StarterKit.configure({}),
                 Link.configure({ openOnClick: false }),
+                Underline,
+                Highlight,
             ],
             onUpdate: () => {
                 updateNoteToolbar();
@@ -447,6 +449,8 @@ export function createEditorController(deps) {
             case 'bold': chain.toggleBold().run(); break;
             case 'italic': chain.toggleItalic().run(); break;
             case 'strike': chain.toggleStrike().run(); break;
+            case 'underline': chain.toggleUnderline().run(); break;
+            case 'highlight': chain.toggleHighlight().run(); break;
             case 'bulletList': chain.toggleBulletList().run(); break;
             case 'orderedList': chain.toggleOrderedList().run(); break;
             case 'blockquote': chain.toggleBlockquote().run(); break;

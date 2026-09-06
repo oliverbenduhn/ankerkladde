@@ -112,6 +112,8 @@
     "editor.toolbar.bold": "Fett",
     "editor.toolbar.italic": "Kursiv",
     "editor.toolbar.strike": "Durchgestrichen",
+    "editor.toolbar.underline": "Unterstrichen",
+    "editor.toolbar.highlight": "Textmarker",
     "editor.toolbar.bullet_list": "Liste",
     "editor.toolbar.ordered_list": "Nummerierte Liste",
     "editor.toolbar.blockquote": "Zitat",

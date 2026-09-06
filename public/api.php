@@ -1372,7 +1372,7 @@ function sanitizeRichTextHtmlFallback(string $html): string
     $html = preg_replace('/\son[a-z]+\s*=\s*(".*?"|\'.*?\'|[^\s>]+)/is', '', $html) ?? '';
     $html = preg_replace('/\sstyle\s*=\s*(".*?"|\'.*?\')/is', '', $html) ?? '';
 
-    return strip_tags($html, '<p><br><strong><b><em><i><s><ul><ol><li><blockquote><pre><code><h1><h2><h3><a>');
+    return strip_tags($html, '<p><br><strong><b><em><i><s><u><mark><ul><ol><li><blockquote><pre><code><h1><h2><h3><a>');
 }
 
 function cleanNonElementNode(DOMNode $node, DOMDocument $document): bool
@@ -1394,7 +1394,7 @@ function cleanNonElementNode(DOMNode $node, DOMDocument $document): bool
 
 function cleanElementNode(DOMElement $node, DOMDocument $document): bool
 {
-    $allowedTags = ['p', 'br', 'strong', 'b', 'em', 'i', 's', 'ul', 'ol', 'li', 'blockquote', 'pre', 'code', 'h1', 'h2', 'h3', 'a'];
+    $allowedTags = ['p', 'br', 'strong', 'b', 'em', 'i', 's', 'u', 'mark', 'ul', 'ol', 'li', 'blockquote', 'pre', 'code', 'h1', 'h2', 'h3', 'a'];
     $tagName = strtolower($node->tagName);
 
     if (!in_array($tagName, $allowedTags, true)) {

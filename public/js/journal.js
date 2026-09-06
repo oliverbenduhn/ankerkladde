@@ -579,14 +579,14 @@ export function createJournalController(deps) {
         renderCategoryTabs();
         updateHeaders();
 
-        const { Editor, StarterKit, Link } = await waitForTipTap();
+        const { Editor, StarterKit, Link, Underline, Highlight } = await waitForTipTap();
         if (state.screen !== 'journal' || state.journalDate !== payload.date) return;
         if (journalEditorBody) journalEditorBody.replaceChildren();
         editorGeneration += 1;
         if (journalEditorBody) journalEditorBody.dataset.editorGeneration = String(editorGeneration);
         editor = new Editor({
             element: journalEditorBody,
-            extensions: [StarterKit, Link.configure({ openOnClick: false })],
+            extensions: [StarterKit, Link.configure({ openOnClick: false }), Underline, Highlight],
             content: journalDraft.content || '',
             editorProps: { attributes: { 'aria-label': t('journal.note_title') } },
             onUpdate: () => {
@@ -708,6 +708,8 @@ export function createJournalController(deps) {
             case 'bold': chain.toggleBold().run(); break;
             case 'italic': chain.toggleItalic().run(); break;
             case 'strike': chain.toggleStrike().run(); break;
+            case 'underline': chain.toggleUnderline().run(); break;
+            case 'highlight': chain.toggleHighlight().run(); break;
             case 'bulletList': chain.toggleBulletList().run(); break;
             case 'orderedList': chain.toggleOrderedList().run(); break;
             case 'blockquote': chain.toggleBlockquote().run(); break;

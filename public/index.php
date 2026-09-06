@@ -314,6 +314,8 @@ $clientWebSocketUrl = is_string($clientWebSocketUrl) ? trim($clientWebSocketUrl)
                     <button type="button" data-cmd="bold" title="<?= t('editor.toolbar.bold') ?>" aria-label="<?= t('editor.toolbar.bold') ?>"><b aria-hidden="true">B</b></button>
                     <button type="button" data-cmd="italic" title="<?= t('editor.toolbar.italic') ?>" aria-label="<?= t('editor.toolbar.italic') ?>"><i aria-hidden="true">I</i></button>
                     <button type="button" data-cmd="strike" title="<?= t('editor.toolbar.strike') ?>" aria-label="<?= t('editor.toolbar.strike') ?>"><s aria-hidden="true">S</s></button>
+                    <button type="button" data-cmd="underline" title="<?= t('editor.toolbar.underline') ?>" aria-label="<?= t('editor.toolbar.underline') ?>"><u aria-hidden="true">U</u></button>
+                    <button type="button" data-cmd="highlight" title="<?= t('editor.toolbar.highlight') ?>" aria-label="<?= t('editor.toolbar.highlight') ?>"><mark aria-hidden="true">A</mark></button>
                     <button type="button" data-cmd="bulletList" title="<?= t('editor.toolbar.bullet_list') ?>" aria-label="<?= t('editor.toolbar.bullet_list') ?>">≡</button>
                     <button type="button" data-cmd="orderedList" title="<?= t('editor.toolbar.ordered_list') ?>" aria-label="<?= t('editor.toolbar.ordered_list') ?>">1.</button>
                     <button type="button" data-cmd="blockquote" title="<?= t('editor.toolbar.blockquote') ?>" aria-label="<?= t('editor.toolbar.blockquote') ?>">❝</button>
@@ -399,6 +401,8 @@ $clientWebSocketUrl = is_string($clientWebSocketUrl) ? trim($clientWebSocketUrl)
             <button type="button" data-cmd="bold" title="<?= t('editor.toolbar.bold') ?>" aria-label="<?= t('editor.toolbar.bold') ?>"><b aria-hidden="true">B</b></button>
             <button type="button" data-cmd="italic" title="<?= t('editor.toolbar.italic') ?>" aria-label="<?= t('editor.toolbar.italic') ?>"><i aria-hidden="true">I</i></button>
             <button type="button" data-cmd="strike" title="<?= t('editor.toolbar.strike') ?>" aria-label="<?= t('editor.toolbar.strike') ?>"><s aria-hidden="true">S</s></button>
+            <button type="button" data-cmd="underline" title="<?= t('editor.toolbar.underline') ?>" aria-label="<?= t('editor.toolbar.underline') ?>"><u aria-hidden="true">U</u></button>
+            <button type="button" data-cmd="highlight" title="<?= t('editor.toolbar.highlight') ?>" aria-label="<?= t('editor.toolbar.highlight') ?>"><mark aria-hidden="true">A</mark></button>
             <span class="toolbar-sep" aria-hidden="true"></span>
             <button type="button" data-cmd="bulletList" title="<?= t('editor.toolbar.bullet_list') ?>" aria-label="<?= t('editor.toolbar.bullet_list') ?>">≡</button>
             <button type="button" data-cmd="orderedList" title="<?= t('editor.toolbar.ordered_list') ?>" aria-label="<?= t('editor.toolbar.ordered_list') ?>">1.</button>
