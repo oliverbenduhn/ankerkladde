@@ -27,8 +27,8 @@ jobs:
           git clone --depth 1 https://github.com/oliverbenduhn/ankerkladde.git deploy-temp
           cd deploy-temp
 
-          docker build -t ghcr.io/oliverbenduhn/ankerkladde:latest .
-          docker build -t ghcr.io/oliverbenduhn/ankerkladde/websocket:latest ./websocket-server
+          docker build --pull -t ghcr.io/oliverbenduhn/ankerkladde:latest .
+          docker build --pull -t ghcr.io/oliverbenduhn/ankerkladde/websocket:latest ./websocket-server
 
           echo "$GHCR_TOKEN" | docker login ghcr.io -u oliverbenduhn --password-stdin
           docker push ghcr.io/oliverbenduhn/ankerkladde:latest
