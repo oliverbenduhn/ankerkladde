@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION = 'v5.4.2';
+const VERSION = 'v5.4.12';
 // ASSET_VERSION is derived from VERSION to ensure they stay in sync.
 const ASSET_VERSION = VERSION.replace(/^v/, '');
 const STATIC_CACHE = `ankerkladde-static-${VERSION}`;
@@ -26,6 +26,7 @@ const APP_SHELL_ASSET_URLS = [
     `js/items.js?v=${ASSET_VERSION}`,
     `js/scanner.js?v=${ASSET_VERSION}`,
     `js/editor.js?v=${ASSET_VERSION}`,
+    `js/tiptap-init.js?v=${ASSET_VERSION}`,
     `js/journal.js?v=${ASSET_VERSION}`,
     `js/swipe.js?v=${ASSET_VERSION}`,
     `js/reorder.js?v=${ASSET_VERSION}`,
@@ -46,6 +47,8 @@ const APP_SHELL_ASSET_URLS = [
     `js/item-editor.js?v=${ASSET_VERSION}`,
     `js/sketch-editor.js?v=${ASSET_VERSION}`,
     `js/sketch-draft-persistence.js?v=${ASSET_VERSION}`,
+    'vendor/editors/tiptap.js',
+    'vendor/editors/sketch.js',
     `vendor/zxing/browser-0.1.5.js?v=${ASSET_VERSION}`,
     `manifest.php?v=${ASSET_VERSION}`,
     `icon.php?size=72&v=${ASSET_VERSION}`,
@@ -110,13 +113,20 @@ function mojibakeScore(value) {
 self.addEventListener('install', event => {
     event.waitUntil(
         caches.open(STATIC_CACHE)
-            .then(cache => {
+            .then(async cache => {
+                const manifestUrl = new URL('vendor/editors/asset-manifest.json', APP_SCOPE_URL);
+                const manifestResponse = await fetch(manifestUrl, { cache: 'no-store' });
+                if (!manifestResponse.ok) throw new Error('Editor asset manifest unavailable');
+                const vendorAssets = await manifestResponse.json();
+                const vendorUrls = vendorAssets.map(path => new URL(`vendor/editors/${path}`, APP_SCOPE_URL).toString());
+                await cache.add(manifestUrl.toString());
                 // Try to cache all assets, but don't fail if some are unreachable
-                return Promise.allSettled(
-                    APP_SHELL_ASSET_URLS.map(url => cache.add(url))
-                ).then(() => {
-                    console.log('[SW] Precache complete (some assets may have failed)');
-                });
+                const results = await Promise.allSettled(
+                    [...APP_SHELL_ASSET_URLS, ...vendorUrls].map(url => cache.add(url))
+                );
+                const failures = results.filter(result => result.status === 'rejected');
+                if (failures.length > 0) throw new Error(`${failures.length} app-shell assets failed to cache`);
+                console.log('[SW] Precache complete');
             })
             .then(() => self.skipWaiting())
             .catch(err => {

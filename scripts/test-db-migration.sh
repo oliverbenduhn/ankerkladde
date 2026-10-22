@@ -229,6 +229,7 @@ run_php "$LIMIT_DIR" '
         "remote_file_import_max_mb" => 500,
     ]);
     $db->exec("DELETE FROM database_meta WHERE meta_key = \"remote_import_upload_limit_10240_v1\"");
+    setSchemaVersion($db, 6);
     $db = null;
 '
 
@@ -412,6 +413,7 @@ run_php "$TOMBSTONE_V5_DIR" '
         exit(1);
     }
     $db->exec("UPDATE deletion_tombstone_items SET category_id = NULL WHERE deletion_id = \"v5-upgrade\"");
+    setSchemaVersion($db, 5);
 '
 
 run_php "$TOMBSTONE_V5_DIR" '

@@ -16,6 +16,7 @@ services:
       # Proxy-Header vertrauen (true wenn hinter Reverse Proxy wie Caddy/Nginx/Traefik)
       # EINKAUF_TRUST_PROXY_HEADERS: 'true'
       WS_NOTIFY_URL: "http://websocket:3000/notify"
+      ANKERKLADDE_WS_SECRET: "${ANKERKLADDE_WS_SECRET:?Set ANKERKLADDE_WS_SECRET to a random value}"
 
   websocket:
     container_name: ankerkladde_websocket
@@ -23,4 +24,6 @@ services:
     restart: unless-stopped
     expose:
       - "3000"
+    environment:
+      ANKERKLADDE_WS_SECRET: "${ANKERKLADDE_WS_SECRET:?Set ANKERKLADDE_WS_SECRET to a random value}"
 

@@ -4,6 +4,8 @@
 # und der chown im Dockerfile nur das Image-Layer betrifft, nicht das gemountete Volume.
 chown -R www-data:www-data "${EINKAUF_DATA_DIR:-/data}"
 
+su -s /bin/sh www-data -c 'cd /var/www/html && php scripts/migrate.php'
+
 BOOTSTRAP_ADMIN_USER="${EINKAUF_BOOTSTRAP_ADMIN_USER:-admin}"
 BOOTSTRAP_ADMIN_PASS="${EINKAUF_BOOTSTRAP_ADMIN_PASS:-admin1234}"
 

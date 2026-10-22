@@ -10,10 +10,8 @@ import {
 } from './sketch-draft-persistence.js';
 import { activateModal } from './utils.js';
 
-const EXCALIDRAW_MODULE = 'https://esm.sh/@excalidraw/excalidraw@0.17.3?deps=react@18.2.0,react-dom@18.2.0';
-const REACT_MODULE = 'https://esm.sh/react@18.2.0';
-const REACT_DOM_MODULE = 'https://esm.sh/react-dom@18.2.0/client';
-const EXCALIDRAW_ASSET_PATH = 'https://unpkg.com/@excalidraw/excalidraw@0.17.3/dist/';
+const EXCALIDRAW_MODULE = '../vendor/editors/sketch.js';
+const EXCALIDRAW_ASSET_PATH = './vendor/editors/excalidraw-assets/';
 
 let excalidrawPromise = null;
 let activeSketchRefresh = null;
@@ -47,18 +45,11 @@ async function ensureExcalidraw() {
     if (excalidrawPromise) return excalidrawPromise;
     excalidrawPromise = (async () => {
         window.EXCALIDRAW_ASSET_PATH = EXCALIDRAW_ASSET_PATH;
-        const [React, ReactDOM, ExcalidrawModule] = await Promise.all([
-            import(/* @vite-ignore */ REACT_MODULE),
-            import(/* @vite-ignore */ REACT_DOM_MODULE),
-            import(/* @vite-ignore */ EXCALIDRAW_MODULE),
-        ]);
-        const defaultExport = ExcalidrawModule.default;
+        const ExcalidrawModule = await import(/* @vite-ignore */ EXCALIDRAW_MODULE);
         return {
-            React,
-            ReactDOM,
-            Excalidraw: ExcalidrawModule.Excalidraw
-                || defaultExport?.Excalidraw
-                || defaultExport?.default,
+            React: ExcalidrawModule.React,
+            ReactDOM: ExcalidrawModule.ReactDOM,
+            Excalidraw: ExcalidrawModule.Excalidraw,
         };
     })();
     return excalidrawPromise;

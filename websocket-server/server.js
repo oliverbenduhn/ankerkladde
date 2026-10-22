@@ -3,9 +3,39 @@ const http = require('http');
 const { URL } = require('url');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 const PORT = process.env.WS_PORT || 3000;
 const BIND_HOST = process.env.WS_HOST || '0.0.0.0';
+const WS_SECRET = (process.env.ANKERKLADDE_WS_SECRET || '').trim();
+const MAX_NOTIFY_BODY_BYTES = 8 * 1024;
+
+function timingSafeTextEqual(left, right) {
+    const a = Buffer.from(String(left));
+    const b = Buffer.from(String(right));
+    return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
+function verifyTicket(ticket) {
+    if (!WS_SECRET || typeof ticket !== 'string') return null;
+    const [payloadPart, signaturePart, extra] = ticket.split('.');
+    if (!payloadPart || !signaturePart || extra !== undefined) return null;
+    const expected = crypto.createHmac('sha256', WS_SECRET).update(payloadPart).digest('base64url');
+    if (!timingSafeTextEqual(signaturePart, expected)) return null;
+    try {
+        const payload = JSON.parse(Buffer.from(payloadPart, 'base64url').toString('utf8'));
+        if (payload.purpose !== 'notifications' || !Number.isInteger(payload.sub) || payload.sub < 1) return null;
+        if (!Number.isInteger(payload.exp) || payload.exp < Math.floor(Date.now() / 1000)) return null;
+        return payload;
+    } catch {
+        return null;
+    }
+}
+
+function isAuthorizedNotifyRequest(req) {
+    const header = req.headers.authorization || '';
+    return WS_SECRET !== '' && timingSafeTextEqual(header, `Bearer ${WS_SECRET}`);
+}
 
 // Map of userId -> Set of WebSocket connections for that user
 const userRooms = new Map();
@@ -55,13 +85,27 @@ setInterval(() => {
 
 // Create HTTP server for incoming notifications (from PHP)
 const server = http.createServer((req, res) => {
-    // Basic CORS for development (if accessed directly)
-    res.setHeader('Access-Control-Allow-Origin', '*');
-
     if (req.method === 'POST' && req.url === '/notify') {
+        if (!isAuthorizedNotifyRequest(req)) {
+            res.writeHead(401, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Unauthorized' }));
+            return;
+        }
         let body = '';
-        req.on('data', chunk => { body += chunk.toString(); });
+        let tooLarge = false;
+        req.setTimeout(5000, () => req.destroy());
+        req.on('data', chunk => {
+            if (tooLarge) return;
+            body += chunk.toString();
+            if (Buffer.byteLength(body) > MAX_NOTIFY_BODY_BYTES) {
+                tooLarge = true;
+                res.writeHead(413, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Payload too large' }));
+                req.destroy();
+            }
+        });
         req.on('end', () => {
+            if (tooLarge) return;
             try {
                 let data = { action: 'update' };
                 if (body) {
@@ -111,11 +155,12 @@ const wss = new WebSocket.Server({ noServer: true });
 wss.on('connection', (ws, req) => {
     const ip = req.socket.remoteAddress;
 
-    // Extract userId from query parameters
+    // Authenticate the short-lived ticket issued by PHP.
     let userId = null;
     try {
         const url = new URL(req.url, `http://${req.headers.host}`);
-        userId = url.searchParams.get('uid');
+        const payload = verifyTicket(url.searchParams.get('ticket'));
+        userId = payload ? String(payload.sub) : null;
     } catch (e) {
         console.warn(`[${new Date().toISOString()}] Failed to parse URL: ${e.message}`);
     }
@@ -128,7 +173,8 @@ wss.on('connection', (ws, req) => {
         userRooms.get(userId).add(ws);
         console.log(`[${new Date().toISOString()}] Client connected from ${ip} for user ${userId}`);
     } else {
-        console.log(`[${new Date().toISOString()}] Client connected from ${ip} for generic updates (no userId)`);
+        ws.close(1008, 'Unauthorized');
+        return;
     }
 
     // Send initial connection success message (optional)
@@ -152,41 +198,27 @@ wss.on('connection', (ws, req) => {
     });
 });
 
-const { setupWSConnection } = require('y-websocket/bin/utils');
-
-// Single shared Yjs WebSocket server instance — reused for all Yjs rooms
-// to avoid memory leaks from creating a new instance per connection.
-const yWss = new WebSocket.Server({ noServer: true });
-yWss.on('connection', (ws, req) => {
-    const reqUrl = new URL(req.url, `http://${req.headers.host}`);
-    const docName = reqUrl.pathname.split('/yjs/note/')[1] || 'unknown';
-    console.log(`[${new Date().toISOString()}] Yjs client connected to room: ${docName}`);
-    setupWSConnection(ws, req, { docName });
-});
-
 // Manually handle WebSocket upgrade based on URL path
 server.on('upgrade', (request, socket, head) => {
     const url = new URL(request.url, `http://${request.headers.host}`);
 
-    // Route for Yjs collaboration rooms: e.g. /yjs/note/123
+    // Yjs is not used by the current frontend. Keep this attack surface closed
+    // until room ownership can be verified against the application database.
     if (url.pathname.startsWith('/yjs/note/')) {
-        const docName = url.pathname.split('/yjs/note/')[1];
-        if (!docName) {
-            socket.destroy();
-            return;
-        }
-
-        yWss.handleUpgrade(request, socket, head, (ws) => {
-            yWss.emit('connection', ws, request);
-        });
-    } else {
-        // All other paths (like /ws/ or root) go to generic notification server
+        socket.write('HTTP/1.1 404 Not Found\r\nConnection: close\r\n\r\n');
+        socket.destroy();
+    } else if (url.pathname === '/' || url.pathname === '/ws' || url.pathname === '/ws/') {
         wss.handleUpgrade(request, socket, head, (ws) => {
             wss.emit('connection', ws, request);
         });
+    } else {
+        socket.destroy();
     }
 });
 
 server.listen(PORT, BIND_HOST, () => {
+    if (!WS_SECRET) {
+        console.error('ANKERKLADDE_WS_SECRET is required; all clients will be rejected.');
+    }
     console.log(`WebSocket server listening on ${BIND_HOST}:${PORT}`);
 });

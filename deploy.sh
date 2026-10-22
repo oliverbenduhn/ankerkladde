@@ -10,6 +10,8 @@ echo "[$(date)] Deploy gestartet" >> "$LOG_FILE"
 
 git -C "$APP_ROOT" pull origin main >> "$LOG_FILE" 2>&1
 
+php "$APP_ROOT/scripts/migrate.php" >> "$LOG_FILE" 2>&1
+
 # Reload PHP-FPM — adjust service name to match your system:
 #   Alpine (OpenRC):  rc-service php-fpm83 reload
 #   Debian/Ubuntu:    systemctl reload php8.3-fpm

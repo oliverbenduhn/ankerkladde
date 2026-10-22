@@ -41,6 +41,7 @@ while IFS= read -r iconFile; do
     install -m 0644 "$iconFile" "$APP_ROOT/public/icons/$relativePath"
 done < <(find "$ROOT_DIR/public/icons" -type f \( -name '*.svg' -o -name '*.png' \) | sort)
 install -m 0755 "$ROOT_DIR/scripts/smoke-test.sh" "$APP_ROOT/scripts/smoke-test.sh"
+install -m 0644 "$ROOT_DIR/scripts/migrate.php" "$APP_ROOT/scripts/migrate.php"
 install -m 0644 "$ROOT_DIR/deploy/apache/$SITE_NAME" "$APP_ROOT/deploy/apache/$SITE_NAME"
 install -m 0644 "$SITE_SOURCE" "$SITE_TARGET"
 
@@ -54,6 +55,8 @@ if [[ -f "$DATA_ROOT/einkaufsliste.db" ]]; then
     chown www-data:www-data "$DATA_ROOT/einkaufsliste.db"
     chmod 0664 "$DATA_ROOT/einkaufsliste.db"
 fi
+
+sudo -u www-data env EINKAUF_DATA_DIR="$DATA_ROOT" php "$APP_ROOT/scripts/migrate.php"
 
 a2dissite 000-default.conf >/dev/null 2>&1 || true
 a2ensite "$SITE_NAME" >/dev/null

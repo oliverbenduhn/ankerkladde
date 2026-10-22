@@ -28,40 +28,72 @@ if ($alreadyLoggedIn) {
 
 $error = null;
 
-// Brute-force protection: track failed login attempts in the session.
-// After 5 failures an exponential delay (up to 30 s) is applied before
-// each attempt, making automated password guessing impractical.
-const LOGIN_ATTEMPT_DELAY_FREE = 5;       // attempts before delay kicks in
-const LOGIN_ATTEMPT_DELAY_MAX_US = 30_000_000; // 30 s ceiling in microseconds
+const LOGIN_ATTEMPT_LIMIT = 5;
+const LOGIN_ATTEMPT_WINDOW_SECONDS = 900;
+const LOGIN_LOCK_SECONDS = 900;
 
-function getLoginFailureCount(): int
+function loginIpPrefix(): string
 {
-    return (int) ($_SESSION['login_failures'] ?? 0);
-}
-
-function incrementLoginFailureCount(): void
-{
-    $_SESSION['login_failures'] = getLoginFailureCount() + 1;
-}
-
-function resetLoginFailureCount(): void
-{
-    unset($_SESSION['login_failures']);
-}
-
-function applyLoginBruteForceDelay(): void
-{
-    $failures = getLoginFailureCount();
-    if ($failures < LOGIN_ATTEMPT_DELAY_FREE) {
-        return;
+    $ip = (string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown');
+    if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+        $parts = explode('.', $ip);
+        return implode('.', array_slice($parts, 0, 3)) . '.0/24';
     }
+    if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+        $packed = inet_pton($ip);
+        return $packed === false ? 'unknown' : bin2hex(substr($packed, 0, 7)) . '::/56';
+    }
+    return 'unknown';
+}
 
-    // 2^(failures-5) seconds, capped at LOGIN_ATTEMPT_DELAY_MAX_US
-    $delayUs = min(
-        (int) (1_000_000 * (2 ** ($failures - LOGIN_ATTEMPT_DELAY_FREE))),
-        LOGIN_ATTEMPT_DELAY_MAX_US
+function loginAttemptKey(string $username): string
+{
+    return hash('sha256', strtolower(trim($username)));
+}
+
+function isLoginRateLimited(PDO $db, string $username): bool
+{
+    $stmt = $db->prepare(
+        'SELECT locked_until FROM login_attempts WHERE username_key = :username_key AND ip_prefix = :ip_prefix'
     );
-    usleep($delayUs);
+    $stmt->execute([':username_key' => loginAttemptKey($username), ':ip_prefix' => loginIpPrefix()]);
+    $lockedUntil = $stmt->fetchColumn();
+    return $lockedUntil !== false && (int) $lockedUntil > time();
+}
+
+function recordLoginFailure(PDO $db, string $username): void
+{
+    $now = time();
+    $stmt = $db->prepare(
+        'INSERT INTO login_attempts (username_key, ip_prefix, failure_count, window_started_at, locked_until)
+         VALUES (:username_key, :ip_prefix, 1, :now, 0)
+         ON CONFLICT(username_key, ip_prefix) DO UPDATE SET
+            failure_count = CASE
+                WHEN login_attempts.window_started_at < :window_start THEN 1
+                ELSE login_attempts.failure_count + 1
+            END,
+            window_started_at = CASE
+                WHEN login_attempts.window_started_at < :window_start THEN :now
+                ELSE login_attempts.window_started_at
+            END,
+            locked_until = CASE
+                WHEN (CASE WHEN login_attempts.window_started_at < :window_start THEN 1 ELSE login_attempts.failure_count + 1 END) >= :attempt_limit
+                THEN :locked_until ELSE login_attempts.locked_until END'
+    );
+    $stmt->execute([
+        ':username_key' => loginAttemptKey($username),
+        ':ip_prefix' => loginIpPrefix(),
+        ':now' => $now,
+        ':window_start' => $now - LOGIN_ATTEMPT_WINDOW_SECONDS,
+        ':attempt_limit' => LOGIN_ATTEMPT_LIMIT,
+        ':locked_until' => $now + LOGIN_LOCK_SECONDS,
+    ]);
+}
+
+function clearLoginFailures(PDO $db, string $username): void
+{
+    $stmt = $db->prepare('DELETE FROM login_attempts WHERE username_key = :username_key AND ip_prefix = :ip_prefix');
+    $stmt->execute([':username_key' => loginAttemptKey($username), ':ip_prefix' => loginIpPrefix()]);
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -76,10 +108,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($username === '' || $password === '') {
             $error = t('login.credentials_required');
         } else {
-            // Apply delay before verifying — delay scales with prior failures
-            applyLoginBruteForceDelay();
-
             $db = getDatabase();
+            if (isLoginRateLimited($db, $username)) {
+                $error = t('login.invalid_credentials');
+            } else {
             $stmt = $db->prepare(
                 'SELECT id, password_hash, is_admin, must_change_password FROM users WHERE username = :username LIMIT 1'
             );
@@ -87,7 +119,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $user = $stmt->fetch();
 
             if (is_array($user) && password_verify($password, (string) $user['password_hash'])) {
-                resetLoginFailureCount();
+                clearLoginFailures($db, $username);
                 session_regenerate_id(true);
                 $_SESSION['user_id']  = (int) $user['id'];
                 $_SESSION['is_admin'] = (bool) $user['is_admin'];
@@ -100,8 +132,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 exit;
             }
 
-            incrementLoginFailureCount();
+            recordLoginFailure($db, $username);
             $error = t('login.invalid_credentials');
+            }
         }
     }
 }

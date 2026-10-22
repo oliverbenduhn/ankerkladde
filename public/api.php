@@ -8,6 +8,7 @@ require dirname(__DIR__) . '/security.php';
 require dirname(__DIR__) . '/src/QuickAddParser.php';
 require dirname(__DIR__) . '/src/QuickAddHandler.php';
 require dirname(__DIR__) . '/src/AddItemHandler.php';
+require dirname(__DIR__) . '/src/WebSocketNotifier.php';
 require __DIR__ . '/theme.php';
 
 enforceCanonicalRequest();
@@ -56,38 +57,9 @@ function respond(int $status, array $payload): never
     if ($status >= 200 && $status < 300) {
         storeIdempotentResponse($status, $payload);
         if (in_array($_SERVER['REQUEST_METHOD'], ['POST', 'PUT', 'PATCH', 'DELETE'], true)) {
-            $wsUrl = getenv('WS_NOTIFY_URL') ?: 'http://127.0.0.1:3000/notify';
-            // Include user_id so the WebSocket server only broadcasts to that user's connections.
             $notifyUserId = $GLOBALS['current_user_id'] ?? null;
-            $notifyPayload = ['action' => 'update'];
-            if ($notifyUserId !== null) {
-                $notifyPayload['user_id'] = $notifyUserId;
-            }
-            $notifyJson = (string) json_encode($notifyPayload);
-            if (function_exists('curl_init')) {
-                $ch = curl_init($wsUrl);
-                if ($ch !== false) {
-                    curl_setopt_array($ch, [
-                        CURLOPT_CUSTOMREQUEST => 'POST',
-                        CURLOPT_POSTFIELDS => $notifyJson,
-                        CURLOPT_RETURNTRANSFER => true,
-                        CURLOPT_TIMEOUT_MS => 150,
-                        CURLOPT_NOSIGNAL => true,
-                        CURLOPT_HTTPHEADER => ['Content-Type: application/json']
-                    ]);
-                    curl_exec($ch);
-                }
-            } else {
-                $context = stream_context_create([
-                    'http' => [
-                        'method' => 'POST',
-                        'header' => 'Content-Type: application/json',
-                        'content' => $notifyJson,
-                        'timeout' => 0.15,
-                        'ignore_errors' => true
-                    ]
-                ]);
-                @file_get_contents($wsUrl, false, $context);
+            if (is_int($notifyUserId)) {
+                notifyWebSocketUser($notifyUserId);
             }
         }
     } elseif (getIdempotencyRequestId() !== '') {
@@ -343,22 +315,42 @@ function storeIdempotentResponse(int $status, array $payload): void
     }
     $body = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
-    $stmt = $db->prepare(
-        'UPDATE idempotency_keys
-         SET action = :action, response_status = :response_status, response_body = :response_body
-         WHERE user_id = :user_id
-           AND request_id = :request_id
-           AND request_hash = :request_hash'
-    );
-    $stmt->execute([
-        ':user_id' => $userId,
-        ':request_id' => $requestId,
-        ':action' => $action,
-        ':request_hash' => $requestHash,
-        ':response_status' => $status,
-        ':response_body' => (string) $body,
-    ]);
-    $GLOBALS['current_idempotency_reservation_owned'] = false;
+    // The domain mutation has already committed at this point. A temporary
+    // cache-write failure must therefore never turn a successful operation
+    // into an HTTP 500 (which encourages the client to repeat the mutation).
+    // Retry SQLite lock contention, then preserve the in-flight marker and log
+    // the failure. The marker fails closed against duplicate execution.
+    for ($attempt = 1; $attempt <= 3; $attempt++) {
+        try {
+            $stmt = $db->prepare(
+                'UPDATE idempotency_keys
+                 SET action = :action, response_status = :response_status, response_body = :response_body
+                 WHERE user_id = :user_id
+                   AND request_id = :request_id
+                   AND request_hash = :request_hash
+                   AND response_status = 0'
+            );
+            $stmt->execute([
+                ':user_id' => $userId,
+                ':request_id' => $requestId,
+                ':action' => $action,
+                ':request_hash' => $requestHash,
+                ':response_status' => $status,
+                ':response_body' => (string) $body,
+            ]);
+            if ($stmt->rowCount() !== 1) {
+                throw new RuntimeException('Idempotency reservation was not finalized exactly once.');
+            }
+            $GLOBALS['current_idempotency_reservation_owned'] = false;
+            return;
+        } catch (Throwable $error) {
+            if ($attempt < 3) {
+                usleep(25000 * $attempt);
+                continue;
+            }
+            error_log('Idempotency response persistence failed after committed mutation: ' . $error->getMessage());
+        }
+    }
 }
 
 function releaseOwnedIdempotencyReservation(): void

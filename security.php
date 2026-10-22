@@ -446,6 +446,37 @@ function requireCsrfToken(array $data): void
     }
 }
 
+function getWebSocketSharedSecret(): string
+{
+    $secret = getenv('ANKERKLADDE_WS_SECRET');
+    return is_string($secret) ? trim($secret) : '';
+}
+
+function base64UrlEncode(string $value): string
+{
+    return rtrim(strtr(base64_encode($value), '+/', '-_'), '=');
+}
+
+function createWebSocketTicket(int $userId, int $lifetimeSeconds = 60): string
+{
+    $secret = getWebSocketSharedSecret();
+    if ($secret === '') {
+        throw new RuntimeException('WebSocket signing is not configured.');
+    }
+    $payload = json_encode([
+        'sub' => $userId,
+        'purpose' => 'notifications',
+        'exp' => time() + max(15, min(300, $lifetimeSeconds)),
+        'nonce' => bin2hex(random_bytes(12)),
+    ], JSON_UNESCAPED_SLASHES);
+    if (!is_string($payload)) {
+        throw new RuntimeException('WebSocket ticket could not be encoded.');
+    }
+    $encodedPayload = base64UrlEncode($payload);
+    $signature = base64UrlEncode(hash_hmac('sha256', $encodedPayload, $secret, true));
+    return $encodedPayload . '.' . $signature;
+}
+
 function normalizeDueDate(?string $date): string
 {
     $date = trim((string) $date);

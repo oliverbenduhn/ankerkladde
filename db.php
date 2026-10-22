@@ -455,6 +455,7 @@ function migrateAiProviderOpenrouterToOpenaiCompatible(PDO $db): void
 
 function getDatabase(): PDO
 {
+    $currentSchemaVersion = 7;
     static $db = null;
 
     if ($db instanceof PDO) {
@@ -473,6 +474,20 @@ function getDatabase(): PDO
     $db->exec('PRAGMA journal_mode = WAL');
     $db->exec('PRAGMA foreign_keys = ON');
     $db->exec("PRAGMA encoding = 'UTF-8'");
+
+    $hasMetaTable = (bool) $db->query(
+        "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = 'database_meta'"
+    )->fetchColumn();
+    if ($hasMetaTable) {
+        $schemaVersion = getSchemaVersion($db);
+        if ($schemaVersion >= $currentSchemaVersion) {
+            return $db;
+        }
+    }
+    $autoMigrate = PHP_SAPI === 'cli' || (function_exists('getEnvBool') && getEnvBool('ANKERKLADDE_AUTO_MIGRATE') === true);
+    if (!$autoMigrate) {
+        throw new RuntimeException('Database migration required. Run: php scripts/migrate.php');
+    }
 
     $db->exec(
         "CREATE TABLE IF NOT EXISTS database_meta (
@@ -646,6 +661,18 @@ function getDatabase(): PDO
     }
 
     $db->exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_api_key ON users(api_key)');
+
+    $db->exec(
+        "CREATE TABLE IF NOT EXISTS login_attempts (
+            username_key TEXT NOT NULL,
+            ip_prefix TEXT NOT NULL,
+            failure_count INTEGER NOT NULL DEFAULT 0,
+            window_started_at INTEGER NOT NULL,
+            locked_until INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (username_key, ip_prefix)
+        )"
+    );
+    $db->exec('CREATE INDEX IF NOT EXISTS idx_login_attempts_locked_until ON login_attempts(locked_until)');
 
     $columns = $db->query('PRAGMA table_info(items)')->fetchAll();
     $columnNames = array_map(static fn(array $column): string => $column['name'], $columns);
@@ -830,6 +857,8 @@ function getDatabase(): PDO
         migrateAiProviderOpenrouterToOpenaiCompatible($db);
         setDatabaseMetaFlag($db, $aiOpenrouterMigrationKey);
     }
+
+    setSchemaVersion($db, $currentSchemaVersion);
 
     return $db;
 }

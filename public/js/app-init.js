@@ -101,23 +101,41 @@ export async function registerServiceWorker(version) {
 
 export function initWebSocketServer(onUpdate) {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const userId = document.querySelector('meta[name="user-id"]')?.content || '';
     const configuredWsUrl = document.querySelector('meta[name="websocket-url"]')?.content?.replace(/\/+$/, '');
     const wsBaseUrl = configuredWsUrl || `${protocol}//${window.location.host}/ws`;
-    const wsUrl = `${wsBaseUrl}/?uid=${encodeURIComponent(userId)}`;
     let debounceTimer;
+    let stopped = false;
 
-    function connect() {
+    async function ticketUrl() {
+        const response = await fetch(`${basePath}ws-ticket.php`, {
+            credentials: 'same-origin',
+            headers: { Accept: 'application/json' },
+        });
+        if (!response.ok) throw new Error(`WebSocket ticket unavailable (${response.status})`);
+        const payload = await response.json();
+        if (!payload?.ticket) throw new Error('WebSocket ticket missing');
+        return `${wsBaseUrl}/?ticket=${encodeURIComponent(payload.ticket)}`;
+    }
+
+    async function connect() {
         // Only connect if we're not offline to avoid console spam
         if (!navigator.onLine) {
             setTimeout(connect, 5000);
             return;
         }
 
+        let wsUrl;
+        try {
+            wsUrl = await ticketUrl();
+        } catch (error) {
+            console.warn('[WS] live synchronization disabled:', error.message);
+            stopped = true;
+            return;
+        }
         const ws = new WebSocket(wsUrl);
 
         ws.onopen = () => {
-            console.log('[WS] connected to', wsUrl);
+            console.log('[WS] connected');
         };
 
         ws.onmessage = (event) => {
@@ -146,7 +164,7 @@ export function initWebSocketServer(onUpdate) {
 
         ws.onclose = () => {
             console.log('[WS] disconnected, reconnecting in 5s...');
-            setTimeout(connect, 5000); // Reconnect
+            if (!stopped) setTimeout(connect, 5000); // Reconnect with a fresh ticket
         };
     }
 

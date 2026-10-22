@@ -115,16 +115,16 @@ function test_validateAiBaseUrl()
         'custom https host is allowed'
     );
     assertTrue(
-        validateAiBaseUrl('http://localhost:11434/v1') === null,
-        'localhost is allowed'
+        validateAiBaseUrl('http://localhost:11434/v1') !== null,
+        'localhost is rejected by default'
     );
     assertTrue(
-        validateAiBaseUrl('http://127.0.0.1:8080/v1') === null,
-        '127.0.0.1 is allowed'
+        validateAiBaseUrl('http://127.0.0.1:8080/v1') !== null,
+        '127.0.0.1 is rejected by default'
     );
     assertTrue(
-        validateAiBaseUrl('HTTP://LOCALHOST:1234/') === null,
-        'uppercase scheme is allowed'
+        validateAiBaseUrl('HTTP://LOCALHOST:1234/') !== null,
+        'uppercase private HTTP endpoint is rejected'
     );
 }
 

@@ -93,7 +93,7 @@ php scripts/create-admin.php
 
 Dann `http://127.0.0.1:8000/login.php` aufrufen. Weitere Nutzer per `php scripts/create-user.php` oder über die Umgebungsvariablen `EINKAUF_ADMIN_USER` / `EINKAUF_ADMIN_PASS` bzw. `EINKAUF_REGULAR_USER` / `EINKAUF_REGULAR_PASS`. Im Docker-Container wird bei einer frischen Installation automatisch ein initialer Admin (`admin` / `admin1234`) angelegt – Passwortwechsel beim ersten Login ist Pflicht.
 
-> **Hinweise:** Kamera, PWA-Installation und einige Browser-APIs brauchen HTTPS oder localhost. `localhost` und `127.0.0.1` werden nie auf den kanonischen Produktionshost umgeleitet. Beim nackten `php -S` fehlt der Reverse Proxy für `/ws/`; die App läuft trotzdem, aber Live-Sync und Yjs-Notizen erst mit zusätzlichem Setup (siehe [WEBSOCKET-SETUP.md](WEBSOCKET-SETUP.md)).
+> **Hinweise:** Kamera, PWA-Installation und einige Browser-APIs brauchen HTTPS oder localhost. `localhost` und `127.0.0.1` werden nie auf den kanonischen Produktionshost umgeleitet. Beim nackten `php -S` fehlt der Reverse Proxy für `/ws/`; die App läuft trotzdem, aber ohne Live-Updates (siehe [WEBSOCKET-SETUP.md](WEBSOCKET-SETUP.md)).
 
 ## API in Kurzform
 
@@ -126,11 +126,14 @@ Browser-Sessions verwenden Session-Cookie + `X-CSRF-Token`. Die Browser-Erweiter
 | `EINKAUF_TRUST_PROXY_HEADERS` | auto (nur lokal) | `X-Forwarded-*` vertrauen |
 | `WS_NOTIFY_URL` | `http://127.0.0.1:3000/notify` | Update-Broadcast-Ziel aus `api.php` |
 | `WS_HOST` / `WS_PORT` | `127.0.0.1` / `3000` | WebSocket-Broadcast aus `settings.php` |
+| `ANKERKLADDE_WS_SECRET` | kein Standard | Pflicht für Live-Updates; gemeinsames starkes Zufallssecret für PHP und WebSocket-Dienst |
+| `ANKERKLADDE_ALLOW_PRIVATE_AI_ENDPOINTS` | `false` | Erlaubt bewusst private HTTP(S)-Ziele für lokale AI-Proxys; niemals unbedacht in Mehrbenutzer-Installationen aktivieren |
+| `ANKERKLADDE_AUTO_MIGRATE` | `false` im Web, automatisch in CLI | Erlaubt Schema-Migrationen im Request-Pfad; produktiv stattdessen `php scripts/migrate.php` ausführen |
 | `EINKAUF_BOOTSTRAP_ADMIN_USER` / `_PASS` | `admin` / `admin1234` | Initialer Admin für frische Docker-Installationen |
 
 ## WebSocket und Live-Sync
 
-Live-Updates und kollaborative Notizen brauchen den Node-Dienst aus `websocket-server/`. Mit Docker ist er bereits verdrahtet; für Apache/Nginx brauchst du zusätzlich den Reverse Proxy für `/ws/` und einen erreichbaren `/notify`-Endpoint. Details: [WEBSOCKET-SETUP.md](WEBSOCKET-SETUP.md) und [TipTapWebsocket.md](TipTapWebsocket.md).
+Live-Updates brauchen den Node-Dienst aus `websocket-server/` und ein identisches `ANKERKLADDE_WS_SECRET` in PHP und Node. Browser erhalten nur kurzlebige, nutzergebundene Tickets; `/notify` akzeptiert ausschließlich das gemeinsame Secret. Mit Docker ist der Dienst verdrahtet; setze das Secret vor `docker compose up`. Für Apache/Nginx brauchst du zusätzlich den Reverse Proxy für `/ws/` und einen erreichbaren `/notify`-Endpoint. Der bisher ungeschützte Yjs-Endpunkt ist deaktiviert. Details: [WEBSOCKET-SETUP.md](WEBSOCKET-SETUP.md).
 
 ## Open Food Facts importieren
 

@@ -142,21 +142,103 @@ function callGemini(string $apiKey, string $model, string $prompt, int $timeout,
  * Erlaubt nur https:// oder http://localhost bzw. http://127.0.0.1.
  * ponytail: blockiert Cloud-Metadata-Endpoints. Upgrade wenn Multi-Tenant.
  */
+function isPublicAiEndpointIp(string $ip): bool
+{
+    return filter_var(
+        $ip,
+        FILTER_VALIDATE_IP,
+        FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE
+    ) !== false;
+}
+
+/** @return list<string> */
+function resolveAiEndpointHost(string $host): array
+{
+    if (filter_var($host, FILTER_VALIDATE_IP) !== false) {
+        return [$host];
+    }
+
+    $addresses = [];
+    $records = @dns_get_record($host, DNS_A | DNS_AAAA);
+    if (is_array($records)) {
+        foreach ($records as $record) {
+            $address = $record['ip'] ?? $record['ipv6'] ?? null;
+            if (is_string($address) && filter_var($address, FILTER_VALIDATE_IP) !== false) {
+                $addresses[] = $address;
+            }
+        }
+    }
+    if ($addresses === []) {
+        $ipv4 = @gethostbynamel($host);
+        if (is_array($ipv4)) $addresses = array_merge($addresses, $ipv4);
+    }
+    return array_values(array_unique($addresses));
+}
+
+function allowPrivateAiEndpoints(): bool
+{
+    return function_exists('getEnvBool') && getEnvBool('ANKERKLADDE_ALLOW_PRIVATE_AI_ENDPOINTS') === true;
+}
+
 function validateAiBaseUrl(string $baseUrl): ?string
 {
     $baseUrl = trim($baseUrl);
     if ($baseUrl === '') {
         return 'Bitte eine Basis-URL angeben.';
     }
-    if (!preg_match('#^https://#i', $baseUrl)
-        && !preg_match('#^http://(localhost|127\.0\.0\.1)(:\d+)?(/|$)#i', $baseUrl)) {
-        return 'Nur https:// oder http://localhost (http://127.0.0.1) erlaubt.';
+    $parts = parse_url($baseUrl);
+    if (!is_array($parts) || !isset($parts['scheme'], $parts['host'])) {
+        return 'Ungültige Basis-URL.';
+    }
+    if (isset($parts['user']) || isset($parts['pass'])) {
+        return 'Zugangsdaten sind in der Basis-URL nicht erlaubt.';
+    }
+    $scheme = strtolower((string) $parts['scheme']);
+    if ($scheme !== 'https' && !($scheme === 'http' && allowPrivateAiEndpoints())) {
+        return 'Nur HTTPS-Endpunkte sind erlaubt.';
+    }
+    $addresses = resolveAiEndpointHost((string) $parts['host']);
+    if ($addresses === []) {
+        return 'Host konnte nicht aufgelöst werden.';
+    }
+    if (!allowPrivateAiEndpoints()) {
+        foreach ($addresses as $address) {
+            if (!isPublicAiEndpointIp($address)) {
+                return 'Private oder reservierte Netzwerkziele sind nicht erlaubt.';
+            }
+        }
     }
     return null;
 }
 
+function applyAiEndpointCurlGuard($ch, string $url): void
+{
+    $parts = parse_url($url);
+    if (!is_array($parts) || !isset($parts['host'], $parts['scheme'])) {
+        throw new InvalidArgumentException('Invalid AI endpoint URL.');
+    }
+    $addresses = resolveAiEndpointHost((string) $parts['host']);
+    if ($addresses === []) {
+        throw new RuntimeException('AI endpoint host could not be resolved.');
+    }
+    if (!allowPrivateAiEndpoints() && !isPublicAiEndpointIp($addresses[0])) {
+        throw new RuntimeException('AI endpoint resolved to a private or reserved address.');
+    }
+    $port = (int) ($parts['port'] ?? (strtolower((string) $parts['scheme']) === 'https' ? 443 : 80));
+    curl_setopt($ch, CURLOPT_RESOLVE, [(string) $parts['host'] . ':' . $port . ':' . $addresses[0]]);
+    if (defined('CURLOPT_PROTOCOLS_STR')) {
+        curl_setopt($ch, CURLOPT_PROTOCOLS_STR, allowPrivateAiEndpoints() ? 'http,https' : 'https');
+    } elseif (defined('CURLOPT_PROTOCOLS')) {
+        curl_setopt($ch, CURLOPT_PROTOCOLS, allowPrivateAiEndpoints() ? CURLPROTO_HTTP | CURLPROTO_HTTPS : CURLPROTO_HTTPS);
+    }
+}
+
 function callOpenAiCompatible(string $apiKey, string $baseUrl, string $model, string $prompt, int $timeout, int $connectTimeout, bool $jsonMode, $temperature): array
 {
+    $urlError = validateAiBaseUrl($baseUrl);
+    if ($urlError !== null) {
+        return ['ok' => false, 'text' => '', 'error' => $urlError, 'http_code' => 0];
+    }
     $baseUrl = rtrim($baseUrl, '/');
     $url = $baseUrl . '/chat/completions';
 
@@ -191,6 +273,7 @@ function callOpenAiCompatible(string $apiKey, string $baseUrl, string $model, st
         return ['ok' => false, 'text' => '', 'error' => 'cURL init failed', 'http_code' => 0];
     }
 
+    applyAiEndpointCurlGuard($ch, $url);
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_POST => true,
@@ -353,6 +436,7 @@ function listOpenAiCompatibleModels(string $apiKey, string $baseUrl): array
         return ['ok' => false, 'models' => [], 'error' => 'cURL init failed'];
     }
 
+    applyAiEndpointCurlGuard($ch, $url);
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_TIMEOUT => 30,
