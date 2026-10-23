@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION = 'v5.4.12';
+const VERSION = 'v5.4.13';
 // ASSET_VERSION is derived from VERSION to ensure they stay in sync.
 const ASSET_VERSION = VERSION.replace(/^v/, '');
 const STATIC_CACHE = `ankerkladde-static-${VERSION}`;

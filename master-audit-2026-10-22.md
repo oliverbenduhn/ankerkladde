@@ -16,6 +16,15 @@
 - **Teilweise behoben:** WebSocket-Transport wurde aus `api.php` extrahiert; die weitere Zerlegung des großen Action-Dispatchers bleibt ein inkrementelles Architekturvorhaben.
 - **Weitgehend mitigiert:** Das Finalisieren einer Idempotenz-Antwort wird wiederholt, exakt einmal aktualisiert und kann eine bereits erfolgreiche Mutation nicht mehr in einen falschen HTTP-500 verwandeln. Ein Prozessabsturz im sehr kleinen Fenster zwischen Fach-Commit und Ergebnis-Update lässt sich vollständig erst durch die im Fund empfohlene gemeinsame Transaktion beziehungsweise Operation-Result-Outbox schließen.
 
+## Umsetzungsstand der mittleren Risiken (2026-10-23)
+
+- **Behoben:** `/notify` verlangt ein Shared Secret, begrenzt Bodies auf 8 KiB und setzt Request-Timeouts; offene CORS-Header wurden entfernt.
+- **Behoben:** Eigene API-Schlüssel liegen nur noch als SHA-256-Digest plus nicht sensibles Präfix vor und werden nur einmal angezeigt. AI-Provider-Schlüssel werden mit libsodium und einem außerhalb der SQLite-Datei liegenden Instanzschlüssel verschlüsselt; Schema-Migration 8 schützt Altbestände.
+- **Transparent und gegen Regression abgesichert:** Der unzutreffende CSS-Token-Stempel lautet bis zur vollständigen Farbmigration `FAIL`. Die semantische Token-Konsolidierung bleibt ein separates Designsystem-Refactoring.
+- **Behoben:** Mobile zeigt vier vorhersehbare Primäraktionen; seltenere Werkzeuge liegen beschriftet im zugänglichen „Mehr“-Menü statt in einer horizontalen Icon-Suchleiste.
+- **Behoben:** Deutsche und englische Übersetzungsschlüssel sind vollständig identisch und werden durch `npm run test:i18n` geprüft. Quick-Add-AI sowie Produktscanner-Markup nutzen Übersetzungsschlüssel.
+- **Behoben:** Die Service-Worker-Installation cached die kritische App-Shell atomar und aktiviert eine neue Version nicht mehr nach unvollständigem Precache.
+
 ## Executive Summary
 
 Ankerkladde besitzt für eine frameworkfreie Anwendung eine ungewöhnlich starke funktionale Basis: Benutzer- und Mandantentrennung in den primären SQL-Pfaden, CSRF-Schutz, revisionsbasierte Konfliktbehandlung, idempotente Mutationen, Undo-Löschungen, Offline-Entwürfe und breite End-to-End-Tests sind erkennbar bewusst gebaut. Die ausgeführten Backend- und Smoke-Tests waren grün; die auf einen freien Port umgelegte Playwright-Suite bestätigte die zentralen Desktop- und Mobile-Journeys während des Audits.

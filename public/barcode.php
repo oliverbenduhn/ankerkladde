@@ -25,28 +25,29 @@ function icon(string $name): string {
 }
 ?>
 <!DOCTYPE html>
-<html lang="de">
+<html lang="<?= htmlspecialchars(getCurrentLanguage(), ENT_QUOTES, 'UTF-8') ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="csrf-token" content="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
     <meta name="app-base-path" content="<?= htmlspecialchars(appPath(), ENT_QUOTES, 'UTF-8') ?>">
+    <script>window.__i18n = <?= json_encode(getAllStrings(), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) ?>;window.__lang = <?= json_encode(getCurrentLanguage()) ?>;</script>
     <?= renderThemeBootScript($userPreferences) ?>
     <link rel="icon" type="image/png" href="<?= htmlspecialchars(appPath('icon.php?size=96&v=' . rawurlencode($assetVersion)), ENT_QUOTES, 'UTF-8') ?>">
     <link rel="apple-touch-icon" href="<?= htmlspecialchars(appPath('icon.php?size=180&v=' . rawurlencode($assetVersion)), ENT_QUOTES, 'UTF-8') ?>">
     <link rel="stylesheet" href="<?= htmlspecialchars(appPath('theme-css.php'), ENT_QUOTES, 'UTF-8') ?>">
     <link rel="stylesheet" href="<?= htmlspecialchars(appPath('style.css?v=' . $assetVersion), ENT_QUOTES, 'UTF-8') ?>">
-    <title>Ankerkladde - Produktscanner</title>
+    <title>Ankerkladde – <?= t('barcode_page.title') ?></title>
 </head>
 <body data-theme="<?= htmlspecialchars($effectiveTheme, ENT_QUOTES, 'UTF-8') ?>">
 <div class="app barcode-page-app" id="barcodePage">
     <header class="app-header barcode-page-header">
-        <a href="<?= htmlspecialchars(appPath('index.php'), ENT_QUOTES, 'UTF-8') ?>" class="header-icon-btn" aria-label="Zurück zur App"><?= icon('arrow-left') ?></a>
+        <a href="<?= htmlspecialchars(appPath('index.php'), ENT_QUOTES, 'UTF-8') ?>" class="header-icon-btn" aria-label="<?= t('barcode_page.back') ?>"><?= icon('arrow-left') ?></a>
         <div class="app-title-group">
             <img src="<?= htmlspecialchars($brandMarkSrc, ENT_QUOTES, 'UTF-8') ?>" alt="" class="brand-mark brand-mark-app" aria-hidden="true">
             <div class="app-title-stack">
-                <h1 class="app-title">Produktscanner</h1>
-                <div class="app-subtitle">Lokale Open-Facts-Datenbank</div>
+                <h1 class="app-title"><?= t('barcode_page.title') ?></h1>
+                <div class="app-subtitle"><?= t('barcode_page.subtitle') ?></div>
             </div>
         </div>
     </header>
@@ -56,10 +57,10 @@ function icon(string $name): string {
             <div class="scanner-sheet barcode-inline-scanner">
                 <div class="scanner-header">
                     <div>
-                        <h2 class="scanner-title">Barcode scannen</h2>
-                        <p class="scanner-subtitle" id="barcodePageSubtitle">Kamera starten oder Barcode manuell eingeben.</p>
+                        <h2 class="scanner-title"><?= t('scanner.title') ?></h2>
+                        <p class="scanner-subtitle" id="barcodePageSubtitle"><?= t('barcode_page.camera_hint') ?></p>
                     </div>
-                    <button type="button" id="barcodePageCameraToggleBtn" class="header-icon-btn" aria-label="Kamera einschalten"><?= icon('scan') ?></button>
+                    <button type="button" id="barcodePageCameraToggleBtn" class="header-icon-btn" aria-label="<?= t('barcode_page.camera_on') ?>"><?= icon('scan') ?></button>
                 </div>
                 <div class="scanner-viewport">
                     <video id="barcodePageVideo" class="scanner-video" autoplay playsinline muted></video>
@@ -67,20 +68,20 @@ function icon(string $name): string {
                 </div>
                 <div class="scanner-status" id="barcodePageStatus" aria-live="polite"></div>
                 <form class="scanner-manual-form" id="barcodePageManualForm" novalidate>
-                    <input type="text" id="barcodePageManualInput" inputmode="numeric" autocomplete="off" placeholder="Barcode manuell eingeben" aria-label="Barcode manuell eingeben" maxlength="64">
-                    <button type="submit" class="btn-add" aria-label="Barcode laden"><?= icon('scan') ?></button>
+                    <input type="text" id="barcodePageManualInput" inputmode="numeric" autocomplete="off" placeholder="<?= t('barcode_page.manual') ?>" aria-label="<?= t('barcode_page.manual') ?>" maxlength="64">
+                    <button type="submit" class="btn-add" aria-label="<?= t('barcode_page.load') ?>"><?= icon('scan') ?></button>
                 </form>
             </div>
         </section>
 
         <section class="barcode-result" id="barcodeResult">
             <div class="barcode-empty-state" id="barcodeEmptyState">
-                Noch kein Barcode geladen. Nach dem Scan werden hier alle verfügbaren lokalen Produktdaten angezeigt.
+                <?= t('barcode_page.empty') ?>
             </div>
         </section>
     </main>
 </div>
 <script src="<?= htmlspecialchars(appPath('vendor/zxing/browser-0.1.5.js?v=' . $assetVersion), ENT_QUOTES, 'UTF-8') ?>"></script>
-<script src="<?= htmlspecialchars(appPath('barcode-page.js?v=' . $assetVersion), ENT_QUOTES, 'UTF-8') ?>"></script>
+<script type="module" src="<?= htmlspecialchars(appPath('barcode-page.js?v=' . $assetVersion), ENT_QUOTES, 'UTF-8') ?>"></script>
 </body>
 </html>

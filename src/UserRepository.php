@@ -41,6 +41,7 @@ function getAvailableGeminiModels(): array
 
 function normalizeUserPreferences(array $preferences): array
 {
+    $preferences = revealPreferenceSecrets($preferences);
     $defaults = getDefaultUserPreferences();
     $normalized = $defaults;
 
@@ -138,38 +139,47 @@ function updateUserPreferences(PDO $db, int $userId, array $patch): array
     $stmt = $db->prepare('UPDATE users SET preferences_json = :preferences_json WHERE id = :id');
     $stmt->execute([
         ':id' => $userId,
-        ':preferences_json' => json_encode($preferences, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+        ':preferences_json' => json_encode(protectPreferenceSecrets($preferences), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
     ]);
 
     return $preferences;
 }
 
-function getUserApiKey(PDO $db, int $userId): ?string
+function getUserApiKeyPrefix(PDO $db, int $userId): ?string
 {
-    $stmt = $db->prepare('SELECT api_key FROM users WHERE id = :id LIMIT 1');
+    $stmt = $db->prepare('SELECT api_key_prefix FROM users WHERE id = :id LIMIT 1');
     $stmt->execute([':id' => $userId]);
     $row = $stmt->fetch();
-    return is_string($row['api_key'] ?? null) && $row['api_key'] !== '' ? $row['api_key'] : null;
+    return is_string($row['api_key_prefix'] ?? null) && $row['api_key_prefix'] !== '' ? $row['api_key_prefix'] : null;
 }
 
 function setUserApiKey(PDO $db, int $userId): string
 {
     $apiKey = bin2hex(random_bytes(32));
-    $stmt = $db->prepare('UPDATE users SET api_key = :api_key, api_key_created_at = CURRENT_TIMESTAMP WHERE id = :id');
-    $stmt->execute([':api_key' => $apiKey, ':id' => $userId]);
+    $stmt = $db->prepare(
+        'UPDATE users
+         SET api_key = NULL, api_key_hash = :api_key_hash, api_key_prefix = :api_key_prefix,
+             api_key_created_at = CURRENT_TIMESTAMP
+         WHERE id = :id'
+    );
+    $stmt->execute([
+        ':api_key_hash' => hash('sha256', $apiKey),
+        ':api_key_prefix' => substr($apiKey, 0, 8),
+        ':id' => $userId,
+    ]);
     return $apiKey;
 }
 
 function deleteUserApiKey(PDO $db, int $userId): void
 {
-    $stmt = $db->prepare('UPDATE users SET api_key = NULL, api_key_created_at = NULL WHERE id = :id');
+    $stmt = $db->prepare('UPDATE users SET api_key = NULL, api_key_hash = NULL, api_key_prefix = NULL, api_key_created_at = NULL WHERE id = :id');
     $stmt->execute([':id' => $userId]);
 }
 
 function findUserByApiKey(PDO $db, string $apiKey): ?int
 {
-    $stmt = $db->prepare('SELECT id FROM users WHERE api_key = :api_key LIMIT 1');
-    $stmt->execute([':api_key' => $apiKey]);
+    $stmt = $db->prepare('SELECT id FROM users WHERE api_key_hash = :api_key_hash LIMIT 1');
+    $stmt->execute([':api_key_hash' => hash('sha256', $apiKey)]);
     $userId = $stmt->fetchColumn();
 
     return is_numeric($userId) ? (int) $userId : null;

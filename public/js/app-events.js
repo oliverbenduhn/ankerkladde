@@ -84,6 +84,13 @@ export function registerAppEventHandlers(deps) {
         magicController,
     } = deps;
 
+    const headerMore = document.querySelector('.header-more');
+    headerMore?.querySelector('.header-more-panel')?.addEventListener('click', event => {
+        if (event.target instanceof Element && event.target.closest('button, a')) {
+            headerMore.removeAttribute('open');
+        }
+    });
+
     journalBtn?.addEventListener('click', () => {
         if (state.screen === 'journal') return;
         void openJournalWithNavigation('today', 'editor').catch(error => {

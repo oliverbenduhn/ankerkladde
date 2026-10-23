@@ -459,17 +459,21 @@ class SettingsController
                 break;
 
             case 'regenerate_api_key':
-                setUserApiKey($this->db, $this->userId);
+                $_SESSION['new_api_key'] = setUserApiKey($this->db, $this->userId);
                 $flash = t('settings.flash.api_key_regenerated');
                 break;
 
             case 'save_ai_preferences':
+                $existingPreferences = getExtendedUserPreferences($this->db, $this->userId);
                 $aiProvider = (string) ($postData['ai_provider'] ?? 'gemini');
                 if (!array_key_exists($aiProvider, $providers)) {
                     $aiProvider = 'gemini';
                 }
 
                 $geminiApiKey = trim((string) ($postData['gemini_api_key'] ?? ''));
+                if ($geminiApiKey === '') {
+                    $geminiApiKey = (string) ($existingPreferences['gemini_api_key'] ?? '');
+                }
                 $geminiModel = (string) ($postData['gemini_model'] ?? 'gemini-2.5-flash');
                 $geminiModels = $aiModels['gemini'] ?? [];
                 if (!array_key_exists($geminiModel, $geminiModels)) {
@@ -477,6 +481,9 @@ class SettingsController
                 }
 
                 $openaiCompatibleApiKey = trim((string) ($postData['openai_compatible_api_key'] ?? ''));
+                if ($openaiCompatibleApiKey === '') {
+                    $openaiCompatibleApiKey = (string) ($existingPreferences['openai_compatible_api_key'] ?? '');
+                }
                 $openaiCompatibleModel = trim((string) ($postData['openai_compatible_model'] ?? ''));
                 if ($openaiCompatibleModel === '') $openaiCompatibleModel = 'gpt-4o-mini';
                 $openaiCompatibleBaseUrl = trim((string) ($postData['openai_compatible_base_url'] ?? ''));

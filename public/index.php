@@ -166,13 +166,18 @@ $clientWebSocketUrl = is_string($clientWebSocketUrl) ? trim($clientWebSocketUrl)
         <div class="header-actions">
             <button type="button" id="conflictAlertBtn" class="header-icon-btn btn-conflict-alert" aria-label="<?= t('ui.show_conflicts') ?>" hidden><?= icon('alert-triangle') ?></button>
             <span class="progress view-only" id="progress" aria-live="polite">0 / 0</span>
-            <button type="button" id="layoutToggleBtn" class="header-icon-btn btn-layout-toggle" aria-label="<?= t('ui.toggle_layout') ?>"><?= icon('menu') ?></button>
-            <button type="button" id="tabsToggleBtn" class="header-icon-btn btn-tabs-toggle" aria-label="<?= t('ui.toggle_tabs') ?>"><?= icon('panel-bottom') ?></button>
-            <a href="<?= htmlspecialchars(appPath('barcode.php'), ENT_QUOTES, 'UTF-8') ?>" class="header-icon-btn btn-product-scanner" aria-label="<?= t('ui.scan_product') ?>"<?= !$productScannerEnabled ? ' hidden' : '' ?>><?= icon('scan-info') ?></a>
-            <button type="button" id="scanShoppingBtn" class="header-icon-btn btn-scan" aria-label="<?= t('ui.scan_barcode') ?>"<?= !$shoppingListScannerEnabled ? ' hidden' : '' ?>><?= icon('scan') ?></button>
+            <details class="header-more">
+                <summary class="header-icon-btn" aria-label="<?= t('ui.more_actions') ?>"><?= icon('more-horizontal') ?><span class="header-action-text"><?= t('ui.more') ?></span></summary>
+                <div class="header-more-panel">
+                    <button type="button" id="layoutToggleBtn" class="header-icon-btn btn-layout-toggle" aria-label="<?= t('ui.toggle_layout') ?>"><?= icon('menu') ?><span class="header-action-text"><?= t('ui.layout') ?></span></button>
+                    <button type="button" id="tabsToggleBtn" class="header-icon-btn btn-tabs-toggle" aria-label="<?= t('ui.toggle_tabs') ?>"><?= icon('panel-bottom') ?><span class="header-action-text"><?= t('ui.categories') ?></span></button>
+                    <a href="<?= htmlspecialchars(appPath('barcode.php'), ENT_QUOTES, 'UTF-8') ?>" class="header-icon-btn btn-product-scanner" aria-label="<?= t('ui.scan_product') ?>"<?= !$productScannerEnabled ? ' hidden' : '' ?>><?= icon('scan-info') ?><span class="header-action-text"><?= t('ui.products') ?></span></a>
+                    <button type="button" id="scanShoppingBtn" class="header-icon-btn btn-scan" aria-label="<?= t('ui.scan_barcode') ?>"<?= !$shoppingListScannerEnabled ? ' hidden' : '' ?>><?= icon('scan') ?><span class="header-action-text"><?= t('ui.scan') ?></span></button>
+                    <button type="button" id="magicBtn" class="header-icon-btn btn-magic" aria-label="<?= t('ui.ai_assistant') ?>"<?= !$magicButtonEnabled ? ' hidden' : '' ?>><?= icon('sparkles') ?><span class="header-action-text"><?= t('ui.ai_short') ?></span></button>
+                </div>
+            </details>
             <button type="button" id="searchBtn" class="header-icon-btn btn-search" aria-label="<?= t('ui.search') ?>"><?= icon('search') ?></button>
             <button type="button" id="journalBtn" class="header-icon-btn btn-journal" aria-label="<?= t('ui.open_journal') ?>"><?= icon('calendar') ?></button>
-            <button type="button" id="magicBtn" class="header-icon-btn btn-magic" aria-label="<?= t('ui.ai_assistant') ?>"<?= !$magicButtonEnabled ? ' hidden' : '' ?>><?= icon('sparkles') ?></button>
             <a href="<?= htmlspecialchars(appPath('index.php?screen=settings'), ENT_QUOTES, 'UTF-8') ?>" class="header-icon-btn btn-settings" data-settings-tab="app" aria-label="<?= t('ui.settings') ?>"><?= icon('settings') ?></a>
         </div>
     </header>
@@ -230,7 +235,7 @@ $clientWebSocketUrl = is_string($clientWebSocketUrl) ? trim($clientWebSocketUrl)
         </form>
         <div class="quick-add-feedback" id="quickAddFeedback" role="alert" hidden>
             <span id="quickAddFeedbackText"></span>
-            <button type="button" id="quickAddAiBtn" hidden>Mit AI klären</button>
+            <button type="button" id="quickAddAiBtn" hidden><?= t('ui.clarify_with_ai') ?></button>
         </div>
         <p class="input-hint" id="inputHint" hidden></p>
         <div class="drop-zone" id="dropZone" hidden aria-hidden="true">

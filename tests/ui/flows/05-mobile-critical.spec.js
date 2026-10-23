@@ -48,6 +48,10 @@ test.describe('FLOW 5 — Mobile Critical Path', () => {
     expect(overflow.docW, `scrollWidth=${overflow.docW} clientWidth=${overflow.cliW}`).toBeLessThanOrEqual(overflow.cliW + 1);
 
     // 2) Sichtbare Header-Werkzeuge vorhanden, erreichbar und mindestens 44×44.
+    if (testInfo.project.name === 'mobile') {
+      await activate(page.locator('.header-more > summary'));
+      await expect(page.locator('.header-more')).toHaveAttribute('open', '');
+    }
     const headerBtns = ['#layoutToggleBtn', '#tabsToggleBtn', '#scanShoppingBtn', '#searchBtn', '#journalBtn', '#magicBtn', '#appHeader .btn-settings'];
     for (const sel of headerBtns) {
       const btn = page.locator(sel);
@@ -79,6 +83,9 @@ test.describe('FLOW 5 — Mobile Critical Path', () => {
 
     // 5) Scanner als echter Modal-Flow: Fokus bleibt im Dialog, Escape stoppt
     // auch einen noch anlaufenden Kamera-Pfad und gibt den Auslöser zurück.
+    if (testInfo.project.name === 'mobile') {
+      await activate(page.locator('.header-more > summary'));
+    }
     const scannerTrigger = page.locator('#scanShoppingBtn');
     await activate(scannerTrigger);
     const scanner = page.locator('#scannerOverlay[role="dialog"]');
@@ -88,7 +95,11 @@ test.describe('FLOW 5 — Mobile Critical Path', () => {
     expect(await page.locator('#appHeader').evaluate(element => element.inert)).toBe(true);
     await page.keyboard.press('Escape');
     await expect(scanner).toBeHidden();
-    await expect(scannerTrigger).toBeFocused();
+    if (testInfo.project.name === 'mobile') {
+      await expect(page.locator('.header-more > summary')).toBeFocused();
+    } else {
+      await expect(scannerTrigger).toBeFocused();
+    }
     expect(await page.locator('#appHeader').evaluate(element => element.inert)).toBe(false);
 
     // 6) Reale Kategorie wechseln und sichtbaren Inhalt abwarten.

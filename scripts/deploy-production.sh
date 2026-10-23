@@ -13,7 +13,7 @@ if [[ "${EUID}" -ne 0 ]]; then
     exit 1
 fi
 
-install -d -m 0755 "$APP_ROOT" "$APP_ROOT/public" "$APP_ROOT/public/icons" "$APP_ROOT/public/icons/categories" "$APP_ROOT/public/branding" "$APP_ROOT/scripts" "$APP_ROOT/deploy/apache"
+install -d -m 0755 "$APP_ROOT" "$APP_ROOT/public" "$APP_ROOT/public/icons" "$APP_ROOT/public/icons/categories" "$APP_ROOT/public/branding" "$APP_ROOT/scripts" "$APP_ROOT/src" "$APP_ROOT/lang" "$APP_ROOT/deploy/apache"
 install -d -m 0775 -o www-data -g www-data "$DATA_ROOT"
 
 install -m 0644 "$ROOT_DIR/db.php" "$APP_ROOT/db.php"
@@ -21,6 +21,14 @@ install -m 0644 "$ROOT_DIR/security.php" "$APP_ROOT/security.php"
 install -m 0644 "$ROOT_DIR/README.md" "$APP_ROOT/README.md"
 install -m 0644 "$ROOT_DIR/.gitignore" "$APP_ROOT/.gitignore"
 install -m 0644 "$ROOT_DIR/.gitkeep" "$APP_ROOT/.gitkeep"
+
+while IFS= read -r sourceFile; do
+    install -m 0644 "$sourceFile" "$APP_ROOT/src/$(basename "$sourceFile")"
+done < <(find "$ROOT_DIR/src" -maxdepth 1 -type f -name '*.php' | sort)
+
+while IFS= read -r languageFile; do
+    install -m 0644 "$languageFile" "$APP_ROOT/lang/$(basename "$languageFile")"
+done < <(find "$ROOT_DIR/lang" -maxdepth 1 -type f -name '*.json' | sort)
 
 while IFS= read -r publicFile; do
     relativePath="${publicFile#$ROOT_DIR/public/}"

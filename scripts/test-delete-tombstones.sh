@@ -45,9 +45,9 @@ EINKAUF_DATA_DIR="$TEST_DATA_DIR" php -r '
     require $argv[1] . "/security.php";
     require $argv[1] . "/db.php";
     $db = getDatabase();
-    $stmt = $db->prepare("UPDATE users SET api_key = :api_key, api_key_created_at = CURRENT_TIMESTAMP WHERE username = :username");
-    $stmt->execute([":api_key" => $argv[2], ":username" => "testuser"]);
-    $stmt->execute([":api_key" => $argv[3], ":username" => "testadmin"]);
+    $stmt = $db->prepare("UPDATE users SET api_key = NULL, api_key_hash = :api_key_hash, api_key_prefix = :api_key_prefix, api_key_created_at = CURRENT_TIMESTAMP WHERE username = :username");
+    $stmt->execute([":api_key_hash" => hash("sha256", $argv[2]), ":api_key_prefix" => substr($argv[2], 0, 8), ":username" => "testuser"]);
+    $stmt->execute([":api_key_hash" => hash("sha256", $argv[3]), ":api_key_prefix" => substr($argv[3], 0, 8), ":username" => "testadmin"]);
 ' "$ROOT_DIR" "$API_KEY" "$ADMIN_API_KEY"
 
 PHP_CLI_SERVER_WORKERS=2 \

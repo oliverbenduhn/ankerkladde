@@ -10,6 +10,8 @@ require_once __DIR__ . '/src/FileHelper.php';
 
 require_once __DIR__ . '/src/ImageHelper.php';
 
+require_once __DIR__ . '/src/SecretVault.php';
+
 require_once __DIR__ . '/src/ItemRepository.php';
 
 require_once __DIR__ . '/src/DeletionTombstoneService.php';
@@ -455,7 +457,7 @@ function migrateAiProviderOpenrouterToOpenaiCompatible(PDO $db): void
 
 function getDatabase(): PDO
 {
-    $currentSchemaVersion = 7;
+    $currentSchemaVersion = 8;
     static $db = null;
 
     if ($db instanceof PDO) {
@@ -651,6 +653,12 @@ function getDatabase(): PDO
     if (!in_array('api_key_created_at', $userColumnNames, true)) {
         $db->exec("ALTER TABLE users ADD COLUMN api_key_created_at TEXT");
     }
+    if (!in_array('api_key_hash', $userColumnNames, true)) {
+        $db->exec("ALTER TABLE users ADD COLUMN api_key_hash TEXT");
+    }
+    if (!in_array('api_key_prefix', $userColumnNames, true)) {
+        $db->exec("ALTER TABLE users ADD COLUMN api_key_prefix TEXT");
+    }
 
     if (!in_array('must_change_password', $userColumnNames, true)) {
         $db->exec('ALTER TABLE users ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 0');
@@ -661,6 +669,7 @@ function getDatabase(): PDO
     }
 
     $db->exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_api_key ON users(api_key)');
+    $db->exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_api_key_hash ON users(api_key_hash)');
 
     $db->exec(
         "CREATE TABLE IF NOT EXISTS login_attempts (
@@ -856,6 +865,32 @@ function getDatabase(): PDO
     if (!hasDatabaseMetaFlag($db, $aiOpenrouterMigrationKey)) {
         migrateAiProviderOpenrouterToOpenaiCompatible($db);
         setDatabaseMetaFlag($db, $aiOpenrouterMigrationKey);
+    }
+
+    if (getSchemaVersion($db) < 8) {
+        getSecretVaultKey(true);
+        $users = $db->query('SELECT id, api_key, api_key_hash, preferences_json FROM users')->fetchAll();
+        $updateSecrets = $db->prepare(
+            'UPDATE users
+             SET api_key = NULL, api_key_hash = :api_key_hash, api_key_prefix = :api_key_prefix,
+                 preferences_json = :preferences_json
+             WHERE id = :id'
+        );
+        foreach ($users as $user) {
+            $plainApiKey = trim((string) ($user['api_key'] ?? ''));
+            $preferences = json_decode((string) ($user['preferences_json'] ?? '{}'), true);
+            $updateSecrets->execute([
+                ':id' => (int) $user['id'],
+                ':api_key_hash' => $plainApiKey !== ''
+                    ? hash('sha256', $plainApiKey)
+                    : (($user['api_key_hash'] ?? null) ?: null),
+                ':api_key_prefix' => $plainApiKey !== '' ? substr($plainApiKey, 0, 8) : null,
+                ':preferences_json' => json_encode(
+                    protectPreferenceSecrets(is_array($preferences) ? $preferences : []),
+                    JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+                ),
+            ]);
+        }
     }
 
     setSchemaVersion($db, $currentSchemaVersion);

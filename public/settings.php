@@ -72,9 +72,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $preferences = getExtendedUserPreferences($db, $userId);
-$apiKey = getUserApiKey($db, $userId);
-if ($apiKey === null) {
+$apiKeyPrefix = getUserApiKeyPrefix($db, $userId);
+$apiKey = isset($_SESSION['new_api_key']) && is_string($_SESSION['new_api_key'])
+    ? $_SESSION['new_api_key']
+    : '';
+unset($_SESSION['new_api_key']);
+if ($apiKeyPrefix === null) {
     $apiKey = setUserApiKey($db, $userId);
+    $apiKeyPrefix = substr($apiKey, 0, 8);
 }
 $stmt = $db->prepare('SELECT username FROM users WHERE id = :id LIMIT 1');
 $stmt->execute([':id' => $userId]);
@@ -540,7 +545,7 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                     <div id="gemini_fields" class="ai-provider-fields">
                         <label class="settings-field">
                             <span><?= t('settings.field.gemini_api_key') ?></span>
-                            <input type="password" id="gemini_api_key_input" name="gemini_api_key" value="<?= htmlspecialchars((string) ($preferences['gemini_api_key'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="AIzaSy...">
+                            <input type="password" id="gemini_api_key_input" name="gemini_api_key" value="" placeholder="<?= ($preferences['gemini_api_key'] ?? '') !== '' ? t('settings.secret_configured') : 'AIzaSy...' ?>" autocomplete="new-password">
                         </label>
                         <label class="settings-field">
                             <span><?= t('settings.field.gemini_model') ?></span>
@@ -565,7 +570,7 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
                         </label>
                         <label class="settings-field">
                             <span><?= t('settings.field.openai_compatible_api_key') ?></span>
-                            <input type="password" id="openai_compatible_api_key_input" name="openai_compatible_api_key" value="<?= htmlspecialchars((string) ($preferences['openai_compatible_api_key'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="sk-...">
+                            <input type="password" id="openai_compatible_api_key_input" name="openai_compatible_api_key" value="" placeholder="<?= ($preferences['openai_compatible_api_key'] ?? '') !== '' ? t('settings.secret_configured') : 'sk-...' ?>" autocomplete="new-password">
                         </label>
                     </div>
                     <div class="settings-ai-actions">
@@ -594,11 +599,12 @@ $brandMarkSrc = appPath('icon.php?size=96&theme=' . rawurlencode($effectiveTheme
             <div class="settings-password-fields">
                 <label class="settings-field">
                     <span><?= t('settings.field.api_key') ?></span>
-                    <input type="text" id="api-key-value" value="<?= htmlspecialchars($apiKey, ENT_QUOTES, 'UTF-8') ?>" readonly>
+                    <input type="text" id="api-key-value" value="<?= htmlspecialchars($apiKey !== '' ? $apiKey : $apiKeyPrefix . '••••••••', ENT_QUOTES, 'UTF-8') ?>" readonly data-key-revealed="<?= $apiKey !== '' ? '1' : '0' ?>">
                 </label>
+                <p class="settings-copy"><?= t($apiKey !== '' ? 'settings.api_key_once' : 'settings.api_key_hidden') ?></p>
             </div>
             <div class="settings-actions" style="gap: 0.75rem; flex-wrap: wrap;">
-                <button type="button" class="settings-save" id="copy-api-key"><?= t('settings.action.copy') ?></button>
+                <button type="button" class="settings-save" id="copy-api-key"<?= $apiKey === '' ? ' hidden' : '' ?>><?= t('settings.action.copy') ?></button>
                 <a href="<?= htmlspecialchars(appPath('extension-download.php') . '?firefox', ENT_QUOTES, 'UTF-8') ?>" class="settings-link settings-link-firefox"><?= t('settings.action.download_firefox') ?></a>
                 <a href="<?= htmlspecialchars(appPath('extension-download.php'), ENT_QUOTES, 'UTF-8') ?>" class="settings-link settings-link-chrome"><?= t('settings.action.download_chrome') ?></a>
                 <form method="post" action="<?= htmlspecialchars($settingsAction, ENT_QUOTES, 'UTF-8') ?>" class="settings-form" style="margin:0;">

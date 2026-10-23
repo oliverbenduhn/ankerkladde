@@ -241,11 +241,11 @@ export function initUIHandling(root = document) {
                     ai_provider: provider,
                 };
                 if (provider === 'openai_compatible') {
-                    body.openai_compatible_api_key = key;
+                    if (key) body.openai_compatible_api_key = key;
                     body.openai_compatible_model = model;
                     body.openai_compatible_base_url = baseUrl;
                 } else {
-                    body.gemini_api_key = key;
+                    if (key) body.gemini_api_key = key;
                     body.gemini_model = model;
                 }
 
@@ -370,10 +370,10 @@ export function initUIHandling(root = document) {
             try {
                 const body = { ai_provider: provider };
                 if (provider === 'openai_compatible') {
-                    body.openai_compatible_api_key = key;
+                    if (key) body.openai_compatible_api_key = key;
                     body.openai_compatible_base_url = baseUrl;
                 } else {
-                    body.gemini_api_key = key;
+                    if (key) body.gemini_api_key = key;
                 }
 
                 const csrfToken = root.querySelector('input[name="csrf_token"]')?.value || '';

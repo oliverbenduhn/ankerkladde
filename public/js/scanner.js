@@ -119,6 +119,10 @@ export function createScannerController(deps) {
         if (scannerOverlay) scannerOverlay.hidden = true;
         modalSession?.deactivate();
         modalSession = null;
+        const collapsedMobileMenu = document.querySelector('.header-more:not([open])');
+        if (collapsedMobileMenu?.contains(document.activeElement) === false) {
+            collapsedMobileMenu.querySelector('summary')?.focus({ preventScroll: true });
+        }
     }
 
     async function createBarcodeDetector() {

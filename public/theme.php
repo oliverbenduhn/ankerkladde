@@ -73,8 +73,9 @@ function getExtendedUserPreferences(PDO $db, int $userId): array
 
     $rawPreferences = $row['preferences_json'] ?? '{}';
     $decoded = json_decode(is_string($rawPreferences) ? $rawPreferences : '{}', true);
+    $decoded = revealPreferenceSecrets(is_array($decoded) ? $decoded : []);
 
-    return normalizeExtendedUserPreferences(is_array($decoded) ? $decoded : []);
+    return normalizeExtendedUserPreferences($decoded);
 }
 
 function updateExtendedUserPreferences(PDO $db, int $userId, array $patch): array
@@ -99,7 +100,7 @@ function updateExtendedUserPreferences(PDO $db, int $userId, array $patch): arra
     $stmt = $db->prepare('UPDATE users SET preferences_json = :preferences_json WHERE id = :id');
     $stmt->execute([
         ':id' => $userId,
-        ':preferences_json' => json_encode($preferences, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+        ':preferences_json' => json_encode(protectPreferenceSecrets($preferences), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
     ]);
 
     return $preferences;

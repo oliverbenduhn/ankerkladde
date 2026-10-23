@@ -129,11 +129,14 @@ Browser-Sessions verwenden Session-Cookie + `X-CSRF-Token`. Die Browser-Erweiter
 | `ANKERKLADDE_WS_SECRET` | kein Standard | Pflicht für Live-Updates; gemeinsames starkes Zufallssecret für PHP und WebSocket-Dienst |
 | `ANKERKLADDE_ALLOW_PRIVATE_AI_ENDPOINTS` | `false` | Erlaubt bewusst private HTTP(S)-Ziele für lokale AI-Proxys; niemals unbedacht in Mehrbenutzer-Installationen aktivieren |
 | `ANKERKLADDE_AUTO_MIGRATE` | `false` im Web, automatisch in CLI | Erlaubt Schema-Migrationen im Request-Pfad; produktiv stattdessen `php scripts/migrate.php` ausführen |
+| `ANKERKLADDE_SECRET_KEY` | automatisch erzeugte Datei in `EINKAUF_DATA_DIR` | Optionaler externer Instanzschlüssel für verschlüsselte Provider-Secrets; als Base64 oder starke Passphrase |
 | `EINKAUF_BOOTSTRAP_ADMIN_USER` / `_PASS` | `admin` / `admin1234` | Initialer Admin für frische Docker-Installationen |
 
 ## WebSocket und Live-Sync
 
 Live-Updates brauchen den Node-Dienst aus `websocket-server/` und ein identisches `ANKERKLADDE_WS_SECRET` in PHP und Node. Browser erhalten nur kurzlebige, nutzergebundene Tickets; `/notify` akzeptiert ausschließlich das gemeinsame Secret. Mit Docker ist der Dienst verdrahtet; setze das Secret vor `docker compose up`. Für Apache/Nginx brauchst du zusätzlich den Reverse Proxy für `/ws/` und einen erreichbaren `/notify`-Endpoint. Der bisher ungeschützte Yjs-Endpunkt ist deaktiviert. Details: [WEBSOCKET-SETUP.md](WEBSOCKET-SETUP.md).
+
+Provider-API-Schlüssel werden mit libsodium verschlüsselt. Ohne `ANKERKLADDE_SECRET_KEY` erzeugt `php scripts/migrate.php` einmalig `EINKAUF_DATA_DIR/.secret-key`. Diese Datei gehört zwingend zusammen mit der Datenbank ins Backup; ohne sie können gespeicherte Provider-Schlüssel nicht wiederhergestellt werden. Ankerkladde-API-Schlüssel werden nur gehasht gespeichert und nach Erzeugung genau einmal vollständig angezeigt.
 
 ## Open Food Facts importieren
 

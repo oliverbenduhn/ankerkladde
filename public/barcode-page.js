@@ -1,5 +1,7 @@
 'use strict';
 
+import { t } from './js/i18n.js';
+
 const csrfMeta = document.querySelector('meta[name="csrf-token"]');
 const appBasePathMeta = document.querySelector('meta[name="app-base-path"]');
 if (!csrfMeta) throw new Error('csrf-token meta tag missing');
@@ -40,11 +42,11 @@ async function api(action) {
 
     if (response.status === 401) {
         window.location.href = appUrl('login.php');
-        throw new Error('Sitzung abgelaufen.');
+        throw new Error(t('error.session_expired'));
     }
 
     if (!response.ok) {
-        throw new Error(payload.error || 'Unbekannter Fehler');
+        throw new Error(payload.error || t('error.unknown'));
     }
 
     return payload;
@@ -67,7 +69,7 @@ function setSubtitle(text) {
 function updateCameraButtons() {
     const running = scannerState.running;
     if (pageCameraToggleBtn) {
-        pageCameraToggleBtn.setAttribute('aria-label', running ? 'Kamera ausschalten' : 'Kamera einschalten');
+        pageCameraToggleBtn.setAttribute('aria-label', t(running ? 'barcode_page.camera_off' : 'barcode_page.camera_on'));
         pageCameraToggleBtn.classList.toggle('is-active', running);
     }
 }
@@ -121,7 +123,7 @@ function stopScanner() {
     scannerState.processing = false;
     scannerState.running = false;
     updateCameraButtons();
-    setStatus('Scanner gestoppt.');
+    setStatus(t('barcode_page.stopped'));
 }
 
 async function createBarcodeDetector() {
@@ -177,7 +179,7 @@ function waitForVideoReady(video, timeoutMs = 5000) {
     return new Promise((resolve, reject) => {
         const timeoutId = setTimeout(() => {
             cleanup();
-            reject(new Error('Kamerabild wurde nicht rechtzeitig bereit.'));
+            reject(new Error(t('barcode_page.camera_timeout')));
         }, timeoutMs);
 
         const onReady = () => {
@@ -210,11 +212,11 @@ function scheduleWatchdog() {
         }
 
         if (scannerState.mode === 'zxing' && isIosWebKit()) {
-            setStatus('Kamera aktiv. Auf iPad/iPhone erkennt WebKit Barcodes nicht immer zuverlässig. Falls nichts passiert, Barcode manuell eingeben.', true);
+            setStatus(t('scanner.camera_active_ios'), true);
             return;
         }
 
-        setStatus('Kamera aktiv. Falls kein Scan erkannt wird, Barcode manuell eingeben.', true);
+        setStatus(t('scanner.camera_active_hint'), true);
     }, 7000);
 }
 function createElement(tag, className, textContent = null) {
@@ -242,7 +244,7 @@ function renderProductDetails(payload) {
         const imgWrap = createElement('div', 'p-product-image-wrapper');
         const img = createElement('img', 'p-product-image');
         img.src = fields.image_small_url;
-        img.alt = fields.product_name || 'Produktbild';
+        img.alt = fields.product_name || t('barcode_page.product_image');
         imgWrap.appendChild(img);
         headerRow.appendChild(imgWrap);
     }
@@ -255,7 +257,7 @@ function renderProductDetails(payload) {
     if (fields.quantity || product.quantity) {
         titleCol.appendChild(createElement('div', 'p-product-quantity', fields.quantity || product.quantity));
     }
-    titleCol.appendChild(createElement('div', 'barcode-summary-eyebrow', `Barcode: ${product.barcode}`));
+    titleCol.appendChild(createElement('div', 'barcode-summary-eyebrow', t('barcode_page.barcode_value', { barcode: product.barcode })));
     headerRow.appendChild(titleCol);
     card.appendChild(headerRow);
     
@@ -299,7 +301,7 @@ function renderProductDetails(payload) {
         const table = createElement('table', 'p-nutrition-table');
         const thead = createElement('thead');
         const trHead = createElement('tr');
-        trHead.appendChild(createElement('th', '', 'Nährwerte'));
+        trHead.appendChild(createElement('th', '', t('barcode_page.nutrition')));
         trHead.appendChild(createElement('th', '', 'pro 100g'));
         thead.appendChild(trHead);
         table.appendChild(thead);
@@ -336,7 +338,7 @@ async function loadBarcodeDetails(barcode) {
     renderProductDetails(payload);
     if (barcodeEmptyState) barcodeEmptyState.hidden = true;
     setSubtitle(`Lokale Daten zu ${barcode}`);
-    setStatus(`Produkt geladen: ${barcode}`);
+    setStatus(t('barcode_page.product_loaded', { barcode }));
 }
 
 async function handleBarcode(rawValue) {
@@ -358,7 +360,7 @@ async function handleBarcode(rawValue) {
         await loadBarcodeDetails(barcode);
         if ('vibrate' in navigator) navigator.vibrate(12);
     } catch (error) {
-        setStatus(error instanceof Error ? error.message : 'Produkt konnte nicht geladen werden.', true);
+        setStatus(error instanceof Error ? error.message : t('barcode_page.load_failed'), true);
     } finally {
         window.setTimeout(() => {
             scannerState.processing = false;
@@ -392,10 +394,10 @@ function scheduleLoop() {
 
 async function startScanner() {
     stopScanner();
-    setStatus('Kamera wird gestartet...');
+    setStatus(t('barcode_page.camera_starting'));
 
     if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
-        setStatus('Kamera-Scan braucht HTTPS oder localhost. Manueller Barcode-Eintrag bleibt verfügbar.', true);
+        setStatus(t('scanner.needs_https'), true);
         pageManualInput?.focus();
         return;
     }
@@ -403,7 +405,7 @@ async function startScanner() {
     try {
         const engine = await createBarcodeDetector();
         if (!engine) {
-            setStatus('Automatischer Barcode-Scan wird in diesem Browser nicht unterstützt. Manueller Barcode-Eintrag ist aktiv.', true);
+            setStatus(t('scanner.not_supported'), true);
             pageManualInput?.focus();
             return;
         }
@@ -412,10 +414,10 @@ async function startScanner() {
         scannerState.detector = engine.detector;
 
         const modeLabel = engine.mode === 'zxing' ? 'ZXing' : 'nativ';
-        setStatus(`Starte ${modeLabel}-Scanner...`);
+        setStatus(t('barcode_page.scanner_starting', { mode: modeLabel }));
 
         if (engine.mode === 'zxing') {
-            setStatus('ZXing: Starte Kamera...');
+            setStatus(t('barcode_page.zxing_starting'));
             try {
                 scannerState.controls = await scannerState.detector.decodeFromVideoDevice(
                     undefined,
@@ -432,8 +434,8 @@ async function startScanner() {
                 updateCameraButtons();
                 await waitForVideoReady(pageVideo);
                 setStatus(isIosWebKit()
-                    ? 'Kamera aktiv (ZXing). Auf dem iPad/iPhone bitte ruhig halten; alternativ Barcode manuell eingeben.'
-                    : 'Kamera aktiv (ZXing). Barcode in den Rahmen halten.');
+                    ? t('scanner.camera_active_zxing_ios')
+                    : t('scanner.camera_active_zxing'));
                 scheduleWatchdog();
             } catch (err) {
                 setStatus('ZXing-Fehler: ' + err.message, true);
@@ -454,12 +456,12 @@ async function startScanner() {
 
         scannerState.running = true;
         updateCameraButtons();
-        setStatus('Kamera aktiv (nativ). Barcode in den Rahmen halten.');
+        setStatus(t('scanner.camera_active_native'));
         scheduleWatchdog();
         scheduleLoop();
     } catch (error) {
         stopScanner();
-        setStatus(error instanceof Error ? error.message : 'Kamera konnte nicht gestartet werden.', true);
+        setStatus(error instanceof Error ? error.message : t('barcode_page.camera_failed'), true);
         pageManualInput?.focus();
     }
 }
@@ -479,7 +481,7 @@ pageManualForm?.addEventListener('submit', event => {
     event.preventDefault();
     const barcode = normalizeBarcodeValue(pageManualInput?.value || '');
     if (barcode === '') {
-        setStatus('Bitte Barcode eingeben.', true);
+        setStatus(t('barcode_page.enter_barcode'), true);
         return;
     }
 
