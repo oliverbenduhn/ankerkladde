@@ -88,5 +88,16 @@ module.exports = defineConfig({
       },
       testMatch: /flows\//,
     },
+    {
+      // Legacy component specs live directly below tests/ui. Keep them
+      // explicitly addressable without mixing them into the default flow run.
+      name: 'legacy',
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 1280, height: 900 },
+        launchOptions: chromiumExecutablePath ? { executablePath: chromiumExecutablePath } : undefined,
+      },
+      testMatch: /^(?!flows\/).*\.spec\.js$/,
+    },
   ],
 });

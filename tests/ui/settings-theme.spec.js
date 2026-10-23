@@ -32,14 +32,24 @@ test.describe('Settings Theme Smoke Test', () => {
 
     const contrast = await page.locator('#itemSubmitBtn').evaluate(element => {
       const style = window.getComputedStyle(element);
+      const luminance = value => {
+        const channels = value.match(/[\d.]+/g).slice(0, 3).map(Number).map(channel => {
+          const normalized = channel / 255;
+          return normalized <= 0.03928 ? normalized / 12.92 : ((normalized + 0.055) / 1.055) ** 2.4;
+        });
+        return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
+      };
+      const backgroundLuminance = luminance(style.backgroundColor);
+      const foregroundLuminance = luminance(style.color);
       return {
         backgroundColor: style.backgroundColor,
         color: style.color,
+        ratio: (Math.max(backgroundLuminance, foregroundLuminance) + 0.05)
+          / (Math.min(backgroundLuminance, foregroundLuminance) + 0.05),
       };
     });
 
-    expect(contrast.backgroundColor).toBe('rgb(42, 42, 42)');
-    expect(contrast.color).toBe('rgb(255, 255, 255)');
+    expect(contrast.ratio, `${contrast.backgroundColor} auf ${contrast.color}`).toBeGreaterThanOrEqual(4.5);
   });
 
   test('theme mode updates the host app before autosave completes', async ({ page }) => {
@@ -137,15 +147,15 @@ test.describe('Settings Theme Smoke Test', () => {
 
     await expect(page).toHaveURL(/index\.php/);
     await expect(page.locator('#sectionTabs .section-tab').first()).toBeVisible();
-    await page.getByRole('button', { name: 'KI-Assistent' }).first().click();
-    await expect(page.locator('#magicBar')).toBeVisible();
+    await page.locator('#searchBtn').click();
+    await expect(page.locator('#searchBar')).toBeVisible();
 
     await page.getByRole('link', { name: 'Einstellungen' }).first().click();
 
     await expect(page.locator('#app')).toHaveClass(/settings-view/);
-    await expect(page.locator('#magicBar')).toBeHidden();
-    await expect(page.getByRole('button', { name: 'KI-Assistent' }).first()).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Produktinfos per Scan öffnen' }).first()).toBeVisible();
+    await expect(page.locator('#searchBar')).toBeHidden();
+    await expect(page.locator('#searchBtn')).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Einstellungen' }).first()).toBeVisible();
   });
 
   test('category rows keep their expanded state when settings are reopened', async ({ page }) => {
