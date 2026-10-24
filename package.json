@@ -10,10 +10,10 @@
     "test:i18n": "php scripts/check-i18n-keys.php",
     "test:design": "php scripts/check-design-token-stamp.php",
     "test:secrets": "php scripts/test-secret-storage.php",
-    "test:ui": "playwright test --project=desktop --project=mobile",
-    "test:ui:legacy": "playwright test --project=legacy",
-    "test:ui:headed": "playwright test --project=desktop --project=mobile --headed",
-    "test:ui:debug": "playwright test --project=desktop --project=mobile --debug",
+    "test:ui": "node scripts/run-ui-tests.cjs --project=desktop --project=mobile",
+    "test:ui:legacy": "node scripts/run-ui-tests.cjs --project=legacy",
+    "test:ui:headed": "node scripts/run-ui-tests.cjs --project=desktop --project=mobile --headed",
+    "test:ui:debug": "node scripts/run-ui-tests.cjs --project=desktop --project=mobile --debug",
     "test:ui:install": "playwright install chromium"
   },
   "devDependencies": {

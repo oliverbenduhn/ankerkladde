@@ -4,6 +4,10 @@ declare(strict_types=1);
 $root = dirname(__DIR__);
 $expected = (string) require $root . '/public/version.php';
 $errors = [];
+$worker = (string) file_get_contents($root . '/public/sw.js');
+if (!preg_match('/const VERSION = [\'"]v([^\'"]+)[\'"]/', $worker, $version) || $version[1] !== $expected) {
+    $errors[] = 'sw.js: VERSION muss v' . $expected . ' entsprechen';
+}
 
 foreach (glob($root . '/public/js/*.js') ?: [] as $file) {
     $source = file_get_contents($file);

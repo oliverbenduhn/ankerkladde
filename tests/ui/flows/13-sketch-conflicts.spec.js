@@ -40,8 +40,10 @@ async function createDrawing(page) {
 
 async function openDrawing(page, category, itemId) {
   await page.reload();
-  await page.getByRole('button', { name: category.name, exact: true }).click();
-  await page.locator(`.item-card[data-item-id="${itemId}"]`).click();
+  if (new URL(page.url()).searchParams.get('screen') !== 'sketch') {
+    await page.getByRole('button', { name: category.name, exact: true }).click();
+    await page.locator(`.item-card[data-item-id="${itemId}"]`).click();
+  }
   await expect(page.locator('.sketch-editor-host canvas.interactive')).toBeVisible({ timeout: 25_000 });
 }
 

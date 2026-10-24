@@ -15,8 +15,15 @@ export const openCategoryKey = 'einkauf-settings-open-category:' + scrollKey;
 export function readLocalPrefs() {
     try {
         const raw = window.localStorage.getItem(localPrefsStorageKey);
-        return raw ? JSON.parse(raw) : {};
+        const prefs = raw ? JSON.parse(raw) : {};
+        if (!prefs || typeof prefs !== 'object' || Array.isArray(prefs)) throw new SyntaxError('Invalid preferences');
+        return prefs;
     } catch (error) {
+        console.warn('Local preferences unavailable:', error.name);
+        if (error instanceof SyntaxError) {
+            try { window.localStorage.removeItem(localPrefsStorageKey); }
+            catch (storageError) { console.warn('Local preferences recovery unavailable:', storageError.name); }
+        }
         return {};
     }
 }
@@ -24,7 +31,9 @@ export function readLocalPrefs() {
 export function saveLocalPrefs(patch) {
     try {
         window.localStorage.setItem(localPrefsStorageKey, JSON.stringify({ ...readLocalPrefs(), ...patch }));
-    } catch (error) {}
+    } catch (error) {
+        console.warn('Local preferences could not be saved:', error.name);
+    }
 }
 
 export function postPreferencesUpdate(preferences) {

@@ -74,9 +74,7 @@ function extractMainArticle() {
   ];
 
   tagsToRemove.forEach(selector => {
-    try {
-      cleanClone.querySelectorAll(selector).forEach(el => el.remove());
-    } catch (e) {}
+    cleanClone.querySelectorAll(selector).forEach(el => el.remove());
   });
 
   // 3. Remove inline scripts, event handlers, and styles
