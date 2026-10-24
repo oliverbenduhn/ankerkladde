@@ -328,6 +328,23 @@ IDEMPOTENT_COUNT="$(EINKAUF_DATA_DIR="$TEST_DATA_DIR" php -r '$db = new PDO("sql
 [[ "$IDEMPOTENT_COUNT" == "1" ]]
 
 # Idempotenz: gleiche Request-ID + anderer Body = 422 mit idempotency_key_mismatch.
+# A failed response write must roll back the mutation AND its reservation.
+EINKAUF_DATA_DIR="$TEST_DATA_DIR" php -r '
+    $db = new PDO("sqlite:" . getenv("EINKAUF_DATA_DIR") . "/einkaufsliste.db");
+    $db->exec("CREATE TRIGGER fail_response_write BEFORE UPDATE OF response_status ON idempotency_keys WHEN NEW.request_id = \"smoke-response-fault\" BEGIN SELECT RAISE(ABORT, \"simulated response failure\"); END");
+'
+[[ "$(status_code "$IDEMPOTENT_FIRST_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: smoke-response-fault' -X POST -d "category_id=$SHOPPING_CATEGORY_ID&name=AtomicResponseFault" "http://127.0.0.1:$PORT/api.php?action=add")" == "500" ]]
+EINKAUF_DATA_DIR="$TEST_DATA_DIR" php -r '
+    $db = new PDO("sqlite:" . getenv("EINKAUF_DATA_DIR") . "/einkaufsliste.db");
+    if ((int) $db->query("SELECT COUNT(*) FROM items WHERE name = \"AtomicResponseFault\"")->fetchColumn() !== 0) exit(1);
+    if ((int) $db->query("SELECT COUNT(*) FROM idempotency_keys WHERE request_id = \"smoke-response-fault\"")->fetchColumn() !== 0) exit(1);
+    $db->exec("DROP TRIGGER fail_response_write");
+'
+[[ "$(status_code "$IDEMPOTENT_FIRST_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: smoke-response-fault' -X POST -d "category_id=$SHOPPING_CATEGORY_ID&name=AtomicResponseFault" "http://127.0.0.1:$PORT/api.php?action=add")" == "201" ]]
+[[ "$(status_code "$IDEMPOTENT_REPLAY_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H 'X-Idempotency-Key: smoke-response-fault' -X POST -d "category_id=$SHOPPING_CATEGORY_ID&name=AtomicResponseFault" "http://127.0.0.1:$PORT/api.php?action=add")" == "201" ]]
+php -r '$body = json_decode(file_get_contents($argv[1]), true); if (($body["idempotent_replay"] ?? 0) !== 1) exit(1);' "$IDEMPOTENT_REPLAY_BODY"
+
+# Idempotenz: gleiche Request-ID + anderer Body = 422 mit idempotency_key_mismatch.
 [[ "$(status_code "$IDEMPOTENT_MISMATCH_BODY" -b "$COOKIE_JAR" -H "X-CSRF-Token: $CSRF_TOKEN" -H "X-Idempotency-Key: smoke-add-replay-key" -X POST -d "category_id=$SHOPPING_CATEGORY_ID&name=IdempotenzAbweichend" "http://127.0.0.1:$PORT/api.php?action=add")" == "422" ]]
 php -r '$payload = json_decode(file_get_contents($argv[1]), true); if (($payload["error_key"] ?? "") !== "error.idempotency_key_mismatch") { fwrite(STDERR, "Mismatch lieferte den falschen Fehler-Key.\n"); exit(1); }' "$IDEMPOTENT_MISMATCH_BODY"
 

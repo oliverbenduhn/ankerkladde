@@ -459,6 +459,16 @@ final class DeletionTombstoneService
             throw $error;
         }
 
+        if ($this->db instanceof TransactionalPDO && $this->db->inTransaction()) {
+            $this->db->afterCommit(fn() => $this->finalize($userId, $deletionId));
+            return [
+                'deletion_id' => $deletionId,
+                'state' => 'purged',
+                'item_ids' => $itemIds,
+                'cleanup_pending' => true,
+            ];
+        }
+
         $cleanupPending = false;
         foreach ($payloadRows as $payloadRow) {
             $attachmentJson = $payloadRow['attachment_json'] ?? null;

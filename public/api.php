@@ -54,6 +54,12 @@ const REMOTE_FILE_IMPORT_TIMEOUT_SECONDS = 7200;
 
 function respond(int $status, array $payload): never
 {
+    $db = $GLOBALS['db'] ?? null;
+    if ($status >= 400 && ($GLOBALS['current_idempotency_operation'] ?? false) && $db instanceof TransactionalPDO) {
+        $db->rollBackAll();
+        $GLOBALS['current_idempotency_operation'] = false;
+        $GLOBALS['current_idempotency_reservation_owned'] = false;
+    }
     if ($status >= 200 && $status < 300) {
         storeIdempotentResponse($status, $payload);
         if (in_array($_SERVER['REQUEST_METHOD'], ['POST', 'PUT', 'PATCH', 'DELETE'], true)) {
@@ -80,12 +86,8 @@ function requireMethod(string $expectedMethod): void
     }
 }
 
-// Read-or-insert-Bloecke brauchen BEGIN IMMEDIATE: die Schreibsperre muss schon
-// vor dem SELECT stehen, sonst koennen zwei parallele Erstanlagen desselben Tages
-// beide "kein Item" sehen. PDO::beginTransaction() setzt aber nur ein deferred
-// BEGIN und kennt per exec() gestartete Transaktionen nicht — commit()/rollBack()
-// werfen dann "There is no active transaction". Darum die gesamte Lebensdauer
-// dieser Transaktionen ueber exec() fahren, nie gemischt mit PDO-Methoden.
+// Read-or-insert operations acquire the write lock before their first SELECT.
+// TransactionalPDO turns nested use-case transactions into savepoints.
 function beginImmediateTransaction(PDO $db): void
 {
     $db->exec('BEGIN IMMEDIATE');
@@ -101,8 +103,7 @@ function rollBackImmediateTransaction(PDO $db): void
     $db->exec('ROLLBACK');
 }
 
-// Fuer catch-Bloecke: PDO::inTransaction() sieht diese Transaktionen nicht, also
-// den Rollback versuchen und ein "no transaction" schlucken.
+// Also supports plain PDO connections used by isolated helper tests.
 function rollBackImmediateTransactionIfActive(PDO $db): void
 {
     try {
@@ -237,8 +238,10 @@ function replayIdempotentIfKnown(array $data): void
                 ':request_hash' => $requestHash,
                 ':response_body' => '',
             ]);
-            commitImmediateTransaction($db);
             $GLOBALS['current_idempotency_reservation_owned'] = true;
+            // Keep reservation, mutation and response in the same transaction.
+            // Nested use-case transactions are savepoints on this connection.
+            $GLOBALS['current_idempotency_operation'] = true;
             return;
         }
 
@@ -267,11 +270,12 @@ function replayIdempotentIfKnown(array $data): void
                 ':request_hash' => $requestHash,
             ]);
             $reclaimed = $reclaimStmt->rowCount() === 1;
-            commitImmediateTransaction($db);
             if ($reclaimed) {
                 $GLOBALS['current_idempotency_reservation_owned'] = true;
+                $GLOBALS['current_idempotency_operation'] = true;
                 return;
             }
+            commitImmediateTransaction($db);
             respond(409, [
                 'error' => 'Eine Anfrage mit diesem Idempotency-Key wird bereits verarbeitet.',
                 'error_key' => 'error.idempotency_in_progress',
@@ -315,11 +319,9 @@ function storeIdempotentResponse(int $status, array $payload): void
     }
     $body = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
-    // The domain mutation has already committed at this point. A temporary
-    // cache-write failure must therefore never turn a successful operation
-    // into an HTTP 500 (which encourages the client to repeat the mutation).
-    // Retry SQLite lock contention, then preserve the in-flight marker and log
-    // the failure. The marker fails closed against duplicate execution.
+    // Both the domain mutation and this response remain uncommitted until the
+    // final write succeeds. Failure rolls back the entire operation, so a retry
+    // can safely acquire the same key again.
     for ($attempt = 1; $attempt <= 3; $attempt++) {
         try {
             $stmt = $db->prepare(
@@ -341,6 +343,11 @@ function storeIdempotentResponse(int $status, array $payload): void
             if ($stmt->rowCount() !== 1) {
                 throw new RuntimeException('Idempotency reservation was not finalized exactly once.');
             }
+            if (($GLOBALS['current_idempotency_operation'] ?? false) && $db instanceof TransactionalPDO) {
+                if ($db->transactionDepth() !== 1) throw new RuntimeException('Unclosed mutation transaction.');
+                $db->commit();
+                $GLOBALS['current_idempotency_operation'] = false;
+            }
             $GLOBALS['current_idempotency_reservation_owned'] = false;
             return;
         } catch (Throwable $error) {
@@ -348,7 +355,7 @@ function storeIdempotentResponse(int $status, array $payload): void
                 usleep(25000 * $attempt);
                 continue;
             }
-            error_log('Idempotency response persistence failed after committed mutation: ' . $error->getMessage());
+            throw $error;
         }
     }
 }
@@ -2708,15 +2715,14 @@ try {
                     ]);
 
                     $canonicalItem = fetchItemForUser($db, $userId, $replaceItemId);
-                    commitImmediateTransaction($db);
-
                     if ($oldAttachment !== null) {
-                        try {
-                            deleteAttachmentStorageFile($oldAttachment);
-                        } catch (Throwable $cleanupException) {
-                            error_log(sprintf('Einkauf attachment cleanup error [replace:%d]: %s', $replaceItemId, $cleanupException->getMessage()));
+                        $cleanupService = new DeletionTombstoneService($db);
+                        $cleanupService->enqueueDetachedAttachmentCleanup([$oldAttachment]);
+                        if ($db instanceof TransactionalPDO) {
+                            $db->afterCommit(static fn() => $cleanupService->garbageCollectDetachedAttachments());
                         }
                     }
+                    commitImmediateTransaction($db);
                 } catch (Throwable $exception) {
                     rollBackImmediateTransactionIfActive($db);
                     if ($storedFileMoved) {

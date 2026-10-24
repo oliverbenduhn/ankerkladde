@@ -4,6 +4,7 @@ declare(strict_types=1);
 date_default_timezone_set((string) (getenv('ANKERKLADDE_TIMEZONE') ?: 'Europe/Berlin'));
 
 require_once __DIR__ . '/src/Constants.php';
+require_once __DIR__ . '/src/TransactionalPDO.php';
 
 
 require_once __DIR__ . '/src/FileHelper.php';
@@ -469,7 +470,7 @@ function getDatabase(): PDO
 
     ensureUploadDirectories();
 
-    $db = new PDO('sqlite:' . $dbFile);
+    $db = new TransactionalPDO('sqlite:' . $dbFile);
     $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     $db->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
     $db->exec('PRAGMA busy_timeout = 3000');
