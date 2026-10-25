@@ -466,6 +466,9 @@ function createWebSocketTicket(int $userId, int $lifetimeSeconds = 60): string
     $payload = json_encode([
         'sub' => $userId,
         'purpose' => 'notifications',
+        'origin' => isLocalDevelopmentHost(getRequestHost())
+            ? (isRequestHttps() ? 'https://' : 'http://') . strtolower((string) ($_SERVER['HTTP_HOST'] ?? 'localhost'))
+            : getCanonicalAppOrigin(),
         'exp' => time() + max(15, min(300, $lifetimeSeconds)),
         'nonce' => bin2hex(random_bytes(12)),
     ], JSON_UNESCAPED_SLASHES);

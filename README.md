@@ -134,7 +134,7 @@ Browser-Sessions verwenden Session-Cookie + `X-CSRF-Token`. Die Browser-Erweiter
 
 ## WebSocket und Live-Sync
 
-Live-Updates brauchen den Node-Dienst aus `websocket-server/` und ein identisches `ANKERKLADDE_WS_SECRET` in PHP und Node. Browser erhalten nur kurzlebige, nutzergebundene Tickets; `/notify` akzeptiert ausschließlich das gemeinsame Secret. Mit Docker ist der Dienst verdrahtet; setze das Secret vor `docker compose up`. Für Apache/Nginx brauchst du zusätzlich den Reverse Proxy für `/ws/` und einen erreichbaren `/notify`-Endpoint. Der bisher ungeschützte Yjs-Endpunkt ist deaktiviert. Details: [WEBSOCKET-SETUP.md](WEBSOCKET-SETUP.md).
+Live-Updates brauchen den Node-Dienst aus `websocket-server/` und ein identisches `ANKERKLADDE_WS_SECRET` in PHP und Node. Browser erhalten nur kurzlebige Tickets, die an Nutzer und App-Origin gebunden sind. Der WebSocket-Handshake prüft zusätzlich den `Origin`-Header; Reverse Proxies müssen ihn unverändert weiterleiten. `/notify` akzeptiert ausschließlich das gemeinsame Secret. Mit Docker ist der Dienst verdrahtet; setze das Secret vor `docker compose up`. Für Apache/Nginx brauchst du zusätzlich den Reverse Proxy für `/ws/` und einen erreichbaren `/notify`-Endpoint. Der bisher ungeschützte Yjs-Endpunkt ist deaktiviert. Details: [WEBSOCKET-SETUP.md](WEBSOCKET-SETUP.md).
 
 Provider-API-Schlüssel werden mit libsodium verschlüsselt. Ohne `ANKERKLADDE_SECRET_KEY` erzeugt `php scripts/migrate.php` einmalig `EINKAUF_DATA_DIR/.secret-key`. Diese Datei gehört zwingend zusammen mit der Datenbank ins Backup; ohne sie können gespeicherte Provider-Schlüssel nicht wiederhergestellt werden. Ankerkladde-API-Schlüssel werden nur gehasht gespeichert und nach Erzeugung genau einmal vollständig angezeigt.
 

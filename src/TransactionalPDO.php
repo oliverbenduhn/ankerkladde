@@ -9,7 +9,9 @@ final class TransactionalPDO extends PDO
 
     public function beginTransaction(): bool
     {
-        $this->exec('BEGIN');
+        // Application transactions mutate state. Acquire the writer lock before
+        // any use-case SELECT instead of upgrading a possibly stale WAL snapshot.
+        $this->exec('BEGIN IMMEDIATE');
         return true;
     }
 

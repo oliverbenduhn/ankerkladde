@@ -87,6 +87,12 @@ function decryptStoredSecret(string $stored): string
     return $plaintext;
 }
 
+function redactPreferenceSecrets(array $preferences): array
+{
+    unset($preferences['gemini_api_key'], $preferences['openai_compatible_api_key'], $preferences['openrouter_api_key']);
+    return $preferences;
+}
+
 function protectPreferenceSecrets(array $preferences): array
 {
     foreach (['gemini_api_key', 'openai_compatible_api_key', 'openrouter_api_key'] as $key) {

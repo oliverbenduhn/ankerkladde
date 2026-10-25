@@ -29,7 +29,9 @@ test.describe('FLOW 1 — First-Run Einkaufsliste', () => {
     await snap(page, testInfo, '3-item-rendered');
 
     // Toggle done (App nutzt CSS-Klasse `done`, nicht `is-done`)
+    const toggleResponse = page.waitForResponse(r => r.url().includes('action=toggle') && r.status() === 200);
     await card.locator('input.toggle').first().click();
+    await (await toggleResponse).finished();
     await expect(card).toHaveClass(/\bdone\b/);
     await snap(page, testInfo, '4-item-done');
 

@@ -22,8 +22,11 @@ export function saveSketchDraft(key, draft) {
         const drafts = loadDrafts();
         drafts[key] = draft;
         sessionStorage.setItem(SKETCH_DRAFTS_KEY, JSON.stringify(drafts));
-    } catch {
+        return true;
+    } catch (error) {
         // Die aktive Editor-Closure behaelt die Szene weiterhin im Speicher.
+        console.warn('Sketch draft storage unavailable:', error.name);
+        return false;
     }
 }
 

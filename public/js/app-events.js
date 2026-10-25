@@ -85,8 +85,12 @@ export function registerAppEventHandlers(deps) {
     } = deps;
 
     const headerMore = document.querySelector('.header-more');
+    const compactHeader = window.matchMedia('(max-width: 39.99rem)');
+    const syncHeaderMore = () => { if (headerMore) headerMore.open = !compactHeader.matches; };
+    syncHeaderMore();
+    compactHeader.addEventListener('change', syncHeaderMore);
     headerMore?.querySelector('.header-more-panel')?.addEventListener('click', event => {
-        if (event.target instanceof Element && event.target.closest('button, a')) {
+        if (compactHeader.matches && event.target instanceof Element && event.target.closest('button, a')) {
             headerMore.removeAttribute('open');
         }
     });

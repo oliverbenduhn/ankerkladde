@@ -1,0 +1,43 @@
+/* Semantic component roles. Theme-dependent mixes resolve on the themed element. */
+:root, [data-theme] {
+    --color-white: #fff;
+    --color-shadow: #000;
+    --color-warning: oklch(47% 0.12 72);
+    --color-waiting: oklch(44% 0.15 300);
+    --danger: var(--error);
+    --warning: var(--color-warning);
+    --color-surface: var(--surface);
+    --accent-bg: color-mix(in srgb, var(--accent) 8%, transparent);
+    --status-open-bg: color-mix(in srgb, var(--text-secondary) 12%, var(--surface));
+    --status-open-text: var(--text-secondary);
+    --status-progress-bg: color-mix(in srgb, var(--color-warning) 14%, var(--surface));
+    --status-progress-text: var(--color-warning);
+    --status-waiting-bg: color-mix(in srgb, var(--color-waiting) 12%, var(--surface));
+    --status-waiting-text: var(--color-waiting);
+    --status-info-bg: color-mix(in srgb, var(--accent) 12%, var(--surface));
+    --status-info-text: var(--accent);
+    --highlight-bg: color-mix(in srgb, var(--color-warning) 20%, var(--surface));
+    --highlight-text: var(--text-primary);
+    --success-bg: color-mix(in srgb, var(--color-success) 12%, var(--surface));
+    --error-bg: color-mix(in srgb, var(--error) 12%, var(--surface));
+    --scanner-surface: #0a0e12;
+    --scanner-surface-raised: #161e27;
+    --theme-preview-light: #cfe0ec;
+    --theme-preview-dark: #162338;
+    /* Standardised food labels keep their domain colours across themes. */
+    --nutri-a: #038141;
+    --nutri-b: #85bb2f;
+    --nutri-c: #fecb02;
+    --nutri-d: #ee8100;
+    --nutri-e: #e63e11;
+    --nutri-dark-ink: #333;
+    --nutri-nova: #444;
+}
+
+[data-theme="nachtwache"], [data-theme="pier"],
+[data-theme="mangrove"], [data-theme="abyssus"],
+[data-theme="monochrom-dark"], [data-theme="grauton-dark"] {
+    --color-success: oklch(76% 0.12 155);
+    --color-warning: oklch(80% 0.12 80);
+    --color-waiting: oklch(80% 0.12 300);
+}

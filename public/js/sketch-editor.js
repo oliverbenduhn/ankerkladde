@@ -11,7 +11,8 @@ import {
 import { activateModal } from './utils.js';
 
 const EXCALIDRAW_MODULE = '../vendor/editors/sketch.js';
-const EXCALIDRAW_ASSET_PATH = './vendor/editors/excalidraw-assets/';
+// Excalidraw appends "excalidraw-assets/" to this public base path.
+const EXCALIDRAW_ASSET_PATH = './vendor/editors/';
 
 let excalidrawPromise = null;
 let activeSketchRefresh = null;
@@ -60,9 +61,13 @@ function emptyScene() {
 }
 
 function asScene(scene) {
-    return scene && typeof scene === 'object' && Array.isArray(scene.elements)
-        ? scene
-        : emptyScene();
+    if (!scene || typeof scene !== 'object' || !Array.isArray(scene.elements)) return emptyScene();
+    // Match Excalidraw's clearAppStateForDatabase export contract. Runtime
+    // state such as collaborators (a Map) cannot round-trip through JSON.
+    const appState = {};
+    if (typeof scene.appState?.viewBackgroundColor === 'string') appState.viewBackgroundColor = scene.appState.viewBackgroundColor;
+    if (scene.appState?.gridSize === null || Number.isFinite(scene.appState?.gridSize)) appState.gridSize = scene.appState.gridSize;
+    return { ...scene, appState };
 }
 
 function sceneFingerprint(scene) {
@@ -211,6 +216,7 @@ async function openSketchEditorImpl({ item, date, mode, pushHistory = true }) {
     let saveInFlight = null;
     let unmounted = false;
     let blockingSaveError = false;
+    let networkSaveFailure = false;
     let draft = null;
     let draftKey = '';
     let bundle = null;
@@ -246,10 +252,12 @@ async function openSketchEditorImpl({ item, date, mode, pushHistory = true }) {
     };
 
     const persistDraft = () => {
-        if (draftKey && draft) saveSketchDraft(draftKey, draft);
+        return draftKey && draft ? saveSketchDraft(draftKey, draft) : false;
     };
 
     const acceptCanonical = (payload, sentScene) => {
+        networkSaveFailure = false;
+        blockingSaveError = false;
         const canonicalItem = payload?.item || draft?.conflict?.server?.item || null;
         const canonicalScene = asScene(payload?.scene ?? sentScene);
         draft.itemId = Number(canonicalItem?.id) || draft.itemId;
@@ -399,6 +407,7 @@ async function openSketchEditorImpl({ item, date, mode, pushHistory = true }) {
         }
         draft.dirty = true;
         persistDraft();
+        networkSaveFailure = !!error?.isNetworkError;
         blockingSaveError = true;
         refs.status.textContent = error?.isNetworkError
             ? t('sketch.offline_queued')
@@ -465,6 +474,12 @@ async function openSketchEditorImpl({ item, date, mode, pushHistory = true }) {
     };
 
     const performClose = async () => {
+        // A confirmed tab-local draft lets the user leave while offline. If
+        // storage is unavailable, keep the editor open to retain its memory.
+        if (draft?.dirty && (!navigator.onLine || networkSaveFailure) && persistDraft()) {
+            safeUnmount();
+            return;
+        }
         if (draft?.conflict) {
             safeUnmount();
             return;
@@ -475,10 +490,16 @@ async function openSketchEditorImpl({ item, date, mode, pushHistory = true }) {
             saveTimer = null;
         }
         if (saveInFlight) {
-            try { await saveInFlight; } catch { return; }
+            try { await saveInFlight; } catch {
+                if (networkSaveFailure && persistDraft()) safeUnmount();
+                return;
+            }
         }
         if (draft?.dirty && pendingScene) {
-            try { await flushSave(); } catch { return; }
+            try { await flushSave(); } catch {
+                if (networkSaveFailure && persistDraft()) safeUnmount();
+                return;
+            }
         }
         safeUnmount();
     };

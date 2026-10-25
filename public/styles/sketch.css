@@ -1,0 +1,162 @@
+/* ===========================================
+   SKETCH EDITOR (Issue #41)
+   =========================================== */
+.sketch-editor-overlay {
+    position: fixed;
+    inset: 0;
+    background: var(--surface);
+    z-index: 11000;
+    display: flex;
+    flex-direction: column;
+}
+
+.sketch-editor-shell {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+}
+
+.sketch-editor-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.5rem 1rem;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+.sketch-editor-status {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    min-height: 1.25rem;
+}
+
+.sketch-editor-close {
+    width: 2.75rem;
+    height: 2.75rem;
+    border: 0;
+    background: transparent;
+    color: var(--text-primary);
+    font-size: 1.5rem;
+    line-height: 1;
+    cursor: pointer;
+    border-radius: var(--radius, 8px);
+}
+
+.sketch-editor-host {
+    flex: 1;
+    min-height: 0;
+    position: relative;
+}
+
+.sketch-editor-host > div {
+    width: 100%;
+    height: 100%;
+}
+
+.sketch-conflict {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 1rem;
+}
+
+.sketch-conflict-intro {
+    margin: 0 0 1rem;
+    color: var(--error);
+    font-weight: 600;
+}
+
+.sketch-conflict-versions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+}
+
+.sketch-conflict-version {
+    min-width: 0;
+    padding: 0.875rem;
+    border: 1.5px solid var(--border);
+    border-radius: 1rem;
+    background: var(--surface);
+}
+
+.sketch-conflict-version h3,
+.sketch-conflict-timestamp {
+    margin: 0 0 0.5rem;
+}
+
+.sketch-conflict-timestamp {
+    min-height: 1em;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+}
+
+.sketch-conflict-preview {
+    height: min(34vh, 300px);
+    min-height: 220px;
+    margin-bottom: 0.875rem;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    background: var(--color-white);
+}
+
+.sketch-conflict-preview > div {
+    width: 100%;
+    height: 100%;
+}
+
+@media (max-width: 640px) {
+    .sketch-conflict-versions {
+        grid-template-columns: 1fr;
+    }
+}
+
+.sketch-editor-error {
+    padding: 1.5rem;
+    text-align: center;
+    color: var(--error);
+}
+
+.sketch-editor-footer {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    justify-content: center;
+    padding: 1rem;
+    border-top: 1px solid var(--border);
+    background: var(--surface-alt);
+    flex-shrink: 0;
+}
+
+.sketch-editor-footer[hidden] {
+    display: none;
+}
+
+.sketch-editor-btn {
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-primary);
+    border-radius: var(--radius, 8px);
+    padding: 0.55rem 1rem;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.sketch-editor-btn:hover {
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.sketch-editor-btn-retry {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.sketch-editor-btn-discard {
+    color: var(--text-secondary);
+}

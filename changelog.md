@@ -2,7 +2,23 @@
 
 Alle nennenswerten Änderungen an Ankerkladde werden hier zusammengefasst.
 
-Aktuelle Version: `5.1.4`
+Aktuelle Version: `5.4.18`
+
+## 5.4.18 - 2026-10-24
+
+- Restliche Master-Audit-Funde geschlossen: atomarer Idempotenzabschluss mit
+  Savepoints, API-Module nach Anwendungsfall und semantische CSS-Farbrollen.
+- Vollständiger Offline-Precache für JS, Komponenten-CSS und lokale Editoren;
+  fehlgeschlagene Installationen aktivieren keinen neuen Service Worker.
+- Offline-Skizzen lassen sich sicher schließen, wiederöffnen und synchronisieren;
+  Editor-Chunks und Schriften werden über die richtige lokale Asset-Basis geladen.
+- Provider-Schlüssel aus Kategorien-Antworten und initialem HTML entfernt;
+  WebSocket-Tickets an den App-Origin gebunden und vor dem Upgrade geprüft.
+- SQLite-Konflikte beim Login und Kategorie-Verschieben behoben;
+  Desktop-Werkzeugzugriff und Sketch-Konflikttests korrigiert.
+- Freie UI-Testports, gemeinsame Versionsprüfung, Storage-Diagnosen und
+  Entfernung veralteter Scratch-Skripte; zusätzliche Sicherheits-, Offline-,
+  Architektur-, Design- und englische UI-Vertragstests.
 
 ## 5.1.4 - 2026-04-30
 

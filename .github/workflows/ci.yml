@@ -19,11 +19,31 @@ jobs:
       - name: Verify JavaScript cache versions
         run: php scripts/check-js-cache-versions.php
 
+      - name: Verify design roles, module ownership and complete offline shell
+        run: |
+          php scripts/check-design-token-stamp.php
+          php scripts/check-architecture.php
+          php scripts/check-app-shell.php
+
       - name: Run smoke test
         run: bash scripts/smoke-test.sh
 
       - name: Verify nested transactions and worker crash recovery
         run: php scripts/test-transactions.php
+
+      - name: Verify service-worker installation and offline asset routing
+        run: node --test scripts/test-service-worker.mjs
+
+      - name: Install WebSocket test dependencies
+        run: npm ci --prefix websocket-server --ignore-scripts
+
+      - name: Verify WebSocket authentication and tenant isolation
+        run: node --test websocket-server/test-security.cjs
+
+      - name: Verify encrypted secret storage and translation coverage
+        run: |
+          php scripts/test-secret-storage.php
+          php scripts/check-i18n-keys.php
 
       - name: Run DB migration test
         run: bash scripts/test-db-migration.sh

@@ -31,7 +31,7 @@ register_shutdown_function(static function () use ($lockHandle): void {
 });
 
 $db = getDatabase();
-$findUser = $db->prepare('SELECT id, preferences_json FROM users WHERE username = :username LIMIT 1');
+$findUser = $db->prepare('SELECT id, preferences_json, language FROM users WHERE username = :username LIMIT 1');
 $findUser->execute([':username' => 'playwright-template']);
 $template = $findUser->fetch();
 if (!is_array($template)) {
@@ -40,6 +40,7 @@ if (!is_array($template)) {
 }
 $findUser->execute([':username' => $targetUsername]);
 $target = $findUser->fetch();
+$findUser->closeCursor();
 if (!is_array($target)) {
     fwrite(STDERR, "Playwright-Testnutzer fehlt: {$targetUsername}\n");
     exit(1);
@@ -50,7 +51,7 @@ $targetUserId = (int) $target['id'];
 $oldAttachments = [];
 $cleanupService = new DeletionTombstoneService($db);
 
-$db->beginTransaction();
+$db->exec('BEGIN IMMEDIATE');
 try {
     $attachmentStmt = $db->prepare(
         'SELECT attachments.*
@@ -71,8 +72,9 @@ try {
     $db->prepare('DELETE FROM deletion_tombstones WHERE user_id = :user_id')->execute([':user_id' => $targetUserId]);
     $db->prepare('DELETE FROM items WHERE user_id = :user_id')->execute([':user_id' => $targetUserId]);
     $db->prepare('DELETE FROM categories WHERE user_id = :user_id')->execute([':user_id' => $targetUserId]);
-    $db->prepare('UPDATE users SET preferences_json = :preferences_json WHERE id = :id')->execute([
+    $db->prepare('UPDATE users SET preferences_json = :preferences_json, language = :language WHERE id = :id')->execute([
         ':preferences_json' => (string) $template['preferences_json'],
+        ':language' => $template['language'],
         ':id' => $targetUserId,
     ]);
 

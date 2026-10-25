@@ -7,7 +7,6 @@ function respond(int $status, array $payload): never
     if ($status >= 400 && ($GLOBALS['current_idempotency_operation'] ?? false) && $db instanceof TransactionalPDO) {
         $db->rollBackAll();
         $GLOBALS['current_idempotency_operation'] = false;
-        $GLOBALS['current_idempotency_reservation_owned'] = false;
     }
     if ($status >= 200 && $status < 300) {
         storeIdempotentResponse($status, $payload);

@@ -126,6 +126,21 @@ function test_validateAiBaseUrl()
         validateAiBaseUrl('HTTP://LOCALHOST:1234/') !== null,
         'uppercase private HTTP endpoint is rejected'
     );
+    foreach (['127.0.0.1', '10.0.0.1', '172.16.0.1', '192.168.0.1', '169.254.169.254', '0.0.0.0'] as $ip) {
+        assertTrue(validateAiBaseUrl('https://' . $ip . '/v1') !== null, 'HTTPS does not bypass private IP blocking');
+        if (function_exists('curl_init')) {
+            $handle = curl_init();
+            try {
+                $rejected = false;
+                try { applyAiEndpointCurlGuard($handle, 'https://' . $ip . '/v1'); }
+                catch (RuntimeException) { $rejected = true; }
+                assertTrue($rejected, 'Request-time resolution must reject a private target after validation');
+            } finally { curl_close($handle); }
+        }
+    }
+    foreach (['::1', 'fc00::1', 'fe80::1'] as $ip) {
+        assertTrue(!isPublicAiEndpointIp($ip), 'Private IPv6 endpoint must be rejected');
+    }
 }
 
 function test_normalizeGeminiModelList()

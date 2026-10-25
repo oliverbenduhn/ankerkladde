@@ -9,7 +9,7 @@ function handleCategoryApiAction(PDO $db, int $userId, string $action): never
             ensureDailyNotesCategory($db, $userId);
             respond(200, [
                 'categories' => loadUserCategories($db, $userId),
-                'preferences' => getExtendedUserPreferences($db, $userId),
+                'preferences' => redactPreferenceSecrets(getExtendedUserPreferences($db, $userId)),
             ]);
 
         case 'categories_create':

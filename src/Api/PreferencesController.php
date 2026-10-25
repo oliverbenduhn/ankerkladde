@@ -7,8 +7,7 @@ function handlePreferencesApiAction(PDO $db, int $userId, string $action): never
         case 'preferences':
             if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 $prefs = getExtendedUserPreferences($db, $userId);
-                unset($prefs['gemini_api_key'], $prefs['openai_compatible_api_key']);
-                respond(200, ['preferences' => $prefs]);
+                respond(200, ['preferences' => redactPreferenceSecrets($prefs)]);
             }
 
             $data = requireWriteRequest();
@@ -28,8 +27,7 @@ function handlePreferencesApiAction(PDO $db, int $userId, string $action): never
             }
 
             $preferences = updateExtendedUserPreferences($db, $userId, $patch);
-            unset($preferences['gemini_api_key'], $preferences['openai_compatible_api_key']);
-            respond(200, ['preferences' => $preferences]);
+            respond(200, ['preferences' => redactPreferenceSecrets($preferences)]);
     }
     throw new LogicException('Unsupported preferences API action.');
 }

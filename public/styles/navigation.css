@@ -1,0 +1,189 @@
+/* ===========================================
+   SECTION TABS (Bereichs-Navigation unten)
+   =========================================== */
+.section-tabs {
+    display: flex;
+    background: color-mix(in srgb, var(--surface) 85%, transparent);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    flex-shrink: 0;
+    position: relative;
+    z-index: 10;
+    justify-content: flex-start;
+    gap: 4px;
+    padding: 6px;
+    margin: 0 12px clamp(8px, calc(8px + env(safe-area-inset-bottom, 0px)), 40px);
+    border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+    border-radius: 24px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    scroll-padding: 10px;
+    cursor: grab;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    box-shadow:
+        0 16px 32px -8px color-mix(in srgb, var(--color-shadow) 12%, transparent),
+        0 4px 12px -2px color-mix(in srgb, var(--color-shadow) 6%, transparent);
+    /* ponytail: min-height reserviert die Final-Höhe, bevor JS die Tabs
+       gerendert hat, sonst springt der Container beim ersten Rendern.
+       64px = tatsächliche Inhaltshöhe (Icon 24px + Gap 2px + Label-Zeile
+       + Padding), vorher 104px hartkodiert und damit fast doppelt so
+       hoch wie nötig (#81). */
+    min-height: 64px;
+}
+
+.section-tabs::-webkit-scrollbar {
+    display: none;
+}
+
+.section-tabs.is-scrollable {
+    justify-content: flex-start;
+}
+
+.section-tabs.is-drag-scrolling {
+    cursor: grabbing;
+}
+
+.section-tabs.can-scroll-left {
+    box-shadow:
+        inset 12px 0 12px -14px color-mix(in srgb, var(--text-primary) 45%, transparent),
+        0 16px 32px -8px color-mix(in srgb, var(--color-shadow) 12%, transparent),
+        0 4px 12px -2px color-mix(in srgb, var(--color-shadow) 6%, transparent);
+}
+
+.section-tabs.can-scroll-right {
+    box-shadow:
+        inset -12px 0 12px -14px color-mix(in srgb, var(--text-primary) 45%, transparent),
+        0 16px 32px -8px color-mix(in srgb, var(--color-shadow) 12%, transparent),
+        0 4px 12px -2px color-mix(in srgb, var(--color-shadow) 6%, transparent);
+}
+
+.section-tabs.can-scroll-left.can-scroll-right {
+    box-shadow:
+        inset 12px 0 12px -14px color-mix(in srgb, var(--text-primary) 45%, transparent),
+        inset -12px 0 12px -14px color-mix(in srgb, var(--text-primary) 45%, transparent),
+        0 16px 32px -8px color-mix(in srgb, var(--color-shadow) 12%, transparent),
+        0 4px 12px -2px color-mix(in srgb, var(--color-shadow) 6%, transparent);
+}
+
+.section-tab {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    min-width: 48px;
+    max-width: 58px;
+    padding: 5px 4px;
+    background: transparent;
+    border: none;
+    border-radius: 18px;
+    cursor: pointer;
+    color: var(--text-secondary);
+    flex: 1 1 0;
+    transition: transform var(--dur-micro) var(--ease-out), opacity var(--dur-micro) var(--ease-out);
+    touch-action: pan-x;
+}
+
+.section-tabs.is-scrollable .section-tab {
+    flex: 0 0 48px;
+}
+
+.section-tab[aria-current="page"] {
+    color: var(--text-primary);
+    background: color-mix(in srgb, var(--accent) 15%, transparent);
+    padding: 5px 4px;
+}
+
+.section-tab:hover:not([aria-current="page"]),
+.section-tab:active:not([aria-current="page"]) {
+    color: var(--text-primary);
+    background: color-mix(in srgb, var(--border) 40%, transparent);
+}
+
+.section-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    font-size: 0;
+    line-height: 1;
+    opacity: 0.7;
+    transition: transform var(--dur-micro) var(--ease-out), opacity var(--dur-micro) var(--ease-out);
+    flex-shrink: 0;
+}
+
+.category-icon-img {
+    display: block;
+    width: 22px;
+    height: 22px;
+    object-fit: contain;
+    filter: var(--tab-icon-filter);
+    -webkit-user-drag: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+}
+
+.section-tab[aria-current="page"] .section-icon {
+    opacity: 1;
+    transform: scale(1.1);
+}
+.section-tab[aria-current="page"] .category-icon-img {
+    filter: var(--tab-icon-filter-active);
+}
+.section-label {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: center;
+    font-size: 0.62rem;
+    font-weight: 500;
+    line-height: 1.1;
+    letter-spacing: 0;
+    opacity: 0.55;
+    transition: opacity 0.2s ease;
+}
+
+.section-tab[aria-current="page"] .section-label {
+    opacity: 1;
+    font-weight: 600;
+}
+
+.section-dot {
+    display: none;
+}
+
+@media (min-width: 520px) {
+    .section-tabs {
+        padding: 8px;
+        gap: 6px;
+    }
+
+    .section-tab {
+        min-width: 58px;
+        max-width: 70px;
+        padding: 7px 6px;
+        gap: 3px;
+    }
+
+    .section-tabs.is-scrollable .section-tab {
+        flex-basis: 58px;
+    }
+
+    .section-tab[aria-current="page"] {
+        padding: 7px 6px;
+    }
+
+    .section-label {
+        font-size: 0.72rem;
+    }
+}

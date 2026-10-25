@@ -6,6 +6,26 @@ function getIdempotencyRequestId(): string
     return trim((string) ($_SERVER['HTTP_X_IDEMPOTENCY_KEY'] ?? ''));
 }
 
+/** Only for external preparation before any domain mutation has run. */
+function prepareIdempotentExternalWork(callable $prepare): mixed
+{
+    $db = $GLOBALS['db'] ?? null;
+    $active = ($GLOBALS['current_idempotency_operation'] ?? false) && $db instanceof TransactionalPDO;
+    if ($active) {
+        if ($db->transactionDepth() !== 1) throw new LogicException('External preparation must precede mutations.');
+        // Persist just the reservation while downloading; never hold SQLite's
+        // only writer lock for a remote transfer (which may take two hours).
+        $db->commit();
+        $GLOBALS['current_idempotency_operation'] = false;
+    }
+    $result = $prepare();
+    if ($active) {
+        beginImmediateTransaction($db);
+        $GLOBALS['current_idempotency_operation'] = true;
+    }
+    return $result;
+}
+
 function isValidIdempotencyRequestId(string $requestId): bool
 {
     if ($requestId === '' || strlen($requestId) > 128) {

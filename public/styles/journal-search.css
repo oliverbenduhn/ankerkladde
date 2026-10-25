@@ -1,0 +1,707 @@
+/* ===========================================
+   SEARCH BUTTON
+   =========================================== */
+.btn-search.is-active { background: var(--button-active-bg); color: var(--button-active-text); }
+.btn-settings.is-active { background: var(--button-active-bg); color: var(--button-active-text); }
+.btn-tabs-toggle.is-active { background: var(--button-active-bg); color: var(--button-active-text); }
+
+/* ===========================================
+   SEARCH BAR
+   =========================================== */
+.search-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 16px 10px;
+    flex-shrink: 0;
+}
+
+.search-bar[hidden] { display: none; }
+
+.search-input {
+    flex: 1;
+    min-height: 44px;
+    padding: 0 12px;
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 20px;
+    font-size: 1rem;
+    color: var(--text-primary);
+    outline: none;
+    transition: border-color 0.15s ease;
+}
+
+.search-input:focus { border-color: var(--accent); }
+
+.btn-search-close {
+    min-width: 44px;
+    min-height: 44px;
+    width: 44px; /* ponytail: ohne explizite width misst die Touch-Audit-Matrix < 44 px durch Inhalt-Schrumpfung */
+    height: 44px;
+    padding: 0;
+    background: none;
+    border: none;
+    border-radius: 16px;
+    font-size: 1.1rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: color 0.15s ease, background 0.15s ease;
+}
+
+.btn-search-close:hover {
+    color: var(--text-primary);
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+/* Hide input area and clear button while searching or using magic bar */
+.app.is-searching .input-area,
+.app.is-magic-active .input-area { display: none !important; }
+.app.is-searching .btn-clear,
+.app.is-magic-active .btn-clear { display: none !important; }
+
+.app.journal-view .input-area,
+.app.journal-view .progress,
+.app.journal-view .mode-chip,
+.app.journal-view .btn-layout-toggle,
+.app.journal-view .btn-scan,
+.app.journal-view .btn-product-scanner {
+    display: none !important;
+}
+
+.app.journal-view .app-header,
+.app.journal-view .section-tabs {
+    display: none !important;
+}
+
+.app.journal-view.quick-add-open .input-area {
+    display: block !important;
+    margin: 0 10px 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+}
+
+.parchment-view {
+    width: 100%;
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 0.75rem 10px 5.5rem;
+}
+
+.journal-navigation {
+    display: grid;
+    grid-template-columns: 2.75rem 2.75rem minmax(0, 1fr) 2.75rem;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+}
+
+.journal-segments {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.25rem;
+}
+
+.journal-nav-btn,
+.journal-nav-icon-btn {
+    min-height: 2.75rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--surface);
+    color: var(--text-primary);
+    padding: 0.45rem 0.75rem;
+    font: inherit;
+}
+
+.journal-nav-icon-btn {
+    display: grid;
+    place-items: center;
+    width: 2.75rem;
+    padding: 0;
+    text-decoration: none;
+}
+
+.journal-nav-btn[aria-pressed="true"] {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: var(--button-active-text);
+}
+
+.journal-nav-btn:hover,
+.journal-nav-icon-btn:hover,
+.journal-nav-btn:active,
+.journal-nav-icon-btn:active,
+.journal-nav-btn:focus-visible,
+.journal-nav-icon-btn:focus-visible {
+    border-color: var(--accent);
+}
+
+.journal-date-picker {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.journal-date-picker-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+}
+
+.journal-date-heading {
+    margin: 0 0 0.75rem;
+    color: var(--text-primary);
+    font-family: var(--font-serif);
+    font-size: clamp(1.6rem, 5vw, 2.2rem);
+    font-weight: 700;
+    text-align: left;
+}
+
+.parchment-card {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    box-shadow: 0 8px 24px color-mix(in srgb, var(--text-primary) 5%, transparent);
+    overflow: hidden;
+}
+
+.journal-agenda-card {
+    margin-bottom: 0.75rem;
+}
+
+.journal-agenda-columns {
+    display: grid;
+    grid-template-columns: minmax(0, 52fr) minmax(0, 48fr);
+    gap: 0;
+    padding: 0.75rem;
+}
+
+/* ponytail: Parchment-Verhalten — collapsed blendet die Any-Time-Spalte aus,
+   solange noch scheduled Items offen sind. Toggle-Button im Header. */
+.journal-agenda-columns[data-collapsed="true"] {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.journal-agenda-columns[data-collapsed="true"] .journal-agenda-column[data-suppressed="true"] {
+    display: none;
+}
+
+.journal-agenda-column {
+    min-width: 0;
+    padding-right: 0.65rem;
+}
+
+.journal-agenda-column + .journal-agenda-column {
+    padding-right: 0;
+    padding-left: 0.65rem;
+    border-left: 1px solid var(--border);
+}
+
+.journal-agenda-column h4 {
+    margin: 0 0 0.5rem;
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+}
+
+.journal-agenda-column ul {
+    margin: 0;
+    padding: 0;
+}
+
+.journal-agenda-column .agenda-item-body {
+    min-width: 0;
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding: 0.25rem 0;
+    border: 0;
+    background: transparent;
+}
+
+.journal-agenda-column .agenda-item-name {
+    font-size: 0.84rem;
+    line-height: 1.25;
+}
+
+.journal-agenda-column .agenda-item.is-overdue .agenda-item-body {
+    border-left: 0;
+}
+
+.journal-agenda-column .agenda-item {
+    gap: 0.15rem;
+}
+
+.journal-agenda-column .agenda-item-checkbox {
+    position: relative;
+    width: 44px;
+    height: 44px;
+    border: 0;
+    background: transparent;
+}
+
+.journal-agenda-column .agenda-item-checkbox::before {
+    content: "";
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    border: 2px solid var(--text-muted);
+    border-radius: 50%;
+    background: var(--surface);
+}
+
+.journal-agenda-column .agenda-item-checkbox svg {
+    position: relative;
+    z-index: 1;
+    width: 13px;
+    height: 13px;
+}
+
+.journal-agenda-column .agenda-item.is-done .agenda-item-checkbox {
+    background: transparent;
+}
+
+.journal-agenda-column .agenda-item.is-done .agenda-item-checkbox::before {
+    border-color: var(--accent);
+    background: var(--accent);
+}
+
+.journal-agenda-column .agenda-item-meta {
+    min-width: 0;
+    align-items: flex-start;
+}
+
+.journal-agenda-column .agenda-category-label {
+    overflow-wrap: anywhere;
+}
+
+.journal-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.journal-card-title {
+    margin: 0;
+    font-family: var(--font-serif);
+    font-size: 1.15rem;
+}
+
+.journal-card-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.journal-format-btn {
+    min-height: 2.75rem;
+    padding: 0.4rem 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text-primary);
+}
+
+.journal-card-icon-btn {
+    display: grid;
+    place-items: center;
+    width: 2.75rem;
+    min-height: 2.75rem;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    background: color-mix(in srgb, var(--accent) 18%, transparent);
+    color: var(--text-primary);
+    cursor: pointer;
+}
+
+.journal-format-btn:hover,
+.journal-card-icon-btn:hover,
+.journal-format-btn:active,
+.journal-card-icon-btn:active,
+.journal-format-btn:focus-visible,
+.journal-card-icon-btn:focus-visible {
+    border-color: var(--accent);
+}
+
+.journal-toolbar {
+    border-bottom: 1px solid var(--border);
+}
+
+.journal-editor-body {
+    min-height: min(58vh, 620px);
+    padding: 1.25rem;
+    background: color-mix(in srgb, var(--surface) 92%, var(--text-primary));
+    font-family: var(--font-mono);
+    line-height: 1.55;
+}
+
+.journal-editor-body .tiptap {
+    min-height: min(52vh, 560px);
+    outline: none;
+}
+
+.journal-save-status {
+    min-width: 0;
+    text-align: right;
+}
+
+/* ===========================================
+   Tages-Skizze (Issue #43)
+   =========================================== */
+.journal-sketch-card {
+    margin-top: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.journal-sketch-card[hidden] { display: none; }
+
+@media (max-width: 420px) {
+    .parchment-view { padding-inline: 8px; }
+    .journal-segments { gap: 0.15rem; }
+    .journal-nav-btn { padding-inline: 0.4rem; font-size: 0.82rem; }
+    .journal-agenda-columns { padding: 0.6rem; }
+    .journal-agenda-column { padding-right: 0.45rem; }
+    .journal-agenda-column + .journal-agenda-column { padding-left: 0.45rem; }
+    .journal-agenda-column h4 { font-size: 0.67rem; letter-spacing: 0.04em; }
+}
+
+.journal-sketch-card[hidden] { display: none; }
+
+.journal-sketch-summary {
+    /* identical to .journal-card-header + .journal-agenda-card-header */
+}
+
+.journal-sketch-status {
+    margin-left: auto;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
+.journal-sketch-body {
+    padding: 0.75rem 1rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.journal-sketch-open-btn {
+    align-self: flex-start;
+    min-height: 2.5rem;
+    padding: 0.45rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.journal-sketch-open-btn:hover {
+    border-color: var(--accent);
+}
+
+.journal-sketch-open-btn:disabled {
+    opacity: 0.55;
+    cursor: progress;
+}
+
+/* ===========================================
+   MAGIC BAR
+   =========================================== */
+.btn-magic.is-active {
+    background: var(--button-active-bg);
+    color: var(--button-active-text);
+    box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
+.magic-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 16px 10px;
+    flex-shrink: 0;
+    animation: magicIn 0.3s ease-out;
+}
+
+@keyframes magicIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.magic-bar-inner {
+    flex: 1;
+    display: flex;
+    position: relative;
+    background: var(--surface);
+    border: 2px solid var(--accent);
+    border-radius: 24px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px color-mix(in srgb, var(--accent) 15%, transparent);
+}
+
+.magic-input {
+    flex: 1;
+    min-height: 48px;
+    padding: 0 48px 0 44px;
+    background: transparent;
+    border: none;
+    font-size: 1rem;
+    color: var(--text-primary);
+    outline: none;
+}
+
+.btn-magic-voice {
+    position: absolute;
+    left: 2px;
+    top: 2px;
+    bottom: 2px;
+    width: 44px;
+    height: 44px; /* ponytail: explizite Hoehe, sonst misst die mobile Touch-Audit-Matrix 43.6 px (< 44) durch Subpixel-Rundung des parent .magic-input */
+    background: transparent;
+    color: var(--text-muted);
+    border: none;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: color 0.2s ease, background 0.2s ease;
+    z-index: 1;
+}
+
+.btn-magic-voice:hover {
+    color: var(--text-primary);
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.btn-magic-voice.is-listening {
+    color: var(--error);
+    animation: voicePulse 1.2s infinite;
+}
+
+@keyframes voicePulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
+.magic-input::placeholder {
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+.btn-magic-submit {
+    position: absolute;
+    right: 2px;
+    top: 2px;
+    bottom: 2px;
+    width: 44px;
+    height: 44px; /* ponytail: siehe btn-magic-voice */
+    background: var(--accent);
+    color: var(--accent-contrast, var(--text-primary));
+    border: none;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.btn-magic-submit:hover {
+    background: var(--border);
+    transform: scale(1.05);
+}
+
+.btn-magic-submit:active {
+    transform: scale(0.95);
+}
+
+.magic-bar.is-loading .magic-input {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+.magic-bar.is-loading .btn-magic-voice,
+.magic-bar.is-loading .btn-search-close,
+.magic-bar.is-loading .btn-magic-submit {
+    pointer-events: none;
+    cursor: wait;
+    opacity: 0.7;
+}
+
+.magic-bar.is-loading .btn-magic-submit .icon {
+    animation: controlSpin 0.8s linear infinite;
+}
+
+.magic-bar.is-loading .btn-magic-submit:hover { transform: none; }
+
+@keyframes controlSpin {
+    to { transform: rotate(360deg); }
+}
+
+/* --- Magic Preview --- */
+.magic-preview {
+    padding: 0 16px 12px;
+    animation: magicIn 0.3s ease-out;
+}
+
+.magic-preview-header {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+}
+
+.magic-preview-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    max-height: 50vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.magic-preview-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: var(--surface);
+    margin-bottom: 4px;
+    font-size: 0.95rem;
+}
+
+.magic-preview-check {
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    accent-color: var(--accent);
+    cursor: pointer;
+}
+
+.magic-preview-info {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    color: var(--text-primary);
+}
+
+.magic-preview-info:not(:has(.magic-preview-snippet)) {
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.magic-preview-snippet {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-top: 2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.magic-preview-cat {
+    flex-shrink: 0;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    background: var(--bg);
+    padding: 2px 8px;
+    border-radius: 10px;
+}
+
+.magic-preview-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.magic-preview-confirm {
+    flex: 1;
+    padding: 10px 16px;
+    background: var(--accent);
+    color: var(--accent-contrast, var(--text-primary));
+    border: none;
+    border-radius: 12px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+.magic-preview-confirm:hover { opacity: 0.9; }
+.magic-preview-confirm:active { transform: scale(0.98); }
+
+.magic-preview-cancel {
+    padding: 10px 16px;
+    background: var(--surface);
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.magic-preview-cancel:hover { background: var(--bg); }
+
+/* ===========================================
+   SEARCH RESULTS
+   =========================================== */
+.search-result { cursor: pointer; }
+.search-result:hover,
+.search-result:active { background: var(--done-bg); }
+
+.search-result-section {
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 1px 6px;
+    background: var(--border);
+    color: var(--text-secondary);
+    border-radius: 4px;
+    flex-shrink: 0;
+    white-space: nowrap;
+    letter-spacing: 0.02em;
+}
+
+.search-result-preview {
+    display: block;
+    width: 100%;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-top: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ===========================================
+   PINNED ITEMS
+   =========================================== */
+.item-card.is-pinned {
+    border-left: 3px solid var(--accent);
+    padding-left: calc(16px - 3px);
+}
+
+.btn-pin {
+    opacity: 0.22;
+    transition: opacity 0.15s ease, transform 0.12s ease;
+}
+
+.btn-pin.is-pinned { opacity: 1; }
+.btn-pin:hover     { opacity: 0.7; }
+.btn-pin:disabled  { opacity: 0.12; }

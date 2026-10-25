@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 require dirname(__DIR__) . '/src/TransactionalPDO.php';
+require dirname(__DIR__) . '/src/Api/Http.php';
+require dirname(__DIR__) . '/src/Api/Idempotency.php';
 
 function check(bool $value, string $message): void
 {
@@ -43,6 +45,22 @@ try {
     foreach ($pipes as $pipe) fclose($pipe);
     check(proc_close($process) === 23, 'Crash simulation must exit at the intended point.');
     check((int) $observer->query('SELECT count(*) FROM operations')->fetchColumn() === 1, 'Worker exit must not persist an unfinished operation.');
+
+    $GLOBALS['db'] = $db;
+    $GLOBALS['current_idempotency_operation'] = true;
+    $db->exec('BEGIN IMMEDIATE');
+    $db->exec("INSERT INTO operations VALUES ('reservation')");
+    $prepared = prepareIdempotentExternalWork(function () use ($observer): string {
+        // A second connection must be able to write during a slow download.
+        $observer->exec("INSERT INTO operations VALUES ('unrelated-request')");
+        return 'download-ready';
+    });
+    check($prepared === 'download-ready' && $db->transactionDepth() === 1, 'Preparation must resume the atomic mutation scope.');
+    $db->exec("INSERT INTO operations VALUES ('prepared-mutation')");
+    $db->rollBackAll();
+    $values = $observer->query('SELECT value FROM operations')->fetchAll(PDO::FETCH_COLUMN);
+    check($values === ['committed', 'reservation', 'unrelated-request'], 'Preparation releases the writer lock; later mutation still rolls back.');
+    unset($GLOBALS['db'], $GLOBALS['current_idempotency_operation']);
     echo "Transaction and crash recovery tests passed.\n";
 } finally {
     unset($db, $observer);

@@ -19,10 +19,16 @@ test.describe.serial('FLOW 24 — Testdaten-Isolation', () => {
     await expect(page.locator('.item-card').filter({ hasText: leakedItem })).toBeVisible();
     await page.getByRole('button', { name: 'Privat', exact: true }).click();
     await expect(page.locator('#categoryTitle')).toHaveText('Privat');
+    const languageResponse = await page.request.post('/settings.php', {
+      headers: { Accept: 'application/json', 'X-CSRF-Token': await csrfToken(page) },
+      form: { action: 'save_language', language: 'en', csrf_token: await csrfToken(page) },
+    });
+    expect(languageResponse.status()).toBe(200);
   });
 
   test('Folgetest startet wieder mit unverändertem Demo-Bestand', async ({ page }) => {
     await login(page);
+    await expect(page.locator('html')).toHaveAttribute('lang', 'de');
     await expect(page.locator('#categoryTitle')).toHaveText('Einkauf');
     await expect(page.locator('.item-card').filter({ hasText: leakedItem })).toHaveCount(0);
     await expect(page.locator('.item-card').filter({ hasText: 'Milch' })).toBeVisible();

@@ -1173,4 +1173,20 @@ DAILY_BAD_DATE_STATUS="$(curl -s -o /dev/null -w '%{http_code}' -b "$COOKIE_JAR"
 # Fremdes Datum ohne Berechtigung: API wirft CSRF-Token-Fehler statt zu speichern — gegen User X schreiben
 # wir gar nicht erst; bestehender 422/404-Pfad reicht. (Cross-User ist über item_id gesichert.)
 
+# Provider credentials must never appear in API responses or rendered pages.
+EINKAUF_DATA_DIR="$TEST_DATA_DIR" php -r '
+    require $argv[1] . "/security.php";
+    require $argv[1] . "/db.php";
+    $db = getDatabase();
+    $id = (int) $db->query("SELECT id FROM users WHERE username = \"testuser\"")->fetchColumn();
+    updateUserPreferences($db, $id, ["gemini_api_key" => "smoke-provider-secret-redaction"]);
+' "$ROOT_DIR"
+for path in 'api.php?action=preferences' 'api.php?action=categories_list' 'index.php' 'settings.php'; do
+    curl -fsS -b "$COOKIE_JAR" "http://127.0.0.1:$PORT/$path" > "$TMP_DIR/secret-redaction-response"
+    if grep -q 'smoke-provider-secret-redaction' "$TMP_DIR/secret-redaction-response"; then
+        echo 'Provider secret leaked into a response.' >&2
+        exit 1
+    fi
+done
+
 echo "Smoke-Test erfolgreich."

@@ -117,6 +117,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             );
             $stmt->execute([':username' => $username]);
             $user = $stmt->fetch();
+            // Release the WAL read snapshot before password verification and
+            // the subsequent write to login_attempts. Another worker may write
+            // meanwhile; upgrading that stale snapshot would fail immediately.
+            $stmt->closeCursor();
 
             if (is_array($user) && password_verify($password, (string) $user['password_hash'])) {
                 clearLoginFailures($db, $username);

@@ -13,17 +13,48 @@
 - **Behoben:** TipTap, React und Excalidraw werden reproduzierbar lokal gebündelt und vollständig über den Service Worker vorgecached.
 - **Behoben:** Login-Limits werden persistent in SQLite pro Nutzerkennung und IP-Präfix geführt und sind nicht mehr durch Cookie-Wechsel rücksetzbar.
 - **Behoben:** Schemaänderungen laufen standardmäßig nur noch über `php scripts/migrate.php`; der Webpfad prüft ausschließlich die Schema-Version und bricht bei Rückstand kontrolliert ab.
-- **Teilweise behoben:** WebSocket-Transport wurde aus `api.php` extrahiert; die weitere Zerlegung des großen Action-Dispatchers bleibt ein inkrementelles Architekturvorhaben.
-- **Weitgehend mitigiert:** Das Finalisieren einer Idempotenz-Antwort wird wiederholt, exakt einmal aktualisiert und kann eine bereits erfolgreiche Mutation nicht mehr in einen falschen HTTP-500 verwandeln. Ein Prozessabsturz im sehr kleinen Fenster zwischen Fach-Commit und Ergebnis-Update lässt sich vollständig erst durch die im Fund empfohlene gemeinsame Transaktion beziehungsweise Operation-Result-Outbox schließen.
+- **Behoben (2026-10-24):** `api.php` ist auf HTTP-/Auth-Wiring und eine explizite Dispatch-Tabelle reduziert. Anwendungsfälle und Sicherheits-/Normalisierungshilfen liegen in eigenen Modulen unter `src/Api/`; eine Ownership-Prüfung verhindert neue Actions/SQL im Einstieg.
+- **Behoben (2026-10-24):** Reservierung, Mutation und finale Idempotenz-Antwort committen gemeinsam. Innere Transaktionen sind Savepoints; fehlgeschlagene Antwortschreibvorgänge und Worker-Abbrüche rollen die Mutation zurück. Remote-Downloads halten während der Vorbereitung keine Schreibsperre. Bestehende Anhang-Dateien werden erst nach dem äußeren Commit bereinigt.
 
 ## Umsetzungsstand der mittleren Risiken (2026-10-23)
 
 - **Behoben:** `/notify` verlangt ein Shared Secret, begrenzt Bodies auf 8 KiB und setzt Request-Timeouts; offene CORS-Header wurden entfernt.
 - **Behoben:** Eigene API-Schlüssel liegen nur noch als SHA-256-Digest plus nicht sensibles Präfix vor und werden nur einmal angezeigt. AI-Provider-Schlüssel werden mit libsodium und einem außerhalb der SQLite-Datei liegenden Instanzschlüssel verschlüsselt; Schema-Migration 8 schützt Altbestände.
-- **Transparent und gegen Regression abgesichert:** Der unzutreffende CSS-Token-Stempel lautet bis zur vollständigen Farbmigration `FAIL`. Die semantische Token-Konsolidierung bleibt ein separates Designsystem-Refactoring.
+- **Behoben (2026-10-24):** Komponenten-Styles verwenden semantische Farbrollen; Statusflächen berücksichtigen die aktuelle Oberfläche, dunkle Themes überschreiben Statusfarben. Farbliterale sind auf Token-/Theme-Dateien beschränkt und werden automatisch geprüft. `style.css` bestimmt nur die Importreihenfolge der Komponenten unter `public/styles/`.
 - **Behoben:** Mobile zeigt vier vorhersehbare Primäraktionen; seltenere Werkzeuge liegen beschriftet im zugänglichen „Mehr“-Menü statt in einer horizontalen Icon-Suchleiste.
 - **Behoben:** Deutsche und englische Übersetzungsschlüssel sind vollständig identisch und werden durch `npm run test:i18n` geprüft. Quick-Add-AI sowie Produktscanner-Markup nutzen Übersetzungsschlüssel.
 - **Behoben:** Die Service-Worker-Installation cached die kritische App-Shell atomar und aktiviert eine neue Version nicht mehr nach unvollständigem Precache.
+
+## Restmaßnahmen und Nachprüfung (2026-10-24)
+
+- **Behoben:** Alle fünf niedrigen Funde: freie Testports im npm-Wrapper, expliziter Vergleich von PHP-/SW-Version, datensparsame Storage-Diagnosen mit Parsefehler-Recovery, Entfernung der fünf veralteten Scratch-Skripte und Sketch-Reopen passend zur Deep-Link-Route. Die lokale Reuse-Konfiguration ist git-ignoriert; die Voraussetzung eines laufenden Servers ist dokumentiert.
+- **Umgesetzt:** Negative WebSocket-Vertragstests für fehlende/gefälschte/abgelaufene Tickets, fremden Origin, wirkungslose fremde UID, Nutzerkanaltrennung, gesperrtes Yjs und Notify-Authentisierung/-Größenlimit. Tickets sind zusätzlich an den App-Origin gebunden und werden bereits vor dem Upgrade geprüft.
+- **Umgesetzt:** Fehler-Injektion beim Idempotenz-Antwortschreiben mit nachgewiesenem vollständigem Rollback und anschließendem Retry/Replay; unabhängiger Worker-Abbruchtest und Savepoint-Prüfungen.
+- **Nachprüfung korrigiert:** Der alte Service-Worker-Catch aktivierte trotz fehlgeschlagenem Precache weiterhin die neue Version. Dieser Pfad wirft jetzt den Fehler weiter. Ein geprüftes Manifest enthält sämtliche JS-/Komponenten-CSS-Dateien; auch Unterverzeichnis-Installationen, Editor-Chunks, Schriften und Icon-Endpunkte werden offline bedient.
+- **Nachprüfung korrigiert:** Provider-Secrets wurden trotz sicherem `preferences`-Endpoint weiterhin über `categories_list` und den initialen HTML-Preferences-Block ausgeliefert. Beide verwenden jetzt dieselbe zentrale Redaction; ein HTTP-Smoke-Test prüft zusätzlich die Einstellungsseite.
+- **Nachprüfung korrigiert:** Ein offener Login-SELECT-Cursor konnte bei parallelem Schreiben einen SQLite-Snapshot-Konflikt auslösen. Der Cursor wird vor Passwortprüfung und Rate-Limit-Update geschlossen.
+- **Nachprüfung korrigiert:** Das Verschieben einer Kategorie bestimmt beide Tauschpartner jetzt unter `BEGIN IMMEDIATE`; konkurrierende Schreibzugriffe können keinen alten Lese-Snapshot mehr in einen fehlschlagenden Schreibversuch verwandeln.
+- **Nachprüfung korrigiert:** Desktop-Headerwerkzeuge innerhalb eines geschlossenen `details` waren verborgen. Der Zustand wird jetzt beim Start und bei Breitenwechseln korrekt gesetzt.
+- **Nachprüfung korrigiert:** Excalidraws öffentliche Asset-Basis enthielt das Verzeichnis `excalidraw-assets/` doppelt. Außerdem enthielten Drafts nicht serialisierbaren Laufzeitstatus (`collaborators`), der beim Wiederöffnen abstürzte. Die Basis ist korrigiert; gespeichert werden nur die upstream vorgesehenen App-State-Felder. Offline-Schließen ist möglich, wenn der Entwurf erfolgreich im Tab gespeichert wurde.
+- **Architektur-Vorschläge umgesetzt:** API-/CSS-Ownership ist dokumentiert und automatisiert geprüft; siehe `docs/architecture-boundaries.md`. Neue Komponenten erhalten eigene Styles, neue Actions eigene Anwendungsfallmodule.
+- **UX-/i18n-Verträge ergänzt:** Ein englischer Ablauf wechselt die Sprache über die Einstellungen, prüft benannte Primäraktionen, sichtbare Werkzeugbeschriftungen im mobilen Mehr-Menü und eine englische Validierungsantwort.
+- **Test-Isolation ergänzt:** Die Worker-Fixture stellt neben Daten und Präferenzen auch die Sprache aus dem unveränderlichen Template wieder her; der Isolationstest verändert und prüft sie ausdrücklich. Ein englischer Test kann damit keine folgenden deutschen Abläufe umstellen.
+- **Externe Validierung:** Moderierte Erstnutzer-Tests und produktionsseitige Proxy-/Firewall-/Backup-Prüfungen können durch Repository-Tests nicht ersetzt werden. Diese bleiben Betriebs-/Nutzungsnachweise, keine behaupteten erledigten Codekorrekturen.
+
+Die folgenden Fundbeschreibungen dokumentieren den ursprünglichen Stand vom 22.10.;
+die obigen Umsetzungsstände haben für den aktuellen Code Vorrang.
+
+### Abschließende Verifikation — v5.4.18
+
+- Vollständiger Playwright-Lauf mit vier Workern auf Desktop und Mobile:
+  **126 bestanden, 10 planmäßig übersprungen, keine Fehler** (2,8 Minuten).
+- Bestanden: PHP-Syntaxprüfung, Smoke-Test einschließlich Idempotenz-Fehlerinjektion
+  und Secret-Redaction, DB-Migration, Revision/CAS, Tombstones/Undo, Quick-Add,
+  AI-Migration und AI-Endpunktprüfung, Transaktions-/Worker-Abbruchtests,
+  WebSocket-Sicherheitsverträge, Service-Worker-Verträge, Unit-, Asset-,
+  Versions-, Übersetzungs-, Secret-Storage-, Design- und Architekturprüfungen.
+- Der UI-Lauf umfasst den kalten Offline-Start beider Editoren, sichere
+  Draft-Wiederöffnung, spätere Synchronisation und die gestaltete Offline-Ersatzseite.
 
 ## Executive Summary
 

@@ -16,7 +16,7 @@ function timingSafeTextEqual(left, right) {
     return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
-function verifyTicket(ticket) {
+function verifyTicket(ticket, origin) {
     if (!WS_SECRET || typeof ticket !== 'string') return null;
     const [payloadPart, signaturePart, extra] = ticket.split('.');
     if (!payloadPart || !signaturePart || extra !== undefined) return null;
@@ -25,7 +25,8 @@ function verifyTicket(ticket) {
     try {
         const payload = JSON.parse(Buffer.from(payloadPart, 'base64url').toString('utf8'));
         if (payload.purpose !== 'notifications' || !Number.isInteger(payload.sub) || payload.sub < 1) return null;
-        if (!Number.isInteger(payload.exp) || payload.exp < Math.floor(Date.now() / 1000)) return null;
+        if (!Number.isInteger(payload.exp) || payload.exp <= Math.floor(Date.now() / 1000)) return null;
+        if (typeof payload.origin !== 'string' || payload.origin !== origin) return null;
         return payload;
     } catch {
         return null;
@@ -159,7 +160,7 @@ wss.on('connection', (ws, req) => {
     let userId = null;
     try {
         const url = new URL(req.url, `http://${req.headers.host}`);
-        const payload = verifyTicket(url.searchParams.get('ticket'));
+        const payload = verifyTicket(url.searchParams.get('ticket'), req.headers.origin);
         userId = payload ? String(payload.sub) : null;
     } catch (e) {
         console.warn(`[${new Date().toISOString()}] Failed to parse URL: ${e.message}`);
@@ -208,6 +209,11 @@ server.on('upgrade', (request, socket, head) => {
         socket.write('HTTP/1.1 404 Not Found\r\nConnection: close\r\n\r\n');
         socket.destroy();
     } else if (url.pathname === '/' || url.pathname === '/ws' || url.pathname === '/ws/') {
+        if (!verifyTicket(url.searchParams.get('ticket'), request.headers.origin)) {
+            socket.write('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n');
+            socket.destroy();
+            return;
+        }
         wss.handleUpgrade(request, socket, head, (ws) => {
             wss.emit('connection', ws, request);
         });

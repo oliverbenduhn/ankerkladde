@@ -139,8 +139,8 @@ function callGemini(string $apiKey, string $model, string $prompt, int $timeout,
 
 /**
  * SSRF-Guard für vom Nutzer konfigurierte Basis-URL.
- * Erlaubt nur https:// oder http://localhost bzw. http://127.0.0.1.
- * ponytail: blockiert Cloud-Metadata-Endpoints. Upgrade wenn Multi-Tenant.
+ * Öffentliche HTTPS-Ziele werden vor jedem Request neu aufgelöst und gepinnt.
+ * Private Ziele benötigen einen expliziten Betreiber-Opt-in.
  */
 function isPublicAiEndpointIp(string $ip): bool
 {

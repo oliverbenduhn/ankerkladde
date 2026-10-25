@@ -1,0 +1,316 @@
+/* Scanner Polished UI */
+.p-product-header {
+    display: flex;
+    gap: 1.5rem;
+    align-items: flex-start;
+    margin-bottom: 1.5rem;
+}
+.p-product-image-wrapper {
+    flex-shrink: 0;
+    width: 100px;
+    height: 100px;
+    border-radius: 24px;
+    overflow: hidden;
+    background: var(--border);
+    box-shadow: 0 4px 6px color-mix(in srgb, var(--color-shadow) 5%, transparent);
+}
+.p-product-image {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+.p-product-title-col {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+.p-product-brand {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+.p-product-title {
+    font-size: 1.4rem;
+    font-weight: 700;
+    margin: 0;
+    line-height: 1.2;
+    color: var(--text-primary);
+}
+.p-product-quantity {
+    font-size: 0.95rem;
+    color: var(--text-muted);
+}
+.p-badge-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+}
+.p-badge {
+    padding: 0.35rem 0.75rem;
+    border-radius: 99px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.p-badge-nutri { color: var(--color-white); text-shadow: 0 1px 2px color-mix(in srgb, var(--color-shadow) 20%, transparent); }
+.p-badge-nutri-a { background-color: var(--nutri-a); }
+.p-badge-nutri-b { background-color: var(--nutri-b); }
+.p-badge-nutri-c { background-color: var(--nutri-c); color: var(--nutri-dark-ink); text-shadow: none; }
+.p-badge-nutri-d { background-color: var(--nutri-d); }
+.p-badge-nutri-e { background-color: var(--nutri-e); }
+.p-badge-nova { background-color: var(--nutri-nova); color: var(--color-white); }
+.p-badge-label { background-color: var(--surface); color: var(--text-primary); border: 1.5px solid var(--border); }
+.p-nutrition-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 1.5rem;
+    font-variant-numeric: tabular-nums;
+}
+.p-nutrition-table th {
+    text-align: left;
+    padding: 0.75rem 0;
+    border-bottom: 2px solid var(--border);
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    text-transform: uppercase;
+}
+.p-nutrition-table th:last-child {
+    text-align: right;
+}
+.p-nutrition-table td {
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.95rem;
+    color: var(--text-primary);
+}
+.p-nutrition-table td:last-child {
+    text-align: right;
+    font-weight: 500;
+}
+.p-ingredients-sec {
+    background: var(--surface);
+    padding: 1rem;
+    border-radius: 24px;
+    margin-bottom: 1rem;
+    border: 1px solid var(--border);
+}
+.p-section-title {
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
+    margin: 0 0 0.5rem 0;
+}
+.p-ingredients-text {
+    font-size: 0.9rem;
+    line-height: 1.5;
+    margin: 0;
+    color: var(--text-primary);
+}
+.p-allergens-warn {
+    font-size: 0.9rem;
+    padding: 0.75rem 1rem;
+    background: color-mix(in srgb, var(--error) 12%, transparent);
+    color: var(--error);
+    border-radius: 24px;
+    font-weight: 600;
+}
+.clickable-brand { cursor: pointer; }
+
+/* Conflict UI Overlay */
+.btn-conflict-alert {
+    color: var(--error);
+    animation: pulse-error 2s infinite;
+}
+
+@keyframes pulse-error {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.68; }
+}
+
+.conflict-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: color-mix(in srgb, var(--color-shadow) 60%, transparent);
+    backdrop-filter: blur(4px);
+    z-index: 10000;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding: 0;
+}
+
+.conflict-sheet {
+    background: var(--surface);
+    width: 100%;
+    max-width: 600px;
+    border-radius: var(--radius) var(--radius) 0 0;
+    padding: 1.5rem;
+    box-shadow: 0 -10px 40px color-mix(in srgb, var(--color-shadow) 20%, transparent);
+    display: flex;
+    flex-direction: column;
+    max-height: 85vh;
+}
+
+.conflict-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.conflict-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--error);
+    margin: 0 0 0.25rem 0;
+}
+
+.conflict-subtitle {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    margin: 0;
+}
+
+.conflict-list-container {
+    flex: 1;
+    overflow-y: auto;
+    margin-bottom: 1rem;
+    padding-right: 0.5rem;
+}
+
+.conflict-item {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+}
+
+.conflict-item-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+}
+
+.conflict-item-type {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    background: var(--surface);
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    color: var(--text);
+}
+
+.conflict-item-error {
+    font-size: 0.8rem;
+    color: var(--error);
+}
+
+.conflict-item-payload {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    white-space: pre-wrap;
+    word-break: break-all;
+    background: var(--surface);
+    padding: 0.5rem;
+    border-radius: 4px;
+    margin-bottom: 0.75rem;
+}
+
+.conflict-item-actions {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+}
+
+.conflict-item-actions button {
+    padding: 0.4rem 0.75rem;
+    font-size: 0.85rem;
+    border-radius: var(--radius);
+}
+
+.conflict-actions {
+    display: flex;
+    gap: 0.75rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+}
+
+@media (min-width: 600px) {
+    .conflict-overlay {
+        align-items: center;
+        padding: 1rem;
+    }
+    .conflict-sheet {
+        border-radius: var(--radius);
+    }
+}
+
+/* Impressum & Datenschutz — PHP legal pages */
+.legal-page {
+    line-height: 1.5;
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 1rem;
+}
+
+.legal-page h1 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+}
+
+.legal-page h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-top: 1.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.legal-page address {
+    font-style: normal;
+    margin-bottom: 1rem;
+}
+
+.legal-page a {
+    color: var(--color-accent, var(--accent));
+}
+
+.legal-back {
+    display: inline-block;
+    margin-bottom: 1rem;
+    text-decoration: none;
+}
+
+.legal-footer {
+    margin-top: 2rem;
+    padding: 0.75rem 1rem;
+    text-align: center;
+    font-size: 0.9rem;
+    opacity: 0.7;
+}
+
+.login-page > .legal-footer {
+    margin-top: 0;
+}
+
+.legal-footer a {
+    color: inherit;
+    text-decoration: underline;
+    margin: 0 0.4rem;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+}

@@ -92,34 +92,36 @@ function validateAiApiKey(string $provider, string $apiKey, string $modelName, s
 
 function moveCategorySortOrder(PDO $db, int $userId, int $categoryId, string $direction): bool
 {
-    $category = loadUserCategory($db, $userId, $categoryId);
-    if ($category === null) {
-        return false;
-    }
-
-    $operator = $direction === 'up' ? '<' : '>';
-    $order = $direction === 'up' ? 'DESC' : 'ASC';
-
-    $stmt = $db->prepare(
-        "SELECT id, sort_order
-         FROM categories
-         WHERE user_id = :user_id
-           AND sort_order {$operator} :sort_order
-         ORDER BY sort_order {$order}, id {$order}
-         LIMIT 1"
-    );
-    $stmt->execute([
-        ':user_id' => $userId,
-        ':sort_order' => (int) $category['sort_order'],
-    ]);
-    $swapCategory = $stmt->fetch();
-
-    if (!is_array($swapCategory)) {
-        return false;
-    }
-
-    $db->beginTransaction();
+    $db->exec('BEGIN IMMEDIATE');
     try {
+        $category = loadUserCategory($db, $userId, $categoryId);
+        if ($category === null) {
+            $db->exec('COMMIT');
+            return false;
+        }
+
+        $operator = $direction === 'up' ? '<' : '>';
+        $order = $direction === 'up' ? 'DESC' : 'ASC';
+
+        $stmt = $db->prepare(
+            "SELECT id, sort_order
+             FROM categories
+             WHERE user_id = :user_id
+               AND sort_order {$operator} :sort_order
+             ORDER BY sort_order {$order}, id {$order}
+             LIMIT 1"
+        );
+        $stmt->execute([
+            ':user_id' => $userId,
+            ':sort_order' => (int) $category['sort_order'],
+        ]);
+        $swapCategory = $stmt->fetch();
+
+        if (!is_array($swapCategory)) {
+            $db->exec('COMMIT');
+            return false;
+        }
+
         $updateStmt = $db->prepare(
             'UPDATE categories
              SET sort_order = :sort_order, updated_at = CURRENT_TIMESTAMP
@@ -135,12 +137,10 @@ function moveCategorySortOrder(PDO $db, int $userId, int $categoryId, string $di
             ':id' => (int) $swapCategory['id'],
             ':user_id' => $userId,
         ]);
-        $db->commit();
+        $db->exec('COMMIT');
         return true;
     } catch (Throwable $exception) {
-        if ($db->inTransaction()) {
-            $db->rollBack();
-        }
+        $db->exec('ROLLBACK');
         throw $exception;
     }
 }

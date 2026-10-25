@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION = 'v5.4.17';
+const VERSION = 'v5.4.18';
 // ASSET_VERSION is derived from VERSION to ensure they stay in sync.
 const ASSET_VERSION = VERSION.replace(/^v/, '');
 const STATIC_CACHE = `ankerkladde-static-${VERSION}`;
@@ -119,10 +119,19 @@ self.addEventListener('install', event => {
                 if (!manifestResponse.ok) throw new Error('Editor asset manifest unavailable');
                 const vendorAssets = await manifestResponse.json();
                 const vendorUrls = vendorAssets.map(path => new URL(`vendor/editors/${path}`, APP_SCOPE_URL).toString());
+                const shellManifestUrl = new URL('app-shell-assets.json', APP_SCOPE_URL);
+                const shellResponse = await fetch(shellManifestUrl, { cache: 'no-store' });
+                if (!shellResponse.ok) throw new Error('App-shell asset manifest unavailable');
+                const shellAssets = await shellResponse.json();
+                const shellUrls = shellAssets.map(path => {
+                    const url = new URL(path, APP_SCOPE_URL);
+                    url.searchParams.set('v', ASSET_VERSION);
+                    return url.toString();
+                });
                 await cache.add(manifestUrl.toString());
-                // Try to cache all assets, but don't fail if some are unreachable
+                // Installation succeeds only when the entire critical shell is available.
                 const results = await Promise.allSettled(
-                    [...APP_SHELL_ASSET_URLS, ...vendorUrls].map(url => cache.add(url))
+                    [...new Set([...APP_SHELL_ASSET_URLS, ...vendorUrls, ...shellUrls])].map(url => cache.add(url))
                 );
                 const failures = results.filter(result => result.status === 'rejected');
                 if (failures.length > 0) throw new Error(`${failures.length} app-shell assets failed to cache`);
@@ -131,8 +140,7 @@ self.addEventListener('install', event => {
             .then(() => self.skipWaiting())
             .catch(err => {
                 console.warn('[SW] Install failed:', err);
-                // Still skip waiting even if precache failed - offline page is cached
-                return self.skipWaiting();
+                throw err;
             })
     );
 });
@@ -197,14 +205,25 @@ self.addEventListener('fetch', event => {
         return;
     }
 
-    if (APP_SHELL_ASSET_URLS.includes(request.url)) {
-        event.respondWith(staleWhileRevalidate(request, STATIC_CACHE));
+    url.hash = '';
+    if (APP_SHELL_ASSET_URLS.includes(url.toString())) {
+        event.respondWith(staleWhileRevalidate(new Request(url, request), STATIC_CACHE));
         return;
     }
 
     // Interne JS-Imports ohne ?v= mit aktuellem ASSET_VERSION abfangen,
     // damit der Browser-Cache bei Versionswechsel ungueltig wird.
-    if (url.pathname.startsWith('/js/') && !url.searchParams.has('v')) {
+    const relativePath = url.pathname.slice(APP_SCOPE_URL.pathname.length);
+    if (url.pathname.startsWith(APP_SCOPE_URL.pathname) && /^(?:icon|category-icon|ui-sprite)\.php$/.test(relativePath)) {
+        if (relativePath !== 'category-icon.php') url.searchParams.set('v', ASSET_VERSION);
+        event.respondWith(staleWhileRevalidate(new Request(url, request), STATIC_CACHE));
+        return;
+    }
+    if (url.pathname.startsWith(APP_SCOPE_URL.pathname) && relativePath.startsWith('vendor/editors/')) {
+        event.respondWith(staleWhileRevalidate(request, STATIC_CACHE));
+        return;
+    }
+    if (url.pathname.startsWith(APP_SCOPE_URL.pathname) && /^(?:style\.css|js\/.*\.js|styles\/.*\.css)$/.test(relativePath)) {
         const versionedUrl = new URL(url);
         versionedUrl.searchParams.set('v', ASSET_VERSION);
         event.respondWith(staleWhileRevalidate(new Request(versionedUrl), STATIC_CACHE));

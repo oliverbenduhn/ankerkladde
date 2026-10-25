@@ -100,6 +100,10 @@ test.describe('FLOW 14 — Attachment-Ersetzungen revisionssicher (Issue #71)', 
 
     await replaceFile(page, itemId, 'lokal.txt', 'Lokale bestätigte Fassung');
     await expect(itemCard(page, itemId)).toContainText('lokal.txt');
+    // Filename is optimistic; wait until the lost first response has actually
+    // failed before retrying. A second click during saving is intentionally ignored.
+    await expect(page.locator('#message')).toContainText('Offline oder Netzwerkfehler');
+    await expect(itemCard(page, itemId).locator('.item-sync-badge-saving')).toHaveCount(0);
     await itemCard(page, itemId).getByRole('button', { name: /speichern$/ }).click();
     await expect(itemCard(page, itemId).locator('.item-edit-fields')).toHaveCount(0);
 

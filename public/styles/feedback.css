@@ -1,0 +1,144 @@
+/* ===========================================
+   EMPTY STATE
+   =========================================== */
+.empty-state {
+    list-style: none;
+    padding: 40px 16px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    animation: cardIn 0.22s ease both;
+}
+
+/* ===========================================
+   CLEAR DONE BUTTON
+   =========================================== */
+.btn-clear {
+    /* ponytail: sticky bottom verhindert dass Item-Rendering den Button
+       nach unten schiebt. PerformanceObserver rapportiert sonst 0x0. */
+    position: sticky;
+    bottom: 0;
+    display: block;
+    width: 100%;
+    min-height: 44px;
+    margin-top: 10px;
+    padding: 10px;
+    /* Undurchsichtiger Hintergrund nötig, sonst schimmert beim Scrollen der
+       zuletzt gerenderte Item-Eintrag durch den Button hindurch (#82). */
+    background: var(--bg);
+    border: 1.5px solid var(--border);
+    border-radius: 20px;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.btn-clear:hover   { border-color: var(--accent); color: var(--text-secondary); }
+/* Nichts zu löschen -> Button ist nicht klickbar und wird deshalb gar
+   nicht angezeigt, statt nur ausgegraut zu bleiben (#82). */
+.btn-clear:disabled { display: none; }
+
+/* ===========================================
+   STATUS MESSAGE (toast)
+   =========================================== */
+.message {
+    position: fixed;
+    bottom: calc(env(safe-area-inset-bottom, 8px) + 16px);
+    left: 50%;
+    transform: translateX(-50%) translateY(10px);
+    background: var(--text-primary);
+    color: var(--surface);
+    padding: 8px 18px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    z-index: 100;
+    max-width: calc(100vw - 32px);
+    text-align: center;
+}
+
+.message.is-visible { opacity: 1; transform: translateX(-50%) translateY(0); }
+.message.is-error   { background: var(--error); }
+
+.message.has-action {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    pointer-events: auto;
+    cursor: pointer;
+    text-align: left;
+}
+
+.message-action {
+    min-width: 44px;
+    min-height: 44px;
+    flex: 0 0 auto;
+    padding: 0 14px;
+    border: 1px solid color-mix(in srgb, var(--surface) 60%, transparent);
+    border-radius: 22px;
+    background: var(--surface);
+    color: var(--text-primary);
+    font: inherit;
+    font-weight: 700;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.message-action:hover,
+.message-action:active {
+    background: color-mix(in srgb, var(--surface) 82%, var(--accent));
+}
+
+.message-action:focus-visible {
+    outline: 2px solid var(--surface);
+    outline-offset: 2px;
+}
+
+.message-action:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+/* ===========================================
+   UPLOAD PROGRESS BAR
+   =========================================== */
+.upload-progress {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    z-index: 200;
+    background: var(--border);
+    overflow: hidden;
+}
+
+.upload-progress-bar {
+    height: 100%;
+    background: var(--text-secondary);
+    width: 0%;
+    transition: width 0.25s ease-out;
+}
+
+.upload-progress.is-indeterminate .upload-progress-bar {
+    animation: upload-indeterminate 1.15s ease-in-out infinite;
+}
+
+@keyframes upload-indeterminate {
+    0% {
+        transform: translateX(-140%);
+        width: 38%;
+    }
+    50% {
+        width: 58%;
+    }
+    100% {
+        transform: translateX(280%);
+        width: 38%;
+    }
+}

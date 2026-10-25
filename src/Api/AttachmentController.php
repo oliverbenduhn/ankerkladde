@@ -206,7 +206,7 @@ function handleAttachmentApiAction(PDO $db, int $userId, string $action): never
             $importUrl = trim((string) ($data['url'] ?? ''));
             validateSsrfSafeUrl($importUrl);
 
-            $downloaded = downloadRemoteFile($importUrl);
+            $downloaded = prepareIdempotentExternalWork(static fn() => downloadRemoteFile($importUrl));
             if (isset($downloaded['error'])) {
                 $payload = ['error' => (string) $downloaded['error']];
                 if (isset($downloaded['error_key'])) {
