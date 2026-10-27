@@ -2,7 +2,12 @@
 
 Alle nennenswerten Änderungen an Ankerkladde werden hier zusammengefasst.
 
-Aktuelle Version: `5.4.19`
+Aktuelle Version: `5.4.20`
+
+## 5.4.20 - 2026-10-27
+
+- README-Grafiken zusätzlich als PNG bereitgestellt und eingebunden, damit die
+  Anzeige auf GitHub ohne SVG-Vorschau funktioniert. SVG-Originale bleiben erhalten.
 
 ## 5.4.19 - 2026-10-27
 

@@ -1,7 +1,7 @@
 # Ankerkladde
 
 <p align="center">
-  <img src="./assets/readme/hero.svg" width="100%" alt="Ankerkladde – mobile Einkaufs-, Todo- und Notizlisten-App">
+  <img src="./assets/readme/hero.png" width="100%" alt="Ankerkladde – mobile Einkaufs-, Todo- und Notizlisten-App">
 </p>
 
 <p align="center">
@@ -14,12 +14,12 @@
 
 **Ankerkladde** ist eine mobile-first PHP-Webanwendung und PWA für Einkaufslisten, Aufgaben, Tagesnotizen, Zeichnungen, Bilder, Dateien und Links. Daten liegen auf deinem Server in SQLite. Das Frontend nutzt Vanilla-JS-ESM, TipTap und Excalidraw; ein optionaler WebSocket-Dienst meldet Änderungen an andere offene Ansichten.
 
-**Aktueller Stand: v5.4.19.** Oberfläche auf Deutsch und Englisch. Details stehen im [Versionsverlauf](changelog.md).
+**Aktueller Stand: v5.4.20.** Oberfläche auf Deutsch und Englisch. Details stehen im [Versionsverlauf](changelog.md).
 
 ## Was du bekommst
 
 <p align="center">
-  <img src="./assets/readme/section-features.svg" width="100%" alt="Acht Funktionsbereiche: Listen, Einkaufen, Barcode, Notizen, Bilder, Dateien, Links, Extension">
+  <img src="./assets/readme/section-features.png" width="100%" alt="Acht Funktionsbereiche: Listen, Einkaufen, Barcode, Notizen, Bilder, Dateien, Links, Extension">
 </p>
 
 - **Frei konfigurierbare Kategorien** pro Nutzer – mit Typen für Einkaufslisten, Aufgaben, Notizen, Bilder, Dateien und Links. Anlegen, umbenennen, sortieren, ausblenden.
@@ -58,7 +58,7 @@
 ## Architektur
 
 <p align="center">
-  <img src="./assets/readme/workflow.svg" width="100%" alt="Drei-Schicht-Diagramm: PWA-Client, PHP-API, SQLite plus optionaler WebSocket-Server">
+  <img src="./assets/readme/workflow.png" width="100%" alt="Drei-Schicht-Diagramm: PWA-Client, PHP-API, SQLite plus optionaler WebSocket-Server">
 </p>
 
 | Pfad | Zweck |
