@@ -24,9 +24,15 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: actions/configure-pages@v5
+      - name: Prepare public project site
+        run: |
+          mkdir -p _site/vorstellung
+          cp -R vorstellung/. _site/
+          # Keep previously shared /vorstellung/ links working.
+          printf '%s\n' '<!doctype html><html lang="de"><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=../"><title>Ankerkladde</title><a href="../">Zur Projektvorstellung</a></html>' > _site/vorstellung/index.html
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: .
+          path: _site
 
   deploy:
     needs: build

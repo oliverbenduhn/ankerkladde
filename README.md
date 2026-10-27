@@ -5,13 +5,16 @@
 </p>
 
 <p align="center">
-  <a href="https://ankerkladde.benduhn.de">Live-Demo</a> ·
+  <a href="https://oliverbenduhn.github.io/ankerkladde/">Projektvorstellung</a> ·
+  <a href="https://ankerkladde.benduhn.de">App öffnen</a> ·
   <a href="#schnellstart">Schnellstart</a> ·
   <a href="#api-in-kurzform">API</a> ·
   <a href="#tests">Tests</a>
 </p>
 
-**Ankerkladde** ist eine mobile-first PHP-Webanwendung und PWA für Einkaufslisten, Todos, Notizen, Bilder, Dateien und Links. Daten liegen in SQLite, das Frontend ist Vanilla-JS-ESM, der Notizeditor ist TipTap – und ein optionaler WebSocket-Dienst liefert Live-Sync ohne Reload.
+**Ankerkladde** ist eine mobile-first PHP-Webanwendung und PWA für Einkaufslisten, Aufgaben, Tagesnotizen, Zeichnungen, Bilder, Dateien und Links. Daten liegen auf deinem Server in SQLite. Das Frontend nutzt Vanilla-JS-ESM, TipTap und Excalidraw; ein optionaler WebSocket-Dienst meldet Änderungen an andere offene Ansichten.
+
+**Aktueller Stand: v5.4.19.** Oberfläche auf Deutsch und Englisch. Details stehen im [Versionsverlauf](changelog.md).
 
 ## Was du bekommst
 
@@ -22,9 +25,10 @@
 - **Frei konfigurierbare Kategorien** pro Nutzer – mit Typen für Einkaufslisten, Aufgaben, Notizen, Bilder, Dateien und Links. Anlegen, umbenennen, sortieren, ausblenden.
 - **Zwei Arbeitsmodi** nebeneinander: `Liste` zum Bearbeiten, `Einkaufen` zum schnellen Abhaken unterwegs. Inline-Edit, Drag-and-Drop, Anheften, Sammellöschen, Volltextsuche per FTS5.
 - **Medien sauber gehandhabt** – genau ein Anhang pro Item, Uploads unter `data/uploads/` (nie im Webroot), Bilder bekommen Thumbnails wenn `gd` verfügbar ist, Dateien werden gestreamt statt ausgeliefert.
-- **Rich-Text-Notizen mit TipTap**, auf Wunsch über Yjs/WebSocket live synchronisiert. Versionsänderungen lösen einen Reload aus, andere offene Tabs sehen CRUD-Änderungen ohne Refresh.
-- **Barcode-Scanner** mit optionalem Open-Food-Facts-Katalog und **Magic Bar** (Google Gemini) für Freitext wie „Zutaten für Lasagne". Beides funktioniert auch ohne Katalog bzw. ohne Key.
-- **Installierbare PWA** mit Service Worker, Offline-Seite, Share Target und Update-Reload.
+- **Tagesansicht mit Agenda, Tagesnotiz und Tagesskizze** – heute, gestern, morgen oder ein frei gewähltes Datum; inklusive überfälliger Aufgaben am heutigen Tag.
+- **Rich-Text-Notizen mit TipTap und Zeichnungen mit Excalidraw** – lokal ausgelieferte Editoren, Autosave, lokale Entwürfe und sichtbare Konfliktauflösung bei paralleler Bearbeitung. Der ungenutzte Yjs-Endpunkt ist deaktiviert.
+- **Quick-Add ohne KI**, mit Kategorie, Datum und Priorität. **Barcode-Scanner** mit optionalem Open-Food-Facts-Katalog und **Magic Bar** mit Gemini oder einem OpenAI-kompatiblen Anbieter; KI-Funktionen benötigen einen eigenen Provider-Schlüssel.
+- **Installierbare PWA** mit vollständigem App-Shell-Cache, Offline-Bearbeitung nach der ersten Synchronisation, Share Target, vorgemerkten Aktionen und rückgängig machbaren Löschungen.
 - **Themes & Erweiterung** – kuratierte Light- und Dark-Themes, plus eine Browser-Erweiterung für Chrome/Edge/Firefox, die sich per `X-API-Key` authentifiziert.
 
 ## So sieht es aus
@@ -64,12 +68,14 @@
 | `db.php` | SQLite-Init, Auto-Migrationen, Kategorien-, Nutzer- und Produkt-Helper |
 | `security.php` | Session, CSRF, kanonischer Host, Proxy-Logik |
 | `src/` | `CategoryRepository`, `ItemRepository`, `UserRepository`, `FileHelper`, `ImageHelper`, `SettingsController`, `AiClient` |
-| `websocket-server/` | Yjs-Räume für Notizen, Versionsbroadcasts |
+| `src/Api/` | Anwendungsfall-Controller, HTTP, Idempotenz, Remote-Fetch und Inhaltsvalidierung |
+| `public/styles/` | Komponenten-Styles und semantische Farbrollen |
+| `websocket-server/` | Ticket- und Origin-geprüfte Nutzerkanäle, Versionsbroadcasts |
 | `browser-extension/` | Chrome/Edge/Firefox-Erweiterung, baut sich on demand als ZIP |
 | `scripts/` | Smoke-Tests, DB-Migration, Open-Food-Facts-Import, Helfer |
 | `tests/ui/` | Playwright-Suite |
 
-**Daten:** `data/einkaufsliste.db` (Hauptdaten), optional `data/products.db` (Produktkatalog). Migrationen laufen additiv beim Start – nie destruktiv.
+**Daten:** `data/einkaufsliste.db` (Hauptdaten), optional `data/products.db` (Produktkatalog). Schemaänderungen laufen über `php scripts/migrate.php` als Installations-/Deploy-Schritt. Der Webpfad prüft die Schema-Version. Mehr dazu: [Modulgrenzen und Audit-Verträge](docs/architecture-boundaries.md).
 
 ## Schnellstart
 
@@ -78,6 +84,8 @@
 ```bash
 git clone https://github.com/oliverbenduhn/ankerkladde.git
 cd ankerkladde
+# Einmal erzeugen und die .env-Datei behalten:
+printf 'ANKERKLADDE_WS_SECRET=%s\n' "$(openssl rand -hex 32)" > .env
 docker compose up -d --build
 docker exec -it ankerkladde php scripts/create-admin.php
 ```
@@ -87,8 +95,9 @@ Anschließend unter <http://localhost:8083> einloggen. Daten landen unter `./dat
 ### Lokal ohne Docker
 
 ```bash
-php -S 127.0.0.1:8000 -t public public/router.php
+php scripts/migrate.php
 php scripts/create-admin.php
+php -S 127.0.0.1:8000 -t public public/router.php
 ```
 
 Dann `http://127.0.0.1:8000/login.php` aufrufen. Weitere Nutzer per `php scripts/create-user.php` oder über die Umgebungsvariablen `EINKAUF_ADMIN_USER` / `EINKAUF_ADMIN_PASS` bzw. `EINKAUF_REGULAR_USER` / `EINKAUF_REGULAR_PASS`. Im Docker-Container wird bei einer frischen Installation automatisch ein initialer Admin (`admin` / `admin1234`) angelegt – Passwortwechsel beim ersten Login ist Pflicht.
@@ -104,6 +113,10 @@ JSON-API unter `public/api.php`, genutzt von Web-App und Browser-Erweiterung.
 | `categories_list`, `categories_create`, `categories_update`, `categories_reorder`, `categories_delete` | `GET` / `POST` | Kategorien verwalten |
 | `list`, `add`, `upload`, `update`, `toggle`, `delete`, `clear`, `reorder`, `pin` | `GET` / `POST` | Items und Anhänge bearbeiten |
 | `search` | `GET` | Nutzerweite Volltextsuche (FTS5) |
+| `quick_add` | `POST` | Freitext deterministisch in Kategorie, Datum und Priorität aufteilen |
+| `today`, `journal`, `journal_save` | `GET` / `POST` | Agenda und revisionsgesicherte Tagesnotizen |
+| `sketch_load`, `sketch_save`, `sketch_save_daily` | `GET` / `POST` | Zeichnungen und Tagesskizzen |
+| `undo_delete`, `finalize_delete` | `POST` | Löschungen wiederherstellen oder abschließen |
 | `product_lookup`, `product_details` | `GET` | Produktdaten per Barcode |
 | `fetch_metadata` | `GET` | Titel/Beschreibung/Bild einer externen URL |
 | `preferences` | `GET` / `POST` | Nutzerpräferenzen |
@@ -113,8 +126,8 @@ Browser-Sessions verwenden Session-Cookie + `X-CSRF-Token`. Die Browser-Erweiter
 ## Voraussetzungen
 
 - PHP 8.1+ (empfohlen 8.3, Docker nutzt `php:8.3-apache`)
-- Erweiterungen: `pdo_sqlite`, `curl`, `mbstring`; für Bild-Thumbnails zusätzlich `gd`
-- Node.js nur für WebSocket-Server, Playwright-UI-Tests und Extension-Builds
+- Erweiterungen: `pdo_sqlite`, `curl`, `mbstring`, `sodium`; für Bild-Thumbnails zusätzlich `gd`
+- Node.js für WebSocket-Server, Playwright-UI-Tests und den lokalen Editor-Vendor-Build; die gebündelten Editoren liegen bereits im Repository
 
 ## Wichtige Umgebungsvariablen
 
@@ -167,6 +180,9 @@ Mehr in [browser-extension/README.md](browser-extension/README.md).
 - Attachment-Pfade werden ausschließlich serverseitig aus DB-Werten gebildet, nie aus Request-Daten
 - `fetch_metadata` lädt nur externe öffentliche HTTP(S)-Ziele, nie aus dem LAN/Loopback
 - Browser-Erweiterung nutzt API-Keys, nie Session-Cookies
+- API-Keys werden gehasht, Provider-Schlüssel mit libsodium verschlüsselt gespeichert; Provider-Secrets fehlen in HTML- und API-Präferenzen
+- Revisionsprüfung, atomare Idempotenz und Konfliktansichten schützen Schreibvorgänge und Wiederholungen
+- Persistente Login-Limits und kurzlebige WebSocket-Tickets mit Origin-Prüfung sichern die Zugänge ab
 
 ## Tests
 
@@ -174,6 +190,10 @@ Mehr in [browser-extension/README.md](browser-extension/README.md).
 bash scripts/smoke-test.sh
 bash scripts/test-db-migration.sh
 php scripts/test-security.php
+php scripts/test-transactions.php
+npm run test:architecture
+npm run test:design
+npm run test:service-worker
 find . -path './.git' -prune -o -path './.worktrees' -prune -o -path './data' -prune -o -name '*.php' -print | sort | xargs -r -n1 php -l
 ```
 
@@ -185,7 +205,7 @@ npm run test:ui:install
 npm run test:ui
 ```
 
-Die UI-Suite startet ihren eigenen PHP-Testserver und legt temporäre Daten unter `.tmp/ui-test-data/` an.
+Die UI-Suite wählt einen freien Port, startet ihren eigenen PHP-Testserver und legt temporäre Daten unter `.tmp/ui-test-data-<Port>/` an. Sie prüft Desktop und Mobile, inklusive Offline-Editoren und englischer Navigation. Weitere Prüfungen sind in den [Audit-Verträgen](docs/architecture-boundaries.md) beschrieben.
 
 ## Deployment
 

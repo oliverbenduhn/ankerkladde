@@ -2,7 +2,16 @@
 
 Alle nennenswerten Änderungen an Ankerkladde werden hier zusammengefasst.
 
-Aktuelle Version: `5.4.18`
+Aktuelle Version: `5.4.19`
+
+## 5.4.19 - 2026-10-27
+
+- GitHub-Projektvorstellung und README mit Tagesansicht, Skizzen,
+  Offline-Bearbeitung und den aktuellen KI-/Sicherheitsfunktionen aktualisiert.
+- GitHub Pages veröffentlicht die Vorstellung direkt unter der Projektadresse;
+  bisherige `/vorstellung/`-Links werden weitergeleitet.
+- Installationshinweise für WebSocket-Secret und Migrationen korrigiert sowie
+  mobile Darstellung und lesbare Aktionslinks der Vorstellungsseite verbessert.
 
 ## 5.4.18 - 2026-10-24
 
