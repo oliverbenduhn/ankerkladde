@@ -98,7 +98,8 @@ export function getConflictCount() {
 }
 
 export function addConflict(type, payload, error) {
-    const conflicts = getConflicts().slice(-49);
+    const conflicts = getConflicts();
+    if (conflicts.length >= 50) return false;
     conflicts.push({
         type,
         payload: sanitizeItemPayload(payload),
@@ -107,10 +108,14 @@ export function addConflict(type, payload, error) {
         failedAt: new Date().toISOString(),
     });
     const conflictsJson = JSON.stringify(conflicts);
-    if (storageBytes(conflictsJson) <= OFFLINE_QUEUE_MAX_BYTES) {
+    if (storageBytes(conflictsJson) > OFFLINE_QUEUE_MAX_BYTES) return false;
+    try {
         localStorage.setItem(CONFLICTS_KEY, conflictsJson);
-        window.dispatchEvent(new Event('ankerkladde-conflicts-updated'));
+    } catch {
+        return false;
     }
+    window.dispatchEvent(new Event('ankerkladde-conflicts-updated'));
+    return true;
 }
 
 export function setConflicts(conflicts) {
@@ -138,22 +143,28 @@ export function clearConflicts() {
     window.dispatchEvent(new Event('ankerkladde-conflicts-updated'));
 }
 
-export async function flushQueue(apiFn, onStatusConflict = () => {}) {
-    const queue = getQueue();
-    if (queue.length === 0) return false;
+let flushing = false;
 
+export async function flushQueue(apiFn, onStatusConflict = () => {}, onStorageFull = () => {}) {
+    if (flushing) return false;
+    flushing = true;
+    try {
+        return await flushPending(apiFn, onStatusConflict, onStorageFull);
+    } finally {
+        flushing = false;
+    }
+}
+
+async function flushPending(apiFn, onStatusConflict, onStorageFull) {
     let flushedAny = false;
-    const remainingQueue = [];
-    let queueHalted = false;
 
-    for (let index = 0; index < queue.length; index += 1) {
-        const { type, payload, requestId = '' } = queue[index];
+    for (const entry of getQueue()) {
+        const entryJson = JSON.stringify(entry);
+        const matches = candidate => JSON.stringify(candidate) === entryJson;
+        if (!getQueue().some(matches)) continue;
+        const { type, payload, requestId = '' } = entry;
         let sanitizedPayload = sanitizeItemPayload(payload);
-        
-        if (queueHalted) {
-            remainingQueue.push({ type, payload: sanitizedPayload, requestId });
-            continue;
-        }
+        let retry = null;
 
         try {
             try {
@@ -196,30 +207,39 @@ export async function flushQueue(apiFn, onStatusConflict = () => {}) {
                     throw retryError;
                 }
             }
-            flushedAny = true;
         } catch (error) {
             if (error.isNetworkError || (error.status && error.status >= 500)) {
                 // Keep this and all subsequent items in the queue
-                remainingQueue.push({
+                retry = {
                     type,
                     payload: error.queuePayload || sanitizedPayload,
                     requestId: requestId || error.idempotencyKey || '',
-                });
-                queueHalted = true;
+                };
             } else {
                 // 4xx/conflict: remove it from the retry queue, but keep the payload recoverable.
-                addConflict(type, sanitizedPayload, error);
+                if (!addConflict(type, sanitizedPayload, error)) {
+                    onStorageFull();
+                    break;
+                }
                 if (error.isStatusConflict) onStatusConflict(error.payload.item);
                 console.warn('Offline queue item moved to conflicts due to client error:', error);
-                flushedAny = true; // Queue changed
             }
         }
-    }
-
-    if (remainingQueue.length > 0) {
-        localStorage.setItem(QUEUE_KEY, JSON.stringify(remainingQueue));
-    } else {
-        localStorage.removeItem(QUEUE_KEY);
+        // Reconcile only the processed entry, not the pre-request snapshot.
+        const current = getQueue();
+        const index = current.findIndex(matches);
+        if (index !== -1) {
+            current.splice(index, 1, ...(retry ? [retry] : []));
+            try {
+                if (current.length > 0) localStorage.setItem(QUEUE_KEY, JSON.stringify(current));
+                else localStorage.removeItem(QUEUE_KEY);
+            } catch {
+                onStorageFull();
+                break;
+            }
+        }
+        if (retry) break;
+        flushedAny = true;
     }
 
     return flushedAny;

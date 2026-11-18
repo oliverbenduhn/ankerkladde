@@ -164,13 +164,15 @@ export function createAppRuntime(deps) {
 
     const flushOfflineQueue = async () => {
         let statusConflict = false;
-        const hadItems = await flushQueue(api, () => { statusConflict = true; });
+        let storageFull = false;
+        const hadItems = await flushQueue(api, () => { statusConflict = true; }, () => { storageFull = true; });
         if (hadItems) {
             invalidateCategoryCache(state.categoryId);
             invalidateSwListCache(state.categoryId);
             await loadItems();
         }
-        if (statusConflict) setMessage(t('msg.status_conflict_retry'), true);
+        if (storageFull) setMessage(t('error.offline_storage_full'), true);
+        else if (statusConflict) setMessage(t('msg.status_conflict_retry'), true);
         return hadItems;
     };
 

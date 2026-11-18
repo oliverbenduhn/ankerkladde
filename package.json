@@ -5,7 +5,7 @@
     "build:vendor": "bash scripts/build-vendor-assets.sh",
     "dev:demo": "bash scripts/demo-test-server.sh",
     "test:assets": "node scripts/check-ui-sprite.js && test -s public/vendor/editors/tiptap.js && test -s public/vendor/editors/sketch.js",
-    "test:unit": "node --test scripts/test-item-content-conflict.mjs",
+    "test:unit": "node --test scripts/test-item-content-conflict.mjs scripts/test-offline-queue.mjs",
     "test:cache-versions": "php scripts/check-js-cache-versions.php",
     "test:i18n": "php scripts/check-i18n-keys.php",
     "test:design": "php scripts/check-design-token-stamp.php",

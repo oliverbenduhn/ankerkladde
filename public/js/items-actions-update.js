@@ -233,9 +233,8 @@ export function createUpdateActions(deps) {
                     setNetworkStatus();
                     return { payload: null, error: null, queued: true };
                 }
-                removeQueuedAction(deletionId);
                 if (Number(error?.status) === 409 && error.payload?.item) {
-                    addConflict('delete', {
+                    const saved = addConflict('delete', {
                         id: String(id),
                         expected_revision: String(error.payload.item.revision),
                     }, error);
@@ -243,8 +242,8 @@ export function createUpdateActions(deps) {
                     // erst markieren und danach den kanonischen Serverstand
                     // rendern.
                     mergeCategoryItems([error.payload.item], sourceCategoryId);
-                    setMessage(t('msg.delete_conflict'), true);
-                    return { payload: null, error };
+                    setMessage(t(saved ? 'msg.delete_conflict' : 'error.offline_storage_full'), true);
+                    return { payload: null, error, queued: !saved };
                 }
                 if (Number(error?.status) === 404) {
                     removeConflictFor(id, 'delete');
