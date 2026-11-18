@@ -13,7 +13,10 @@ No build tool. No framework. Vanilla JS frontend, PHP 8.1+ backend.
 ### Local Development
 
 ```bash
-# Start dev server
+# Start with an isolated database and create a local admin account.
+export EINKAUF_DATA_DIR="$(mktemp -d)"
+php scripts/migrate.php
+php scripts/create-admin.php
 php -S 127.0.0.1:8000 -t public
 
 # Docker (alternative)
@@ -108,7 +111,7 @@ ESM modules in `public/js/` (structured via `createXxxController(deps)` pattern)
 
 ### Database
 
-SQLite at `data/einkaufsliste.db` (overridable via `EINKAUF_DATA_DIR` env var). Schema is created and migrated automatically in `getDatabase()` on every request. Prefer additive `ALTER TABLE ... ADD COLUMN` migrations; when SQLite constraints must change, use the guarded transactional table-rebuild pattern covered by `scripts/test-db-migration.sh`.
+SQLite at `data/einkaufsliste.db` (overridable via `EINKAUF_DATA_DIR`). Run `php scripts/migrate.php` before serving a new or outdated database. Prefer additive `ALTER TABLE ... ADD COLUMN` migrations; when SQLite constraints must change, use the guarded transactional table-rebuild pattern covered by `scripts/test-db-migration.sh`.
 
 Key tables:
 - `users` — user accounts (username, password_hash, is_admin, api_key)
@@ -142,7 +145,7 @@ Frontend uses a modular ESM architecture with `createXxxController(deps)` patter
 
 The active category and view mode (`liste`/`einkaufen`) persist in `localStorage` (and via the `preferences` API).
 
-The notes section opens a full TipTap rich-text editor (loaded from CDN at esm.sh) with 800 ms debounce auto-save.
+The notes section uses the locally served TipTap bundle in `public/vendor/editors/`. Rebuild editor bundles with `npm run build:vendor`.
 
 ### Security Notes
 
