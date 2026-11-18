@@ -8,6 +8,7 @@ async function login(page) {
   await page.getByLabel('Passwort').fill('playwright-pass');
   await page.getByRole('button', { name: 'Anmelden' }).click();
   await expect(page).toHaveURL(/index\.php/);
+  await page.waitForFunction(() => history.state?.appManaged === true);
 }
 
 test('settings open as one lazily loaded native dialog without iframe', async ({ page }) => {
@@ -33,6 +34,32 @@ test('settings open as one lazily loaded native dialog without iframe', async ({
   await page.getByRole('link', { name: 'Einstellungen' }).first().click();
   await expect(dialog).toBeVisible();
   expect(fragmentRequests).toBe(1);
+});
+
+test('settings ignores a late successful response after Back', async ({ page }) => {
+  await login(page);
+  const dialog = page.locator('#settingsDialog');
+  const received = Promise.withResolvers();
+  await page.route('**/settings.php?fragment=1*', route => received.resolve(route), { times: 1 });
+  await page.getByRole('link', { name: 'Einstellungen' }).first().click();
+  const request = await received.promise;
+  await expect(page).toHaveURL(/screen=settings/);
+  await page.goBack();
+  await expect(page).not.toHaveURL(/screen=settings/);
+  await request.fulfill({ response: await request.fetch() });
+  await expect(dialog.getByText('Erscheinungsbild', { exact: false })).toBeAttached();
+  await expect(dialog).toBeHidden();
+});
+
+test('settings offers a focused retry button on failure', async ({ page }) => {
+  await login(page);
+  const dialog = page.getByRole('dialog', { name: 'Einstellungen' });
+  await page.route('**/settings.php?fragment=1*', route => route.fulfill({ status: 503 }), { times: 1 });
+  await page.getByRole('link', { name: 'Einstellungen' }).first().click();
+  const retry = dialog.getByRole('button', { name: 'Erneut versuchen' });
+  await expect(retry).toBeFocused();
+  await retry.click();
+  await expect(dialog.getByText('Erscheinungsbild')).toBeVisible();
 });
 
 test('category names autosave on blur and update the app without reload', async ({ page }) => {

@@ -1,4 +1,5 @@
 import { settingsUrl } from './api.js';
+import { t } from './i18n.js';
 import { settingsDialogContentEl, settingsDialogEl, settingsDialogCloseEl } from './ui.js';
 
 export function createSettingsDrawer({ onRequestClose, onContentChanged }) {
@@ -6,6 +7,7 @@ export function createSettingsDrawer({ onRequestClose, onContentChanged }) {
     let loading = null;
     let currentTab = 'app';
     let settingsModule = null;
+    let opening = 0;
 
     async function render(tab, preserveScroll = false) {
         const scrollTop = preserveScroll ? settingsDialogContentEl.scrollTop : 0;
@@ -26,11 +28,28 @@ export function createSettingsDrawer({ onRequestClose, onContentChanged }) {
     }
 
     async function open(tab = 'app') {
+        const attempt = ++opening;
         currentTab = tab;
         if (!loaded) {
             loading ||= render(tab).finally(() => { loading = null; });
-            await loading;
+            try {
+                await loading;
+            } catch {
+                if (attempt !== opening) return;
+                const message = document.createElement('p');
+                message.textContent = t('error.settings_load');
+                message.setAttribute('role', 'alert');
+                const retry = document.createElement('button');
+                retry.type = 'button';
+                retry.textContent = t('action.settings_retry');
+                retry.addEventListener('click', () => void open(tab), { once: true });
+                settingsDialogContentEl.replaceChildren(message, retry);
+                if (!settingsDialogEl.open) settingsDialogEl.showModal();
+                retry.focus();
+                return;
+            }
         }
+        if (attempt !== opening) return;
         if (!settingsDialogEl.open) settingsDialogEl.showModal();
 
         const panel = settingsDialogContentEl.querySelector(`details[data-settings-panel="${tab}"]`);
@@ -39,6 +58,7 @@ export function createSettingsDrawer({ onRequestClose, onContentChanged }) {
     }
 
     function close() {
+        opening += 1;
         if (settingsDialogEl.open) settingsDialogEl.close();
     }
 

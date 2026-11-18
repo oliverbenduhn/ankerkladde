@@ -505,6 +505,8 @@
     "error.network_test_failed": "❌ Network error during test.",
     "error.offline_too_large": "This entry is too large for offline sync.",
     "error.offline_storage_full": "Offline storage is full. Please sync or delete old offline entries.",
+    "error.settings_load": "Could not load settings.",
+    "action.settings_retry": "Try again",
 
     "scanner.check_item": "Check off item",
     "scanner.add_item": "Add item",

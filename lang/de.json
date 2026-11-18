@@ -505,6 +505,8 @@
     "error.network_test_failed": "❌ Netzwerkfehler beim Testen.",
     "error.offline_too_large": "Dieser Eintrag ist zu groß für die Offline-Synchronisation.",
     "error.offline_storage_full": "Der Offline-Speicher ist voll. Bitte synchronisiere oder lösche alte Offline-Einträge.",
+    "error.settings_load": "Einstellungen konnten nicht geladen werden.",
+    "action.settings_retry": "Erneut versuchen",
 
     "scanner.check_item": "Eintrag abhaken",
     "scanner.add_item": "Artikel hinzufügen",
