@@ -1,15 +1,11 @@
 const path = require('path');
-const fs = require('fs');
+
 const { execFileSync } = require('child_process');
 const { test } = require('@playwright/test');
 
-const SCREENSHOT_DIR = path.join(__dirname, '..', '..', '..', 'screenshots', 'flows');
 const REPO_ROOT = path.join(__dirname, '..', '..', '..');
 const resetFixtures = new Set();
 
-function ensureScreenshotDir() {
-  fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
-}
 
 function flowName(testInfo, suffix) {
   const file = (testInfo.file || 'flow').replace(/.*\//, '').replace(/\.spec\.[cm]?[jt]sx?$/, '');
@@ -20,9 +16,8 @@ function flowName(testInfo, suffix) {
 }
 
 async function snap(page, testInfo, suffix) {
-  ensureScreenshotDir();
   try {
-    await page.screenshot({ path: path.join(SCREENSHOT_DIR, flowName(testInfo, suffix)), fullPage: false });
+    await page.screenshot({ path: testInfo.outputPath(flowName(testInfo, suffix)), fullPage: false });
   } catch (e) {
     // never fail a test on screenshot
   }
@@ -287,5 +282,5 @@ module.exports = {
   readCls,
   markCls,
   resetCls,
-  SCREENSHOT_DIR,
+
 };
